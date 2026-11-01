@@ -100,7 +100,7 @@ sealed class RowRenderer
             description = stack;
         }
         else description = desc;
-        var card = new SettingsCard { Header = L.T(row.HeaderKey), Description = description, Content = content };
+        var card = new SettingsCard { Header = L.T(row.HeaderKey), Description = description!, Content = content };
         card.IsEnabled = row.Enabled.Value;
         _scope.Bind(row.Enabled, _e, v => card.IsEnabled = v);
         return card;
@@ -438,7 +438,7 @@ sealed class RowRenderer
         var x = new SettingsExpander
         {
             Header = L.T(ex.HeaderKey),
-            Description = ex.DescriptionKey is { Length: > 0 } k ? L.T(k) : null,
+            Description = ex.DescriptionKey is { Length: > 0 } k ? L.T(k) : "",
             IsExpanded = ex.IsExpanded,
         };
         foreach (var child in ex.Children) x.Items.Add(Render(child));
@@ -468,8 +468,8 @@ sealed class RowRenderer
             return new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Error, Title = cr.HeaderKey.Length > 0 ? L.T(cr.HeaderKey) : cr.ControlId, Message = error ?? "" };
         return new SettingsCard
         {
-            Header = cr.HeaderKey.Length > 0 ? L.T(cr.HeaderKey) : null,
-            Description = cr.DescriptionKey is { Length: > 0 } k ? L.T(k) : null,
+            Header = cr.HeaderKey.Length > 0 ? L.T(cr.HeaderKey) : "",
+            Description = cr.DescriptionKey is { Length: > 0 } k ? L.T(k) : "",
             Content = ui, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Left,
         };
     }

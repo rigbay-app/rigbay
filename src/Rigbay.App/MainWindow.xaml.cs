@@ -21,7 +21,7 @@ public sealed partial class MainWindow : Window
     InstanceServer? _server;
     PageScope? _scope;
     object _current = "dashboard";
-    bool _navSuppress, _quitting, _hostsReady, _uiBuilt;
+    bool _navSuppress, _quitting, _uiBuilt;
     int _frames;
 
     internal nint Hwnd;
@@ -29,7 +29,10 @@ public sealed partial class MainWindow : Window
     internal List<SearchItem> SearchIndex = new();
     internal Options Opt => _opt;
     internal int WindowProcHotkeys, WindowProcTray;
-    internal object Current => _current;
+    internal int ShowRequests;
+    internal IEnumerable<NavigationViewItem> NavItems() => AllNavItems();
+    internal UIElement? PageContent => PageHost.Content as UIElement;
+
 
     internal sealed record SearchItem(string Text, string Where, object Target)
     {
@@ -135,7 +138,6 @@ public sealed partial class MainWindow : Window
             };
             _server.Start();
         }
-        _hostsReady = true;
         // A retry for a shell that was not ready: when the icon could not be added at start, try again a few times.
         if (!Host.Tray.IsAdded)
         {
@@ -147,12 +149,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    nint _lastResult;
     (bool, nint) WindowProc(uint msg, nint wParam, nint lParam, nint hwnd)
     {
         if (msg == Native.WM_HOTKEY) { WindowProcHotkeys++; return (Host.Hotkeys?.OnHotkey((int)wParam) == true, 0); }
         if (msg == Native.WM_APP_TRAY) { WindowProcTray++; return (Host.Tray?.OnCallback(lParam) == true, 0); }
-        if (Host.Tray != null && msg == Host.Tray.TaskbarCreatedMessage && msg != 0) { Host.Tray.ReAdd(); return (false, _lastResult); }
+        if (Host.Tray != null && msg == Host.Tray.TaskbarCreatedMessage && msg != 0) { Host.Tray.ReAdd(); return (false, 0); }
         return (false, 0);
     }
 
@@ -160,6 +161,7 @@ public sealed partial class MainWindow : Window
 
     internal void ShowFromTray()
     {
+        ShowRequests++;
         AppWindow.Show();
         Activate();
         Native.SetForegroundWindow(Hwnd);
@@ -450,11 +452,28 @@ public sealed partial class MainWindow : Window
                 case "lang": Host.Core.Languages.SetLanguage(arg); break;
                 case "theme": ApplyTheme(arg); break;
                 case "approve": ApprovalPrompt.TestAnswer = arg == "true"; break;
+                case "cancel-dialog": ApprovalPrompt.CancelOpen(); break;
+                case "edit":   // edit:<row header key>=<value> on the open module page; not awaited, so an approval dialog can stay open for a screenshot
+                {
+                    var eq = arg.IndexOf('=');
+                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == (eq < 0 ? arg : arg[..eq]));
+                    if (driver == null) { AppLog.Warn("script: no row '" + arg + "' on this page"); break; }
+                    _ = driver.Edit(eq < 0 ? null : ParseRowValue(driver.Row, arg[(eq + 1)..]));
+                    break;
+                }
                 case "wait": if (int.TryParse(arg, out var ms)) await Task.Delay(ms); break;
             }
             await Task.Delay(250);
         }
     }
+
+    internal static object? ParseRowValue(Row row, string text) => row switch
+    {
+        ToggleRow => text is "true" or "on" or "1",
+        NumberRow => double.Parse(text, System.Globalization.CultureInfo.InvariantCulture),
+        ShortcutRow => HotkeyGesture.TryParse(text, out var g) ? (HotkeyGesture?)g : null,
+        _ => text,
+    };
 
     // ---------------------------------------------------------------- capture of this window only
 

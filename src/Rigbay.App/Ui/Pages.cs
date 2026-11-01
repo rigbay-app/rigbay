@@ -417,7 +417,7 @@ static class SettingsPage
             var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             if (h.HasConflict.Value || Host.Hotkeys?.IsRefused(h) == true) content.Children.Add(Ui.Text(Host.T(Host.Hotkeys?.IsRefused(h) == true ? "settings.hotkey-refused" : "settings.hotkey-conflict"), "RbErrorText"));
             content.Children.Add(gesture);
-            hot.Children.Add(new SettingsCard { Header = mod?.Localisation.T(h.NameKey) ?? h.NameKey, Description = mod?.DisplayName, Content = content });
+            hot.Children.Add(new SettingsCard { Header = mod?.Localisation.T(h.NameKey) ?? h.NameKey, Description = mod?.DisplayName ?? "", Content = content });
         }
         page.Children.Add(hot);
         return page;

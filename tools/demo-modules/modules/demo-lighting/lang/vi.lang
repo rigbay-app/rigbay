@@ -1,0 +1,4 @@
+@code = vi
+@name = Tiếng Việt
+
+module.demo-lighting.probe.no-device = Không tìm thấy bộ điều khiển đèn nền bàn phím được hỗ trợ
