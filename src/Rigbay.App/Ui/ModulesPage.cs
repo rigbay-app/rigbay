@@ -217,12 +217,14 @@ static class ModulesPage
 
             // the right side: switch, or the progress of what is running, or what is waiting for the restart
             var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
-            if (working) right.Children.Add(ProgressPanel(e.Id, e.DisplayName));
+            // a removal waiting for the restart: the module still runs until then, but the switch must not suggest it will stay (E2E-07)
+            bool removalQueued = row.Pending is { Op: PendingKinds.Remove };
+            if (working) { /* the progress has its own line under the description (E2E-08) */ }
             else if (row.Pending is { } pending)
                 right.Children.Add(Btn(Host.T("modules.undo"), () => _m.UndoAsync(e.Id), Host.F("modules.undo-of", e.DisplayName)));
             else if (row.Update is { } update)
                 right.Children.Add(Btn(Host.F("modules.update-to", update.Version), () => AskAndUpdateAsync(e, update), Host.F("modules.update-of", e.DisplayName)));
-            right.Children.Add(Switch(e));
+            right.Children.Add(Switch(e, removalQueued));
 
             string word = Ui.StateWord(e.Bay.State);
             var reason = e.ShortReasonText();
@@ -236,6 +238,13 @@ static class ModulesPage
             else
                 description = reason.Length > 0 ? $"{word}  ·  {reason}" : $"{word}  ·  {e.DisplayDescription}";
 
+            if (working)
+            {
+                var lines = new StackPanel { Spacing = 4 };
+                lines.Children.Add(description is string text ? Ui.Text(text, "RbSecondaryCaption", wrap: true) : (UIElement)description);
+                lines.Children.Add(ProgressPanel(e.Id, e.DisplayName));
+                description = lines;
+            }
             var expander = new SettingsExpander { Header = header, Description = description, Content = right, Tag = e.Id };
             // the header is a stack of icon and text, which gives the expander no accessible name; the available rows have one because their header is a string (E2E1)
             AutomationProperties.SetName(expander, e.DisplayName);
@@ -265,10 +274,11 @@ static class ModulesPage
             _ => Host.T("modules.queued-install"),
         };
 
-        ToggleSwitch Switch(ModuleEntry e)
+        ToggleSwitch Switch(ModuleEntry e, bool removalQueued = false)
         {
-            bool canToggle = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
-            var sw = new ToggleSwitch { IsOn = e.Lifecycle == ModuleLifecycle.Running, OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = canToggle };
+            // while a removal is queued the switch shows "off" and cannot be moved; Undo draws the row again with the real state
+            bool canToggle = !removalQueued && e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
+            var sw = new ToggleSwitch { IsOn = !removalQueued && e.Lifecycle == ModuleLifecycle.Running, OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = canToggle };
             AutomationProperties.SetName(sw, Host.F("module.enable", e.DisplayName));
             bool suppress = false;
             sw.Toggled += async (_, _) =>
@@ -277,7 +287,7 @@ static class ModulesPage
                 sw.IsEnabled = false;
                 try { bool now = await ModulePage.ToggleAsync(e, sw.IsOn); if (now != sw.IsOn) { suppress = true; sw.IsOn = now; suppress = false; } }
                 catch (Exception ex) { AppLog.Error("enable switch failed", ex); }
-                finally { sw.IsEnabled = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running; }
+                finally { sw.IsEnabled = canToggle; }
             };
             return sw;
         }
@@ -385,8 +395,9 @@ static class ModulesPage
             bool working = op?.Id == module.Id;
             var failure = _m.FailureOf(module.Id);
 
-            var description = new StackPanel { Spacing = 1 };
-            description.Children.Add(Ui.Text(module.Description, "RbSecondaryCaption", trim: true).With(t => { t.TextWrapping = TextWrapping.NoWrap; ToolTipService.SetToolTip(t, module.Description); }));
+            var description = new StackPanel { Spacing = 1, Tag = "available-description:" + module.Id };
+            // the whole description, wrapped (E2E-08: it used to be cut to one line to make room for the progress, which now has its own line below)
+            description.Children.Add(Ui.Text(module.Description, "RbSecondaryCaption", wrap: true).With(t => t.TextTrimming = TextTrimming.None));
             if (version != null && r.State != AvailableState.Installed)   // an installed module's facts are in the Installed list
             {
                 var meta = $"v{version.Version}  ·  {FormatSize(version.Size)}  ·  {DeclaresSummary(version.Declares)}";
@@ -410,7 +421,7 @@ static class ModulesPage
             }
 
             var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
-            if (working) right.Children.Add(ProgressPanel(module.Id, module.Name));
+            if (working) description.Children.Add(ProgressPanel(module.Id, module.Name).With(p => p.Margin = new Thickness(0, 4, 0, 0)));
             else if (failure != null && r.State == AvailableState.Installable)
                 right.Children.Add(Btn(Host.T("modules.try-again"), () => _m.InstallAsync(module.Id), Host.F("modules.install-of", module.Name)));
             else switch (r.State)
@@ -455,7 +466,7 @@ static class ModulesPage
 
         // ---------------------------------------------------------------- pieces
 
-        UIElement ProgressPanel(string id, string name)
+        StackPanel ProgressPanel(string id, string name)
         {
             var bar = new ProgressBar { Width = 150, IsIndeterminate = true, VerticalAlignment = VerticalAlignment.Center };
             AutomationProperties.SetName(bar, name);

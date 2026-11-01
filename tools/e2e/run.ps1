@@ -4,12 +4,12 @@
 #   3. hooks.ps1                     : offline fallback, corrupted downloads, cancel, an invalid list, admin-only folders (scratch folders,
 #                                      the app's own test switches); then acl-user-check.ps1 from THIS (non-elevated) shell
 # Everything lives under tools\out\e2e (git-ignored). Evidence (PNGs, reports, CSV, logs) goes to tools\out\e2e\<EvidenceName>.
-# Usage: .\run.ps1 [-Only flow-dark,flow-light,hooks] [-Tag v0.1.0] [-AppDir <dir with Rigbay.App.exe>] [-EvidenceName evidence]
+# Usage: .\run.ps1 [-Only flow-dark,flow-light,hooks] [-Tag v0.1.1] [-AppDir <dir with Rigbay.App.exe>] [-EvidenceName evidence]
 #   -AppDir runs the same checks against another build (for example tools\out\app after a fix) instead of the released zip.
 [CmdletBinding()]
 param(
     [string[]]$Only = @('flow-dark', 'flow-light', 'hooks'),
-    [string]$Tag = 'v0.1.0',
+    [string]$Tag = 'v0.1.1',
     [string]$Repo = 'rigbay-app/rigbay',
     [string]$AppDir,
     [string]$EvidenceName = 'evidence'

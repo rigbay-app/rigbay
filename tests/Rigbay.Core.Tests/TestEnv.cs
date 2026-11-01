@@ -39,6 +39,7 @@ public sealed class TestEnv : IDisposable
     {
         ModulesRoot = ModulesRoot,
         DataRoot = DataRoot,
+        FolderSecurity = new Rigbay.Core.Install.NoFolderSecurity(),
         ProbeTimeout = timeout ?? TimeSpan.FromSeconds(10),
         InitializeTimeout = timeout ?? TimeSpan.FromSeconds(10),
         ShutdownTimeout = timeout ?? TimeSpan.FromSeconds(5),

@@ -1,5 +1,6 @@
 using System.Text;
 using Rigbay.Abstractions;
+using Rigbay.Core.Install;
 
 namespace Rigbay.Core;
 
@@ -11,7 +12,13 @@ public sealed class RigbayHostOptions
     /// <summary>Data root; null means <c>%LOCALAPPDATA%\Rigbay</c>.</summary>
     public string? DataRoot { get; init; }
 
-    public Version HostVersion { get; init; } = new(0, 1, 0);
+    public Version HostVersion { get; init; } = new(0, 1, 1);
+
+    /// <summary>
+    /// Creates the modules folder when it is missing at start (the first start of a fresh install). Null means the real admin-only folder
+    /// (<see cref="AdminFolderSecurity"/>), because the host loads whatever is in that folder as administrator; tests pass <see cref="NoFolderSecurity"/>.
+    /// </summary>
+    public IFolderSecurity? FolderSecurity { get; init; }
     public TimeSpan ProbeTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan InitializeTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(5);
@@ -124,6 +131,11 @@ public sealed class RigbayHost : IDisposable
     /// <summary>Raised after <see cref="Discover"/> filled <see cref="Modules"/>.</summary>
     public event Action? ModulesDiscovered;
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static IFolderSecurity AdminOnly() => new AdminFolderSecurity();
+
+    private static IFolderSecurity DefaultFolderSecurity() => OperatingSystem.IsWindows() ? AdminOnly() : new NoFolderSecurity();
+
     /// <summary>
     /// Reads every module folder: manifest, API check, load, instantiate, probe. Nothing is initialised yet. Blocks
     /// (probes have a time limit each), so call it off the UI thread. Safe to call once.
@@ -135,6 +147,22 @@ public sealed class RigbayHost : IDisposable
             if (_discovered) return;
             _discovered = true;
         }
+        // The first start of a fresh install has no modules folder yet; that is normal (E2E-09), not a warning. Create it when the host may,
+        // otherwise say once at Info what to do.
+        if (!Directory.Exists(Options.ModulesRoot))
+        {
+            try
+            {
+                (Options.FolderSecurity ?? DefaultFolderSecurity()).EnsureAdminOnly(Options.ModulesRoot);
+                _hostLog.Info($"modules folder '{Options.ModulesRoot}' did not exist and was created (administrators only)");
+            }
+            catch (Exception ex)
+            {
+                // do not leave behind a folder the admin-only check refused: the host would load modules from it
+                try { if (Directory.Exists(Options.ModulesRoot) && !Directory.EnumerateFileSystemEntries(Options.ModulesRoot).Any()) Directory.Delete(Options.ModulesRoot); } catch { /* best effort */ }
+                _hostLog.Info($"modules folder '{Options.ModulesRoot}' does not exist and could not be created ({ex.GetType().Name}); create it as an administrator, or install a module from the Modules page, and restart");
+            }
+        }
         if (Directory.Exists(Options.ModulesRoot))
         {
             foreach (var folder in Directory.GetDirectories(Options.ModulesRoot).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
@@ -145,7 +173,6 @@ public sealed class RigbayHost : IDisposable
                 catch (Exception ex) { entry.FaultNow("Load", ex); }
             }
         }
-        else _hostLog.Warn($"modules folder '{Options.ModulesRoot}' does not exist");
         _hostLog.Info($"discovered {_modules.Count} module(s): " + string.Join(", ", _modules.Select(m => $"{m.Id}={m.Lifecycle}")));
         ModulesDiscovered?.Invoke();
     }

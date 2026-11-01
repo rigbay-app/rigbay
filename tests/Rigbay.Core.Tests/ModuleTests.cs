@@ -235,6 +235,69 @@ public class LoadingTests
     }
 
     [Fact]
+    public void The_first_start_creates_a_missing_modules_folder_and_logs_no_warning()
+    {
+        using var env = new TestEnv();
+        Directory.Delete(env.ModulesRoot);
+        using var host = env.NewHost();
+        host.Discover();
+        Assert.True(Directory.Exists(env.ModulesRoot));
+        var entries = host.Log.Recent();
+        Assert.DoesNotContain(entries, e => e.Level >= LogLevel.Warn);
+        Assert.Single(entries, e => e.Message.Contains("modules folder", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_missing_modules_folder_is_made_through_the_admin_only_security_and_a_refusal_leaves_no_folder_behind()
+    {
+        using var env = new TestEnv();
+        Directory.Delete(env.ModulesRoot);
+        var security = new RecordingSecurity();
+        using (var host = new RigbayHost(new RigbayHostOptions { ModulesRoot = env.ModulesRoot, DataRoot = env.DataRoot, FolderSecurity = security }))
+            host.Discover();
+        Assert.Equal(new[] { env.ModulesRoot }, security.Paths);
+        Assert.True(Directory.Exists(env.ModulesRoot));
+
+        Directory.Delete(env.ModulesRoot);
+        security.Refuse = true;
+        using var refused = new RigbayHost(new RigbayHostOptions { ModulesRoot = env.ModulesRoot, DataRoot = env.DataRoot, FolderSecurity = security });
+        refused.Discover();
+        Assert.False(Directory.Exists(env.ModulesRoot));   // not left behind: the host would load modules from a folder nobody secured
+        Assert.DoesNotContain(refused.Log.Recent(), e => e.Level >= LogLevel.Warn);
+    }
+
+    sealed class RecordingSecurity : Rigbay.Core.Install.IFolderSecurity
+    {
+        public List<string> Paths { get; } = new();
+        public bool Refuse { get; set; }
+        public void EnsureAdminOnly(string path)
+        {
+            Paths.Add(path);
+            Directory.CreateDirectory(path);
+            if (Refuse) throw new Rigbay.Core.Install.InstallException(Rigbay.Core.Install.InstallErrorCode.FolderSecurity, "not owned by Administrators");
+        }
+    }
+
+    [Fact]
+    public void A_modules_folder_that_cannot_be_created_is_one_info_line_with_what_to_do_and_no_warning()
+    {
+        using var env = new TestEnv();
+        Directory.Delete(env.ModulesRoot);
+        // a file where the folder's parent should be: CreateDirectory cannot succeed whoever runs the test
+        var blocker = Path.Combine(env.Root, "blocker");
+        File.WriteAllText(blocker, "x");
+        var impossible = Path.Combine(blocker, "modules");
+        using var host = new RigbayHost(new RigbayHostOptions { ModulesRoot = impossible, DataRoot = env.DataRoot, FolderSecurity = new Rigbay.Core.Install.NoFolderSecurity() });
+        host.Discover();
+        Assert.Empty(host.Modules);
+        var entries = host.Log.Recent();
+        Assert.DoesNotContain(entries, e => e.Level >= LogLevel.Warn);
+        var line = Assert.Single(entries, e => e.Message.Contains("could not be created", StringComparison.Ordinal));
+        Assert.Equal(LogLevel.Info, line.Level);
+        Assert.Contains("create it", line.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_sample_page_is_valid_and_has_one_row_of_every_kind()
     {
         using var env = new TestEnv();

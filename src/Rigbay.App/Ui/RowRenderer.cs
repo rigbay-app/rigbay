@@ -109,7 +109,7 @@ sealed class RowRenderer
     sealed class Chrome
     {
         public StackPanel Panel = new() { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-        public TextBlock Status = new() { Style = Ui.Style("RbSecondaryCaption"), MaxWidth = 230, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
+        public TextBlock Status = new() { Style = Ui.Style("RbSecondaryCaption"), MaxWidth = 260, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed };
         public HyperlinkButton Revert = new() { Content = Host.T("row.revert"), Visibility = Visibility.Collapsed, Padding = new Thickness(4, 2, 4, 2) };
         public Button Discard = new() { Content = Host.T("row.discard"), Visibility = Visibility.Collapsed };
         public Button Apply = new() { Content = Host.T("row.apply"), Visibility = Visibility.Collapsed, Style = Ui.Style("AccentButtonStyle") };
@@ -318,15 +318,25 @@ sealed class RowRenderer
     UIElement TextEntry(TextRow x)
     {
         bool suppress = false;
-        // a fixed width (like the other value controls), never the width of the text: a long path used to widen the box and squeeze the label and description
-        var tb = new TextBox { Width = 280, TextWrapping = TextWrapping.NoWrap, Text = x.Value.Value, MaxLength = x.MaxLength, PlaceholderText = x.PlaceholderKey != null ? L.T(x.PlaceholderKey) : "" };
+        // never the width of the text (a long path used to widen the box and squeeze the label), but not a fixed 280 either (E2E-06): half of the row, at least 280, at most 560
+        var tb = new TextBox { Width = TextBoxMinWidth, TextWrapping = TextWrapping.NoWrap, Text = x.Value.Value, MaxLength = x.MaxLength, PlaceholderText = x.PlaceholderKey != null ? L.T(x.PlaceholderKey) : "" };
         AutomationProperties.SetName(tb, L.T(x.HeaderKey));
+        void Tip() => ToolTipService.SetToolTip(tb, tb.Text.Length > 0 ? tb.Text : null);   // the whole text, for what the box still cannot show
+        Tip();
         var chrome = new Chrome(tb);
         var editor = RowEditors.For(_e, x); var state = StateOf(x);
         var edit = Wire(x, editor, state, chrome, () => x.Value.Value, v => v, v => { if (tb.Text != v) { suppress = true; tb.Text = v; suppress = false; } });
-        tb.TextChanged += (_, _) => { if (!suppress) edit(tb.Text); };
-        return Card(x, chrome.Panel);
+        tb.TextChanged += (_, _) => { Tip(); if (!suppress) edit(tb.Text); };
+        var card = Card(x, chrome.Panel);
+        card.SizeChanged += (_, e) => { var w = TextBoxWidthFor(e.NewSize.Width); if (Math.Abs(tb.Width - w) >= 1) tb.Width = w; };
+        return card;
     }
+
+    public const double TextBoxMinWidth = 280, TextBoxMaxWidth = 560;
+
+    /// <summary>The width of a text box in a row that is <paramref name="rowWidth"/> wide: half of the row, between <see cref="TextBoxMinWidth"/> and <see cref="TextBoxMaxWidth"/>.</summary>
+    public static double TextBoxWidthFor(double rowWidth) =>
+        double.IsNaN(rowWidth) || rowWidth <= 0 ? TextBoxMinWidth : Math.Clamp(Math.Floor(rowWidth * 0.5), TextBoxMinWidth, TextBoxMaxWidth);
 
     UIElement Shortcut(ShortcutRow s)
     {
@@ -410,7 +420,7 @@ sealed class RowRenderer
 
     UIElement ValueText(ValueRow v)
     {
-        var tb = new TextBlock { Text = v.Value.Value, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 340 };
+        var tb = new TextBlock { Text = v.Value.Value, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, IsTextSelectionEnabled = true, MaxWidth = 460 };   // read-only status text wraps, it is never cut (E2E-06)
         Ui.Tabular(tb);
         _scope.Bind(v.Value, _e, s => tb.Text = s);
         return Card(v, tb);

@@ -26,7 +26,7 @@ static class AppPaths
         HostVersion = Version,
     };
 
-    public static Version Version { get; } = typeof(AppPaths).Assembly.GetName().Version is { } v ? new Version(v.Major, v.Minor, Math.Max(0, v.Build)) : new Version(0, 1, 0);
+    public static Version Version { get; } = typeof(AppPaths).Assembly.GetName().Version is { } v ? new Version(v.Major, v.Minor, Math.Max(0, v.Build)) : new Version(0, 1, 1);
 }
 
 /// <summary>The app's own log lines (source "host") in the one Rigbay log; before the host exists they go to the debugger only.</summary>

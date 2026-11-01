@@ -740,7 +740,7 @@ dotnet run --project src/Rigbay.LangCheck -- tools/demo-modules/modules/demo-<x>
 misbehaves as `behavior.txt` says), copies their output folders, and loads them through the real loader. `TestEnv` in
 `tests/Rigbay.Core.Tests` shows how to host a module folder from a unit test.
 
-**Package.** `dotnet pack src/Rigbay.Abstractions -c Release` makes `Rigbay.Abstractions.0.1.0.nupkg` (assembly plus XML
+**Package.** `dotnet pack src/Rigbay.Abstractions -c Release` makes `Rigbay.Abstractions.0.1.1.nupkg` (assembly plus XML
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
@@ -760,7 +760,7 @@ Additive only.
   backslash loses the backslash (`root\WMI` was shown as `rootWMI`). The loader keeps this rule and now reports such a line
   as a parse problem (`LanguageFile.FindUnknownEscape`, an error in `LangCheck` and in the loader's problem list): write
   `root\\WMI`. A Windows path in a language file therefore needs every separator doubled.
-- **App.** `TextRow` is a box of a fixed width (280) at the right of the label, never the width of its text; a long path no longer
+- **App.** `TextRow` is a box at the right of the label, never the width of its text (0.1.0: fixed 280; since 0.1.1 half of the row, between 280 and 560, with the whole text as a tooltip); a long path no longer
   squeezes the label and the description. New neutral texts `row.system-note`, `approval.title-setting`,
   `approval.revert-title-setting`, `approval.hint-revert-setting` (en, vi).
 - **Modules.** `xtu`, `steambypass` and `recorder` declare `"icon": "icon.svg"` with the full icon set beside `module.json`.

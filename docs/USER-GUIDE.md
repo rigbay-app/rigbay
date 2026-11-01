@@ -16,8 +16,8 @@ network fix, ...) that you install and turn on yourself.
 
 ## 2. Install
 
-1. Download `Rigbay-0.1.0-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
-   notes: `Get-FileHash .\Rigbay-0.1.0-win-x64.zip -Algorithm SHA256`.
+1. Download `Rigbay-0.1.1-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
+   notes: `Get-FileHash .\Rigbay-0.1.1-win-x64.zip -Algorithm SHA256`.
 2. Extract the whole zip to a folder, for example your Downloads. Do not extract into `C:\Program Files` yourself.
 3. Open **Windows PowerShell as administrator** (right-click Start, "Terminal (Admin)"), go to that folder and run:
 
@@ -129,7 +129,7 @@ A module that changed a Windows setting (the Steam module sets a proxy script ad
 
 ## 10. Troubleshooting
 
-**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.0` the app starts and the
+**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.1` the app starts and the
 trouble is the window: the Windows App Runtime 1.8 is probably missing or broken. Run `install.ps1` again (it checks) or
 `winget install --id Microsoft.WindowsAppRuntime.1.8 -e`. If `--version` itself fails, install the .NET 10 runtime: `winget install --id Microsoft.DotNet.Runtime.10 -e`.
 

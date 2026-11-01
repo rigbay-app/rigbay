@@ -232,9 +232,9 @@ All of this runs on a machine that must not be touched: everything goes to scrat
    first and package from it; a documentation commit after packaging does not belong to the zip.
 2. `package-app.ps1 -Ref main -Out <dir>`; note the commit and the SHA-256.
 3. ```powershell
-   gh release create v0.1.0 <dir>\Rigbay-0.1.0-win-x64.zip --repo rigbay-app/rigbay --target <commit> --prerelease --title "Rigbay 0.1.0" --notes-file <notes.md>
+   gh release create v<version> <dir>\Rigbay-<version>-win-x64.zip --repo rigbay-app/rigbay --target <commit> --prerelease --title "Rigbay <version>" --notes-file <notes.md>
    ```
-4. Download the asset again (`gh release download v0.1.0 --repo rigbay-app/rigbay --pattern "*.zip" --dir <empty folder>`) and compare its SHA-256 with the one printed in step 2.
+4. Download the asset again (`gh release download v<version> --repo rigbay-app/rigbay --pattern "*.zip" --dir <empty folder>`) and compare its SHA-256 with the one printed in step 2.
 5. Notes say: the SHA-256 and the commit, the prerequisites, **unsigned binaries (SmartScreen will warn)**, and a list of what was verified and what was not.
 
 ### 11.5 Notes from the first run (v0.1.0)

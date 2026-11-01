@@ -105,6 +105,24 @@ static class SelfTest
         R("module page: custom control (level 2)", Find<Microsoft.UI.Xaml.Shapes.Polyline>(w.PageContent).Any(), "Polyline from the module's CreateCustomControl found in the tree");
         var sw = Find<ToggleSwitch>(w.PageContent).FirstOrDefault();
         R("module page: enable row first", sw is { IsOn: true }, $"first switch IsOn={sw?.IsOn}");
+        {
+            // E2E-06: a text box takes the width the page gives it (half of the row, 280 to 560), keeps the whole text as a tooltip; a read-only value wraps instead of being cut
+            foreach (var x in Find<SettingsExpander>(w.PageContent).ToList()) x.IsExpanded = true;
+            await Settle(500);
+            var folderBox = Find<TextBox>(w.PageContent).FirstOrDefault(t => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(t) == "Folder");
+            var folderCard = folderBox == null ? null : Ancestors(folderBox).OfType<SettingsCard>().FirstOrDefault();
+            double expectedWidth = folderCard == null ? 0 : RowRenderer.TextBoxWidthFor(folderCard.ActualWidth);
+            R("module page: a text box is 280 to 560 wide and follows the width of its row, with the whole text as a tooltip",
+                folderBox != null && folderCard != null && Math.Abs(folderBox.Width - expectedWidth) <= 1 && folderBox.Width >= RowRenderer.TextBoxMinWidth && folderBox.Width <= RowRenderer.TextBoxMaxWidth && ToolTipService.GetToolTip(folderBox) as string == folderBox.Text,
+                $"box width={folderBox?.Width} row width={folderCard?.ActualWidth} expected={expectedWidth}; tooltip='{(folderBox == null ? null : ToolTipService.GetToolTip(folderBox))}' text='{folderBox?.Text}'");
+            R("module page: the width rule keeps 280 for a narrow row, half of a wide one, and 560 at most",
+                RowRenderer.TextBoxWidthFor(300) == 280 && RowRenderer.TextBoxWidthFor(800) == 400 && RowRenderer.TextBoxWidthFor(1500) == 560 && RowRenderer.TextBoxWidthFor(0) == 280 && RowRenderer.TextBoxWidthFor(double.NaN) == 280,
+                $"300 -> {RowRenderer.TextBoxWidthFor(300)}, 800 -> {RowRenderer.TextBoxWidthFor(800)}, 1500 -> {RowRenderer.TextBoxWidthFor(1500)}");
+            var valueText = Find<TextBlock>(w.PageContent).FirstOrDefault(t => t.Text == "none yet");
+            R("module page: a read-only value wraps and is never cut", valueText is { TextWrapping: TextWrapping.Wrap, TextTrimming: TextTrimming.None } && !valueText.IsTextTrimmed, $"found={valueText != null} wrap={valueText?.TextWrapping} trimming={valueText?.TextTrimming}");
+            foreach (var x in Find<SettingsExpander>(w.PageContent).ToList()) x.IsExpanded = false;
+            await Settle(300);
+        }
 
         // ---------------------------------------------------------------- search index
         R("search: row headers and descriptions", w.SearchFor("fan mode").Any() && w.SearchFor("sustained package power").Any() && w.SearchFor("Fan studio").Any(),
@@ -674,6 +692,13 @@ static class SelfTest
         var bar = Find<ProgressBar>(w.PageContent).FirstOrDefault();
         var cancel = FindButton(w, "Cancel Keyboard lighting (bad hash)");
         R("install page: progress and a Cancel button while downloading", pressed && downloading && bar != null && cancel != null, $"pressed={pressed} downloading={downloading} progress bar={bar != null} cancel button={cancel != null}");
+        // E2E-08: the row keeps its whole description while it downloads; the progress has its own line (in the description, not beside the switch)
+        var desc = m.Snapshot.Document?.Find("demo-tampered")?.Description ?? "";
+        var descBlock = Find<TextBlock>(w.PageContent).FirstOrDefault(t => desc.Length > 0 && t.Text == desc && (Ancestors(t).FirstOrDefault() as FrameworkElement)?.Tag as string == "available-description:demo-tampered");
+        bool progressUnderDescription = bar != null && descBlock != null && (Ancestors(descBlock).FirstOrDefault() as StackPanel)?.Tag as string == "available-description:demo-tampered" && Find<ProgressBar>(Ancestors(descBlock).First()).Any();
+        R("install page: a downloading row keeps its whole description, no cut and no tooltip needed",
+            descBlock != null && descBlock.TextWrapping == TextWrapping.Wrap && descBlock.TextTrimming == TextTrimming.None && !descBlock.IsTextTrimmed && progressUnderDescription,
+            $"description found={descBlock != null} wrap={descBlock?.TextWrapping} trimming={descBlock?.TextTrimming} trimmed={descBlock?.IsTextTrimmed} progress under it={progressUnderDescription}; bar chain: {(bar == null ? "-" : string.Join(" > ", Ancestors(bar).Take(8).Select(a => a.GetType().Name)))}; desc chain: {(descBlock == null ? "-" : string.Join(" > ", Ancestors(descBlock).Take(8).Select(a => a.GetType().Name + ((a as FrameworkElement)?.Tag is string tg ? "[" + tg + "]" : ""))))}");
         if (cancel != null) Press(cancel);
         bool stopped = await WaitFor(() => m.Operation is null);
         int leftovers = Directory.GetFileSystemEntries(paths.Downloads).Length + Directory.GetFileSystemEntries(paths.Staging).Length + Directory.GetFileSystemEntries(paths.Ready).Length;
@@ -739,13 +764,32 @@ static class SelfTest
         R("install: remove is queued and the module keeps its files until the restart",
             removed && m.PendingOps.Any(p => p.Id == "demo-devices" && p.Op == PendingKinds.Remove) && Directory.Exists(devices.Folder) && devices.Pending == PendingChange.RestartRequired,
             $"removed={removed} pending={devices.Pending} folder exists={Directory.Exists(devices.Folder)}");
+        // E2E-07: with the removal queued the row cannot show an enabled, on switch; Undo gives the real state back
+        w.RefreshPageKeepingView(); await Settle(500);
+        var devicesRow = Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(w.PageContent).FirstOrDefault(x => (x.Tag as string) == "demo-devices");
+        var queuedSwitch = Find<ToggleSwitch>(devicesRow).FirstOrDefault();
+        var queuedText = string.Join(" | ", Find<TextBlock>(devicesRow).Select(t => t.Text));
+        R("install page: a row with a removal queued has its switch off and disabled, and says it is removed after the restart",
+            queuedSwitch != null && !queuedSwitch.IsOn && !queuedSwitch.IsEnabled && queuedText.Contains(Host.T("modules.queued-remove")),
+            $"switch found={queuedSwitch != null} on={queuedSwitch?.IsOn} enabled={queuedSwitch?.IsEnabled}; text: {queuedText}");
         await m.UndoAsync("demo-devices");
+        w.RefreshPageKeepingView(); await Settle(500);
+        devicesRow = Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(w.PageContent).FirstOrDefault(x => (x.Tag as string) == "demo-devices");
+        var backSwitch = Find<ToggleSwitch>(devicesRow).FirstOrDefault();
+        R("install page: Undo of the removal gives the switch back its real state",
+            backSwitch != null && backSwitch.IsEnabled && backSwitch.IsOn == (devices.Lifecycle == ModuleLifecycle.Running),
+            $"switch found={backSwitch != null} on={backSwitch?.IsOn} enabled={backSwitch?.IsEnabled}; module is {devices.Lifecycle}");
 
         w.Navigate("dashboard");
         await Settle(300);
     }
 
     // ================================================================ visual tree helpers
+
+    static IEnumerable<DependencyObject> Ancestors(DependencyObject d)
+    {
+        for (var p = VisualTreeHelper.GetParent(d); p != null; p = VisualTreeHelper.GetParent(p)) yield return p;
+    }
 
     internal static IEnumerable<T> Find<T>(DependencyObject? root) where T : DependencyObject
     {
