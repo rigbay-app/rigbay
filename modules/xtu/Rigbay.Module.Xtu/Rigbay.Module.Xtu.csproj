@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The XTU profiles module (design A of spike C1): in process, .NET 10, talking to the XTU service through Intel's own
-    contract assemblies, which are referenced IN PLACE from the Intel install folder and never copied or committed.
-    Building needs Intel XTU installed on the build machine (see modules/xtu/README.md). Self-contained on purpose: the only
-    project reference is Rigbay.Abstractions, so the folder can move to its own repository (module-xtu) unchanged.
+    The XTU profiles module (design C-lite of spike C1): in process, .NET 10, talking to the XTU service over WCF named pipes
+    with the module's OWN copies of the contracts it uses (Intel/Contracts.cs). No Intel file is referenced, copied or needed to
+    build or test, so a plain runner (windows-latest) builds it. Self-contained on purpose: the only project reference is
+    Rigbay.Abstractions, so the folder can move to its own repository (module-xtu) unchanged.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -19,7 +19,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- A new advisory on a package stays visible as a warning but does not stop a local build (docs/xtu/README.md, "Package audit"). -->
     <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
-    <XtuDir Condition="'$(XtuDir)' == ''">$(ProgramFiles)\Intel\Intel(R) Extreme Tuning Utility\Drivers</XtuDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,13 +37,6 @@
          the vulnerable-packages listing of dotnet list package (see docs/xtu/README.md, Package audit). -->
     <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.14" ExcludeAssets="runtime" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" ExcludeAssets="runtime" />
-  </ItemGroup>
-
-  <!-- Intel's contract assemblies: compile references only (Private=false), loaded at run time from the Intel folder
-       through the host's probePaths rule (module.json). -->
-  <ItemGroup>
-    <Reference Include="XtuInterface"><HintPath>$(XtuDir)\XtuInterface.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="XtuCommon"><HintPath>$(XtuDir)\XtuCommon.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
   <ItemGroup>

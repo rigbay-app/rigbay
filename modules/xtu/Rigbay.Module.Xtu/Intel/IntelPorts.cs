@@ -4,10 +4,10 @@ using System.Text;
 
 namespace Rigbay.Module.Xtu.Intel;
 
-// The ONLY code that touches Intel's contract assemblies (XtuInterface.dll, XtuCommon.dll: namespaces IronCity.Core and
-// IronCity.Common) and the WCF client. They are referenced in place from the Intel folder and loaded at run time through
-// the host's probePaths rule; nothing of Intel's is copied or committed. The calls are the ones the standalone app and the
-// C1 spike proved; the interface is internal to Intel and may change with an XTU update.
+// The ONLY code that touches the XTU service contracts (the module's own copies in Contracts.cs: namespaces IronCity.Core and
+// IronCity.Common) and the WCF client. No Intel assembly is referenced or loaded. The calls are the ones the standalone app and
+// the C1 spike proved; the service's interface is internal to Intel and may change with an XTU update (a change shows at run
+// time, as a failed call, and not at build time).
 
 internal static class Pipes
 {
@@ -38,6 +38,40 @@ internal static class Pipes
             var dc = op.Behaviors.Find<DataContractSerializerOperationBehavior>();
             if (dc != null) dc.MaxItemsInObjectGraph = int.MaxValue;
         }
+    }
+}
+
+/// <summary>
+/// Is an XTU pipe endpoint listening? Opens a channel and closes it at once; no operation is called, nothing is registered.
+/// "Missing" only when the endpoint is not found for a reason other than access: from a process that is not elevated the
+/// service refuses the pipe, and that says nothing about the machine, so it is "Unknown".
+/// </summary>
+internal static class PipeCheck
+{
+    public static PipeState State(string uri)
+    {
+        ChannelFactory<IronCity.Core.IXtuMonitoring>? factory = null;
+        try
+        {
+            // Either contract will do: the address is checked when the connection opens, the action only per message.
+            factory = new ChannelFactory<IronCity.Core.IXtuMonitoring>(
+                Pipes.Binding(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)), new EndpointAddress(uri));
+            factory.Endpoint.Binding.OpenTimeout = TimeSpan.FromSeconds(2);
+            var channel = (ICommunicationObject)factory.CreateChannel();
+            channel.Open();
+            channel.Abort();
+            return PipeState.Listening;
+        }
+        catch (EndpointNotFoundException ex) when (!DeniedAccess(ex)) { return PipeState.Missing; }
+        catch (Exception) { return PipeState.Unknown; }
+        finally { try { factory?.Abort(); } catch (Exception) { } }
+    }
+
+    private static bool DeniedAccess(Exception ex)
+    {
+        for (Exception? e = ex; e != null; e = e.InnerException)
+            if (e is UnauthorizedAccessException or AddressAccessDeniedException) return true;
+        return false;
     }
 }
 

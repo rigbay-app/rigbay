@@ -1,4 +1,8 @@
-# C-lite plan: build the XTU module without Intel's DLLs (task C3, plan only, not implemented)
+# C-lite: build the XTU module without Intel's DLLs (plan C3, implemented in task C4)
+
+> **Status: implemented (task C4, 2026-11-01).** `modules/xtu/Rigbay.Module.Xtu/Intel/Contracts.cs` holds the module's own contract copies; the csproj has
+> no Intel reference and `module.json` no `probePaths`. See "Result of C4" at the end; the plan below is kept as it was written, with the deviations noted there.
+
 
 Design C-lite of `docs/spike/XTU-RUNTIME.md`: the module carries its own copies of the few contract types it uses (same names, same
 namespaces, same member shapes), so it builds on a public CI runner with no Intel file, and still talks to the XTU service over the same
@@ -77,3 +81,33 @@ A mismatch shows up as `ActionNotSupportedException`, a deserialisation error, o
 - Worker rule 2 and the coordinator: copying interface and type names, namespaces and attribute values into our own file is the decision to confirm before step 2.
   Method bodies and Intel's source are not copied; none exist in the metadata of the contract anyway.
 - Fallback stays design B (net48 helper process) if XTU's assemblies stop loading on .NET 10.
+
+## Result of C4 (2026-11-01)
+
+What was done, against the steps above:
+
+1. **Metadata** read by `modules/xtu/tools/dump-contracts.ps1` (reflection only, no Intel code runs). Findings that the plan could not know:
+   Intel's interfaces use plain `[ServiceContract]` and `[OperationContract]` with no named arguments (name = interface name, namespace
+   `http://tempuri.org/`, session allowed, no callback); **none of the data types has `[DataContract]`**: the structs `XtuTuningControl`, `XtuTuningProposal`
+   and `SdkClientToken` are serialised by their public properties or fields (alphabetical), `TuningResult` is `[Serializable]` and goes by fields, and the enum
+   travels by name. The element type of the two `out` lists is `XtuTuningProposalResult` (4 members, now copied). `SdkClientToken.Default` carries the process id.
+2. **`Intel/Contracts.cs`** written from those facts (7 + 4 operations, 6 types and the one extra struct). Deviation from the plan: the data types are `public`, not
+   internal, because the .NET serializer refuses a non-public type without `[DataContract]`; the interfaces are internal.
+3. **csproj and manifest**: both `Reference` items, `XtuDir` and `probePaths` removed. `ProbeLogic` no longer looks for DLLs: it checks the vendor, the service
+   `XTU3SERVICE` (installed, running) and that both pipes accept a connection (`PipeCheck`, no operation called; "unknown" when not elevated is not a refusal).
+   The XTU version on the page comes from the service's own image path, so no path into Intel's folder is built any more.
+4. **Public CI**: the module builds and tests with `dotnet build` and `dotnet test` of `Rigbay.Xtu.slnx` alone, and it is part of `Rigbay.sln`. The extracted
+   `module-xtu` repository gets its workflow from `tools/extract-module.ps1`; the run on a GitHub-hosted runner itself was not made.
+5. **Read-only live check** (`tools/live-read.ps1`, latch ON, through the real host loader): `PL1=55 PL2=60 pl2enable=True window=56`, `PL55-60W`, equal to
+   `xtu-switcher --status`; the monitoring readings flow (page shot). Evidence in `docs/xtu/shots/clite-*`.
+6. **Live apply**: not done (needs the owner's approval for the specific write; test in `docs/xtu/README.md`).
+
+Added beyond the plan: the wire-compatibility tests (`WireContractTests`, 20) against a read-only recording of the real service (`wire/`, made by
+`tools/record-wire.ps1`), because the plan's own risk is that a wrong copy shows only against the real service. The recording covers the read-only calls with
+real replies; the write-path types are covered only by Intel's own serializer output and by a request composed from it, never by a real reply.
+
+Proof of "builds with no Intel file" (a clean `git clone` of the commit into a scratch folder on the machine that has XTU, not renamed or hidden):
+`git grep -i "Intel(R)" -- modules/xtu` finds nothing; no `.csproj`, `.props`, `.slnx` or `module.json` has a reference, `XtuDir` or `probePaths` (the
+only "Intel" left there is a comment and the description text and the data-file path that the module reads at run time); `dotnet build modules/xtu/Rigbay.Xtu.slnx -c Release -v:diag`
+mentions neither `Intel(R)` nor `XtuInterface`, `XtuCommon` or `XtuDir` anywhere in its log (0 matches) and ends with 0 warnings and 0 errors; `dotnet test`
+there passes 190 of 190; no Intel file is in any build output.

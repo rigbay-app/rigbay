@@ -1,0 +1,10 @@
+exit=0
+service: Running
+connected: True
+active: PL1=55 PL2=60 pl2enable=True window=56
+matching profile: PL55-60W
+restore after reboot: True   fast startup: Off
+profile: Default (BIOS)  PL1 90 W / PL2 115 W / 56 s
+profile: PL64-90W  PL1 64 W / PL2 90 W / 56 s
+profile: PL55-60W  PL1 55 W / PL2 60 W / 56 s   <== active
+profile: PL35-40W  PL1 35 W / PL2 40 W / 56 s

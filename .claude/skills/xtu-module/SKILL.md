@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay XTU profiles module (modules/xtu, .
 
 # XTU module: codebase guide
 
-Module id `xtu`, group `power`, `modules/xtu/Rigbay.Module.Xtu` (net10.0, x64) with tests in `modules/xtu/Rigbay.Module.Xtu.Tests` (148 at the last run).
+Module id `xtu`, group `power`, `modules/xtu/Rigbay.Module.Xtu` (net10.0, x64) with tests in `modules/xtu/Rigbay.Module.Xtu.Tests` (190 at the last run, 20 of them the wire tests).
 It is the port of the standalone app `xtu-profile-switcher` (`D:\Documents\Projects\driver-setup\xtu-switcher`, read-only for us; its skill
 `.claude/skills/xtu-switcher` there has the protocol facts: pipes, control ids, monitor ids, persistence, gotchas). User docs and the
 verification record: `docs/xtu/README.md`. Recorder hand-off: `docs/xtu/RECORDER-NOTES.md`. Method index: `references/code-map.md`.
@@ -22,8 +22,7 @@ Build, run and live-check recipes: `references/testing.md`.
   they turned it on. Never add a path that calls `IXtuClient.Apply` without `ApplyService`.
 - **The write latch** (`WriteLatch`: env `RIGBAY_XTU_NO_WRITE=1|true`, or file `no-write.flag` in the module's data folder) makes every write fail before
   it asks. Use it for any run on the real machine where nothing must be written. The elevated process does not inherit your environment: use the file.
-- **Intel DLLs are never copied or committed.** `XtuInterface.dll` and `XtuCommon.dll` are compile references with `Private=false`; at run time the host's
-  loader finds them through `probePaths` in `module.json`. Only `Intel/IntelPorts.cs` may use Intel types or WCF.
+- **No Intel file is referenced, loaded, copied or committed** (C-lite, task C4). The module has its own copies of the XTU contracts in `Intel/Contracts.cs`; the csproj has no `Reference`/`XtuDir` and `module.json` no `probePaths`. Only `Intel/IntelPorts.cs` may use those types or WCF. Never add an Intel reference back: the point is that `dotnet build` works on a runner without XTU.
 - **Rigbay rules** (`docs/ABSTRACTIONS.md` section 12): constructor does nothing, `Probe` is read-only, UI thread only through `RunOnUi` (the module has no
   UI code), catch everything on threads and timers the module starts (`Guard`, the monitor loop), all text is a language key, no static state that survives `Shutdown`.
 - Language: keys `module.xtu.*` in `lang/en.lang` (reference) and `vi.lang`; run LangCheck `--strict` before finishing. A test scans the source for key
@@ -65,11 +64,17 @@ Do not add a row that writes anything but the four controls.
 
 **Add a command.** In `XtuCommands.Register`; exit codes 0 ok, 1 failed, 2 not found or usage; keep `status` lines identical to `xtu-switcher --status`.
 
-**Change the XTU contract use.** Only in `Intel/IntelPorts.cs`; keep the ports' interfaces stable so the logic and tests do not move. If an XTU update breaks Intel's
-assemblies on .NET 10, the fallback is design B of the spike (net48 helper process, `docs/spike/XTU-RUNTIME.md`).
+**Change the XTU contract use.** Calls only in `Intel/IntelPorts.cs`; keep the ports' interfaces stable so the logic and tests do not move. A new operation or type
+goes into `Intel/Contracts.cs` written from the metadata (`tools/dump-contracts.ps1` prints names, namespaces, attribute values and member shapes of the installed XTU; write
+your own declaration, never paste Intel code). The wire format is decided by CLR namespace, type and member names (alphabetical) and interface and method names, so
+never rename or tidy anything in that file. A new read-only operation is proved by recording it again (`tools/record-wire.ps1 -OutDir <folder> -XtuDir <Drivers folder>`, elevated, read only,
+copy the files to `Rigbay.Module.Xtu.Tests/wire/`) and extending `WireContractTests`; a write operation cannot be recorded without a write, so it needs the owner's approval
+for that specific write. If an XTU update changes a contract the module fails at run time, not at build time; the fallback if XTU stops being usable over WCF from .NET 10
+is design B of the spike (net48 helper process, `docs/spike/XTU-RUNTIME.md`).
 
 ## Gotchas (each cost time once)
 
+- The data contract serializer refuses a non-public type without `[DataContract]`, so the structs and the enum in `Contracts.cs` are `public` (the service interfaces stay internal). `TuningResult` is `[Serializable]` with fields: its wire names are `__codes` and `<GeneralCode>k__BackingField`, so the field and the auto-property must keep those names. From a process that is not elevated a missing pipe and a refused pipe throw the same `EndpointNotFoundException`; only the inner exceptions tell them apart (`PipeCheck`).
 - Writing `module.json` through a shell heredoc collapsed `\\` to `\` and made the JSON invalid; a test now parses it. Use the editor tool for files with backslashes.
 - An elevated process does not inherit environment variables from the caller: pass the latch as a file, and everything else as command-line arguments.
 - The real window is capped near 1100 px by the display, so a long page cannot be rendered in one PNG; render lower groups with a throw-away copy of the module that
@@ -81,6 +86,6 @@ assemblies on .NET 10, the fallback is design B of the spike (net48 helper proce
 
 ## Verified vs not verified (see `docs/xtu/README.md` for the record)
 
-Verified on the real machine, read-only: probe, load through the real loader with Intel DLLs from the Intel folder, status and monitor reads equal to the old app,
+Verified on the real machine, read-only: probe, load through the real loader (no Intel file anywhere, since C-lite), status and monitor reads equal to the old app,
 page in dark, light and Vietnamese, the confirmation dialog with the exact values (not answered). **Not verified: any write** (no apply of any profile), real hotkey
-and tray registration, plug/unplug, resume, XTU stopped or updated.
+and tray registration, plug/unplug, resume, XTU stopped or updated. **The write-path contracts (`ProposeChange`, `ApplyChanges`, `DiscardChanges` and their types) are only checked against Intel's own serializer output, not against a real reply: the first approved apply is their proof.**

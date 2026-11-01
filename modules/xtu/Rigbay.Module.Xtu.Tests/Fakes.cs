@@ -204,14 +204,15 @@ internal sealed class FakeSystem : ISystemProbe
 {
     public string Vendor = "GenuineIntel";
     public ServiceState ServiceState = ServiceState.Running;
-    public HashSet<string> Files = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, PipeState> Pipes = new();
+    public PipeState DefaultPipe = PipeState.Listening;
     public string Fast = "Off";
     public PowerLine Line = PowerLine.Online;
 
     public string CpuVendor() => Vendor;
     public ServiceState Service(string name) => ServiceState;
-    public bool FileExists(string path) => Files.Contains(path);
-    public string FileVersion(string path) => "7.14.2.135";
+    public PipeState Pipe(string uri) => Pipes.TryGetValue(uri, out var s) ? s : DefaultPipe;
+    public string ServiceVersion(string serviceName) => "7.14.2.135";
     public string FastStartup() => Fast;
     public PowerLine GetPowerLine() => Line;
 }

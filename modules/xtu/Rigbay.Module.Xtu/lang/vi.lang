@@ -8,8 +8,8 @@ module.xtu.description = Đổi profile giới hạn công suất Intel XTU (PL1
 
 module.xtu.probe.not-intel = CPU này không phải của Intel ({0}). Profile XTU cần CPU Intel.
 module.xtu.probe.no-service = Chưa cài Intel Extreme Tuning Utility (không thấy dịch vụ {0}).
-module.xtu.probe.no-dlls = Không thấy các file hợp đồng của XTU trong {0}.
 module.xtu.probe.service-stopped = Dịch vụ XTU {0} đang không chạy. Hãy bật nó rồi khởi động lại Rigbay.
+module.xtu.probe.no-pipe = Dịch vụ XTU đang chạy nhưng không trả lời trên {0}.
 
 module.xtu.group.now = Giới hạn công suất hiện tại
 module.xtu.group.readings = Số đo

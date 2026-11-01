@@ -13,12 +13,11 @@ public sealed class XtuModule : IModule
     // The constructor does nothing but set fields.
     public XtuModule() { }
 
-    public ProbeResult Probe() => ProbeLogic.Run(new WindowsSystemProbe(), XtuPaths.Default());
+    public ProbeResult Probe() => ProbeLogic.Run(new WindowsSystemProbe());
 
     public void Initialize(IHostServices host)
     {
-        // Intel's assemblies and the WCF client are first touched inside CreateRuntime, after the loader knows the module's
-        // probePaths (module.json), so nothing needs a resolver of its own.
+        // The WCF client is built from the module's own contracts (Intel/Contracts.cs); no Intel assembly is loaded.
         _runtime = CreateRuntime(host);
         _runtime.Start();
         _runtime.StartTimers();
