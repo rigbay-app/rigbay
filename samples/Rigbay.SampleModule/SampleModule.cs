@@ -27,6 +27,9 @@ public sealed class SampleModule : IModule
     private readonly ObservableValue<string> _status = new("");
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.line", 0));
 
+    // A list that changes while the module runs: the page is built once, so changing it asks the host for a new page.
+    private readonly List<string> _devices = new() { "Sensor 1" };
+
     private IHostServices? _host;
     private IHotkeyBinding? _hotkey;
     private Timer? _timer;
@@ -120,6 +123,10 @@ public sealed class SampleModule : IModule
                 {
                     new ReadingRow("row.ticks.header", new MetricId(TicksMetric)) { DescriptionKey = "row.ticks.description", Decimals = 0 },
                     new ValueRow("row.status.header", _status),
+                    // Names the user or the machine decides are not UI wording: Text.Literal shows them as they are.
+                    // The page is built once, so a list that changes asks the host for a new page (AddDeviceAsync).
+                    new ExpanderRow("row.devices.header", DeviceRows()) { DescriptionKey = "row.devices.description" },
+                    new ButtonRow("row.adddevice.header", "row.adddevice.button", AddDeviceAsync) { DescriptionKey = "row.adddevice.description" },
                 }),
             },
             Links = new[] { new PageLink("link.docs", "https://github.com/rigbay-app/rigbay/blob/main/docs/ABSTRACTIONS.md") },
@@ -136,6 +143,19 @@ public sealed class SampleModule : IModule
         _limit.Changed -= OnValueChanged;
         _label.Changed -= OnValueChanged;
         // Hotkeys, tray items, commands and subscriptions are removed by the host after Shutdown.
+    }
+
+    private Row[] DeviceRows()
+    {
+        lock (_devices)
+            return _devices.Select(name => (Row)new InfoRow(Severity.Info, Text.Literal(name))).ToArray();
+    }
+
+    private Task<ActionResult> AddDeviceAsync(CancellationToken cancellationToken)
+    {
+        lock (_devices) _devices.Add($"Sensor {_devices.Count + 1}");
+        _host?.RequestPageRefresh(); // the host calls GetPageModel again and shows the new list
+        return Task.FromResult(ActionResult.Ok());
     }
 
     private Task<ActionResult> ResetAsync(CancellationToken cancellationToken)

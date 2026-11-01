@@ -130,7 +130,7 @@ public static class LangCheck
         var literals = new HashSet<string>(StringComparer.Ordinal);
         foreach (var text in options.SourceTexts ?? Array.Empty<string>())
             foreach (Match m in Regex.Matches(text, "\"((?:[^\"\\\r\n]|\\.)*)\""))
-                literals.Add(m.Groups[1].Value);
+                if (!Rigbay.Abstractions.Text.IsLiteral(m.Groups[1].Value)) literals.Add(m.Groups[1].Value); // "=..." is literal text, not a key
 
         var prefixes = literals.Where(l => l.EndsWith('.')).ToList();
         var unused = new List<string>();
