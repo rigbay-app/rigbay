@@ -94,8 +94,8 @@ public class ModuleLifecycleTests
         var choice = rig.FanRow;
         Assert.True(choice.ChangesHardware);
         Assert.Equal("effect.fan-mode", choice.HardwareEffect!.DescriptionKey);
-        Assert.Equal(new[] { "auto", "max" }, choice.Options.Select(o => o.Id).ToArray());
-        Assert.Equal("auto", choice.Value.Value);
+        Assert.Equal(new[] { "notset", "auto", "max" }, choice.Options.Select(o => o.Id).ToArray());   // nothing is set yet: the first choice says so
+        Assert.Equal("notset", choice.Value.Value);
 
         // Only the fan row changes hardware.
         Assert.Single(page.EnumerateRows(), r => r.ChangesHardware);
@@ -238,7 +238,7 @@ public class ModuleFanWriteTests
         rig.Wmi.WriteAnswer = 0x05;
         rig.FanRow.Value.Value = "max";
         Assert.True(await Eventually(() => rig.ValueOf("row.check.header").Contains("Refused by the laptop")));
-        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "auto"));
+        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "notset"));   // nothing was set, so the row does not claim Auto
         Assert.Equal("Nothing yet", rig.ValueOf("row.last-set.header"));
         Assert.Equal(1, rig.Wmi.WriteCount);
     }

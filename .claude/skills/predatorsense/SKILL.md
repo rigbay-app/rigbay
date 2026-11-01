@@ -25,7 +25,7 @@ Detail files (read only when needed):
   tests that show every other value is still refused. Never widen the table to "make it work".
 - **Never run a write from a test, a script or the app against the real machine as a check.** The fake (`FakeAcerWmi` in the tests)
   covers the write path. The tests call the real `AcerWmi` only with values that must be *refused* (before any WMI object exists).
-- **No firmware read of the fan mode exists.** The page says "Last set by Rigbay", never "current mode". The RPM check after a write
+- **No firmware read of the fan mode exists.** The page says "Last set by Rigbay", never "current mode", and the Fan mode box says "Not set" (an option that is not a value, writes nothing, goes away after the first set) until Rigbay has set one in this run (0.1.1, E2E-10). The RPM check after a write
   is a reading (a jump of 300 rpm within 10 s), never proof. B5 saw about +3000 rpm within 2 s on Max.
 - **Absent parts read status 0 and value 0.** A temperature of 0 is never a reading; a fan at 0 counts only after that fan has turned.
 - **No write while the readings are not available** (the last poll got no answer, or 5 polls in a row; the sensors are then withdrawn from the bus). One exception, on purpose:
