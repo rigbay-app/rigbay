@@ -152,6 +152,20 @@ public class ProbeTests
     }
 
     [Fact]
+    public void The_no_wmi_probe_text_shows_the_namespace_with_its_backslash()
+    {
+        // F1: the file once said root\WMI, and the host drops a backslash that is not an escape, so the user saw "rootWMI"
+        foreach (var lang in new[] { "en", "vi" })
+        {
+            var shown = new FakeLocalisation(lang).T("probe.no-wmi");
+            Assert.Contains(@"root\WMI", shown);
+            Assert.DoesNotContain("rootWMI", shown);
+        }
+        var result = MachineProbe.Run(new FakeMachine { WmiClass = false });
+        Assert.Contains(@"root\WMI", new FakeLocalisation().F(result.ReasonKey, result.ReasonArgs ?? Array.Empty<object>()));
+    }
+
+    [Fact]
     public void Resolved_reason_texts_exist_in_both_languages()
     {
         foreach (var lang in new[] { "en", "vi" })

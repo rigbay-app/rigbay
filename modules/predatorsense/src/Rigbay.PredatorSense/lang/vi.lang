@@ -8,7 +8,7 @@ module.predatorsense.description = Nhiệt độ và tốc độ quạt của la
 
 # Probe: vì sao máy này không được hỗ trợ
 module.predatorsense.probe.no-service = Máy này chưa cài dịch vụ Acer PredatorSense (PSSvc).
-module.predatorsense.probe.no-wmi = Firmware không cung cấp giao diện Acer gaming (root\WMI, AcerGamingFunction).
+module.predatorsense.probe.no-wmi = Firmware không cung cấp giao diện Acer gaming (root\\WMI, AcerGamingFunction).
 module.predatorsense.probe.check-failed = Không kiểm tra được máy này: {0}
 
 # Nhóm trên trang

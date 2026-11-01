@@ -28,7 +28,7 @@
     <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
     <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
     <!-- the module's icon (manifest field "icon"): the tile and the quiet glyph sit next to module.json -->
-    <None Include="..\..\icon*.svg" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="..\..\icon*.svg;..\..\icon*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
   </ItemGroup>
 
 </Project>

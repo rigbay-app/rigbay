@@ -35,7 +35,10 @@ public sealed class LanguageFile
             int eq = t.IndexOf('=');
             if (eq <= 0) { file.Problems.Add($"{source} line {n}: expected 'key = text'"); continue; }
             var key = t[..eq].Trim();
-            var value = Unescape(t[(eq + 1)..].Trim());
+            var rawValue = t[(eq + 1)..].Trim();
+            if (FindUnknownEscape(rawValue) is { } bad)
+                file.Problems.Add($"{source} line {n}: the backslash before '{bad}' is dropped when the text is shown; write \\\\ for a backslash (for example root\\\\WMI)");
+            var value = Unescape(rawValue);
             if (key == "@code") file.Code = value.Trim().ToLowerInvariant();
             else if (key == "@name") file.Name = value;
             else
@@ -72,6 +75,21 @@ public sealed class LanguageFile
         foreach (Match m in Regex.Matches(text, @"\{(\d+)(?:[:,][^}]*)?\}"))
             set.Add(int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
         return string.Join(',', set);
+    }
+
+    /// <summary>
+    /// The first character after a backslash that is not part of a known escape (<c>\n</c>, <c>\t</c>, <c>\\</c>), or null.
+    /// <see cref="Unescape"/> drops the backslash before such a character, so <c>root\WMI</c> would show as <c>rootWMI</c>.
+    /// </summary>
+    public static char? FindUnknownEscape(string s)
+    {
+        for (int i = 0; i + 1 < s.Length; i++)
+        {
+            if (s[i] != '\\') continue;
+            char c = s[++i];
+            if (c is not ('n' or 't' or '\\')) return c;
+        }
+        return null;
     }
 
     private static string Unescape(string s)

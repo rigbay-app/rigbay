@@ -194,8 +194,8 @@ public sealed class ValueEditor<T> : IDisposable
             previous = _previous;
         }
         var current = _value.Value;
-        if (NeedsRevertApproval(current, previous, out _))
-            return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T("core.revert.needs-approval"));
+        if (NeedsRevertApproval(current, previous, out var revertEffect))
+            return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T(revertEffect.Kind == EffectKind.SystemSetting ? "core.revert.needs-approval-setting" : "core.revert.needs-approval"));
         return CommitRevert(current, previous);
     }
 

@@ -24,6 +24,9 @@ public sealed class LanguageReport
     /// <summary>Keys whose <c>{0}</c> placeholders differ from English (an error).</summary>
     public List<string> PlaceholderMismatch { get; } = new();
 
+    /// <summary>Keys whose text looks like UTF-8 that was read as Latin-1 / Windows-1252 (mojibake, an error).</summary>
+    public List<string> Mojibake { get; } = new();
+
     /// <summary>Keys outside the required prefix (an error).</summary>
     public List<string> BadPrefix { get; } = new();
 }
@@ -39,7 +42,7 @@ public sealed class LangCheckReport
     /// <summary>Parse problems and a missing English file (errors).</summary>
     public List<string> Problems { get; } = new();
 
-    public bool HasErrors => Problems.Count > 0 || Languages.Any(l => l.Unknown.Count > 0 || l.PlaceholderMismatch.Count > 0 || l.BadPrefix.Count > 0);
+    public bool HasErrors => Problems.Count > 0 || Languages.Any(l => l.Unknown.Count > 0 || l.PlaceholderMismatch.Count > 0 || l.BadPrefix.Count > 0 || l.Mojibake.Count > 0);
 
     public bool HasWarnings => Unused.Count > 0 || Languages.Any(l => l.Missing.Count > 0);
 
@@ -54,6 +57,7 @@ public sealed class LangCheckReport
             if (l.Missing.Count > 0) sb.AppendLine("  missing (shown in English): " + string.Join(", ", l.Missing));
             if (l.Unknown.Count > 0) sb.AppendLine("  unknown keys, not in English (typo?): " + string.Join(", ", l.Unknown));
             if (l.PlaceholderMismatch.Count > 0) sb.AppendLine("  placeholders differ from English: " + string.Join(", ", l.PlaceholderMismatch));
+            if (l.Mojibake.Count > 0) sb.AppendLine("  garbled text (UTF-8 read as Latin-1? re-save the file as UTF-8): " + string.Join(", ", l.Mojibake));
             if (l.BadPrefix.Count > 0) sb.AppendLine("  keys outside the required prefix: " + string.Join(", ", l.BadPrefix));
         }
         if (Unused.Count > 0) sb.AppendLine("unused English keys (no string literal in the source): " + string.Join(", ", Unused));
@@ -114,6 +118,8 @@ public static class LangCheck
             if (!isEnglish)
                 foreach (var key in file.Text.Keys)
                     if (!englishKeys.ContainsKey(key)) lr.Unknown.Add(key);
+            foreach (var (key, value) in file.Text)
+                if (LooksGarbled(value)) lr.Mojibake.Add(key);
             if (options.RequiredPrefix is { } prefix)
                 foreach (var key in file.Text.Keys)
                     if (!key.StartsWith(prefix, StringComparison.Ordinal)) lr.BadPrefix.Add(key);
@@ -123,6 +129,12 @@ public static class LangCheck
         if (options.SourceTexts is not null) report.Unused.AddRange(FindUnused(englishKeys.Keys, options));
         return report;
     }
+
+    // A UTF-8 lead character read as Latin-1 / Windows-1252 (Ã Â Ä Å Æ á â ...) followed by what was its continuation byte, or the replacement character.
+    private static readonly Regex GarbledPattern = new(@"[\u00C2-\u00C6\u00E1-\u00EF][\u0080-\u00BF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013-\u203A\u20AC\u2122]|\uFFFD", RegexOptions.CultureInvariant);
+
+    /// <summary>True when a text has the typical mojibake sequences (UTF-8 bytes shown as Latin-1 letters, such as a lead letter followed by a symbol from the 0x80 to 0xBF range) or a replacement character.</summary>
+    public static bool LooksGarbled(string text) => GarbledPattern.IsMatch(text);
 
     /// <summary>English keys that no string literal in the source texts uses. A literal ending in '.' counts as a prefix of a family of keys.</summary>
     public static List<string> FindUnused(IEnumerable<string> englishKeys, LangCheckOptions options)

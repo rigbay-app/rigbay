@@ -22,5 +22,6 @@
     ]
   },
   "languages": "lang",
-  "homepage": "https://github.com/rigbay-app/module-xtu"
+  "homepage": "https://github.com/rigbay-app/module-xtu",
+  "icon": "icon.svg"
 }

@@ -103,7 +103,7 @@ symbol and of any lockup. It is measured on the mark itself, so it scales with i
 | Horizontal lockup | **24 px tall** (108 px wide) | At 16 and 20 px the `i`-dot and `y` merge; use the symbol alone. |
 | Stacked lockup | 48 px wide | Same reason. |
 | App icon | 16 px | Small cut up to 24 px, in `rigbay.ico`. |
-| Module tile | 16 px | Small cuts exist for the XTU, PredatorSense and Steam access tiles. |
+| Module tile | 16 px | Small cuts exist for the XTU, PredatorSense, Steam access and Recorder tiles. |
 | Quiet glyph | 16 px | No small cut; the glyph is drawn larger (section 9). |
 | Print (provisional, **not tested**) | symbol 8 mm, lockup 25 mm wide | Screen product; nothing printed yet. |
 
@@ -121,6 +121,7 @@ the full table is `assets/brand/tests/contrast.txt`. A graphic object needs **3 
 | XTU profiles | Blue | `#2F7BFF` | 47 123 255 | 4.19 | 3.64 | 3.51 | 3.89 |
 | PredatorSense | Magenta | `#D946B8` | 217 70 184 | 4.28 | 3.72 | 3.43 | 3.81 |
 | Steam access | Cyan | `#0A8FB0` | 10 143 176 | 4.32 | 3.75 | 3.40 | 3.77 |
+| Recorder | Slate blue | `#6B7794` | 107 119 148 | 3.64 | 3.16 | 4.03 | 4.48 |
 
 White glyph on its tile: violet 4.52, blue 3.89, magenta 3.81, cyan 3.77, slate 3.76. Everything passes; the weakest
 pairing is Bay Violet on the lighter dark card `#2B2B2B` at **3.13**. The bay and the block next to each other in the
@@ -181,6 +182,7 @@ corner) in the module's colour with a **white glyph**. Strokes are 24, all termi
 | XTU profiles | two sliders with knobs | Blue `#2F7BFF` | `xtu.svg`, `xtu-small.svg`, `xtu-glyph.svg` |
 | PredatorSense | a three-blade fan with a hub | Magenta `#D946B8` | `predatorsense.svg`, `-small`, `-glyph` |
 | Steam access | a key | Cyan `#0A8FB0` | `steam-access.svg`, `-small`, `-glyph` |
+| Recorder | a record dot inside a ring (stroke 24 on the 8-unit grid, ring 76 / 52, dot 28; small cut 80 / 52 / 30) | Slate blue `#6B7794` (not green, red, amber or violet; a neutral that reads as "instrument", 3.64 on Mica dark and 3.16 on the dark card) | `recorder.svg`, `-small`, `-glyph` |
 | Module template | a plus: an empty bay | Slate `#7B8497` | `module-template.svg`, `-glyph` |
 | Unknown module | a "?" | Slate `#7B8497` | `module-unknown.svg`, `-glyph` |
 
@@ -253,7 +255,8 @@ rigbay/               symbol, wordmark, lockups (SVG) and rigbay/png (symbol and
 app-icon/             rigbay-appicon(.svg|-small.svg), rigbay.ico, png/ (16..512)
   tray/               rigbay-tray-{light,dark,neutral}.svg + .ico + png/ (16 20 24 32)
   high-contrast/      rigbay-hc-{black,white}.svg + .ico + png/
-modules/              tile, -small, -glyph, -glyph-currentcolor, -unsupported SVGs; png/ (16..128); steam-explorations/
+modules/              tile, -small, -glyph, -glyph-currentcolor, -unsupported SVGs for xtu, predatorsense, steam-access, recorder, module-template, module-unknown; png/ (16..128); steam-explorations/
+                      F1: the xtu, steam-access and recorder sets are also copied into each module folder as icon*.svg / icon*.png (manifest "icon")
 social/               social-preview-1280x640.png, org-avatar-512.png, readme-banner(.svg|.png|-reversed.*)
 tests/                test-01 .. test-11 sheets, svg-audit.txt, contrast.txt, verification.txt, ico-load-check.txt
 integration/          what the app needs, with a README (file names, sizes, proposal for the manifest icon)

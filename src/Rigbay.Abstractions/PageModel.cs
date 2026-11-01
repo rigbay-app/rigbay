@@ -69,6 +69,13 @@ public sealed record PageSummary(IObservableValue<LocalisedText>? StateLine = nu
 public sealed record HardwareEffect(string DescriptionKey, bool Revertible = true)
 {
     /// <summary>
+    /// What kind of change this is; the host picks neutral wording from it. <see cref="EffectKind.Hardware"/> (default) says "Change your
+    /// hardware?"; <see cref="EffectKind.SystemSetting"/> says "Change a system setting?" (a Windows proxy, a registry value that is not
+    /// hardware). Additive: existing modules keep the hardware wording.
+    /// </summary>
+    public EffectKind Kind { get; init; } = EffectKind.Hardware;
+
+    /// <summary>
     /// Opt-in, default false. A revert is a hardware write like any other, so by default the host asks again before it
     /// puts the previous value back, with the exact current and previous value in the question (Auto to Maximum is as
     /// much a change as Maximum to Auto). Set it to true only when every possible revert of this row is harmless for the
@@ -83,6 +90,15 @@ public sealed record HardwareEffect(string DescriptionKey, bool Revertible = tru
     /// previous mode."); null shows <see cref="DescriptionKey"/>.
     /// </summary>
     public string? RevertDescriptionKey { get; init; }
+}
+
+/// <summary>The kind of change a <see cref="HardwareEffect"/> describes; it only chooses the wording of the host's confirmation texts.</summary>
+public enum EffectKind
+{
+    /// <summary>A write to the machine's hardware (fans, power limits, firmware). The default.</summary>
+    Hardware = 0,
+    /// <summary>A Windows or application setting that is not hardware (a proxy setting, a registry value).</summary>
+    SystemSetting = 1,
 }
 
 /// <summary>How a value row applies the user's edit.</summary>

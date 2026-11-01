@@ -27,6 +27,8 @@
     </ProjectReference>
     <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
     <None Include="..\..\steam-domains.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <!-- the module icon (manifest field "icon"): tile, quiet glyph, grey variant and PNG fallbacks sit next to module.json -->
+    <None Include="..\..\icon*.svg;..\..\icon*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
     <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
   </ItemGroup>
 

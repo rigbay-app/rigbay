@@ -96,7 +96,7 @@ sealed class RowRenderer
         {
             var stack = new StackPanel { Spacing = 0 };
             if (desc != null) stack.Children.Add(new TextBlock { Text = desc, TextWrapping = TextWrapping.Wrap });
-            stack.Children.Add(Ui.Text(Host.T("row.hardware-note"), "RbSecondaryCaption", wrap: true));
+            stack.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
             description = stack;
         }
         else description = desc;
@@ -318,7 +318,8 @@ sealed class RowRenderer
     UIElement TextEntry(TextRow x)
     {
         bool suppress = false;
-        var tb = new TextBox { MinWidth = 240, Text = x.Value.Value, MaxLength = x.MaxLength, PlaceholderText = x.PlaceholderKey != null ? L.T(x.PlaceholderKey) : "" };
+        // a fixed width (like the other value controls), never the width of the text: a long path used to widen the box and squeeze the label and description
+        var tb = new TextBox { Width = 280, TextWrapping = TextWrapping.NoWrap, Text = x.Value.Value, MaxLength = x.MaxLength, PlaceholderText = x.PlaceholderKey != null ? L.T(x.PlaceholderKey) : "" };
         AutomationProperties.SetName(tb, L.T(x.HeaderKey));
         var chrome = new Chrome(tb);
         var editor = RowEditors.For(_e, x); var state = StateOf(x);

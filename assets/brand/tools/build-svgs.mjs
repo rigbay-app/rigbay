@@ -92,6 +92,7 @@ export const modules = [
   { id: 'xtu', name: 'XTU profiles', color: COLOR.xtu, glyph: glyph.xtu, small: glyph.xtuSmall },
   { id: 'predatorsense', name: 'PredatorSense', color: COLOR.predator, glyph: glyph.fan, small: glyph.fanSmall },
   { id: 'steam-access', name: 'Steam access', color: COLOR.steam, glyph: steamCandidates.key, small: steamKeySmall },
+  { id: 'recorder', name: 'Recorder', color: COLOR.recorder, glyph: glyph.recorder, small: glyph.recorderSmall },
   { id: 'module-template', name: 'Module template', color: COLOR.template, glyph: glyph.template, small: glyph.template },
   { id: 'module-unknown', name: 'Unknown module', color: COLOR.template, glyph: glyph.unknown, small: glyph.unknown },
 ];

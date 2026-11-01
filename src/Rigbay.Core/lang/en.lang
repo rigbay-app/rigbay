@@ -22,6 +22,7 @@ core.edit.unknown-option = That option does not exist
 core.edit.failed = The module failed while applying the change
 core.revert.done = Reverted: {0} is now {1} (was {2})
 core.revert.button-done = Reverted: {0} ({1})
+core.revert.needs-approval-setting = Reverting this changes a Windows setting and must be confirmed, so nothing was changed
 core.revert.needs-approval = Reverting this changes hardware and must be confirmed, so nothing was written
 core.revert.changed = The value changed while you were being asked, so nothing was written. Try again
 core.revert.generic = Revert

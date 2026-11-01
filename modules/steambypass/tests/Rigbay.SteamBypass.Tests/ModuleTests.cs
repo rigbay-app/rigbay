@@ -58,6 +58,9 @@ public class ModuleLifecycleTests
         Assert.True(rig.Switch.HardwareEffect!.Revertible);
         Assert.NotNull(rig.Switch.HardwareEffect!.RevertDescriptionKey);
         Assert.Contains("AutoConfigURL", rig.Host.Loc.T(rig.AutoOn.HardwareEffect!.DescriptionKey));
+        // a Windows proxy setting is not hardware: the host words its questions as a system setting
+        Assert.Equal(EffectKind.SystemSetting, rig.Switch.HardwareEffect!.Kind);
+        Assert.Equal(EffectKind.SystemSetting, rig.AutoOn.HardwareEffect!.Kind);
 
         Assert.Equal(new[] { "steam.proxy.active", "steam.proxy.errors" }, page.EnumerateRows().OfType<ReadingRow>().Select(r => r.Metric.Value).ToArray());
         Assert.Equal(new[] { "steam.proxy.active", "steam.proxy.errors" }, page.Summary!.Readings!.Select(m => m.Value).ToArray());
@@ -75,7 +78,9 @@ public class ModuleLifecycleTests
         var root = doc.RootElement;
         Assert.Equal("steam-bypass", root.GetProperty("id").GetString());
         Assert.Equal("network", root.GetProperty("group").GetString());
-        Assert.False(root.TryGetProperty("icon", out _));   // the icon field comes with task A11
+        Assert.Equal("icon.svg", root.GetProperty("icon").GetString());   // F1: the key tile
+        foreach (var file in new[] { "icon.svg", "icon-glyph.svg", "icon-unsupported.svg", "icon-16.png", "icon-32.png", "icon-128.png" })
+            Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "module", file)), file + " is copied next to module.json");
         var requires = root.GetProperty("requires");
         var network = string.Join(" | ", requires.GetProperty("network").EnumerateArray().Select(e => e.GetString()));
         Assert.Contains("127.0.0.1:18081", network);

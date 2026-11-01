@@ -218,6 +218,11 @@ The A9 changes in the Core (`docs/ABSTRACTIONS.md`, "0.1 after A9") needed these
 - **Approval dialog.** `ApprovalRequest.IsRevert` gives it its own title ("Change your hardware back?"), button ("Revert") and hint; the
   bold line is the exact "Fan mode: Maximum → Auto" the Core builds. Keys `approval.revert-title`, `approval.revert-apply`,
   `approval.hint-revert` (en, vi).
+- **System-setting wording (F1).** `HardwareEffect.Kind = EffectKind.SystemSetting` (`ApprovalRequest.Kind`) gives the dialog "Change a system setting?" /
+  "Change a system setting back?", the hint `approval.hint-revert-setting` and the row line "Changes a Windows setting. Rigbay asks before it applies."
+  (`approval.title-setting`, `approval.revert-title-setting`, `row.system-note`; en, vi). The demo module has a "Web proxy" row for it; shots
+  `approval-system-{dark,light,vi-dark}`, `revert-system-{dark,light}`. **`TextRow`** is a 280 px box at the right of the label (it used to take the width of its
+  text, so a long path squeezed the label and description): `textrow-before-dark` against `textrow-tall-{dark,light}`, `textrow-narrow-dark`.
 - **Page visibility.** `MainWindow.UpdatePageVisibility` calls `entry.SetPageVisible(true)` for the module page that is open while the
   window is shown, `false` for the one that was left, and `false` when the window is hidden to the tray or minimised (it runs on
   navigation, `AppWindow.Changed`, show and hide). `MainWindow.ShownEntry` is what the self-test reads.

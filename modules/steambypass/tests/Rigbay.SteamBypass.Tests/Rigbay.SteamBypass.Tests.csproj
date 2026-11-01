@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\Rigbay.SteamBypass\Rigbay.SteamBypass.csproj" />
     <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
     <None Include="..\..\steam-domains.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
+    <None Include="..\..\icon*.svg;..\..\icon*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
     <None Include="..\..\src\Rigbay.SteamBypass\lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
   </ItemGroup>
 

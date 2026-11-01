@@ -16,9 +16,11 @@ const roles = [
   ['XTU blue', COLOR.xtu],
   ['PredatorSense magenta', COLOR.predator],
   ['Steam access cyan', COLOR.steam],
+  ['Recorder slate', COLOR.recorder],
   ['Unsupported grey, XTU', grey(COLOR.xtu)],
   ['Unsupported grey, PredatorSense', grey(COLOR.predator)],
   ['Unsupported grey, Steam access', grey(COLOR.steam)],
+  ['Unsupported grey, Recorder', grey(COLOR.recorder)],
 ];
 const lines = [];
 const row = (label, col, cells) => lines.push(label.padEnd(50) + col.padEnd(9) + cells.join('  '));

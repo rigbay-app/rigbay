@@ -18,7 +18,9 @@ public sealed class FanStudioModule : IModule
     private readonly ObservableValue<double> _pl1 = new(45);
     private readonly ObservableValue<double> _ramp = new(2);
     private readonly ObservableValue<string> _light = new("off");
+    private readonly ObservableValue<string> _proxy = new("off");   // a Windows setting, not hardware: EffectKind.SystemSetting
     private readonly ObservableValue<string> _profile = new("Quiet nights");
+    private readonly ObservableValue<string> _folder = new(@"C:\Users\someone\Documents\Rigbay\logs\recordings\2026-11\a-rather-long-folder-name-for-a-test");
     private readonly ObservableValue<string> _lastWrite = new("none yet");
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.line", "", 45));
 
@@ -81,6 +83,8 @@ public sealed class FanStudioModule : IModule
                     {
                         new NumberRow("row.ramp.header", _ramp, Minimum: 0, Maximum: 30, Step: 1) { DescriptionKey = "row.ramp.description", Unit = MetricUnit.Seconds },
                         new TextRow("row.profile.header", _profile) { DescriptionKey = "row.profile.description", MaxLength = 24, Apply = ApplyMode.ApplyRevert },
+                        // a long value (a folder path) with a description: the layout must keep the label readable and the box a sensible width
+                        new TextRow("row.folder.header", _folder) { DescriptionKey = "row.folder.description", MaxLength = 260 },
                     }) { DescriptionKey = "row.advanced.description" },
                 }),
                 new RowGroup("group.performance", new Row[]
@@ -105,6 +109,12 @@ public sealed class FanStudioModule : IModule
                     {
                         DescriptionKey = "row.light.description",
                         HardwareEffect = new HardwareEffect("effect.light") { SafeRevert = true },
+                    },
+                    // a system setting rather than hardware: the host words the question and the revert for a Windows setting
+                    new ChoiceRow("row.proxy.header", new[] { new ChoiceOption("off", "proxy.off"), new ChoiceOption("local", "proxy.local") }, _proxy)
+                    {
+                        DescriptionKey = "row.proxy.description",
+                        HardwareEffect = new HardwareEffect("effect.proxy") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.proxy-revert" },
                     },
                     new ButtonRow("row.beacon.header", "row.beacon.button", BeaconAsync)
                     {

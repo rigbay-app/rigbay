@@ -4,7 +4,7 @@ import { pill, disc, ring, sector, poly, dockBay, dockBlock, roundRect, n } from
 
 export const COLOR = {
   inkLight: '#1F2430', inkDark: '#EEF1F8', accent: '#7A5AF8', slate: '#7B8497', white: '#FFFFFF',
-  xtu: '#2F7BFF', predator: '#D946B8', steam: '#0A8FB0', template: '#7B8497',
+  xtu: '#2F7BFF', predator: '#D946B8', steam: '#0A8FB0', recorder: '#6B7794', template: '#7B8497',
 };
 export const TILE_R = 56;       // module tile corner radius on the 208 canvas (27%)
 export const APP_R = 68;        // app icon tile corner radius on the 256 canvas (26.6%, the same proportion)
@@ -61,6 +61,9 @@ export const glyph = {
   xtuSmall: pill(40, 64, 168, 64, 28) + pill(40, 144, 168, 144, 28) + disc(124, 64, 32) + disc(84, 144, 32),
   fan: blade(0) + blade(120) + blade(240) + disc(104, 104, 16),
   fanSmall: blade(0, BLADE_FAT) + blade(120, BLADE_FAT) + blade(240, BLADE_FAT) + disc(104, 104, 18),
+  // recorder: a record dot inside a ring (the dot is the "on air" mark, the ring keeps it a lens, not a status light). Stroke 24.
+  recorder: ring(104, 104, 76, 52) + disc(104, 104, 28),
+  recorderSmall: ring(104, 104, 80, 52) + disc(104, 104, 30),
   template: pill(104, 48, 104, 160, 28) + pill(48, 104, 160, 104, 28),
   // "?" for an unknown module: hook, stem, dot
   // the hook ends at 45 degrees and the diagonal continues it exactly, so the join is smooth and the angle is a true 45
