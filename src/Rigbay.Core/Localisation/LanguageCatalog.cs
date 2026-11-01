@@ -191,7 +191,7 @@ public sealed class ModuleLocalisation : ILocalisation
 
     public string F(string key, params object[] args) => _catalog.F(_prefix + key, args);
 
-    public string Resolve(LocalisedText text) => text.Args is { Length: > 0 } ? F(text.Key, text.Args) : T(text.Key);
+    public string Resolve(LocalisedText text) => text.IsEmpty ? "" : text.Args is { Length: > 0 } ? F(text.Key, text.Args) : T(text.Key);
 
     public bool TryGet(string key, out string text) => _catalog.TryGet(_prefix + key, out text);
 

@@ -22,7 +22,8 @@ public enum HotkeyModifiers
 /// A key combination as plain data, written <c>Ctrl+Alt+F5</c>. Keys: <c>A</c>-<c>Z</c>, <c>0</c>-<c>9</c>,
 /// <c>F1</c>-<c>F24</c>, <c>Space</c>, <c>Enter</c>, <c>Tab</c>, <c>Esc</c>, <c>Backspace</c>, <c>Delete</c>,
 /// <c>Insert</c>, <c>Home</c>, <c>End</c>, <c>PageUp</c>, <c>PageDown</c>, <c>Up</c>, <c>Down</c>, <c>Left</c>,
-/// <c>Right</c>, <c>Num0</c>-<c>Num9</c>. Two gestures are equal when modifiers and key are equal.
+/// <c>Right</c>, <c>Num0</c>-<c>Num9</c>. <c>F12</c> is rejected: Windows reserves it for debuggers and
+/// <c>RegisterHotKey</c> always refuses it (see <see cref="ReservedReason"/>). Two gestures are equal when modifiers and key are equal.
 /// </summary>
 public readonly record struct HotkeyGesture
 {
@@ -35,12 +36,25 @@ public readonly record struct HotkeyGesture
     /// <summary>Creates a gesture and checks the key name.</summary>
     /// <param name="modifiers">The modifier keys.</param>
     /// <param name="key">The key name (case-insensitive; stored in canonical form).</param>
-    /// <exception cref="ArgumentException">The key name is not in the list.</exception>
+    /// <exception cref="ArgumentException">The key name is not in the list, or the key is reserved by Windows (F12).</exception>
     public HotkeyGesture(HotkeyModifiers modifiers, string key)
     {
         Modifiers = modifiers;
-        Key = Canonical(key) ?? throw new ArgumentException($"'{key}' is not a key name Rigbay knows.", nameof(key));
+        var canonical = Canonical(key) ?? throw new ArgumentException($"'{key}' is not a key name Rigbay knows.", nameof(key));
+        if (ReservedReason(canonical) is { } reason) throw new ArgumentException(reason, nameof(key));
+        Key = canonical;
     }
+
+    /// <summary>
+    /// Why a key can never be a hotkey, or null when it can. Today only <c>F12</c>: Windows keeps it for debuggers, so
+    /// <c>RegisterHotKey</c> fails for it with any modifiers. <see cref="TryParse"/> returns false for it and the
+    /// constructor throws, so a stored or typed <c>Ctrl+F12</c> never becomes a gesture.
+    /// </summary>
+    /// <param name="key">A key name in any case.</param>
+    public static string? ReservedReason(string? key) =>
+        string.Equals(key?.Trim(), "F12", StringComparison.OrdinalIgnoreCase)
+            ? "F12 cannot be used as a hotkey: Windows reserves it for debuggers and refuses to register it."
+            : null;
 
     /// <summary>The modifier keys.</summary>
     public HotkeyModifiers Modifiers { get; }
@@ -69,7 +83,7 @@ public readonly record struct HotkeyGesture
             }
         }
         var key = Canonical(parts[^1]);
-        if (key is null) return false;
+        if (key is null || ReservedReason(key) is not null) return false;
         gesture = new HotkeyGesture(modifiers, key);
         return true;
     }
