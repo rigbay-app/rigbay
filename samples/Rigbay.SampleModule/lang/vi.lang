@@ -1,0 +1,47 @@
+# Module mẫu: tiếng Việt. Giữ nguyên {0}; có thể đổi thứ tự.
+@code = vi
+@name = Tiếng Việt
+
+module.sample.name = Module mẫu
+module.sample.description = Module tối giản trình bày mọi loại dòng. Không thay đổi gì trên máy.
+
+module.sample.group.basic = Dòng cơ bản
+module.sample.group.safe = Dòng cần cẩn thận
+module.sample.group.live = Trực tiếp
+
+module.sample.row.echo.header = Echo
+module.sample.row.echo.description = Ghi một dòng vào nhật ký mỗi khi bật tắt
+module.sample.row.mode.header = Chế độ
+module.sample.row.mode.description = Danh sách lựa chọn cố định
+module.sample.mode.quiet = Yên tĩnh
+module.sample.mode.normal = Bình thường
+module.sample.mode.fast = Nhanh
+module.sample.row.limit.header = Giới hạn
+module.sample.row.limit.description = Giới hạn công suất giả; áp dụng rồi hoàn tác thử
+module.sample.effect.limit = Giả vờ đặt giới hạn công suất. Máy của bạn không bị thay đổi.
+module.sample.row.label.header = Nhãn
+module.sample.row.label.description = Văn bản tự do, tối đa 20 ký tự
+module.sample.label.placeholder = Đặt tên cho ngăn này
+module.sample.label.reserved = Không được dùng 'reserved'
+module.sample.row.shortcut.header = Phím tắt
+module.sample.row.shortcut.description = Bật tắt Echo
+module.sample.row.reset.header = Đặt lại
+module.sample.row.reset.description = Đưa mọi thứ về mặc định
+module.sample.row.reset.button = Đặt lại
+module.sample.row.ticks.header = Nhịp
+module.sample.row.ticks.description = Đếm bằng bộ hẹn giờ trong module
+module.sample.row.status.header = Trạng thái
+module.sample.row.more.header = Thêm
+module.sample.row.more.description = Các dòng liên quan gấp lại ở đây
+module.sample.row.note.header = Không có gì ở đây chạm vào máy của bạn
+module.sample.row.note.description = Module này để minh hoạ mô hình trang và để sao chép.
+module.sample.link.docs = Hợp đồng module
+
+module.sample.hotkey.toggle = Bật tắt echo
+module.sample.tray.toggle = Mẫu: bật tắt echo
+module.sample.cmd.status = In trạng thái
+module.sample.cmd.echo = In các tham số
+module.sample.cmd.usage = Cách dùng: rigbay sample echo <văn bản>
+module.sample.state.line = {0} nhịp
+module.sample.toast.title = Module mẫu
+module.sample.toast.body = Đã đặt lại cài đặt

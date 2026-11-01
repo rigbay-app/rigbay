@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 1,
+  "id": "faulty",
+  "name": "Faulty module",
+  "version": "0.1.0",
+  "author": "Rigbay tests",
+  "description": "Misbehaves on purpose.",
+  "entry": { "assembly": "Rigbay.FaultyModule.dll", "type": "Rigbay.FaultyModule.FaultyModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "other"
+}

@@ -1,0 +1,94 @@
+using Rigbay.Abstractions;
+using Rigbay.TestDependency;
+
+namespace Rigbay.FaultyModule;
+
+/// <summary>
+/// Misbehaves in the way named in <c>behavior.txt</c> next to this DLL (the test writes it before the host loads the
+/// module): ctor-throws, probe-throws, probe-null, probe-unsupported, probe-hangs, init-throws, init-hangs,
+/// page-throws, bad-page, toggle-throws, button-throws, hotkey-throws, command-throws, metric-handler-throws,
+/// uses-dependency, none.
+/// </summary>
+public sealed class FaultyModule : IModule
+{
+    private static readonly string Folder = Path.GetDirectoryName(typeof(FaultyModule).Assembly.Location)!;
+    private readonly string _behavior;
+    private readonly ObservableValue<bool> _toggle = new(false);
+
+    public FaultyModule()
+    {
+        var file = Path.Combine(Folder, "behavior.txt");
+        _behavior = File.Exists(file) ? File.ReadAllText(file).Trim() : "none";
+        if (_behavior == "ctor-throws") throw new InvalidOperationException("constructor blew up");
+    }
+
+    public ProbeResult Probe()
+    {
+        switch (_behavior)
+        {
+            case "probe-throws": throw new InvalidOperationException("probe blew up");
+            case "probe-null": return null!;
+            case "probe-unsupported": return ProbeResult.No("probe.nope");
+            case "probe-hangs": Thread.Sleep(TimeSpan.FromMinutes(1)); break;
+        }
+        return ProbeResult.Yes();
+    }
+
+    public void Initialize(IHostServices host)
+    {
+        switch (_behavior)
+        {
+            case "init-throws": throw new InvalidOperationException("initialize blew up");
+            case "init-hangs": Thread.Sleep(TimeSpan.FromMinutes(1)); break;
+            case "hotkey-throws":
+                host.Hotkeys.Register(new HotkeyRegistration("boom", "hotkey.boom", HotkeyGesture.Parse("Ctrl+Alt+F9"),
+                    () => throw new InvalidOperationException("hotkey blew up")));
+                break;
+            case "command-throws":
+                host.Commands.Register("boom", "cmd.boom", _ => throw new InvalidOperationException("command blew up"));
+                break;
+            case "metric-handler-throws":
+                host.Metrics.Subscribe(_ => throw new InvalidOperationException("metric handler blew up"));
+                break;
+        }
+        host.Tray.Add(new TrayItem("faulty", "tray.faulty", () => { }));
+        host.Commands.Register("ok", "cmd.ok", _ => CommandResult.Ok("fine"));
+        host.Commands.Register("fail", "cmd.fail", _ => CommandResult.Failed("expected failure"));
+        host.Commands.Register("usage", "cmd.usage", _ => CommandResult.Usage("usage: rigbay faulty usage"));
+        _toggle.Changed += () =>
+        {
+            if (_behavior == "toggle-throws") throw new InvalidOperationException("toggle handler blew up");
+        };
+    }
+
+    public PageModel? GetPageModel(IHostServices host)
+    {
+        switch (_behavior)
+        {
+            case "page-throws": throw new InvalidOperationException("page blew up");
+            case "bad-page":
+                return new PageModel
+                {
+                    Groups = new[] { new RowGroup("group.bad", new Row[] { new NumberRow("row.bad", new ObservableValue<double>(1), Minimum: 10, Maximum: 1) }) },
+                };
+        }
+
+        var rows = new List<Row>
+        {
+            new ToggleRow("row.toggle", _toggle),
+            new ButtonRow("row.button", "row.button.label", _ =>
+            {
+                if (_behavior == "button-throws") throw new InvalidOperationException("button blew up");
+                return Task.FromResult(ActionResult.Ok());
+            }),
+        };
+        if (_behavior == "uses-dependency")
+            rows.Add(new ValueRow("row.dep", new ObservableValue<string>(Greeter.Hello())));
+        return new PageModel { Groups = new[] { new RowGroup("group.main", rows) } };
+    }
+
+    public void Shutdown()
+    {
+        File.WriteAllText(Path.Combine(Folder, "shutdown.marker"), "shutdown was called");
+    }
+}

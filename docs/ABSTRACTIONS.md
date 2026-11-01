@@ -7,7 +7,7 @@ file and the code disagree, fix the one that is wrong and say so in the commit m
 Contents: 1 Principles, 2 Module package and manifest, 3 Lifecycle, 4 Host services, 5 Page model,
 6 Metrics bus, 7 Localisation, 8 Settings, 9 Commands, hotkeys, tray, toast, 10 Fault boundary and loading,
 11 API version, 12 Rules for module authors, 13 How to write a module, 14 Reasons behind the choices,
-15 What is not in v0.1.
+15 What is not in v0.1, 16 Using Rigbay.Core.
 
 ## 1. Principles
 
@@ -130,6 +130,15 @@ Rules:
 6. Enabling again after disabling calls `Initialize` on the same instance. Module code must tolerate that.
 7. Install, update and removal of a module need a host restart, so the loader never unloads a module in a
    running host; `Shutdown` is not an unload.
+8. The constructor, `Probe`, `Initialize` and `Shutdown` run on a thread-pool thread (so the host can enforce the
+   time limits), never on the UI thread. A call that exceeds its limit faults the module; its thread is left behind.
+   `Shutdown` after a fault is attempted once, in the background, and cannot fault the module again.
+9. A module cannot be enabled while it is `Invalid`, `Incompatible`, `Unsupported` or `Faulted`. The user's choice
+   (enabled or not) is kept in `%LOCALAPPDATA%\Rigbay\host.json` and applied by `RigbayHost.StartEnabled()` at the next
+   start; a fault does not change it.
+
+Bay states (section 5.6) are derived from this lifecycle: `Invalid` and `Faulted` show as Failed, `Incompatible` and
+`Unsupported` as Unsupported, `Running` as Ready, `Off` as Off.
 
 ## 4. Host services (`IHostServices`)
 
@@ -491,3 +500,47 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
 - Compiled XAML pages from a module (unsupported, see 5.5), and any window handle or dispatcher for modules.
 - Loading a custom-control module built for another Windows App SDK line than the host (not tested in spike A1).
 - A `net48` module (the XTU contract assemblies) in this net10 host: DESIGN.md open point 2 still has to settle it.
+
+## 16. Using Rigbay.Core (for the app and for tests)
+
+`Rigbay.Core` (net10.0, no UI reference) is the host logic. The WinUI shell creates one `RigbayHost`, calls two methods
+off the UI thread, and binds its windows to the objects below. All of it is covered by `tests/Rigbay.Core.Tests`.
+
+```csharp
+var host = new RigbayHost(new RigbayHostOptions { ModulesRoot = @"C:\Program Files\Rigbay\modules" });
+host.UiDispatcher = action => dispatcherQueue.TryEnqueue(() => action());   // the app's own wrapped UI dispatch
+host.ToastSink = myToastSink;           // IToastSink: Show(moduleId, title, body, kind), texts already localised
+host.ApprovalPrompt = myPrompt;         // IApprovalPrompt: ConfirmAsync(ApprovalRequest) -> bool; none set = every hardware change refused
+await Task.Run(() => { host.Discover(); host.StartEnabled(); });
+```
+
+| Object | What the app uses it for |
+| --- | --- |
+| `RigbayHost.Modules`, `Find(id)` | The list of `ModuleEntry`: one per folder, valid or not. `ModulesDiscovered`, `ModuleFaulted` events. |
+| `ModuleEntry` | `Id`, `DisplayName`, `DisplayDescription` (manifest text, overridden by `module.<id>.name` / `.description`), `Manifest` (group, requires, version), `Lifecycle`, `Bay` (a `BayStatus`: `BayState` plus `ModuleReason`), `ResolveReason(reason)`, `Page`, `Fault`, `Enable()`, `Disable()`, `SetPending(...)` (installer sets update or restart), `Changed` event, `CreateCustomControl(id)`, `Invoke`/`InvokeAsync` (any other call into the module goes through these). `Enable()` and `Disable()` block for up to the time limits: call them off the UI thread. |
+| `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `Revert`, `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. |
+| `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects. |
+| `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. |
+| `host.Hotkeys` (`HotkeyRegistry`) | `Entries`, `Conflicts`, `ReserveHost(name, gesture)`, `Press(gesture)` (call it from the window's hotkey message), `Changed`. Entry `Gesture` and `HasConflict` are observable. |
+| `host.Tray` (`TrayRegistry`) | `Items` (`TrayEntry`: module id, `TrayItem` data, a guarded `Invoke`), `Changed`. |
+| `host.Commands`, `ExecuteCommandAsync(args)` | `rigbay <module> <verb> [args]` to a `CommandOutcome(ExitCode, Output)`. The app carries the command line to the running process and prints `Output` (stdout for 0, stderr otherwise). |
+| `host.Languages` (`LanguageCatalog`) | `Languages` for the language picker, `SetLanguage`, `T`/`F` for host strings, `LanguageChanged`. `host.SetLanguage(code)` also remembers the choice. Embedded host files are `Rigbay.Core.lang.*` resources; the app adds its own the same way with `LoadEmbedded`. |
+| `host.Log` (`HostLog`) | `Recent()` and `EntryWritten` for the Log page; the file is `rigbay.log` in `%LOCALAPPDATA%\Rigbay\logs`. |
+| `PageValidator`, `PageModel.EnumerateRows()` | The host validates every page before showing it; the app can use `EnumerateRows()` to build the search index (header and description keys, resolved with `entry.Localisation`). |
+
+**Language check.** `src/Rigbay.LangCheck` is the console front end of `LangCheck`:
+
+```
+dotnet run --project src/Rigbay.LangCheck -- <lang folder> [--module <id>] [--source <dir>] [--strict] [--out <file>]
+```
+
+Exit code 0 ok, 1 errors (unknown keys, placeholder mismatches, keys outside `module.<id>.`, duplicates, no English
+file; with `--strict` also missing and unused keys), 2 bad usage. The same function is `LangCheck.Check(...)` for the
+app's own `--langcheck` switch.
+
+**Tests.** `dotnet test Rigbay.sln` builds `samples/Rigbay.SampleModule` and `tests/Rigbay.FaultyModule` (a module that
+misbehaves as `behavior.txt` says), copies their output folders, and loads them through the real loader. `TestEnv` in
+`tests/Rigbay.Core.Tests` shows how to host a module folder from a unit test.
+
+**Package.** `dotnet pack src/Rigbay.Abstractions -c Release` makes `Rigbay.Abstractions.0.1.0.nupkg` (assembly plus XML
+docs). Nothing is published from this repository by the build.

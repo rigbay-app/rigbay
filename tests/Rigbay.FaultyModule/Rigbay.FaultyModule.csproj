@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A module that misbehaves in the way named in behavior.txt next to its DLL. Used by the fault tests. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.FaultyModule</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\Rigbay.TestDependency\Rigbay.TestDependency.csproj" />
+    <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

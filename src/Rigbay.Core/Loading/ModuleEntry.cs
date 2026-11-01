@@ -44,6 +44,7 @@ public sealed class ModuleEntry
     private readonly object _gate = new();
     private readonly List<IDisposable> _subscriptions = new();
     private IModule? _instance;
+    private ModuleLoadContext? _context;
     private ModuleHostServices? _services;
     private CancellationTokenSource _stop = new();
     private bool _initialized;
@@ -76,6 +77,12 @@ public sealed class ModuleEntry
     public ModuleReason? Reason { get { lock (_gate) return _reason; } }
     public Exception? Fault { get { lock (_gate) return _fault; } }
     public PageModel? Page { get { lock (_gate) return _page; } }
+    /// <summary>True once a load context for the module exists, that is, once any module code could have run. False for invalid or incompatible modules.</summary>
+    public bool HasLoadedCode => _context is not null;
+
+    /// <summary>The module's own load context; null until module code is about to load.</summary>
+    public System.Runtime.Loader.AssemblyLoadContext? LoadContext => _context;
+
     public PendingChange Pending { get; private set; }
     public string? PendingVersion { get; private set; }
 
@@ -150,7 +157,7 @@ public sealed class ModuleEntry
         try
         {
             var entryPath = Path.Combine(Folder, m.EntryAssembly);
-            var context = new ModuleLoadContext(m.Id, entryPath);
+            var context = _context = new ModuleLoadContext(m.Id, entryPath);
             var assembly = context.LoadEntry(entryPath);
 
             var wanted = assembly.GetReferencedAssemblies().FirstOrDefault(a => a.Name == "Rigbay.Abstractions");
@@ -293,9 +300,9 @@ public sealed class ModuleEntry
     }
 
     /// <summary>Wraps a delegate the module gave to a service so that it runs in the boundary.</summary>
-    internal Action Guard(string operation, Action action) => () => Invoke(operation, action);
+    public Action Guard(string operation, Action action) => () => Invoke(operation, action);
 
-    internal Action<T> Guard<T>(string operation, Action<T> action) => value => Invoke(operation, () => action(value));
+    public Action<T> Guard<T>(string operation, Action<T> action) => value => Invoke(operation, () => action(value));
 
     private bool RunGuarded(string operation, Action action, TimeSpan timeout)
     {
@@ -311,7 +318,7 @@ public sealed class ModuleEntry
         }
         catch (AggregateException ae)
         {
-            FaultNow(operation, ae.InnerException ?? ae);
+            FaultNow(operation, Unwrap(ae));
             return false;
         }
     }
@@ -324,10 +331,10 @@ public sealed class ModuleEntry
             var task = Task.Run(action);
             if (!task.Wait(timeout)) Log.Error($"{operation} did not finish within {timeout.TotalSeconds:0.#} s");
         }
-        catch (AggregateException ae) { Log.Error($"{operation} threw", ae.InnerException ?? ae); }
+        catch (AggregateException ae) { Log.Error($"{operation} threw", Unwrap(ae)); }
     }
 
-    internal void FaultNow(string operation, Exception ex, bool timedOut = false, TimeSpan timeout = default, bool badPage = false)
+    public void FaultNow(string operation, Exception ex, bool timedOut = false, TimeSpan timeout = default, bool badPage = false)
     {
         bool wasInitialized;
         lock (_gate)
@@ -392,6 +399,17 @@ public sealed class ModuleEntry
     private void RaiseChanged()
     {
         try { Changed?.Invoke(this); } catch (Exception ex) { Log.Warn("a Changed handler threw: " + ex.Message); }
+    }
+
+    /// <summary>Strips the wrappers reflection and tasks put around the exception a module really threw.</summary>
+    internal static Exception Unwrap(Exception ex)
+    {
+        while (true)
+        {
+            if (ex is AggregateException { InnerExceptions.Count: 1 } ae) ex = ae.InnerExceptions[0];
+            else if (ex is System.Reflection.TargetInvocationException { InnerException: not null } tie) ex = tie.InnerException!;
+            else return ex;
+        }
     }
 
     internal static string Describe(Exception ex) => $"{ex.GetType().Name}: {ex.Message}";
