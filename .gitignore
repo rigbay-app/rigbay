@@ -13,3 +13,6 @@ obj/
 
 # Claude Session Manager worktrees
 .claude/worktrees/
+
+# generated self-test report: contains the Windows user and machine name
+tools/shots/selftest.txt
