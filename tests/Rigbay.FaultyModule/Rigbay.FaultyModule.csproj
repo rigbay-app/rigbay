@@ -12,6 +12,7 @@
       <ExcludeAssets>runtime</ExcludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\Rigbay.TestDependency\Rigbay.TestDependency.csproj" />
+    <ProjectReference Include="..\Rigbay.SystemDep\Rigbay.SystemDep.csproj" />
     <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

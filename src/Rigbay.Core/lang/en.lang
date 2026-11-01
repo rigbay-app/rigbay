@@ -59,6 +59,8 @@ core.manifest.must-be-object = must be an object
 core.manifest.must-be-bool = must be true or false
 core.manifest.must-be-string-array = must be an array of strings
 core.manifest.string-entries = every entry must be a string of 1 to 200 characters
+core.manifest.probe-paths-count = at most {0} probe paths are allowed
+core.manifest.probe-path-invalid = '{0}' must be an absolute local path (drive letter, no '..', no network share); %NAME% variables must exist on this machine
 core.manifest.required-string = required, a string
 core.manifest.length-range = must be {0} to {1} characters
 
@@ -66,3 +68,6 @@ core.command.version-host = Rigbay {0}
 core.command.version-abstractions = Rigbay.Abstractions {0}
 core.command.version-api = Host API {0}
 core.command.no-modules = No modules are installed
+
+# Shown with a module's declared facts (Modules page, turn-on dialog) when it lists probePaths.
+core.requires.outside-files = Reads files outside its folder

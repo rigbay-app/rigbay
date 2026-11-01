@@ -31,7 +31,22 @@ public sealed record ModuleManifest(
     ModuleGroup Group,
     ModuleRequires Requires,
     string LanguagesFolder,
-    string? Homepage);
+    string? Homepage,
+    IReadOnlyList<string>? ProbePaths = null)
+{
+    /// <summary>Host language key of the label for <see cref="DeclaredProbePaths"/> in the facts list ("Reads files outside its folder").</summary>
+    public const string OutsideFilesLabelKey = "core.requires.outside-files";
+
+    /// <summary>The declared <c>probePaths</c> exactly as written (empty when none).</summary>
+    public IReadOnlyList<string> DeclaredProbePaths => ProbePaths ?? Array.Empty<string>();
+
+    /// <summary>The declared <c>probePaths</c> with <c>%ENV%</c> expanded, as full paths (empty when none).</summary>
+    public IReadOnlyList<string> ResolvedProbePaths =>
+        DeclaredProbePaths.Select(p => ManifestReader.TryExpandProbePath(p, out var full) ? full : p).ToArray();
+
+    /// <summary>True when the module declares folders outside its own that it reads files from (a Modules page fact).</summary>
+    public bool ReadsOutsideItsFolder => DeclaredProbePaths.Count > 0;
+}
 
 /// <summary>
 /// A problem found in a manifest. <see cref="Path"/> is the JSON path (<c>entry.type</c>); the text is a host language key
@@ -106,7 +121,7 @@ public static class ManifestReader
 
     private static readonly HashSet<string> KnownTop = new(StringComparer.Ordinal)
     {
-        "manifestVersion", "id", "name", "version", "author", "description", "entry", "hostApi", "group", "requires", "languages", "homepage",
+        "manifestVersion", "id", "name", "version", "author", "description", "entry", "hostApi", "group", "requires", "languages", "homepage", "probePaths",
     };
 
     private static readonly Regex IdPattern = new(@"^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
@@ -248,11 +263,56 @@ public static class ManifestReader
                 else homepage = hp.GetString();
             }
 
+            var probePaths = ReadProbePaths(root, issues);
+
             if (issues.Any(i => i.IsError)) return new ManifestResult(null, issues);
 
-            var manifest = new ModuleManifest(version, id!, name!, ver!, author!, description!, entryAssembly!, entryType!, range!, group, requires, languages, homepage);
+            var manifest = new ModuleManifest(version, id!, name!, ver!, author!, description!, entryAssembly!, entryType!, range!, group, requires, languages, homepage, probePaths);
             return new ManifestResult(manifest, issues);
         }
+    }
+
+    /// <summary>Most <c>probePaths</c> a manifest may declare.</summary>
+    public const int MaxProbePaths = 8;
+
+    /// <summary>
+    /// Expands <c>%NAME%</c> variables in a declared probe path and checks the result: a fully qualified local path (drive
+    /// letter), no <c>..</c> segment, no network share, no invalid characters, every variable defined.
+    /// </summary>
+    public static bool TryExpandProbePath(string declared, out string fullPath)
+    {
+        fullPath = declared;
+        try
+        {
+            var expanded = Environment.ExpandEnvironmentVariables(declared).Trim();
+            if (expanded.Length == 0 || expanded.Contains('%') || expanded.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || expanded.IndexOfAny(new[] { '*', '?' }) >= 0) return false;
+            if (expanded.StartsWith("\\\\", StringComparison.Ordinal) || expanded.StartsWith("//", StringComparison.Ordinal)) return false;
+            if (!Path.IsPathFullyQualified(expanded)) return false;
+            if (expanded.Split('/', '\\').Any(p => p == "..")) return false;
+            fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(expanded));
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
+    private static IReadOnlyList<string>? ReadProbePaths(JsonElement root, List<ManifestIssue> issues)
+    {
+        if (!root.TryGetProperty("probePaths", out var arr)) return null;
+        if (arr.ValueKind != JsonValueKind.Array)
+        {
+            issues.Add(Issue("probePaths", "core.manifest.must-be-string-array"));
+            return null;
+        }
+        var list = new List<string>();
+        foreach (var item in arr.EnumerateArray())
+        {
+            var s = item.ValueKind == JsonValueKind.String ? item.GetString()?.Trim() : null;
+            if (string.IsNullOrEmpty(s) || s.Length > 260) { issues.Add(Issue("probePaths", "core.manifest.string-entries")); continue; }
+            if (!TryExpandProbePath(s, out _)) { issues.Add(Issue("probePaths", "core.manifest.probe-path-invalid", s)); continue; }
+            list.Add(s);
+        }
+        if (list.Count > MaxProbePaths) issues.Add(Issue("probePaths", "core.manifest.probe-paths-count", MaxProbePaths));
+        return list;
     }
 
     private static ModuleRequires ReadRequires(JsonElement root, List<ManifestIssue> issues)

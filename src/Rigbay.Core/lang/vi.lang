@@ -58,6 +58,8 @@ core.manifest.must-be-object = phải là một đối tượng
 core.manifest.must-be-bool = phải là true hoặc false
 core.manifest.must-be-string-array = phải là mảng chuỗi
 core.manifest.string-entries = mỗi phần tử phải là chuỗi dài 1 đến 200 ký tự
+core.manifest.probe-paths-count = chỉ được khai báo tối đa {0} đường dẫn probe
+core.manifest.probe-path-invalid = '{0}' phải là đường dẫn tuyệt đối trên máy này (có ổ đĩa, không có '..', không phải thư mục mạng); biến %NAME% phải tồn tại trên máy
 core.manifest.required-string = bắt buộc, một chuỗi
 core.manifest.length-range = phải dài từ {0} đến {1} ký tự
 
@@ -65,3 +67,6 @@ core.command.version-host = Rigbay {0}
 core.command.version-abstractions = Rigbay.Abstractions {0}
 core.command.version-api = API host {0}
 core.command.no-modules = Chưa cài module nào
+
+# Hiện cùng các khai báo của module (trang Modules, hộp thoại bật) khi module có probePaths.
+core.requires.outside-files = Đọc tệp ngoài thư mục của nó

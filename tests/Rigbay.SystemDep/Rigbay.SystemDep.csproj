@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A library whose assembly name starts with "System." and that the host does not contain (like System.Management).
+       The faulty test module ships it; the loader must find it in the module folder or a probe path. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>System.Rigbay.OnlyHere</AssemblyName>
+    <RootNamespace>Rigbay.SystemDep</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>
