@@ -703,6 +703,39 @@ Exit code 0 ok, 1 errors (unknown keys, placeholder mismatches, keys outside `mo
 file; with `--strict` also missing and unused keys), 2 bad usage. The same function is `LangCheck.Check(...)` for the
 app's own `--langcheck` switch.
 
+*Dynamic keys.* Some keys are built at run time (`Host.T("core.install.phase." + phase)`), so no string literal spells them and
+`--strict` would report them unused. Declare them in an optional `langcheck.json` **next to the `.lang` files** (it is not a
+`.lang` file, so the loader, the embedding and the module zip ignore it):
+
+```json
+{
+  // comments and trailing commas are allowed
+  "dynamic": [
+    "core.install.phase.*",        // a family: every key that starts with core.install.phase.
+    "modules.update-available"     // one exact key
+  ]
+}
+```
+
+- An entry is a full key, or a prefix that ends in `.*`. In a module's folder an entry may leave out `module.<id>.`
+  (`"mode.*"` covers `module.<id>.mode.a`) or spell the full key.
+- It only silences the *unused* warning. Missing translations, unknown keys, placeholder mismatches and the prefix rule still apply.
+- **Strict stays strong:** a key that matches no declaration and no literal is still unused; an entry that matches no English key is an
+  error (a stale declaration, exit 1 even without `--strict`); so is a malformed file (unknown property, `*` anywhere but the end,
+  not JSON).
+- The tool reads it; the app's `--langcheck` (which has no source to scan, so never reports unused keys) does not need it.
+- Tests: `tests/Rigbay.LangCheck.Tests`.
+
+Strict check of every lang folder in the repository (each exits 0):
+
+```
+dotnet run --project src/Rigbay.LangCheck -- src/Rigbay.Core/lang --source src/Rigbay.Core --strict
+dotnet run --project src/Rigbay.LangCheck -- src/Rigbay.App/lang  --source src/Rigbay.App  --strict
+dotnet run --project src/Rigbay.LangCheck -- samples/Rigbay.SampleModule/lang --module sample --source samples/Rigbay.SampleModule --strict
+dotnet run --project src/Rigbay.LangCheck -- modules/<name>/.../lang --module <id> --source modules/<name>/... --strict   # predatorsense, recorder, steam-bypass, xtu
+dotnet run --project src/Rigbay.LangCheck -- tools/demo-modules/modules/demo-<x>/lang --module demo-<x> --source tools/demo-modules --strict
+```
+
 **Tests.** `dotnet test Rigbay.sln` builds `samples/Rigbay.SampleModule` and `tests/Rigbay.FaultyModule` (a module that
 misbehaves as `behavior.txt` says), copies their output folders, and loads them through the real loader. `TestEnv` in
 `tests/Rigbay.Core.Tests` shows how to host a module folder from a unit test.

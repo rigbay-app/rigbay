@@ -1,0 +1,6 @@
+{
+  // keys the source builds at run time
+  "dynamic": [
+    "core.install.phase.*"   // Host.T("core.install.phase." + phase), one key per install phase
+  ]
+}

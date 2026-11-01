@@ -7,7 +7,9 @@ own repository and can be installed, updated or removed from inside the app.
 Status: **pre-release (v0.1.0).** The host app, the module contract and the core run and are tested; the first modules (XTU profiles, PredatorSense,
 recorder, Steam access) are released separately. See Install below.
 
-<!-- screenshots: docs/spike and tools/shots hold the current renders -->
+![Rigbay dashboard with the demo modules, dark theme](tools/shots/hero-dark.png)
+
+<sub>Screenshots are rendered from the app window by `tools/shots.ps1` against the demo modules of this repository, not real hardware modules. Light theme and Vietnamese versions are in `tools/shots/` (for example `dashboard-light.png`, `dashboard-vi-dark.png`).</sub>
 
 ## Install
 
@@ -27,7 +29,7 @@ settings unless you add `-RemoveData`. Details, the first run, troubleshooting a
 | --- | --- | --- |
 | ![Dashboard](tools/shots/dashboard-dark.png) | ![Turn on dialog](tools/shots/requires-dark.png) | ![Hardware confirmation](tools/shots/approval-dark.png) |
 
-The screenshots show the demo modules of this repository, not real hardware modules.
+The same three screens in the light theme: [dashboard](tools/shots/dashboard-light.png), [turn-on dialog](tools/shots/requires-light.png), [hardware confirmation](tools/shots/approval-light.png). Vietnamese: [dashboard](tools/shots/dashboard-vi-dark.png), [a module page](tools/shots/module-vi-dark.png).
 
 ## Why
 
