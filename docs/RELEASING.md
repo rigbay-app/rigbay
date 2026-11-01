@@ -171,3 +171,4 @@ The release on GitHub can stay, marked as such in its notes.
 - The check inside the zip for "no path of this machine" cannot read an embedded PDB (it is compressed). The path map does the job there, and `-CheckReproducible` proves it
   (two clones in different folders give the same bytes only if no clone path is in any file).
 - The registry check's pull-request-only step (`--base`) had never run before PR #1; it ran and passed.
+- `verify-module-zip` cannot delete its scratch folder `%TEMP%\rigbay-verify-*` at the end (the module DLLs it loaded stay mapped until the process exits). Delete those folders afterwards; nothing else is left behind (`%TEMP%\rb-pkg` is removed by `package-module.ps1`).
