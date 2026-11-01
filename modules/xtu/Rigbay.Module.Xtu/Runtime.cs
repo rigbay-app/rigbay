@@ -294,12 +294,8 @@ internal sealed partial class XtuRuntime : IDisposable
     }
 
     /// <summary>
-    /// Asks the host to redraw the page after the profile list changed. Until the host has this call (task A8) the list on the
-    /// page only changes when the module is turned off and on; the message says so.
+    /// Asks the host to build the page again after the profile list or a profile's values changed (the choices, the hotkey
+    /// rows and the expanders of your own profiles are made from the list when the page is built).
     /// </summary>
-    private void RequestPageRefresh()
-    {
-        _host.Log.Debug("page refresh requested (host call not available yet)");
-        SetMessage(LocalisedText.Of("msg.list-changed"));
-    }
+    private void RequestPageRefresh() => _host.RequestPageRefresh();
 }

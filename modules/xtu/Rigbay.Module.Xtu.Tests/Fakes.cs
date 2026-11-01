@@ -332,5 +332,7 @@ internal sealed class FakeHost : IHostServices
     public IMetricsBus Metrics => FakeMetrics;
     public readonly FakeApproval FakeApproval = new();
     public IHardwareApproval Approval => FakeApproval;
+    public int Refreshes;
+    public void RequestPageRefresh() => Refreshes++;
     public void RunOnUi(Action action) => action();
 }

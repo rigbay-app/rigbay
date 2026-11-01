@@ -17,7 +17,7 @@ Names are exact, line numbers left out on purpose. Everything is `internal` exce
 | `Hotkeys.cs` | `HotkeyPolicy.Refuse`, `ReadXtuCombos`, `PairingOn`, `ActionId` |
 | `System.cs` | `XtuPaths` (Intel folder, ProgramData folder), `ISystemProbe` and `WindowsSystemProbe` (CPU vendor from the registry, `ServiceController`, Fast Startup flag, `GetSystemPowerStatus`), `ProbeLogic`, `WindowsPowerEnvironment` (`SystemEvents.PowerModeChanged`, all exceptions caught) |
 | `Commands.cs` | `XtuCommands`: `status` (same lines as the old CLI), `list`, `apply <name>` |
-| `Settings.cs` | `XtuSettings`, `Text.Literal` (the single place for the `=` literal-text key) |
+| `Settings.cs` | `XtuSettings` (the settings object the host serialises) |
 | `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |
 | `Page.cs` | `XtuRuntime` page side: observable values, `ShowState`, `OnProfileChosen`, `OnAutoSettingChanged`, `RegisterProfileEntries`/`GuardBinding` (hotkeys and tray), `BuildPage`, `NewProfileRow`/`CreateAsync`, `CustomProfileRow`/`DeleteAsync`, `ReloadAsync` |
 

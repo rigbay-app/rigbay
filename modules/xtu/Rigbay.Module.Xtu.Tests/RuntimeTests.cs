@@ -116,6 +116,7 @@ public class RuntimeTests
         Assert.Equal(ApplyService.EffectKey, choice.HardwareEffect!.DescriptionKey);
         Assert.Equal(new[] { "-", "p:Default (BIOS)", "p:PL55-60W", "p:PL35W" }, choice.Options.Select(o => o.Id));
         Assert.Equal("=PL55-60W  ·  PL1 55 W / PL2 60 W / 56 s", choice.Options[2].LabelKey);
+        Assert.True(Text.IsLiteral(choice.Options[2].LabelKey));       // the host shows it as it is
         Assert.NotNull(rig.Row<ToggleRow>("row.auto.header").HardwareEffect);
         Assert.NotNull(page.Summary);
         Assert.Equal(new[] { "cpu.temp", "cpu.power" }, page.Summary!.Readings!.Select(m => m.Value));
@@ -396,6 +397,7 @@ public class RuntimeProfileEditingTests
         Assert.Contains(rig.Runtime.Profiles, p => p.Name == "Quiet 30" && p.Kind == ProfileKind.Custom);
         Assert.Contains(rig.Host.FakeTray.Items.Values, t => t.TextKey == "=Quiet 30");
         Assert.Contains(rig.Host.FakeHotkeys.Registered, h => h.NameKey == "=Quiet 30");
+        Assert.True(rig.Host.Refreshes >= 1, "the host is asked to redraw the page");
     }
 
     [Theory]
@@ -434,6 +436,7 @@ public class RuntimeProfileEditingTests
         pl1.Value.Value = 45;
         Assert.Equal(45, rig.Host.FakeSettings.Load<XtuSettings>().Customs.Single().Pl1);
         Assert.Equal(45m, rig.Runtime.Profiles.Single(p => p.Name == "Mine").Pl1);
+        Assert.True(rig.Host.Refreshes >= 1);
         await Task.CompletedTask;
     }
 
@@ -455,6 +458,7 @@ public class RuntimeProfileEditingTests
         Assert.Equal("", saved.AcProfile);
         Assert.DoesNotContain(rig.Runtime.Profiles, p => p.Name == "Mine");
         Assert.DoesNotContain(rig.Host.FakeTray.Items.Values, t => t.TextKey == "=Mine");
+        Assert.True(rig.Host.Refreshes >= 1);
     }
 
     [Fact]

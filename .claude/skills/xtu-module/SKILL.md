@@ -51,8 +51,7 @@ Pure helpers: `Catalog` (list and active match), `ProfilesXml`, `Rules`, `Monito
   default; the first check runs on the timer, never inside `Initialize`.
 - **Hotkeys**: default unbound; a gesture without Ctrl or Alt, or one XTU's pairing uses (`uisettings.xml` `HotkeyPairingOn` + `xtu.hotkey.settings`), is refused and
   the previous one restored. Action ids `profile-<slug>`. Deleted profiles keep their hotkey registration (the host cannot unregister) but it finds nothing.
-- **Names on the page** go through `Text.Literal` (`=Name`). This needs host task A8; until it lands they render `module.xtu.=Name`. `RequestPageRefresh` in
-  `Page.cs`/`Runtime.cs` is the one place to call the host's refresh once it exists.
+- **Names on the page** go through `Rigbay.Abstractions.Text.Literal` (`=Name`, host task A8, merged). After a change to the profile list or a profile's values the module calls `IHostServices.RequestPageRefresh()` (`XtuRuntime.RequestPageRefresh`); the app redraw is task A7, so until it lands the open page keeps the old lists. The labels of the choices carry the values (`Name  ·  PL1 .. W / PL2 .. W / .. s`) because the host's approval text for a choice is its label.
 
 ## Recipes
 
@@ -78,7 +77,6 @@ assemblies on .NET 10, the fallback is design B of the spike (net48 helper proce
 - `xunit` only runs public test classes; public theory methods cannot take internal types as parameters (use strings and `Enum.Parse`).
 - `ProfileEntry` rows and observables outlive `Shutdown` (the instance is reused); handlers are wired once in the constructor, and `_suppressChoice` / `_suppressAuto`
   stop programmatic sets from looking like user edits (setting the saved auto-switch values in `Start` once reset them to empty).
-- The host cannot show a page redraw yet: a created or deleted profile is visible in the lists after turning the module off and on.
 - `System.Security.Cryptography.Xml` (transitive of the WCF package) triggers NU1902/NU1903; it is excluded from the output and the warnings are not errors.
 
 ## Verified vs not verified (see `docs/xtu/README.md` for the record)

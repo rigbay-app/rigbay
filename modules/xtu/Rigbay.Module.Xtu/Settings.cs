@@ -22,10 +22,3 @@ public sealed class XtuSettings
     /// <summary>Publish per-core temperature, clock, voltage and usage on the metrics bus too (32 more readings).</summary>
     public bool PublishPerCore { get; set; }
 }
-
-internal static class Text
-{
-    // The host reads a key that starts with '=' as literal text (task A8: Text.Literal in Rigbay.Abstractions). Until that
-    // lands, a profile name shown through a key looks like "module.xtu.=Name". This is the single place to change.
-    public static string Literal(string text) => "=" + text;
-}

@@ -110,7 +110,7 @@ WCF client packages (`System.ServiceModel.*`, about 2.7 MB); no Intel file.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, XTU 7.14.2.135, elevated, `no-write.flag` present, nothing written)
 
-- `dotnet test` for the module: **148 passed**. LangCheck `--strict`: ok, 133 keys, English and Vietnamese complete.
+- `dotnet test` for the module: **148 passed**. LangCheck `--strict`: ok, 132 keys, English and Vietnamese complete.
 - The real app (`Rigbay.App`, published from this branch) loaded the module from a folder with no Intel file in it; the loader found
   `XtuInterface.dll` and `XtuCommon.dll` through `probePaths` (no resolver code in the module), the probe said supported, the module enabled and
   stopped cleanly, no fault in `rigbay.log`; the log says `writes are switched OFF (no-write.flag)`.
@@ -134,15 +134,16 @@ WCF client packages (`System.ServiceModel.*`, about 2.7 MB); no Intel file.
   exercised), refusing XTU's own combinations with a real `xtu.hotkey.settings`, plug and unplug, resume from sleep.
 - XTU stopped, restarted, or updated while the module runs; the probe outcomes with a real stopped service (tested with fakes).
 - High DPI above 100 % for the page (the dashboard shot was 144 dpi), a screen reader, keyboard use, real clicks.
-- Profile names on the page: until host task A8 (below) the choice, tray and hotkey labels show `module.xtu.=Name`; the screenshots show it.
+- The page redraw after creating, editing or deleting a profile: the module calls `IHostServices.RequestPageRefresh()` (tested with a fake host), but the app side that redraws (task A7) was not on main when this was checked, so the redraw itself was not seen. The tray menu and the hotkey list were not rendered at all.
 - A module repo build on a machine without XTU (needs the Intel DLLs).
 
-## Blocked on the host (agreed with the coordinator)
+## Host dependencies (agreed with the coordinator; A8 landed, A7 pending)
 
-1. **Literal text** (task A8): a key starting with `=` shown as that text. `Text.Literal` in `Settings.cs` is the single place to change; until then
-   profile names in choices, tray items and hotkey names render as `module.xtu.=Name`.
-2. **`RequestPageRefresh`** (A8, A7): the page is built once when the module is enabled, so a created or deleted profile appears in the lists
-   after the module is turned off and on. `XtuRuntime.RequestPageRefresh` is the one call to switch; it currently only tells the user.
+1. **Literal text** (A8, in): profile names go through `Text.Literal` (`=Name`) in choices, tray items, hotkey names and the expanders of your own
+   profiles. The page renders them correctly with the merged Core (`shots/page-dark.png`, `shots/approval-dark.png`); before A8 they showed as
+   `module.xtu.=Name`. The App side for the navigation pane, tray menu and hotkey list is A7.
+2. **`RequestPageRefresh`** (A8, in; the redraw is A7): the module calls it after Create, Delete, an edit of a custom profile and Reload. Until A7 the open
+   page does not redraw by itself; turn the module off and on to see a new list.
 
 ## The live apply test to ask the owner for (not done)
 

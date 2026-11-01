@@ -119,7 +119,6 @@ module.xtu.msg.auto-missing = Profile "{0}" cho {1} không còn.
 module.xtu.msg.none-yet = Chưa đổi gì.
 module.xtu.msg.created = Đã tạo {0}
 module.xtu.msg.deleted = Đã xoá {0}
-module.xtu.msg.list-changed = Danh sách profile đã đổi. Hãy tắt rồi bật lại module này để thấy trong các danh sách.
 module.xtu.reason.ac = Cắm sạc
 module.xtu.reason.battery = Dùng pin
 module.xtu.toast.title = Profile XTU

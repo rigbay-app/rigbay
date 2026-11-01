@@ -133,7 +133,6 @@ module.xtu.msg.auto-missing = Profile "{0}" for {1} no longer exists.
 module.xtu.msg.none-yet = No change made yet.
 module.xtu.msg.created = Created {0}
 module.xtu.msg.deleted = Deleted {0}
-module.xtu.msg.list-changed = The profile list changed. Turn this module off and on to see it in the lists.
 module.xtu.reason.ac = Plugged in
 module.xtu.reason.battery = On battery
 module.xtu.toast.title = XTU profiles
