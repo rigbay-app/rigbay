@@ -72,10 +72,12 @@ public sealed class F1Tests
         var root = FindRepoRoot();
         var bad = new List<string>();
         int files = 0;
-        foreach (var path in Directory.EnumerateFiles(root, "*.lang", SearchOption.AllDirectories))
+        // Walk the tree ourselves and never descend into generated or foreign folders: other worktrees under .claude, build
+        // output, tools\out (the app build and the e2e runs create admin-only folders there: enumerating them throws).
+        var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", ".claude", "bin", "obj", "out", "node_modules", "spike" };
+        foreach (var path in LangFiles(root, skip))
         {
             var rel = Path.GetRelativePath(root, path);
-            if (rel.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") || rel.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") || rel.StartsWith(".claude") || rel.StartsWith("spike")) continue;
             files++;
             var file = LanguageFile.ParseFile(path);
             bad.AddRange(file.Problems);   // includes a backslash that is not an escape
@@ -84,6 +86,21 @@ public sealed class F1Tests
         }
         Assert.True(files >= 10, "found only " + files + " language files");
         Assert.True(bad.Count == 0, string.Join(Environment.NewLine, bad));
+    }
+
+    private static IEnumerable<string> LangFiles(string dir, HashSet<string> skip)
+    {
+        string[] files;
+        string[] subs;
+        try { files = Directory.GetFiles(dir, "*.lang"); subs = Directory.GetDirectories(dir); }
+        catch (UnauthorizedAccessException) { yield break; }
+        catch (IOException) { yield break; }
+        foreach (var f in files) yield return f;
+        foreach (var s in subs)
+        {
+            if (skip.Contains(Path.GetFileName(s))) continue;
+            foreach (var f in LangFiles(s, skip)) yield return f;
+        }
     }
 
     // ---------------------------------------------------------------- module icons
