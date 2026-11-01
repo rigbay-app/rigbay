@@ -19,7 +19,7 @@ public sealed partial class PredatorSenseModule : IModule
     private readonly Func<TimeSpan, CancellationToken, Task>? _delay;
 
     // Values the page shows. They live as long as the instance, so enabling again after disabling works.
-    private readonly ObservableValue<string> _choice = new("auto");
+    private readonly ObservableValue<string> _choice = new(ChoiceNotSet);
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
     private readonly ObservableValue<string> _modelText = new("");
     private readonly ObservableValue<string> _lastSetText = new("");
@@ -40,6 +40,8 @@ public sealed partial class PredatorSenseModule : IModule
     private LastSet? _carried;
     private FanResult? _result;
     private bool _watching;
+    private bool _noPrevious;
+    private volatile bool _pageOffersNotSet;
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public PredatorSenseModule() : this(new MachineInfo(), () => new AcerWmi(), null, null) { }
@@ -230,8 +232,28 @@ public sealed partial class PredatorSenseModule : IModule
     {
         var fan = _fan;
         if (fan is null) return;
-        var wanted = _choice.Value == "max" ? FanMode.Max : FanMode.Auto;
-        if (wanted == (fan.Last?.Mode ?? FanMode.Auto)) return;   // our own sync, or nothing to do
+        var value = _choice.Value;
+
+        if (value == ChoiceNotSet)
+        {
+            // "Not set" is a state, not a value: nothing is written for it. It arrives from our own sync (nothing set yet), or from a
+            // Revert of the very first change, whose "previous" value is "Not set". Rigbay then does know what it set, so the row goes
+            // back to that and says there is no earlier mode to return to.
+            if (fan.Last is not null)
+            {
+                _host?.Log.Info("Fan mode: there is no earlier known mode to go back to; nothing was sent.");
+                _noPrevious = true;
+                _watching = false;
+                SyncChoice();
+                RefreshTexts();
+            }
+            return;
+        }
+
+        var wanted = value == ChoiceMax ? FanMode.Max : FanMode.Auto;
+        // Our own sync, or nothing to do. With nothing set yet, "Auto" is a real request: the firmware's mode is unknown.
+        if (fan.Last is { } last && wanted == last.Mode) return;
+        _noPrevious = false;
         _ = Task.Run(() => ApplyFromRowAsync(fan, wanted));
     }
 
@@ -254,17 +276,26 @@ public sealed partial class PredatorSenseModule : IModule
         }
     }
 
-    /// <summary>Makes the drop-down show what Rigbay last set (Auto when it has set nothing).</summary>
+    /// <summary>
+    /// Makes the drop-down show what Rigbay last set, or "Not set" while it has set nothing in this run. Once Rigbay has set a
+    /// mode, "Not set" is no longer a true description, so the page is rebuilt without that option.
+    /// </summary>
     private void SyncChoice()
     {
         var fan = _fan;
         if (fan is null) return;
-        _choice.Value = fan.Last?.Mode == FanMode.Max ? "max" : "auto";
+        _choice.Value = fan.Last is null ? ChoiceNotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
+        if (fan.Last is not null && _pageOffersNotSet)
+        {
+            _pageOffersNotSet = false;   // once; the rebuilt page asks the module again and finds the option gone
+            _host?.RequestPageRefresh();
+        }
     }
 
     private void ShowResult(FanResult result)
     {
         _result = result;
+        _noPrevious = false;
         _watching = false;
     }
 
