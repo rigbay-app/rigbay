@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Steam access module for Rigbay (id steam-bypass). In the host repository it references Rigbay.Abstractions by project;
+    in its own repository replace that ProjectReference by
+      <PackageReference Include="Rigbay.Abstractions" Version="0.1.*" ExcludeAssets="runtime" />
+    Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy.
+    No other package is used: the registry, sockets, HttpClient and System.Text.Json are all in the shared framework.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.SteamBypass</RootNamespace>
+    <AssemblyName>Rigbay.SteamBypass</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute"><_Parameter1>windows</_Parameter1></AssemblyAttribute>
+    <InternalsVisibleTo Include="Rigbay.SteamBypass.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="..\..\steam-domains.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+  </ItemGroup>
+
+</Project>
