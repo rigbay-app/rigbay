@@ -65,6 +65,27 @@ public interface IHostServices
     /// A fault in <c>GetPageModel</c> during a refresh disables the module like any other fault.
     /// </summary>
     void RequestPageRefresh();
+
+    /// <summary>
+    /// True while the host shows this module's page (set by the app through the host). A module that polls hardware can
+    /// poll at the fast rate while this is true and at a slow rate otherwise: <c>PageVisible.Changed</c> says when to
+    /// switch. Combine it with <see cref="IMetricsBus.SubscriberCount"/>: poll fast when the page is visible
+    /// <i>or</i> someone subscribes to a metric you publish. False while the module is off. Read the value in
+    /// <see cref="IModule.Initialize"/> (it is the current state), do not assume true. The module cannot set it:
+    /// a set from the module is ignored. <c>Changed</c> runs synchronously on the thread that sets the state, usually the
+    /// UI thread, inside this module's fault boundary: hand slow work to a background thread. A host that does not support
+    /// the signal returns a value that stays true.
+    /// </summary>
+    IObservableValue<bool> PageVisible => ConstantValue<bool>.True;
+}
+
+/// <summary>A value that is fixed: setting it does nothing. Used as the default of members a host may not implement.</summary>
+internal sealed class ConstantValue<T>(T value) : IObservableValue<T>
+{
+    public static readonly ConstantValue<bool> True = new(true);
+
+    public T Value { get => value; set { } }
+    public event Action? Changed { add { } remove { } }
 }
 
 /// <summary>

@@ -63,11 +63,11 @@ public class CoreFixesTests
         host.ApprovalPrompt = prompt;
 
         // Same values as the sample's rows, but marked as hardware changes.
-        var choice = rows.OfType<ChoiceRow>().Single() with { HardwareEffect = effect };
+        var choice = rows.OfType<ChoiceRow>().Single(r => r.HeaderKey == "row.mode.header") with { HardwareEffect = effect };
         Assert.Equal(EditOutcome.Applied, (await RowEditors.For(m, choice).SubmitAsync("fast")).Outcome);
         Assert.Equal(m.Localisation.T("mode.fast"), prompt.Requests[0].Detail);
 
-        var toggle = rows.OfType<ToggleRow>().Single() with { HardwareEffect = effect };
+        var toggle = rows.OfType<ToggleRow>().First() with { HardwareEffect = effect };
         Assert.Equal(EditOutcome.Applied, (await RowEditors.For(m, toggle).SubmitAsync(true)).Outcome);
         Assert.Equal(host.Languages.T("core.value.on"), prompt.Requests[1].Detail);
         host.Shutdown();

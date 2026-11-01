@@ -26,6 +26,13 @@ public sealed class SampleModule : IModule
     private readonly ObservableValue<string> _label = new("");
     private readonly ObservableValue<string> _status = new("");
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.line", 0));
+    private readonly ObservableValue<bool> _paused = new(false);
+
+    // Pretend hardware rows: they only hold a value, nothing on the machine changes. They show how the host asks before a
+    // hardware change and again before its revert (profile), and the opt-in that skips the second question (light).
+    private readonly ObservableValue<string> _profile = new("auto");
+    private readonly ObservableValue<bool> _light = new(false);
+    private bool _boost;
 
     // A list that changes while the module runs: the page is built once, so changing it asks the host for a new page.
     private readonly List<string> _devices = new() { "Sensor 1" };
@@ -34,6 +41,11 @@ public sealed class SampleModule : IModule
     private IHotkeyBinding? _hotkey;
     private Timer? _timer;
     private int _ticks;
+    private bool _fast = true; // the poll rate the timer runs at (see UpdatePollRate)
+
+    // The poll rate pattern: poll fast only while somebody can see the result, slow down otherwise.
+    private static readonly TimeSpan FastPoll = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan SlowPoll = TimeSpan.FromSeconds(10);
 
     // Constructors do nothing but set fields.
     public SampleModule() { }
@@ -70,9 +82,39 @@ public sealed class SampleModule : IModule
         host.Commands.Register("echo", "cmd.echo", ctx =>
             ctx.Args.Count == 0 ? CommandResult.Usage(host.Localisation.T("cmd.usage")) : CommandResult.Ok(string.Join(' ', ctx.Args)));
 
+        // Say once what the metric is called, so the dashboard can show "Ticks" instead of "sample.ticks".
+        host.Metrics.Describe(new MetricDescriptor(new MetricId(TicksMetric), "metric.ticks", MetricUnit.Count, "0"));
+
+        _paused.Changed += OnPausedChanged;
+
         UpdateStatus();
         // A thread of our own: exceptions on it are NOT caught by the host, so the callback catches them itself.
-        _timer = new Timer(OnTick, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        // The first tick comes after a second whatever the rate; the poll rate is adjusted after each tick.
+        _timer = new Timer(OnTick, null, FastPoll, FastPoll);
+        host.PageVisible.Changed += UpdatePollRate;
+        host.Metrics.SubscribersChanged += UpdatePollRate;
+    }
+
+    // Fast while the module's page is on screen or somebody subscribed to the metric (the dashboard does, so does a
+    // recorder); slow when nobody can see it. Both signals call this on the thread that changed them (often the UI
+    // thread): it only retimes the timer, which is cheap. Anything slow would be handed to another thread.
+    private void UpdatePollRate()
+    {
+        var host = _host;
+        var timer = _timer;
+        if (host is null || timer is null) return;
+        bool wanted = host.PageVisible.Value || host.Metrics.SubscriberCount(new MetricId(TicksMetric)) > 0;
+        if (wanted == _fast) return;
+        _fast = wanted;
+        var period = wanted ? FastPoll : SlowPoll;
+        try { timer.Change(wanted ? TimeSpan.Zero : period, period); } // zero: read now when somebody starts looking
+        catch (ObjectDisposedException) { /* shut down */ }
+    }
+
+    // Pausing takes the metric back instead of leaving the last number on the page: ReadingRow shows "not available".
+    private void OnPausedChanged()
+    {
+        if (_paused.Value) _host?.Metrics.Withdraw(new MetricId(TicksMetric));
     }
 
     public PageModel? GetPageModel(IHostServices host)
@@ -114,6 +156,26 @@ public sealed class SampleModule : IModule
                         HardwareEffect = new HardwareEffect("effect.limit"),
                     },
                     new ButtonRow("row.reset.header", "row.reset.button", ResetAsync) { DescriptionKey = "row.reset.description" },
+                    // Hardware rows. Every call that changes hardware is asked about, Revert included: reverting profile
+                    // from Maximum to Auto and back is asked with the exact old and new value. The light is harmless in
+                    // both directions, so it opts out of the second question with SafeRevert (default false).
+                    new ChoiceRow("row.profile.header", new[] { new ChoiceOption("auto", "profile.auto"), new ChoiceOption("max", "profile.max") }, _profile)
+                    {
+                        DescriptionKey = "row.profile.description",
+                        HardwareEffect = new HardwareEffect("effect.profile") { RevertDescriptionKey = "effect.profile.revert" },
+                    },
+                    new ToggleRow("row.light.header", _light)
+                    {
+                        DescriptionKey = "row.light.description",
+                        HardwareEffect = new HardwareEffect("effect.light") { SafeRevert = true },
+                    },
+                    new ButtonRow("row.boost.header", "row.boost.button", BoostAsync)
+                    {
+                        DescriptionKey = "row.boost.description",
+                        HardwareEffect = new HardwareEffect("effect.boost"),
+                        RevertAsync = BoostOffAsync,
+                        RevertButtonKey = "row.boost.revert",
+                    },
                     new ExpanderRow("row.more.header", new Row[]
                     {
                         new InfoRow(Severity.Info, "row.note.header") { DescriptionKey = "row.note.description" },
@@ -122,6 +184,7 @@ public sealed class SampleModule : IModule
                 new RowGroup("group.live", new Row[]
                 {
                     new ReadingRow("row.ticks.header", new MetricId(TicksMetric)) { DescriptionKey = "row.ticks.description", Decimals = 0 },
+                    new ToggleRow("row.pause.header", _paused) { DescriptionKey = "row.pause.description" },
                     new ValueRow("row.status.header", _status),
                     // Names the user or the machine decides are not UI wording: Text.Literal shows them as they are.
                     // The page is built once, so a list that changes asks the host for a new page (AddDeviceAsync).
@@ -138,6 +201,12 @@ public sealed class SampleModule : IModule
     {
         _timer?.Dispose();
         _timer = null;
+        if (_host is { } host)
+        {
+            host.PageVisible.Changed -= UpdatePollRate;
+            host.Metrics.SubscribersChanged -= UpdatePollRate;
+        }
+        _paused.Changed -= OnPausedChanged;
         _echo.Changed -= OnValueChanged;
         _mode.Changed -= OnValueChanged;
         _limit.Changed -= OnValueChanged;
@@ -158,8 +227,28 @@ public sealed class SampleModule : IModule
         return Task.FromResult(ActionResult.Ok());
     }
 
+    // Pretend hardware button: the host asks before it runs, and again before BoostOffAsync (its revert).
+    private Task<ActionResult> BoostAsync(CancellationToken cancellationToken)
+    {
+        _boost = true;
+        UpdateStatus();
+        return Task.FromResult(ActionResult.Ok(LocalisedText.Of("boost.on")));
+    }
+
+    private Task<ActionResult> BoostOffAsync(CancellationToken cancellationToken)
+    {
+        _boost = false;
+        UpdateStatus();
+        return Task.FromResult(ActionResult.Ok(LocalisedText.Of("boost.off")));
+    }
+
     private Task<ActionResult> ResetAsync(CancellationToken cancellationToken)
     {
+        _paused.Value = false;
+        _profile.Value = "auto";
+        _light.Value = false;
+        _boost = false;
+        UpdateStatus();
         _echo.Value = false;
         _mode.Value = "normal";
         _limit.Value = 45;
@@ -183,6 +272,8 @@ public sealed class SampleModule : IModule
         {
             var host = _host;
             if (host is null) return;
+            UpdatePollRate(); // also here, so the first tick settles the rate for a page that is not open
+            if (_paused.Value) return; // paused: the metric stays withdrawn
             int n = Interlocked.Increment(ref _ticks);
             host.Metrics.Publish(new MetricId(TicksMetric), n, MetricUnit.Count);
             _stateLine.Value = LocalisedText.Of("state.line", n);
@@ -193,5 +284,5 @@ public sealed class SampleModule : IModule
         }
     }
 
-    private void UpdateStatus() => _status.Value = $"{_mode.Value}, {_limit.Value:0} W" + (_echo.Value ? ", echo" : "");
+    private void UpdateStatus() => _status.Value = $"{_mode.Value}, {_limit.Value:0} W" + (_echo.Value ? ", echo" : "") + (_boost ? ", boost" : "");
 }

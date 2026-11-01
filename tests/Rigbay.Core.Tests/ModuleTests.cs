@@ -696,7 +696,7 @@ public class EditorTests
     {
         using var env = new TestEnv();
         var (host, m) = Start(env);
-        var row = m.Page!.EnumerateRows().OfType<ChoiceRow>().Single();
+        var row = m.Page!.EnumerateRows().OfType<ChoiceRow>().Single(r => r.HeaderKey == "row.mode.header");
         var editor = RowEditors.For(m, row);
         Assert.Equal(EditOutcome.Invalid, (await editor.SubmitAsync("warp")).Outcome);
         Assert.Equal("normal", row.Value.Value);
@@ -771,9 +771,14 @@ public class EditorTests
         Assert.Equal(55, row.Value.Value);
         Assert.Equal(2, prompt.Requests.Count);
 
-        Assert.Equal(EditOutcome.Applied, editor.Revert().Outcome);
+        // a revert is a hardware write too: the synchronous one cannot ask, so it refuses; RevertAsync asks (see HostGapTests)
+        Assert.Equal(EditOutcome.Declined, editor.Revert().Outcome);
+        Assert.Equal(55, row.Value.Value);
+        Assert.Equal(EditOutcome.Applied, (await editor.RevertAsync()).Outcome);
         Assert.Equal(45, row.Value.Value);
-        Assert.Equal(2, prompt.Requests.Count); // a revert is not asked about again
+        Assert.Equal(3, prompt.Requests.Count);
+        Assert.True(prompt.Requests[2].IsRevert);
+        Assert.Equal("Limit: 55 → 45", prompt.Requests[2].Detail);
         host.Shutdown();
     }
 

@@ -57,6 +57,10 @@ public sealed class FaultyModule : IModule
             case "metric-handler-throws":
                 host.Metrics.Subscribe(_ => throw new InvalidOperationException("metric handler blew up"));
                 break;
+            case "signals":
+            case "signal-throws":
+                InitSignals(host);
+                break;
         }
         host.Tray.Add(new TrayItem("faulty", "tray.faulty", () => { }));
         host.Commands.Register("ok", "cmd.ok", _ => CommandResult.Ok("fine"));
@@ -66,6 +70,55 @@ public sealed class FaultyModule : IModule
         {
             if (_behavior == "toggle-throws") throw new InvalidOperationException("toggle handler blew up");
         };
+    }
+
+    // behavior "signals": uses PageVisible, SubscribersChanged, SubscriberCount, Describe, Withdraw and Latest and reports
+    // through commands. "signal-throws" does the same but its PageVisible and SubscribersChanged handlers throw.
+    private readonly List<bool> _visibleChanges = new();
+    private int _subscriberChanges;
+    private bool _visibleAtInit;
+
+    private void InitSignals(IHostServices host)
+    {
+        bool throws = _behavior == "signal-throws";
+        var temp = new MetricId("faulty.temp");
+        _visibleAtInit = host.PageVisible.Value;
+        host.PageVisible.Changed += () =>
+        {
+            if (throws) throw new InvalidOperationException("page visible handler blew up");
+            lock (_visibleChanges) _visibleChanges.Add(host.PageVisible.Value);
+        };
+        host.Metrics.SubscribersChanged += () =>
+        {
+            if (throws) throw new InvalidOperationException("subscribers handler blew up");
+            Interlocked.Increment(ref _subscriberChanges);
+        };
+
+        // one label by module-relative key, one by literal text, one with a key the language file lacks
+        host.Metrics.Describe(new MetricDescriptor(temp, "metric.temp", MetricUnit.Celsius, "0.0"));
+        host.Metrics.Describe(new MetricDescriptor(new MetricId("faulty.fan"), Text.Literal("Fan 1"), MetricUnit.Rpm));
+        host.Metrics.Describe(new MetricDescriptor(new MetricId("faulty.nokey"), "metric.not-in-the-file"));
+
+        host.Commands.Register("signals", "cmd.signals", _ =>
+        {
+            string changes;
+            lock (_visibleChanges) changes = string.Join(",", _visibleChanges);
+            return CommandResult.Ok($"init={_visibleAtInit};visible={host.PageVisible.Value};changes={changes};subchanges={Volatile.Read(ref _subscriberChanges)};subs={host.Metrics.SubscriberCount(temp)}");
+        });
+        host.Commands.Register("publish", "cmd.publish", ctx =>
+        {
+            host.Metrics.Publish(new MetricId(ctx.Args[0]), double.Parse(ctx.Args[1], System.Globalization.CultureInfo.InvariantCulture), MetricUnit.Celsius);
+            return CommandResult.Ok("published");
+        });
+        host.Commands.Register("withdraw", "cmd.withdraw", ctx => { host.Metrics.Withdraw(new MetricId(ctx.Args[0])); return CommandResult.Ok("withdrawn"); });
+        host.Commands.Register("latest", "cmd.latest", ctx =>
+            CommandResult.Ok(host.Metrics.Latest(new MetricId(ctx.Args[0])) is { } s ? s.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "none"));
+        host.Commands.Register("set-visible", "cmd.set-visible", _ => { host.PageVisible.Value = !host.PageVisible.Value; return CommandResult.Ok("visible=" + host.PageVisible.Value); });
+        host.Commands.Register("listen", "cmd.listen", _ =>
+        {
+            host.Metrics.Subscribe(temp, _ => { }); // the module's own subscription: not counted for itself
+            return CommandResult.Ok("listening");
+        });
     }
 
     public PageModel? GetPageModel(IHostServices host)
