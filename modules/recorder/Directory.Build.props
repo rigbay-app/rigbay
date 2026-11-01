@@ -1,0 +1,13 @@
+<Project>
+  <!-- Self-contained on purpose: this folder moves to its own repository (module-recorder), so it must not
+       depend on the host repository's Directory.Build.props. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <Authors>Rigbay contributors</Authors>
+    <Copyright>MIT</Copyright>
+  </PropertyGroup>
+</Project>

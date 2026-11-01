@@ -1,0 +1,135 @@
+# Recorder module: English (the reference). Every key starts with module.recorder.
+@code = en
+@name = English
+
+# Shown on the enable row (override the manifest text)
+module.recorder.name = Recorder
+module.recorder.description = Records every metric the other modules publish into a CSV file, with a file next to it that says what each column is.
+
+# State: dashboard line and status row
+module.recorder.state.idle = Idle
+module.recorder.state.recording = Recording
+module.recorder.state.recording-line = Recording {0}
+
+# The module's own metric
+module.recorder.metric.rows = Rows recorded
+
+# Page groups
+module.recorder.group.recording = Recording
+module.recorder.group.metrics = Metrics to record
+module.recorder.group.history = History
+
+# Start and stop
+module.recorder.row.start.header = Start recording
+module.recorder.row.start.description = Writes the metrics you picked below to a new CSV file. It does not change anything on the machine.
+module.recorder.row.start.button = Start
+module.recorder.row.stop.header = Stop recording
+module.recorder.row.stop.description = Closes the file. Nothing is deleted.
+module.recorder.row.stop.button = Stop
+module.recorder.start.ok = Recording to {0}
+
+# Status
+module.recorder.row.state.header = State
+module.recorder.row.rows.header = Rows written
+module.recorder.row.rows.description = One row per period
+module.recorder.row.size.header = File size
+module.recorder.row.elapsed.header = Elapsed
+module.recorder.row.file.header = File
+module.recorder.row.file.description = The file being written, or the last one
+module.recorder.row.message.header = Last message
+module.recorder.row.message.description = Why the last recording ended, or why one could not start
+module.recorder.status.elapsed-of = {0} of {1}
+module.recorder.status.picked = {0} of {1} metrics selected
+
+# Options
+module.recorder.row.period.header = Time between rows
+module.recorder.row.period.description = Most sources refresh about once a second, so a shorter period would only repeat values.
+module.recorder.period.1 = 1 second
+module.recorder.period.2 = 2 seconds
+module.recorder.period.5 = 5 seconds
+module.recorder.period.10 = 10 seconds
+module.recorder.row.duration.header = Stop after
+module.recorder.row.duration.description = The recording ends by itself, and the file is closed.
+module.recorder.duration.0 = No limit
+module.recorder.duration.1 = 1 minute
+module.recorder.duration.5 = 5 minutes
+module.recorder.duration.10 = 10 minutes
+module.recorder.duration.15 = 15 minutes
+module.recorder.duration.30 = 30 minutes
+module.recorder.duration.60 = 1 hour
+module.recorder.duration.120 = 2 hours
+module.recorder.duration.240 = 4 hours
+module.recorder.row.folder.header = Folder
+module.recorder.row.folder.description = Where recordings are saved. Leave empty for the default.
+module.recorder.row.folder.placeholder = Documents\Rigbay\logs
+module.recorder.error.folder-absolute = Enter a full path such as D:\Logs, or leave it empty.
+module.recorder.row.open-folder.header = Open folder
+module.recorder.row.open-folder.description = Shows the recordings in File Explorer.
+module.recorder.row.open-folder.button = Open
+module.recorder.row.hotkey.header = Start and stop shortcut
+module.recorder.row.hotkey.description = Off until you set one. Starts a recording with the settings above, or stops the running one.
+
+# Metric picker
+module.recorder.row.no-metrics.header = No metrics yet
+module.recorder.row.no-metrics.description = No module is publishing readings. Turn on a module that reads sensors, then open this page again.
+module.recorder.row.picked.header = Selected
+module.recorder.row.picked.description = The set is fixed when a recording starts. Metrics a module publishes later are listed in the .meta.json, not in the file.
+module.recorder.row.pick-all.header = Select all
+module.recorder.row.pick-all.button = Select all
+module.recorder.row.pick-none.header = Clear selection
+module.recorder.row.pick-none.button = Clear
+
+# History
+module.recorder.row.history-empty.header = No recordings yet
+module.recorder.row.history-empty.description = Finished recordings in the folder show up here, newest first.
+module.recorder.row.history-open.button = Open
+
+# Why a recording ended or did not start
+module.recorder.ended.user = Stopped. {0} was saved with {1} rows.
+module.recorder.ended.duration = Time limit reached. {0} was saved with {1} rows.
+module.recorder.ended.disk-low = Stopped because less than 50 MB was free ({2} MB). {0} was saved with {1} rows.
+module.recorder.ended.write-error = Stopped because the file could not be written: {2}. {0} holds {1} rows.
+module.recorder.ended.module-stopped = Stopped because the module was turned off. {0} was saved with {1} rows.
+module.recorder.start.already = A recording is already running.
+module.recorder.start.bad-period = The time between rows must be at least 1 second.
+module.recorder.start.bad-duration = The time limit must be longer than zero.
+module.recorder.start.folder-failed = Could not open the folder {0}: {1}
+module.recorder.start.disk-low = Not enough free space on that drive: {0} MB free, at least {1} MB needed.
+module.recorder.start.unknown-metrics = These metrics are not on the bus: {0}
+module.recorder.start.no-metrics = There is nothing to record. No module is publishing a selected metric.
+module.recorder.start.file-failed = Could not create {0}: {1}
+module.recorder.start.failed = Could not start the recording: {0}
+module.recorder.stop.not-recording = Nothing is being recorded.
+module.recorder.open.failed = Could not open it: {0}
+
+# Notifications
+module.recorder.toast.title = Recorder
+module.recorder.toast.ended = Recording finished: {1} rows saved in {0}
+module.recorder.toast.disk-low = Recording stopped, disk almost full ({1} MB free). {0} was saved.
+module.recorder.toast.write-error = Recording stopped, the file could not be written: {1}
+
+# Tray and hotkey
+module.recorder.tray.start = Start recording
+module.recorder.tray.stop = Stop recording
+module.recorder.hotkey.toggle = Start or stop recording
+
+# Commands: rigbay recorder start | stop | status
+module.recorder.cmd.start = Start a recording: start [--every S] [--minutes N] [--metrics a,b]
+module.recorder.cmd.stop = Stop the recording and close the file
+module.recorder.cmd.status = Show whether a recording is running
+module.recorder.cmd.not-running = The recorder is not running.
+module.recorder.cmd.start-bad-argument = Cannot use: {0}
+module.recorder.cmd.start-usage = Usage: rigbay recorder start [--every SECONDS] [--minutes N] [--metrics id,id]\n  --every    seconds between rows, 1 to 3600 (default: the page setting)\n  --minutes  stop after N minutes, 0 for no limit (default: the page setting)\n  --metrics  only these metric ids (default: every metric that is selected on the page)
+module.recorder.cmd.limit-minutes = stops after {0} min
+module.recorder.cmd.limit-none = no time limit
+module.recorder.cmd.started = Recording to {0}\nOne row every {1} s, {2}. Stop with: rigbay recorder stop
+module.recorder.cmd.not-recording = Not recording.
+module.recorder.cmd.stop-pending = The recording is still closing.
+module.recorder.cmd.stopped = Stopped. {0}\n{1} rows, {2}.
+module.recorder.status.line-recording = Recording to {0}
+module.recorder.status.line-progress = {0} rows, {1}, elapsed {2}, one row every {3} s, {4} metrics
+module.recorder.status.line-limit = Stops in {0}
+module.recorder.status.line-late = {0} metrics appeared after the start and are not in the file
+module.recorder.status.line-idle = Not recording.
+module.recorder.status.line-last = Last recording: {0}\n{1} rows, {2}. {3}
+module.recorder.status.line-folder = Folder: {0}

@@ -1,0 +1,135 @@
+# Module Ghi dữ liệu: tiếng Việt. Mọi khóa bắt đầu bằng module.recorder.
+@code = vi
+@name = Tiếng Việt
+
+# Hiển thị ở hàng bật/tắt (thay cho văn bản trong manifest)
+module.recorder.name = Ghi dữ liệu
+module.recorder.description = Ghi mọi số đo mà các module khác công bố vào một tệp CSV, kèm một tệp bên cạnh mô tả từng cột.
+
+# Trạng thái: dòng trên bảng điều khiển và hàng trạng thái
+module.recorder.state.idle = Đang nghỉ
+module.recorder.state.recording = Đang ghi
+module.recorder.state.recording-line = Đang ghi {0}
+
+# Số đo riêng của module
+module.recorder.metric.rows = Số dòng đã ghi
+
+# Nhóm trên trang
+module.recorder.group.recording = Ghi
+module.recorder.group.metrics = Số đo cần ghi
+module.recorder.group.history = Lịch sử
+
+# Bắt đầu và dừng
+module.recorder.row.start.header = Bắt đầu ghi
+module.recorder.row.start.description = Ghi các số đo bạn chọn bên dưới vào một tệp CSV mới. Không thay đổi gì trên máy.
+module.recorder.row.start.button = Bắt đầu
+module.recorder.row.stop.header = Dừng ghi
+module.recorder.row.stop.description = Đóng tệp lại. Không xóa gì cả.
+module.recorder.row.stop.button = Dừng
+module.recorder.start.ok = Đang ghi vào {0}
+
+# Trạng thái
+module.recorder.row.state.header = Trạng thái
+module.recorder.row.rows.header = Số dòng đã ghi
+module.recorder.row.rows.description = Mỗi chu kỳ một dòng
+module.recorder.row.size.header = Dung lượng tệp
+module.recorder.row.elapsed.header = Đã chạy
+module.recorder.row.file.header = Tệp
+module.recorder.row.file.description = Tệp đang ghi, hoặc tệp gần nhất
+module.recorder.row.message.header = Thông báo gần nhất
+module.recorder.row.message.description = Vì sao lần ghi trước kết thúc, hoặc vì sao chưa bắt đầu được
+module.recorder.status.elapsed-of = {0} / {1}
+module.recorder.status.picked = Đã chọn {0} trong {1} số đo
+
+# Tùy chọn
+module.recorder.row.period.header = Khoảng cách giữa các dòng
+module.recorder.row.period.description = Hầu hết nguồn làm mới khoảng một lần mỗi giây, nên chu kỳ ngắn hơn chỉ lặp lại giá trị.
+module.recorder.period.1 = 1 giây
+module.recorder.period.2 = 2 giây
+module.recorder.period.5 = 5 giây
+module.recorder.period.10 = 10 giây
+module.recorder.row.duration.header = Tự dừng sau
+module.recorder.row.duration.description = Lần ghi tự kết thúc và tệp được đóng lại.
+module.recorder.duration.0 = Không giới hạn
+module.recorder.duration.1 = 1 phút
+module.recorder.duration.5 = 5 phút
+module.recorder.duration.10 = 10 phút
+module.recorder.duration.15 = 15 phút
+module.recorder.duration.30 = 30 phút
+module.recorder.duration.60 = 1 giờ
+module.recorder.duration.120 = 2 giờ
+module.recorder.duration.240 = 4 giờ
+module.recorder.row.folder.header = Thư mục
+module.recorder.row.folder.description = Nơi lưu các bản ghi. Để trống để dùng thư mục mặc định.
+module.recorder.row.folder.placeholder = Documents\Rigbay\logs
+module.recorder.error.folder-absolute = Nhập đường dẫn đầy đủ như D:\Logs, hoặc để trống.
+module.recorder.row.open-folder.header = Mở thư mục
+module.recorder.row.open-folder.description = Hiện các bản ghi trong File Explorer.
+module.recorder.row.open-folder.button = Mở
+module.recorder.row.hotkey.header = Phím tắt bắt đầu và dừng
+module.recorder.row.hotkey.description = Tắt cho đến khi bạn đặt phím. Bắt đầu ghi với các cài đặt ở trên, hoặc dừng lần ghi đang chạy.
+
+# Chọn số đo
+module.recorder.row.no-metrics.header = Chưa có số đo nào
+module.recorder.row.no-metrics.description = Chưa có module nào công bố số đo. Hãy bật một module đọc cảm biến, rồi mở lại trang này.
+module.recorder.row.picked.header = Đã chọn
+module.recorder.row.picked.description = Tập số đo được chốt khi bắt đầu ghi. Số đo mà module công bố sau đó chỉ được liệt kê trong .meta.json, không có trong tệp.
+module.recorder.row.pick-all.header = Chọn tất cả
+module.recorder.row.pick-all.button = Chọn tất cả
+module.recorder.row.pick-none.header = Bỏ chọn
+module.recorder.row.pick-none.button = Bỏ chọn
+
+# Lịch sử
+module.recorder.row.history-empty.header = Chưa có bản ghi nào
+module.recorder.row.history-empty.description = Các bản ghi đã xong trong thư mục sẽ hiện ở đây, mới nhất ở trên.
+module.recorder.row.history-open.button = Mở
+
+# Vì sao lần ghi kết thúc hoặc không bắt đầu
+module.recorder.ended.user = Đã dừng. {0} được lưu với {1} dòng.
+module.recorder.ended.duration = Đã hết thời gian giới hạn. {0} được lưu với {1} dòng.
+module.recorder.ended.disk-low = Đã dừng vì ổ đĩa còn dưới 50 MB ({2} MB). {0} được lưu với {1} dòng.
+module.recorder.ended.write-error = Đã dừng vì không ghi được tệp: {2}. {0} có {1} dòng.
+module.recorder.ended.module-stopped = Đã dừng vì module bị tắt. {0} được lưu với {1} dòng.
+module.recorder.start.already = Đang có một lần ghi chạy rồi.
+module.recorder.start.bad-period = Khoảng cách giữa các dòng phải từ 1 giây trở lên.
+module.recorder.start.bad-duration = Thời gian giới hạn phải lớn hơn không.
+module.recorder.start.folder-failed = Không mở được thư mục {0}: {1}
+module.recorder.start.disk-low = Ổ đĩa không đủ chỗ trống: còn {0} MB, cần ít nhất {1} MB.
+module.recorder.start.unknown-metrics = Các số đo này không có trên bus: {0}
+module.recorder.start.no-metrics = Không có gì để ghi. Chưa module nào công bố số đo đã chọn.
+module.recorder.start.file-failed = Không tạo được {0}: {1}
+module.recorder.start.failed = Không bắt đầu ghi được: {0}
+module.recorder.stop.not-recording = Không có lần ghi nào đang chạy.
+module.recorder.open.failed = Không mở được: {0}
+
+# Thông báo
+module.recorder.toast.title = Ghi dữ liệu
+module.recorder.toast.ended = Đã ghi xong: {1} dòng, lưu trong {0}
+module.recorder.toast.disk-low = Đã dừng ghi, ổ đĩa gần đầy (còn {1} MB). {0} đã được lưu.
+module.recorder.toast.write-error = Đã dừng ghi, không ghi được tệp: {1}
+
+# Khay hệ thống và phím tắt
+module.recorder.tray.start = Bắt đầu ghi
+module.recorder.tray.stop = Dừng ghi
+module.recorder.hotkey.toggle = Bắt đầu hoặc dừng ghi
+
+# Lệnh: rigbay recorder start | stop | status
+module.recorder.cmd.start = Bắt đầu ghi: start [--every S] [--minutes N] [--metrics a,b]
+module.recorder.cmd.stop = Dừng ghi và đóng tệp
+module.recorder.cmd.status = Cho biết có đang ghi hay không
+module.recorder.cmd.not-running = Module ghi dữ liệu chưa chạy.
+module.recorder.cmd.start-bad-argument = Không dùng được: {0}
+module.recorder.cmd.start-usage = Cách dùng: rigbay recorder start [--every GIÂY] [--minutes N] [--metrics id,id]\n  --every    số giây giữa các dòng, từ 1 đến 3600 (mặc định: cài đặt trên trang)\n  --minutes  tự dừng sau N phút, 0 là không giới hạn (mặc định: cài đặt trên trang)\n  --metrics  chỉ các số đo này (mặc định: mọi số đo được chọn trên trang)
+module.recorder.cmd.limit-minutes = tự dừng sau {0} phút
+module.recorder.cmd.limit-none = không giới hạn thời gian
+module.recorder.cmd.started = Đang ghi vào {0}\nMỗi {1} giây một dòng, {2}. Dừng bằng: rigbay recorder stop
+module.recorder.cmd.not-recording = Không có lần ghi nào đang chạy.
+module.recorder.cmd.stop-pending = Lần ghi vẫn đang đóng tệp.
+module.recorder.cmd.stopped = Đã dừng. {0}\n{1} dòng, {2}.
+module.recorder.status.line-recording = Đang ghi vào {0}
+module.recorder.status.line-progress = {0} dòng, {1}, đã chạy {2}, mỗi {3} giây một dòng, {4} số đo
+module.recorder.status.line-limit = Tự dừng sau {0}
+module.recorder.status.line-late = {0} số đo xuất hiện sau khi bắt đầu và không có trong tệp
+module.recorder.status.line-idle = Không có lần ghi nào đang chạy.
+module.recorder.status.line-last = Lần ghi gần nhất: {0}\n{1} dòng, {2}. {3}
+module.recorder.status.line-folder = Thư mục: {0}

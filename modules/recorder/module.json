@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "recorder",
+  "name": "Recorder",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Records every metric the other modules publish into a CSV file, with a file next to it that says what each column is.",
+  "entry": { "assembly": "Rigbay.Recorder.dll", "type": "Rigbay.Recorder.RecorderModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "monitoring",
+  "requires": {
+    "admin": false,
+    "network": [],
+    "registry": [
+      "HKLM\HARDWARE\DESCRIPTION\System\BIOS (read, machine make and model for the .meta.json)",
+      "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0 (read, processor name for the .meta.json)"
+    ],
+    "services": []
+  },
+  "languages": "lang"
+}

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The recorder module for Rigbay: writes the metrics bus to CSV. In the host repository it references Rigbay.Abstractions by
+    project; in its own repository replace that ProjectReference by
+      <PackageReference Include="Rigbay.Abstractions" Version="0.1.*" ExcludeAssets="runtime" />
+    Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy.
+    The module has no other dependency (System.Text.Json and the registry are part of the shared framework).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.Recorder</RootNamespace>
+    <AssemblyName>Rigbay.Recorder</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute"><_Parameter1>windows</_Parameter1></AssemblyAttribute>
+    <InternalsVisibleTo Include="Rigbay.Recorder.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+  </ItemGroup>
+
+</Project>
