@@ -8,10 +8,10 @@ param(
     [switch]$Wait,
     [string]$Modules = (Join-Path $PSScriptRoot 'out\modules'),
     [string]$Data = (Join-Path $PSScriptRoot 'out\data'),
+    [string]$AppDir,   # folder with Rigbay.App.exe; default tools\out\app (for example the app\ folder of an extracted release zip)
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$AppArgs
 )
-$dir = 'app'
-$exe = Join-Path $PSScriptRoot "out\$dir\Rigbay.App.exe"
+$exe = if ($AppDir) { Join-Path $AppDir 'Rigbay.App.exe' } else { Join-Path $PSScriptRoot 'out\app\Rigbay.App.exe' }
 if (-not (Test-Path $exe)) { throw "Not built: $exe (run .\build.ps1)" }
 New-Item -ItemType Directory -Force $Data | Out-Null
 $all = @('--data', $Data, '--modules', $Modules) + $AppArgs

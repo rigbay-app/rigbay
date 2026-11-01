@@ -219,11 +219,13 @@ download the asset and compare.
 All of this runs on a machine that must not be touched: everything goes to scratch folders and to test-named objects.
 
 - `dotnet build Rigbay.sln --no-incremental`, `dotnet test Rigbay.sln`, `tools\selftest.ps1` (elevated, UAC auto-elevates for an admin account).
-- The same `--selftest` with the exe **extracted from the zip** into another folder (copy the steps of `tools\selftest.ps1`, change the exe path).
+- The same `--selftest` with the exe **extracted from the zip** into another folder: `tools\selftest.ps1 -AppDir <extracted>\app`.
 - `install.ps1 -WhatIf` (not elevated), then for real with `-Root <scratch> -DataRoot <scratch> -ShortcutDir <scratch> -UninstallKeyRoot HKCU:\Software\<test> -TaskName <test name>`:
   install, upgrade over a running instance (it must be quit by the installer), the task XML equal to the one the app writes itself (`--task-name <other test name> --script startup:on`),
   `uninstall.ps1 -WhatIf`, uninstall (modules and settings kept), reinstall, `-RemoveData`, a non-empty foreign folder refused, and both scripts from a non-elevated shell (they open an elevated one; `-NoPause` closes it).
   Never use the real names (`C:\Program Files\Rigbay`, the task `Rigbay`, the real Start menu) on a machine you work on; the test switches exist for that.
+- All of the install/uninstall steps above are scripted in `tools\test-installer.ps1` (scratch folders and test names only, 28 checks): run the elevated part with `tools\e2e\invoke-elevated.ps1 -File tools\test-installer.ps1 -Arguments @('-ZipDir', '<extracted zip>')` (24 checks) and the non-elevated part from a normal shell with `tools\test-installer.ps1 -ZipDir <extracted zip> -Unelevated` (4 checks); remove the admin-only scratch folder afterwards with `tools\remove-elevated.ps1 tools\out\installer-test`.
+- The end-to-end flow against the extracted zip: `tools\e2e\run.ps1 -AppDir <extracted>\app`; against the released asset: `tools\e2e\run.ps1 -Tag v<version>` (it downloads the asset).
 - `tools\stop-elevated.ps1` afterwards, and `tools\remove-elevated.ps1 <folder under tools\out>` for scratch folders the installer made admin-only.
 
 ### 11.4 Create the release
@@ -252,3 +254,11 @@ The release itself is [v0.1.0](https://github.com/rigbay-app/rigbay/releases/tag
 - The app got three switches for this: `--version`, `--uninstall-cleanup [--keep-task]` (asks a running instance to quit through its pipe, waits up to 30 s, removes the logon task) and
   `--task-name <name>` (tests only; keeps the real task `Rigbay` out of reach). `--uninstall-cleanup` talks to **whichever** instance owns the user's pipe, so the scripts call it only
   when a `Rigbay.App` process runs from the install folder.
+
+### 11.6 Notes from the second run (v0.1.1)
+
+- Release [v0.1.1](https://github.com/rigbay-app/rigbay/releases/tag/v0.1.1), built from `bb26d17`; the notes list what was verified. The zip came out the same from two clean clones of GitHub `main`.
+- `git push` from this machine hangs on a Git Credential Manager window nobody sees; use `git -c credential.helper= -c "credential.helper=!gh auth git-credential" push`.
+- The E2E flow had literals that go stale when a module is released: it expected `PredatorSense 0.1.0 was installed` and a size written with `N0` while the page prints `FormatSize` (`0.#`). The registry listed PredatorSense 0.1.1 by then, so the first run from the zip gave 71 of 74. The flow now reads the newest version from the registry and formats the size like the page; 74 of 74 in dark and light, from the extracted zip and from the released asset.
+- `tools\test-installer.ps1` is the scripted version of section 11.3. `Test-Path` on a path below an administrators-only folder throws "Access is denied" in a normal shell: a non-elevated check can only look at paths outside it.
+- A commit made after packaging (tools, documentation) does not belong to the zip; the release points at the commit the zip was built from.

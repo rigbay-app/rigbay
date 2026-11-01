@@ -78,6 +78,8 @@ Stop-MyApps
 $registry = $null
 try { $registry = Invoke-RestMethod 'https://raw.githubusercontent.com/rigbay-app/registry/main/registry.json' -UseBasicParsing } catch { Say "could not read the registry directly for comparison: $_" }
 $regOf = @{}; if ($registry) { foreach ($m in $registry.modules) { $regOf[$m.id] = $m } }
+# the version of a module the app installs is the newest one the registry lists (a module release after this script was written must not break it)
+function RegVersion([string]$id, [string]$fallback = '0.1.0') { if ($regOf.ContainsKey($id)) { [string]$regOf[$id].versions[-1].version } else { $fallback } }
 
 try {
     # ------------------------------------------------------------ 1. first start
@@ -106,7 +108,7 @@ try {
     foreach ($id in 'predatorsense', 'recorder', 'steam-bypass', 'xtu') { Check "registry entry $id exists on GitHub" ($regOf.ContainsKey($id)) }
     if ($regOf.ContainsKey('predatorsense')) {
         $v = $regOf['predatorsense'].versions[-1]
-        Check 'PredatorSense row: size and declared needs match the registry' ((Has $w 'Needs administrator') -and (Has $w ('{0:N0} KB' -f ($v.size / 1024)) )) ("size {0} bytes" -f $v.size)
+        Check 'PredatorSense row: size and declared needs match the registry' ((Has $w 'Needs administrator') -and (Has $w (($v.size / 1024.0).ToString('0.#', [Globalization.CultureInfo]::CurrentCulture) + ' KB'))) ("size {0} bytes" -f $v.size)
     }
     Shot $w '02-module-list'
     [void](Find-El $w 'PredatorSense' $script:CT::Button 3)
@@ -182,7 +184,7 @@ try {
     Shot $w '08-after-restart-dashboard'
     Check 'modules\ now holds both, ready\ and pending are empty' (((Names $mods) -contains 'recorder') -and ((Names $mods) -contains 'predatorsense') -and ((Names (Join-Path $inst 'ready')).Count -eq 0) -and ((@((Pend).ops)).Count -eq 0)) ((Names $mods) -join ',')
     Nav $w 'Modules'
-    Check 'Modules page reports what the start applied, both installed turned off' ((Has $w 'At the last start') -and (Has $w 'Recorder 0.1.0 was installed') -and (Has $w 'PredatorSense 0.1.0 was installed'))
+    Check 'Modules page reports what the start applied, both installed turned off' ((Has $w 'At the last start') -and (Has $w ('Recorder ' + (RegVersion 'recorder') + ' was installed')) -and (Has $w ('PredatorSense ' + (RegVersion 'predatorsense') + ' was installed')))
     Check 'both switches are off' (-not (Get-Toggle (Find-El $w 'Enable PredatorSense' $script:CT::Button)) -and -not (Get-Toggle (Find-El $w 'Enable Recorder' $script:CT::Button)))
     Check 'host.json: nothing is enabled yet' ((Enabled).Count -eq 0)
     Shot $w '09-after-restart-modules'
@@ -255,7 +257,7 @@ try {
         $bytes = [IO.File]::ReadAllBytes($csv[0].FullName)
         Check 'CSV is UTF-8 without a BOM' (-not ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF))
         $meta = Json ($csv[0].FullName -replace '\.csv$', '.meta.json')
-        Check '.meta.json: rows equals the CSV, stop reason "user", no error, the machine and both module versions' (($meta.rows -eq $rows.Count) -and $meta.stop_reason -eq 'user' -and -not $meta.error -and $meta.machine.model -and $meta.modules.predatorsense -eq '0.1.0' -and $meta.modules.recorder -eq '0.1.0') ("rows=$($meta.rows) model=$($meta.machine.model)")
+        Check '.meta.json: rows equals the CSV, stop reason "user", no error, the machine and both module versions' (($meta.rows -eq $rows.Count) -and $meta.stop_reason -eq 'user' -and -not $meta.error -and $meta.machine.model -and $meta.modules.predatorsense -eq (RegVersion 'predatorsense') -and $meta.modules.recorder -eq (RegVersion 'recorder')) ("rows=$($meta.rows) model=$($meta.machine.model)")
         Check '.meta.json: the degree sign in the unit is real UTF-8' ((@($meta.columns | Where-Object { $_.unit -eq ([string][char]0xB0 + 'C') })).Count -eq 3)
         Copy-Item $csv[0].FullName (Join-Path $Out "$Theme-recording.csv")
         Copy-Item ($csv[0].FullName -replace '\.csv$', '.meta.json') (Join-Path $Out "$Theme-recording.meta.json")
