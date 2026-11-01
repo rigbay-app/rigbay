@@ -1,0 +1,16 @@
+@code = en
+@name = English
+bays = Modules
+empty_bay = Empty bay
+empty_bay_hint = Put a module folder in the modules directory and restart.
+state_ready = Ready
+state_unsupported = Not supported
+state_failed = Failed
+failed_title = This module failed
+unsupported_title = Not supported on this machine
+no_modules_title = No modules found
+no_modules_body = Looked in {0}. Each module is a folder with a DLL of the same name.
+status_elevated = Administrator
+status_not_elevated = Not elevated
+dashboard = Dashboard
+search = Search modules and settings

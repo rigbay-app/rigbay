@@ -1,0 +1,16 @@
+@code = vi
+@name = Tiếng Việt
+bays = Module
+empty_bay = Ngăn trống
+empty_bay_hint = Đặt thư mục module vào thư mục modules rồi khởi động lại.
+state_ready = Sẵn sàng
+state_unsupported = Không hỗ trợ
+state_failed = Lỗi
+failed_title = Module này bị lỗi
+unsupported_title = Máy này không hỗ trợ
+no_modules_title = Không tìm thấy module
+no_modules_body = Đã tìm trong {0}. Mỗi module là một thư mục chứa DLL cùng tên.
+status_elevated = Quản trị viên
+status_not_elevated = Chưa nâng quyền
+dashboard = Tổng quan
+search = Tìm module và cài đặt
