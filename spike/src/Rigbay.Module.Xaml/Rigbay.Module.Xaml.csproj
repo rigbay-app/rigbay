@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <RootNamespace>Rigbay.Module.Xaml</RootNamespace>
+  </PropertyGroup>
+  <!-- The XAML compiler leaves the compiled pages (.xbf) in obj only. Ship them in the module folder so
+       the module can load them by a module-relative ms-appx path (see SamplePage.xaml.cs). -->
+  <Target Name="ShipXbf" AfterTargets="Build">
+    <ItemGroup><XbfFiles Include="$(ProjectDir)$(IntermediateOutputPath)*.xbf" /></ItemGroup>
+    <Copy SourceFiles="@(XbfFiles)" DestinationFolder="$(OutDir)$(RootNamespace)" />
+  </Target>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(WinAppSdkVersion)" />
+    <ProjectReference Include="..\Rigbay.Abstractions\Rigbay.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
