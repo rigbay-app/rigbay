@@ -24,8 +24,6 @@ module.predatorsense.sensor.cpu-fan = CPU fan
 module.predatorsense.sensor.gpu-fan1 = GPU fan 1
 module.predatorsense.sensor.gpu-fan2 = GPU fan 2
 module.predatorsense.row.cpu-temp.description = The Acer firmware sensor. It can read about 10 °C above the Windows thermal zone: they are different sensors.
-module.predatorsense.row.unavailable.header = Readings are not available
-module.predatorsense.row.unavailable.description = The sensors could not be read 5 times in a row, so the numbers below may be old and fan changes are off. Rigbay keeps trying.
 module.predatorsense.row.model.header = Machine
 module.predatorsense.row.model.description = As the firmware reports it
 module.predatorsense.model.unknown = Unknown
@@ -36,6 +34,7 @@ module.predatorsense.row.fan-mode.description = Maximum runs all fans at full sp
 module.predatorsense.fan.auto = Auto
 module.predatorsense.fan.max = Maximum
 module.predatorsense.effect.fan-mode = Maximum runs all fans at full speed and is loud. Auto hands the fans back to the laptop's firmware.
+module.predatorsense.effect.fan-mode-revert = Puts the fans back to the previous mode: Maximum runs all fans at full speed and is loud, Auto hands them back to the laptop's firmware.
 module.predatorsense.row.last-set.header = Last set by Rigbay
 module.predatorsense.row.last-set.description = The laptop cannot report its fan mode, and PredatorSense may change it without telling Rigbay.
 module.predatorsense.last.none = Nothing yet
@@ -60,7 +59,7 @@ module.predatorsense.check.no-answer = The laptop did not answer in time
 
 # Settings
 module.predatorsense.row.poll.header = Read the sensors every
-module.predatorsense.row.poll.description = While the readings are being watched. One read takes about 11 ms.
+module.predatorsense.row.poll.description = While this page is open or something shows the readings (the dashboard, a recorder). Otherwise every 10 s. One read takes about 11 ms.
 module.predatorsense.row.restore.header = Restore Auto when Rigbay stops
 module.predatorsense.row.restore.description = If Rigbay set Maximum, put the fans back to Auto when the module is turned off or Rigbay closes.
 module.predatorsense.row.hotkey.header = Fan shortcut

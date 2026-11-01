@@ -254,7 +254,7 @@ internal sealed partial class XtuRuntime
             new ChoiceRow("row.profile.header", options, _selected)
             {
                 DescriptionKey = "row.profile.description",
-                HardwareEffect = new HardwareEffect(ApplyService.EffectKey),
+                HardwareEffect = new HardwareEffect(ApplyService.EffectKey) { RevertDescriptionKey = "effect.apply-profile-revert" },   // no SafeRevert: a revert can raise the limits, so it is asked about
                 Enabled = _profileEnabled,
             },
             new ValueRow("row.status.header", _message),
@@ -283,17 +283,17 @@ internal sealed partial class XtuRuntime
             new ToggleRow("row.auto.header", _autoSwitch)
             {
                 DescriptionKey = "row.auto.description",
-                HardwareEffect = new HardwareEffect("effect.auto-switch"),
+                HardwareEffect = new HardwareEffect("effect.auto-switch") { RevertDescriptionKey = "effect.auto-switch-revert" },
             },
             new ChoiceRow("row.ac.header", autoOptions, _acChoice)
             {
                 DescriptionKey = "row.ac.description",
-                HardwareEffect = new HardwareEffect("effect.auto-choice"),
+                HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
             },
             new ChoiceRow("row.battery.header", autoOptions, _batChoice)
             {
                 DescriptionKey = "row.battery.description",
-                HardwareEffect = new HardwareEffect("effect.auto-choice"),
+                HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
             },
             new ValueRow("row.power-now.header", _powerNow),
         });

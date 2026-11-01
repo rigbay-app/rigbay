@@ -80,6 +80,34 @@ internal sealed class FakeMetrics : IMetricsBus
     public IDisposable Subscribe(MetricId id, Action<MetricSample> handler) => new Nothing();
     public bool TryGetLatest(MetricId id, out MetricSample sample) { lock (_gate) return _latest.TryGetValue(id, out sample!); }
     public IReadOnlyList<MetricSample> GetLatest() { lock (_gate) return _latest.Values.ToList(); }
+
+    // ---- A9 members: withdraw, descriptors, subscriber count --------------------------------------------------------------
+    public readonly List<MetricId> Withdrawn = new();
+    public readonly List<MetricDescriptor> Descriptors = new();
+    private readonly Dictionary<MetricId, int> _subscribers = new();
+
+    public void Withdraw(MetricId id)
+    {
+        lock (_gate)
+        {
+            if (!_latest.Remove(id)) return;   // like the real bus: nothing current, nothing to withdraw
+            Withdrawn.Add(id);
+        }
+    }
+
+    public MetricSample? Latest(MetricId id) { lock (_gate) return _latest.TryGetValue(id, out var s) ? s : null; }
+    public void Describe(MetricDescriptor descriptor) { lock (_gate) Descriptors.Add(descriptor); }
+    public int SubscriberCount(MetricId id) { lock (_gate) return _subscribers.TryGetValue(id, out var n) ? n : 0; }
+    public event Action? SubscribersChanged;
+
+    /// <summary>Pretends a reader subscribed to (or left) a metric and raises <see cref="SubscribersChanged"/>.</summary>
+    public void SetSubscribers(MetricId id, int count)
+    {
+        lock (_gate) _subscribers[id] = count;
+        SubscribersChanged?.Invoke();
+    }
+
+    public bool HasSubscribersHandler => SubscribersChanged is not null;
     public List<(MetricId Id, double Value, MetricUnit Unit)> Snapshot() { lock (_gate) return Published.ToList(); }
 
     private sealed class Nothing : IDisposable { public void Dispose() { } }
@@ -244,6 +272,10 @@ internal sealed class FakeHost : IHostServices
     public IToastService Toast => ToastService;
     public IMetricsBus Metrics => MetricsBus;
     public IHardwareApproval Approval => ApprovalService;
+
+    /// <summary>The page-shown signal. A real host starts it false until the app shows the page.</summary>
+    public readonly ObservableValue<bool> PageVisibleValue = new(false);
+    public IObservableValue<bool> PageVisible => PageVisibleValue;
     public void RunOnUi(Action action) => action();
 
     /// <summary>Counts refresh requests (added when the contract gained RequestPageRefresh, task A8).</summary>

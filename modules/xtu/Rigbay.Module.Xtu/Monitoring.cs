@@ -45,6 +45,67 @@ internal static class XtuMetrics
     public static MetricId CoreFreq(int core) => new($"xtu.core{core}.clock");
     public static MetricId CoreVolt(int core) => new($"xtu.core{core}.volt");
     public static MetricId CoreUtil(int core) => new($"xtu.core{core}.usage");
+
+    /// <summary>The metrics the monitor sampler publishes without the per-core option (PL1 and PL2 come from the state refresh).</summary>
+    public static IReadOnlyList<MetricId> Monitored { get; } = new[]
+    {
+        CpuTemp, CpuPower, CpuClock, CpuUsage, CoreTempMax, CorePower, GfxPower, Uncore, ActiveCores, RefClock, MemSpeed, GfxFreq,
+        GfxTemp, GfxVolt, CacheVolt, SaVolt, ThrottleThermal, ThrottlePower, ThrottleCurrent, ThrottleVr,
+    };
+
+    /// <summary>The 32 per-core metrics (published only when the "Publish per-core readings" option is on).</summary>
+    public static IReadOnlyList<MetricId> PerCore { get; } = Enumerable.Range(0, Mon.Cores)
+        .SelectMany(i => new[] { CoreTemp(i), CoreFreq(i), CoreVolt(i), CoreUtil(i) }).ToArray();
+
+    /// <summary>Everything the module publishes, per-core ids included.</summary>
+    public static IReadOnlyList<MetricId> All { get; } = Monitored.Concat(PerCore).Append(Pl1).Append(Pl2).ToArray();
+
+    // Written out (not built from the core number) so the language checker sees every key used in the source.
+    // They come before Descriptors: static initialisers run in this order.
+    private static readonly string[] CoreTempKeys = { "metric.core0.temp", "metric.core1.temp", "metric.core2.temp", "metric.core3.temp", "metric.core4.temp", "metric.core5.temp", "metric.core6.temp", "metric.core7.temp" };
+    private static readonly string[] CoreClockKeys = { "metric.core0.clock", "metric.core1.clock", "metric.core2.clock", "metric.core3.clock", "metric.core4.clock", "metric.core5.clock", "metric.core6.clock", "metric.core7.clock" };
+    private static readonly string[] CoreVoltKeys = { "metric.core0.volt", "metric.core1.volt", "metric.core2.volt", "metric.core3.volt", "metric.core4.volt", "metric.core5.volt", "metric.core6.volt", "metric.core7.volt" };
+    private static readonly string[] CoreUsageKeys = { "metric.core0.usage", "metric.core1.usage", "metric.core2.usage", "metric.core3.usage", "metric.core4.usage", "metric.core5.usage", "metric.core6.usage", "metric.core7.usage" };
+
+    /// <summary>Label (module-relative language key), unit and format of every metric, for <see cref="IMetricsBus.Describe"/>.</summary>
+    public static IReadOnlyList<MetricDescriptor> Descriptors { get; } = BuildDescriptors();
+
+    private static IReadOnlyList<MetricDescriptor> BuildDescriptors()
+    {
+        var list = new List<MetricDescriptor>
+        {
+            new(CpuTemp, "metric.cpu-temp", MetricUnit.Celsius, "0"),
+            new(CpuPower, "metric.cpu-power", MetricUnit.Watt, "0.0"),
+            new(CpuUsage, "metric.cpu-usage", MetricUnit.Percent, "0"),
+            new(CpuClock, "metric.cpu-clock", MetricUnit.Megahertz, "0"),
+            new(Pl1, "metric.cpu-pl1", MetricUnit.Watt, "0"),
+            new(Pl2, "metric.cpu-pl2", MetricUnit.Watt, "0"),
+            new(CoreTempMax, "metric.core-temp-max", MetricUnit.Celsius, "0"),
+            new(CorePower, "metric.core-power", MetricUnit.Watt, "0.0"),
+            new(GfxPower, "metric.igpu-power", MetricUnit.Watt, "0.0"),
+            new(Uncore, "metric.uncore", MetricUnit.Megahertz, "0"),
+            new(ActiveCores, "metric.active-cores", MetricUnit.Count, "0"),
+            new(RefClock, "metric.ref-clock", MetricUnit.Megahertz, "0"),
+            new(MemSpeed, "metric.mem-speed", MetricUnit.None, "0"),
+            new(GfxFreq, "metric.igpu-clock", MetricUnit.Megahertz, "0"),
+            new(GfxTemp, "metric.igpu-temp", MetricUnit.Celsius, "0"),
+            new(GfxVolt, "metric.igpu-volt", MetricUnit.Volt, "0.000"),
+            new(CacheVolt, "metric.cache-volt", MetricUnit.Volt, "0.000"),
+            new(SaVolt, "metric.sa-volt", MetricUnit.Volt, "0.000"),
+            new(ThrottleThermal, "metric.throttle-thermal", MetricUnit.Percent, "0"),
+            new(ThrottlePower, "metric.throttle-power", MetricUnit.Percent, "0"),
+            new(ThrottleCurrent, "metric.throttle-current", MetricUnit.Percent, "0"),
+            new(ThrottleVr, "metric.throttle-vr", MetricUnit.Percent, "0"),
+        };
+        for (int i = 0; i < Mon.Cores; i++)
+        {
+            list.Add(new(CoreTemp(i), CoreTempKeys[i], MetricUnit.Celsius, "0"));
+            list.Add(new(CoreFreq(i), CoreClockKeys[i], MetricUnit.Megahertz, "0"));
+            list.Add(new(CoreVolt(i), CoreVoltKeys[i], MetricUnit.Volt, "0.000"));
+            list.Add(new(CoreUtil(i), CoreUsageKeys[i], MetricUnit.Percent, "0"));
+        }
+        return list;
+    }
 }
 
 /// <summary>
@@ -103,6 +164,19 @@ internal sealed class MonitorSampler
             else return 0;
         }
         return Publish(values);
+    }
+
+    /// <summary>
+    /// Takes every monitor reading off the bus (<see cref="IMetricsBus.Withdraw"/>) because XTU cannot be read: the page and the
+    /// dashboard then say "not available" instead of showing the last number. The next published sample makes an id available again.
+    /// </summary>
+    public void WithdrawAll()
+    {
+        foreach (var id in XtuMetrics.Monitored.Concat(XtuMetrics.PerCore))
+        {
+            try { _bus.Withdraw(id); }
+            catch (Exception) { /* a bus that refuses has nothing more to say; the loop must go on */ }
+        }
     }
 
     /// <summary>XTU gave up or the connection broke: the next read starts a new warm-up.</summary>

@@ -145,16 +145,17 @@ public class ModuleLifecycleTests
     }
 
     [Fact]
-    public async Task Five_failed_polls_show_the_warning_and_refuse_a_max_write()
+    public async Task Five_failed_polls_withdraw_the_readings_and_refuse_a_max_write()
     {
         using var rig = new ModuleRig(approve: true);
-        var info = rig.Rows.OfType<InfoRow>().Single();
-        Assert.False(info.IsOpen.Value);
+        Assert.Empty(rig.Rows.OfType<InfoRow>());   // the "stale numbers" warning row is gone: withdrawn readings say it themselves
+        Assert.Empty(rig.Host.MetricsBus.Withdrawn);
 
         rig.Wmi.ReadThrows = new AcerWmiException(AcerWmiFailure.Failed, "gone");
         for (int i = 0; i < 5; i++) await rig.Host.CommandRegistry.Run("status");
 
-        Assert.True(info.IsOpen.Value);
+        Assert.Equal(6, rig.Host.MetricsBus.Withdrawn.Count);
+        Assert.False(rig.Host.MetricsBus.TryGetLatest(new MetricId("cpu.temp"), out _));
         Assert.Equal("Readings not available", rig.Host.Loc.Resolve(rig.Page.Summary!.StateLine!.Value));
         Assert.False(rig.FanRow.Enabled.Value);
 
@@ -526,5 +527,109 @@ public class LanguageAndManifestTests
         Assert.Empty(root.GetProperty("requires").GetProperty("network").EnumerateArray());
         // The entry type exists in the assembly under test.
         Assert.NotNull(typeof(PredatorSenseModule).Assembly.GetType(root.GetProperty("entry").GetProperty("type").GetString()!));
+    }
+}
+
+public class PollRateAndLabelTests
+{
+    private static readonly string[] SensorMetrics = { "cpu.temp", "gpu.temp", "system.temp", "fan.cpu.rpm", "fan.gpu1.rpm", "fan.gpu2.rpm" };
+
+    [Fact]
+    public void Every_published_metric_is_described_with_a_label_in_both_languages_and_its_unit()
+    {
+        using var rig = new ModuleRig();
+        var described = rig.Host.MetricsBus.Descriptors;
+        Assert.Equal(SensorMetrics.OrderBy(s => s), described.Select(d => d.Id.Value).OrderBy(s => s));
+        var published = rig.Host.MetricsBus.Snapshot().GroupBy(p => p.Id.Value).ToDictionary(g => g.Key, g => g.First().Unit);
+
+        foreach (var lang in new[] { "en", "vi" })
+        {
+            var table = FakeLocalisation.Load(lang);
+            foreach (var d in described)
+            {
+                Assert.True(table.ContainsKey("module.predatorsense." + d.LabelKey), $"{lang}: missing label key {d.LabelKey}");
+                Assert.Equal(published[d.Id.Value], d.Unit);   // the descriptor's unit is the unit actually published
+            }
+        }
+        Assert.Equal("CPU temperature", rig.Host.Loc.T(described.Single(d => d.Id.Value == "cpu.temp").LabelKey));
+    }
+
+    [Fact]
+    public void Reads_slowly_while_nobody_looks_and_fast_while_the_page_is_visible()
+    {
+        using var rig = new ModuleRig();
+        Assert.False(rig.Host.PageVisible.Value);
+        Assert.Equal(TimeSpan.FromSeconds(10), rig.Module.CurrentPollInterval);
+
+        rig.Host.PageVisibleValue.Value = true;
+        Assert.Equal(TimeSpan.FromSeconds(2), rig.Module.CurrentPollInterval);
+
+        rig.Host.PageVisibleValue.Value = false;
+        Assert.Equal(TimeSpan.FromSeconds(10), rig.Module.CurrentPollInterval);
+    }
+
+    [Fact]
+    public void A_subscriber_to_any_of_its_metrics_makes_it_read_fast_and_reading_slows_when_the_last_one_leaves()
+    {
+        using var rig = new ModuleRig();
+        var bus = rig.Host.MetricsBus;
+        bus.SetSubscribers(new MetricId("fan.cpu.rpm"), 1);
+        Assert.Equal(TimeSpan.FromSeconds(2), rig.Module.CurrentPollInterval);
+
+        bus.SetSubscribers(new MetricId("cpu.temp"), 2);
+        bus.SetSubscribers(new MetricId("fan.cpu.rpm"), 0);
+        Assert.Equal(TimeSpan.FromSeconds(2), rig.Module.CurrentPollInterval);   // still one reader
+
+        bus.SetSubscribers(new MetricId("cpu.temp"), 0);
+        Assert.Equal(TimeSpan.FromSeconds(10), rig.Module.CurrentPollInterval);
+    }
+
+    [Fact]
+    public void The_fast_interval_is_the_one_in_the_settings_and_changes_with_them()
+    {
+        using var rig = new ModuleRig();
+        rig.Host.PageVisibleValue.Value = true;
+        var row = rig.Rows.OfType<NumberRow>().Single();
+        ((ObservableValue<double>)row.Value).Value = 5;
+        Assert.Equal(TimeSpan.FromSeconds(5), rig.Module.CurrentPollInterval);
+    }
+
+    [Fact]
+    public void Showing_the_page_reads_at_once_instead_of_waiting_for_the_slow_timer()
+    {
+        using var rig = new ModuleRig();
+        int before = rig.Wmi.Reads.Count;   // the one read in Initialize
+        rig.Host.PageVisibleValue.Value = true;
+        Assert.True(Wait.Until(() => rig.Wmi.Reads.Count >= before + 6, 3000), "no poll after the page became visible");
+    }
+
+    [Fact]
+    public void After_shutdown_the_signals_are_no_longer_followed()
+    {
+        var rig = new ModuleRig();
+        rig.Stop();
+        rig.Host.PageVisibleValue.Value = true;
+        rig.Host.MetricsBus.SetSubscribers(new MetricId("cpu.temp"), 1);
+        Assert.Null(rig.Module.CurrentPollInterval);   // no scheduler left, nothing threw
+    }
+
+    [Fact]
+    public void The_fan_row_asks_for_a_revert_and_says_what_a_revert_does_in_both_languages()
+    {
+        using var rig = new ModuleRig();
+        var effect = rig.FanRow.HardwareEffect!;
+        Assert.False(effect.SafeRevert);   // Auto <-> Maximum: both directions are asked about
+        Assert.Equal("effect.fan-mode-revert", effect.RevertDescriptionKey);
+        foreach (var lang in new[] { "en", "vi" })
+            Assert.True(FakeLocalisation.Load(lang).ContainsKey("module.predatorsense." + effect.RevertDescriptionKey));
+    }
+
+    [Fact]
+    public void The_stale_readings_warning_row_is_gone_from_the_page_and_the_language_files()
+    {
+        using var rig = new ModuleRig();
+        Assert.DoesNotContain(rig.Rows, r => r.HeaderKey.StartsWith("row.unavailable", StringComparison.Ordinal));
+        foreach (var lang in new[] { "en", "vi" })
+            Assert.DoesNotContain(FakeLocalisation.Load(lang).Keys, k => k.Contains("row.unavailable", StringComparison.Ordinal));
     }
 }

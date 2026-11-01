@@ -69,7 +69,28 @@ Dashboard line: `Profile <name>` (or `Custom limits`, or `XTU not answering`) wi
 
 Rename is not offered: delete and create again (a rename would have to move the hotkey and tray item of the old name).
 
-## Metrics (source `xtu`, about 1 Hz, warm-up skipped)
+## Things to know
+
+- **The monitor is read only while somebody looks.** The 1 Hz monitor thread reads XTU while the module's page is visible
+  (`IHostServices.PageVisible`) or any monitor metric has a subscriber (`IMetricsBus.SubscriberCount`: the dashboard bay, a recorder, another
+  module; the per-core ids count only while the per-core option is on). Otherwise it sleeps until `PageVisible.Changed` or `SubscribersChanged`
+  wakes it, and reads nothing: no pipe traffic, no publishing. Going idle does not withdraw anything: the bus keeps the last sample of every id
+  (`TryGetLatest`), now with an old timestamp, which is what the recorder's "older than about 2.5 s means XTU unavailable" rule expects (see
+  `RECORDER-NOTES.md`; a recorder that only polls `TryGetLatest` without subscribing will see exactly that). After a pause the monitor
+  connection is reset, so the warm-up skips whatever XTU returns first (not verified live whether that is needed: the reset is the safe choice).
+  PL1 and PL2 are not monitor values; the 5 s state refresh keeps publishing them whatever is looked at.
+- **Withdraw on failure.** Three monitor reads in a row that fail (retry every 5 s, so about 10 to 15 s) withdraw all monitor metrics
+  (`IMetricsBus.Withdraw`): the readings on the page say "not available" and a recorder gets an `IsAvailable == false` notification. The first
+  good sample after the warm-up publishes them again. Three failed state reads in a row withdraw `cpu.power.pl1` and `cpu.power.pl2` the same way.
+- **Labels.** Every metric has a `MetricDescriptor` registered in `XtuRuntime.Start` (`XtuMetrics.Descriptors`, keys `metric.*` in en and vi, 22
+  plus 32 per-core), so the dashboard shows "CPU temperature", not `cpu.temp`. The shared ids `cpu.temp`, `cpu.power`, `cpu.usage`, `cpu.clock` are
+  also published by other sensor modules; the host keeps the first description it gets.
+- **Revert is asked about.** The profile choice and the three auto-switch rows are hardware rows without `SafeRevert`: raising the limits back is a
+  hardware change, so a Revert asks like the change did, with its own text (`effect.apply-profile-revert`, `effect.auto-switch-revert`,
+  `effect.auto-choice-revert`, en and vi). The page has no button row that changes hardware, so no `RevertButtonKey`. The expander rows of your own
+  profiles (`ApplyRevert` numbers) edit values stored in Rigbay, not XTU, and carry no `HardwareEffect`.
+
+## Metrics (source `xtu`, about 1 Hz while looked at, warm-up skipped)
 
 `cpu.temp`, `cpu.power`, `cpu.usage` (mean of XTU's per-core utilisation), `cpu.clock` (highest core, MHz), `cpu.power.pl1`, `cpu.power.pl2`
 (every 5 s), plus `xtu.cpu.temp.core-max`, `xtu.cpu.power.cores`, `xtu.igpu.power`, `xtu.cpu.uncore`, `xtu.cpu.active-cores`, `xtu.cpu.ref-clock`,

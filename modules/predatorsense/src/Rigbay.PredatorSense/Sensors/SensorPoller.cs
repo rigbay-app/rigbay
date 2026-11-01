@@ -34,7 +34,9 @@ public sealed record SensorSnapshot(DateTimeOffset At, IReadOnlyDictionary<Senso
 /// a call that fails, times out or answers a non-zero status becomes "not available" for that sensor (nothing is published
 /// for it). A poll in which no call got a status-0 answer counts as failed; <see cref="FailureLimit"/> failed polls in a row
 /// make the state <see cref="ReadingsState.Unavailable"/>. One successful poll brings it back. A timeout ends the poll at once
-/// (the line is still held by the stalled call, so asking again only wastes time).
+/// (the line is still held by the stalled call, so asking again only wastes time). A sensor that has given a value before and
+/// then gets no value <see cref="FailureLimit"/> polls in a row is withdrawn from the bus (<see cref="IMetricsBus.Withdraw"/>), so
+/// the page and dashboard say "not available" instead of showing the last number; its next value publishes it again.
 /// </summary>
 public sealed class SensorPoller
 {
@@ -48,6 +50,8 @@ public sealed class SensorPoller
     private readonly object _pollLock = new();
     private readonly object _stateLock = new();
     private readonly HashSet<Sensor> _hasReported = new();
+    private readonly Dictionary<Sensor, int> _misses = new();
+    private readonly HashSet<Sensor> _withdrawn = new();
     private int _failedPolls;
     private SensorSnapshot _latest = SensorSnapshot.Empty;
     private ReadingsState _state = ReadingsState.Starting;
@@ -123,9 +127,15 @@ public sealed class SensorPoller
                 values[info.Sensor] = d.Value;
                 if (d.Value is { } v)
                 {
-                    lock (_stateLock) _hasReported.Add(info.Sensor);
+                    lock (_stateLock)
+                    {
+                        _hasReported.Add(info.Sensor);
+                        _misses[info.Sensor] = 0;
+                        _withdrawn.Remove(info.Sensor);   // publishing makes the id available again
+                    }
                     SafePublish(info, v);
                 }
+                else CountMiss(info);
             }
 
             lock (_stateLock)
@@ -148,6 +158,21 @@ public sealed class SensorPoller
         }
         Invoke(() => Polled?.Invoke(snapshot));
         return snapshot;
+    }
+
+    /// <summary>One more poll without a value for this sensor; at <see cref="FailureLimit"/> in a row a sensor that had values is withdrawn.</summary>
+    private void CountMiss(SensorInfo info)
+    {
+        bool withdraw;
+        lock (_stateLock)
+        {
+            int misses = _misses.TryGetValue(info.Sensor, out var m) ? m + 1 : 1;
+            _misses[info.Sensor] = misses;
+            withdraw = misses >= FailureLimit && _hasReported.Contains(info.Sensor) && _withdrawn.Add(info.Sensor);
+        }
+        if (!withdraw) return;
+        try { _bus.Withdraw(info.Metric); }
+        catch (Exception ex) { _log.Warn("Withdrawing " + info.Metric + " failed: " + ex.Message); }
     }
 
     private void SafePublish(SensorInfo info, double value)

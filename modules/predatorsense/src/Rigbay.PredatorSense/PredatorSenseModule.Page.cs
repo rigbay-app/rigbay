@@ -19,12 +19,7 @@ public sealed partial class PredatorSenseModule
 
         var readings = new List<Row>
         {
-            // Shown only while the sensors cannot be read; the last numbers on the rows below are then old.
-            new InfoRow(Severity.Warning, "row.unavailable.header")
-            {
-                DescriptionKey = "row.unavailable.description",
-                IsOpen = _unavailableOpen,
-            },
+            // A sensor that cannot be read is withdrawn from the bus, so its row says "not available" by itself.
             Reading(Sensor.CpuTemp, "sensor.cpu-temp", "row.cpu-temp.description"),
             Reading(Sensor.GpuTemp, "sensor.gpu-temp", null),
         };
@@ -46,7 +41,8 @@ public sealed partial class PredatorSenseModule
             new ChoiceRow("row.fan-mode.header", options, _choice)
             {
                 DescriptionKey = "row.fan-mode.description",
-                HardwareEffect = new HardwareEffect("effect.fan-mode"),
+                // No SafeRevert: both directions are asked about. Auto -> Maximum (what a Revert after "Auto" does) is loud.
+                HardwareEffect = new HardwareEffect("effect.fan-mode") { RevertDescriptionKey = "effect.fan-mode-revert" },
                 Enabled = _choiceEnabled,
             },
             new ValueRow("row.last-set.header", _lastSetText) { DescriptionKey = "row.last-set.description" },

@@ -28,8 +28,14 @@ Detail files (read only when needed):
 - **No firmware read of the fan mode exists.** The page says "Last set by Rigbay", never "current mode". The RPM check after a write
   is a reading (a jump of 300 rpm within 10 s), never proof. B5 saw about +3000 rpm within 2 s on Max.
 - **Absent parts read status 0 and value 0.** A temperature of 0 is never a reading; a fan at 0 counts only after that fan has turned.
-- **No write while the readings are not available** (the last poll got no answer, or 5 polls in a row). One exception, on purpose:
+- **No write while the readings are not available** (the last poll got no answer, or 5 polls in a row; the sensors are then withdrawn from the bus). One exception, on purpose:
   putting the fans back to Auto when Rigbay set Maximum.
+- **Host behaviour the module follows (A9, M1).** (1) Poll rate: `PollScheduler.Watched` = `PageVisible.Value` or any sensor metric with
+  `SubscriberCount > 0`; fast = `pollSeconds` (default 2 s), slow = 10 s (`PredatorSenseSettings.IdlePollSeconds`); `PollSoon()` reads at once
+  when somebody starts to look. (2) A sensor that had values and gets none for 5 polls in a row is `Withdraw`n; a new value publishes it
+  again; absent parts are never withdrawn. There is no "stale readings" warning row any more. (3) Every sensor metric has a
+  `MetricDescriptor` (`sensor.*` label keys, en and vi). (4) The fan row is a hardware row without `SafeRevert`: a Revert (either direction)
+  is asked, text `effect.fan-mode-revert`. Keep all four when adding a sensor or a row; tests: `PollRateAndLabelTests`, `PollerWithdrawTests`.
 - Every WMI call has a timeout and runs one at a time; a stalled call keeps the line until it returns, so calls never pile up.
 - Reads send `UInt32`, the write sends `UInt64` after checking the schema type.
 

@@ -24,8 +24,6 @@ module.predatorsense.sensor.cpu-fan = Quạt CPU
 module.predatorsense.sensor.gpu-fan1 = Quạt GPU 1
 module.predatorsense.sensor.gpu-fan2 = Quạt GPU 2
 module.predatorsense.row.cpu-temp.description = Cảm biến trong firmware Acer. Có thể cao hơn vùng nhiệt của Windows khoảng 10 °C: đó là hai cảm biến khác nhau.
-module.predatorsense.row.unavailable.header = Không đọc được số đo
-module.predatorsense.row.unavailable.description = Không đọc được cảm biến 5 lần liên tiếp, nên các số bên dưới có thể đã cũ và việc đổi chế độ quạt đang tắt. Rigbay vẫn tiếp tục thử.
 module.predatorsense.row.model.header = Máy
 module.predatorsense.row.model.description = Theo báo cáo của firmware
 module.predatorsense.model.unknown = Không rõ
@@ -36,6 +34,7 @@ module.predatorsense.row.fan-mode.description = Tối đa chạy mọi quạt h�
 module.predatorsense.fan.auto = Tự động
 module.predatorsense.fan.max = Tối đa
 module.predatorsense.effect.fan-mode = Tối đa chạy mọi quạt hết tốc độ và rất ồn. Tự động trả quạt về cho firmware của laptop.
+module.predatorsense.effect.fan-mode-revert = Đưa quạt về chế độ trước đó: Tối đa chạy mọi quạt hết tốc độ và rất ồn, Tự động trả quạt về cho firmware của laptop.
 module.predatorsense.row.last-set.header = Rigbay đặt lần cuối
 module.predatorsense.row.last-set.description = Laptop không báo lại được chế độ quạt, và PredatorSense có thể đổi mà không báo cho Rigbay.
 module.predatorsense.last.none = Chưa đặt
@@ -60,7 +59,7 @@ module.predatorsense.check.no-answer = Laptop không trả lời kịp
 
 # Cài đặt
 module.predatorsense.row.poll.header = Đọc cảm biến mỗi
-module.predatorsense.row.poll.description = Khi số đo đang được xem. Một lần đọc mất khoảng 11 ms.
+module.predatorsense.row.poll.description = Khi trang này đang mở hoặc có nơi đang hiển thị số đo (bảng điều khiển, trình ghi). Còn lại là mỗi 10 giây. Một lần đọc mất khoảng 11 ms.
 module.predatorsense.row.restore.header = Trả về Tự động khi Rigbay dừng
 module.predatorsense.row.restore.description = Nếu Rigbay đã đặt Tối đa, trả quạt về Tự động khi tắt module hoặc đóng Rigbay.
 module.predatorsense.row.hotkey.header = Phím tắt quạt
