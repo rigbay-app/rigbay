@@ -25,3 +25,44 @@ core.command.unknown-module = No module named '{0}'
 core.command.not-running = Module '{0}' is not running
 core.command.unknown-verb = Module '{0}' has no verb '{1}'
 core.command.failed = Module '{0}' failed: {1}
+
+core.value.on = On
+core.value.off = Off
+core.value.unbound = Not set
+
+core.manifest.issue = {0}: {1}
+core.manifest.file-missing = the file does not exist
+core.manifest.file-too-large = the file is larger than {0} KiB
+core.manifest.file-unreadable = cannot read the file: {0}
+core.manifest.not-json = not valid JSON: {0}
+core.manifest.not-object = the top level must be an object
+core.manifest.unknown-field = unknown field (ignored)
+core.manifest.required-integer = required, an integer
+core.manifest.newer-format = {0} is a newer manifest format than this host reads (1)
+core.manifest.must-be-one = must be 1
+core.manifest.id-pattern = use lowercase letters, digits and single dashes
+core.manifest.id-reserved = '{0}' is reserved
+core.manifest.id-folder = must equal the folder name '{0}'
+core.manifest.semver = must be a semantic version like 1.2.3
+core.manifest.entry-required = required, an object with 'assembly' and 'type'
+core.manifest.assembly-no-folder = must be a file name without a folder
+core.manifest.assembly-dll = must end with .dll
+core.manifest.assembly-abstractions = cannot be Rigbay.Abstractions.dll
+core.manifest.assembly-missing = '{0}' is not in the module folder
+core.manifest.type-name = must be a full type name like My.Module.MainModule
+core.manifest.host-api-invalid = '{0}' is not a version range like '>=0.1 <1.0'
+core.manifest.group-values = must be one of power, cooling, network, display, monitoring, other
+core.manifest.languages-name = must be a folder name
+core.manifest.languages-relative = must be a relative folder inside the module folder
+core.manifest.homepage-url = must be an http or https address
+core.manifest.must-be-object = must be an object
+core.manifest.must-be-bool = must be true or false
+core.manifest.must-be-string-array = must be an array of strings
+core.manifest.string-entries = every entry must be a string of 1 to 200 characters
+core.manifest.required-string = required, a string
+core.manifest.length-range = must be {0} to {1} characters
+
+core.command.version-host = Rigbay {0}
+core.command.version-abstractions = Rigbay.Abstractions {0}
+core.command.version-api = Host API {0}
+core.command.no-modules = No modules are installed

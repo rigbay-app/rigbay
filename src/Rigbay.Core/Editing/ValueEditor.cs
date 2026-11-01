@@ -22,30 +22,33 @@ public sealed record EditResult(EditOutcome Outcome, string? Message = null);
 
 /// <summary>
 /// The apply-or-revert model of one value row. The UI binds a control to <see cref="Draft"/> and calls
-/// <see cref="SubmitAsync"/> (rows with <see cref="ApplyMode.Immediate"/>) or <see cref="ApplyAsync"/> after the user
+/// <see cref="SubmitAsync(T, CancellationToken)"/> (rows with <see cref="ApplyMode.Immediate"/>) or <see cref="ApplyAsync(CancellationToken)"/> after the user
 /// presses Apply (rows with <see cref="ApplyMode.ApplyRevert"/>). Applying checks the draft, asks for confirmation when
 /// the row <see cref="Row.ChangesHardware"/>, sets the module's value inside the fault boundary, and remembers the
 /// previous value for <see cref="Revert"/>.
 /// </summary>
-public sealed class ValueEditor<T>
+public sealed class ValueEditor<T> : IDisposable
 {
     private readonly ModuleEntry _entry;
     private readonly Row _row;
     private readonly IObservableValue<T> _value;
     private readonly Func<T, string?> _validate;
+    private readonly Func<T, string> _format;
+    private bool _disposed;
     private readonly object _gate = new();
     private T _draft;
     private bool _hasPrevious;
     private bool _userEdited;
     private T _previous = default!;
 
-    internal ValueEditor(ModuleEntry entry, Row row, IObservableValue<T> value, ApplyMode mode, Func<T, string?> validate)
+    internal ValueEditor(ModuleEntry entry, Row row, IObservableValue<T> value, ApplyMode mode, Func<T, string?> validate, Func<T, string>? format = null)
     {
         _entry = entry;
         _row = row;
         _value = value;
         Mode = mode;
         _validate = validate;
+        _format = format ?? (v => v?.ToString() ?? "");
         _draft = value.Value;
         // A change made by the module while the user is not editing moves the draft along with it.
         _value.Changed += OnModuleChanged;
@@ -87,7 +90,23 @@ public sealed class ValueEditor<T>
         return ApplyAsync(cancellationToken);
     }
 
-    public async Task<EditResult> ApplyAsync(CancellationToken cancellationToken = default)
+    /// <summary>Applies the draft. The confirmation for a hardware change shows the new value as text (<see cref="DetailFormatter"/>).</summary>
+    public Task<EditResult> ApplyAsync(CancellationToken cancellationToken = default) => ApplyCoreAsync(null, cancellationToken);
+
+    /// <summary>Applies the draft; <paramref name="detail"/> replaces the default text the confirmation shows (for example "Auto → Maximum").</summary>
+    public Task<EditResult> ApplyAsync(string? detail, CancellationToken cancellationToken = default) => ApplyCoreAsync(detail, cancellationToken);
+
+    /// <summary>Like <see cref="SubmitAsync(T, CancellationToken)"/> with an explicit confirmation detail.</summary>
+    public Task<EditResult> SubmitAsync(T value, string? detail, CancellationToken cancellationToken = default)
+    {
+        SetDraft(value);
+        return ApplyCoreAsync(detail, cancellationToken);
+    }
+
+    /// <summary>Text of a value for the confirmation. The default is set by <see cref="RowEditors"/> per row kind (the value as the user sees it).</summary>
+    public Func<T, string>? DetailFormatter { get; set; }
+
+    private async Task<EditResult> ApplyCoreAsync(string? detail, CancellationToken cancellationToken)
     {
         T draft;
         lock (_gate) draft = _draft;
@@ -104,7 +123,13 @@ public sealed class ValueEditor<T>
 
         if (_row.HardwareEffect is { } effect)
         {
-            var ok = await _entry.Host.RequestApprovalAsync(_entry, effect, null, cancellationToken).ConfigureAwait(false);
+            string? shown = detail;
+            if (shown is null)
+            {
+                try { shown = (DetailFormatter ?? _format)(draft); }
+                catch (Exception ex) { _entry.Log.Warn("approval detail could not be formatted: " + ex.Message); }
+            }
+            var ok = await _entry.Host.RequestApprovalTextAsync(_entry, effect, shown, cancellationToken).ConfigureAwait(false);
             if (!ok) return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T(_entry.Host.ApprovalPrompt is null ? "core.approval.no-prompt" : "core.approval.declined"));
         }
 
@@ -143,6 +168,17 @@ public sealed class ValueEditor<T>
         return new EditResult(EditOutcome.Applied);
     }
 
+    /// <summary>Stops following the module's value. Safe to call more than once; the editor still works afterwards but no longer follows the module.</summary>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+        }
+        _value.Changed -= OnModuleChanged;
+    }
+
     private void OnModuleChanged()
     {
         lock (_gate)
@@ -155,38 +191,49 @@ public sealed class ValueEditor<T>
 
 }
 
-/// <summary>Creates the editor that belongs to a row kind, wiring in the row's own limits and the module's Validate.</summary>
+/// <summary>
+/// Creates the editor that belongs to a row kind, wiring in the row's own limits and the module's Validate. There is one
+/// editor per row instance: asking again for the same row returns the same editor, so a page can be rebuilt without
+/// piling up subscriptions. The editors are disposed when the module stops or faults, and before it is enabled again.
+/// </summary>
 public static class RowEditors
 {
     public static ValueEditor<bool> For(ModuleEntry entry, ToggleRow row) =>
-        new(entry, row, row.Value, ApplyMode.Immediate, _ => null);
+        entry.GetOrCreateEditor(row, () => new ValueEditor<bool>(entry, row, row.Value, ApplyMode.Immediate, _ => null,
+            v => entry.Host.Languages.T(v ? "core.value.on" : "core.value.off")));
 
     public static ValueEditor<string> For(ModuleEntry entry, ChoiceRow row) =>
-        new(entry, row, row.Value, ApplyMode.Immediate,
-            v => row.Options.Any(o => o.Id == v) ? null : entry.Host.Languages.T("core.edit.unknown-option"));
+        entry.GetOrCreateEditor(row, () => new ValueEditor<string>(entry, row, row.Value, ApplyMode.Immediate,
+            v => row.Options.Any(o => o.Id == v) ? null : entry.Host.Languages.T("core.edit.unknown-option"),
+            v => row.Options.FirstOrDefault(o => o.Id == v) is { } option ? entry.Localisation.T(option.LabelKey) : v));
 
     public static ValueEditor<double> For(ModuleEntry entry, NumberRow row) =>
-        new(entry, row, row.Value, row.Apply, v =>
+        entry.GetOrCreateEditor(row, () => new ValueEditor<double>(entry, row, row.Value, row.Apply, v =>
         {
             if (double.IsNaN(v) || v < row.Minimum || v > row.Maximum)
                 return entry.Host.Languages.F("core.edit.out-of-range", row.Minimum, row.Maximum);
-            return row.Validate?.Invoke(v) is { } text ? entry.Localisation.Resolve(text) : null;
-        });
+            return row.Validate?.Invoke(v) is { IsEmpty: false } text ? entry.Localisation.Resolve(text) : null;
+        }, v => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)));
 
     public static ValueEditor<string> For(ModuleEntry entry, TextRow row) =>
-        new(entry, row, row.Value, row.Apply, v =>
+        entry.GetOrCreateEditor(row, () => new ValueEditor<string>(entry, row, row.Value, row.Apply, v =>
         {
             if (row.MaxLength > 0 && v.Length > row.MaxLength) return entry.Host.Languages.F("core.edit.too-long", row.MaxLength);
-            return row.Validate?.Invoke(v) is { } text ? entry.Localisation.Resolve(text) : null;
-        });
+            return row.Validate?.Invoke(v) is { IsEmpty: false } text ? entry.Localisation.Resolve(text) : null;
+        }, v => v));
 
     public static ValueEditor<HotkeyGesture?> For(ModuleEntry entry, ShortcutRow row) =>
-        new(entry, row, row.Value, row.Apply, _ => null);
+        entry.GetOrCreateEditor(row, () => new ValueEditor<HotkeyGesture?>(entry, row, row.Value, row.Apply, _ => null,
+            v => v is { } g ? g.ToString() : entry.Host.Languages.T("core.value.unbound")));
 
     /// <summary>Runs a button: confirmation first when it changes hardware, then the action in the fault boundary.</summary>
-    public static async Task<ActionResult> InvokeButtonAsync(ModuleEntry entry, ButtonRow row, CancellationToken cancellationToken = default)
+    /// <param name="entry">The module.</param>
+    /// <param name="row">The button.</param>
+    /// <param name="cancellationToken">Cancels the wait and the action.</param>
+    /// <param name="detail">Text for the confirmation (for example the exact change); null shows the button label.</param>
+    public static async Task<ActionResult> InvokeButtonAsync(ModuleEntry entry, ButtonRow row, CancellationToken cancellationToken = default, string? detail = null)
     {
-        if (row.HardwareEffect is { } effect && !await entry.Host.RequestApprovalAsync(entry, effect, null, cancellationToken).ConfigureAwait(false))
+        if (row.HardwareEffect is { } effect && !await entry.Host.RequestApprovalTextAsync(entry, effect, detail ?? entry.Localisation.T(row.ButtonKey), cancellationToken).ConfigureAwait(false))
             return ActionResult.Fail("core.approval.declined");
         var (completed, result) = await entry.InvokeAsync("button " + row.HeaderKey, () => row.InvokeAsync(cancellationToken)).ConfigureAwait(false);
         return completed && result is not null ? result : ActionResult.Fail("core.edit.failed");

@@ -60,9 +60,11 @@ public readonly record struct LocalisedText(string Key, object[]? Args = null)
     /// <param name="args">The arguments.</param>
     public static LocalisedText Of(string key, params object[] args) => new(key, args);
 
-    /// <summary>A key without arguments.</summary>
-    /// <param name="key">The language key.</param>
-    public static implicit operator LocalisedText(string key) => new(key);
+    /// <summary>
+    /// True when there is no text: the key is null or empty (this includes <c>default(LocalisedText)</c>). The host shows
+    /// nothing for such a text and treats a validation result like it as "no error".
+    /// </summary>
+    public bool IsEmpty => string.IsNullOrEmpty(Key);
 }
 
 /// <summary>Result of an expected operation (a button, a command step). Unexpected failures are exceptions instead.</summary>
