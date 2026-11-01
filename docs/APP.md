@@ -14,13 +14,13 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (67 checks), prints the report. Exit code 0 when all pass. |
+| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (78 checks), prints the report. Exit code 0 when all pass. |
 | `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\make-icon.ps1` | Draws `src\Rigbay.App\Assets\rigbay.ico` (three bays, the last one filled). Run once; the file is committed. |
 
-`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the 223 Core tests.
+`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the 240 Core tests.
 Demo modules (`tools\demo-modules`) are test fixtures, not product: "Fan studio" talks to a pretend device kept in memory and
 shows the whole confirm, apply, read-back, revert flow; the others are unsupported, incompatible, invalid and failing
 modules, plus three that misbehave on purpose (self-test only).
@@ -58,7 +58,7 @@ from PowerShell, which does not wait for GUI programs, or when the elevated proc
 A headless run loads the modules, turns on only the one the verb needs (and only if the user had enabled it), runs the verb and
 stops it. A hardware change asked for in a headless run is refused (no window to ask in).
 
-Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;approve:true|false;cancel-dialog;startup:on|off;wait:ms"`,
+Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
 `--shot <png>`, `--size WxH`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
 
 ## What it does
@@ -75,13 +75,21 @@ Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `
   value goes through the core's `ValueEditor`: apply-or-revert rows keep a draft with Apply and Discard; rows that change hardware
   show the exact change ("Fan mode: Auto → Maximum") in a confirmation, then show the value the module reports afterwards and a
   Revert. A custom control (level 2) is created inside the module's boundary and type-checked.
-- **Modules.** Every module with state, switch and the manifest's facts (admin, network, registry, services, host API, folder,
+- **Modules.** Every module with state, switch and the manifest's facts (admin, network, registry, services, "Reads files outside its folder" (one line per `probePaths` entry, also in the turn-on dialog), host API, folder,
   problems). Install, update and remove are not built; the page says so.
 - **Settings.** Language (switches at once, module strings too), theme (system, light, dark), start with Windows, log level, open
   the log folder, and the hotkeys of all modules with conflicts marked.
 - **Search.** A runtime index of module names and descriptions and every row's header and description, in the current language.
 - **Tray, hotkeys, toast.** Tray menu: Open, one submenu per module that registered items, Quit. Hotkeys: `RegisterHotKey` on the
   window, only for gestures nobody else claims; a gesture the OS refuses is flagged. Toasts through `AppNotificationManager`.
+- **Page refresh and literal text (A8, used since A7).** The app subscribes once to `RigbayHost.PageRefreshed`. When the open page
+  belongs to that module it is rebuilt in place: scroll offset kept, open expanders kept (matched by header), focus given back to the
+  control with the same type and name (a button that disables itself while it works has its focus remembered at click time), swapped
+  and restored inside one UI callback so nothing is painted in between. The search index is rebuilt either way. Text that starts
+  with `=` (`Text.Literal`) is resolved by `entry.Localisation`, so pane items, tray items, hotkey names (also on Settings) and choice
+  labels show it without the `module.<id>.` prefix; nothing in the app prefixes keys by hand.
+- **Expander items.** `SettingsExpander` styles every item as a `SettingsCard`; an `InfoBar` in it threw when the expander was opened.
+  The renderer now wraps anything that is not a `SettingsCard` in one.
 - **Fault boundary.** `Application.UnhandledException` is kept (`Handled = true`, logged); when the stack shows a module's code that
   module is marked faulted. Updates that come from a module thread go through `Ui.Post`, which runs inside that module's
   boundary. A module is never given a raw dispatcher.
@@ -106,10 +114,10 @@ the spike saw once. Cause not found, so the script has no self-contained switch.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, 100 % DPI)
 
-Evidence is in `tools\shots\`: `selftest.txt` (67 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
+Evidence is in `tools\shots\`: `selftest.txt` (78 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
 the PNGs (each one was looked at).
 
-- Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 223 passed (2026-11-01, after A4 and A5).
+- Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 240 passed (2026-11-01, after A7).
 - Self-test, elevated (`IsUserAnAdmin=True`, runtime from `C:\Program Files\WindowsApps\Microsoft.WindowsAppRuntime.1.8_8000.994.2142.0`):
   shell up, module states (off, unsupported, incompatible, invalid, faulted), dashboard rows and readings, level 1 page (12 rows into
   10 cards and an expander), level 2 control, search, the hardware flow (declined, approved, read-back that differs from what was typed,
@@ -149,5 +157,8 @@ A3 reported seven gaps in the Core and worked around them. A4 changed the Core (
 Dashboard rows are one line: name, then state and a short reason (`ShortReasonText`, trimmed with an ellipsis, full text as the
 tooltip). Long reasons (a failed module's exception text) belong on the module page.
 
-Still open: `<module> help` exits 2 with the verb list (the usage rule); `rigbay list` prints a failed manifest's full English-or-
-localised summary on one line (a Core choice; the short form is only in the UI).
+Still open: `<module> help` exits 2 with the verb list (the usage rule).
+
+Since A7: the bare `list` verb is answered by the app (`AppCommands.List`), same columns as the core's, but the reason of an invalid
+manifest is its first problem plus "(+N more in the log)"; the full text is in the log (written when the manifest is read) and on the
+module page. Other verbs are still the core's.

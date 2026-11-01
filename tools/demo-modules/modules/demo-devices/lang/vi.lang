@@ -1,0 +1,14 @@
+@code = vi
+@name = Tiếng Việt
+
+module.demo-devices.group.devices = Thiết bị
+module.demo-devices.row.list.header = Thiết bị đã biết
+module.demo-devices.row.list.description = Tên lấy từ dữ liệu, không nằm trong tệp ngôn ngữ
+module.demo-devices.row.pick.header = Thiết bị đang chọn
+module.demo-devices.row.pick.description = Nhãn của lựa chọn cũng là văn bản nguyên văn
+module.demo-devices.row.add.header = Thêm thiết bị
+module.demo-devices.row.add.description = Mô-đun nhờ máy chủ dựng lại trang
+module.demo-devices.row.add.button = Thêm
+module.demo-devices.row.remove.header = Xóa thiết bị cuối
+module.demo-devices.row.remove.description = Danh sách ngắn lại, trang được dựng lại
+module.demo-devices.row.remove.button = Xóa

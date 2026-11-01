@@ -13,7 +13,7 @@
         <!-- 48 px title bar: mark, name, search, room for the caption buttons. This strip is the drag region. -->
         <Grid x:Name="TitleBar" Grid.Row="0" Padding="16,0,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280"/>
+                <ColumnDefinition x:Name="LeftColumn" Width="280"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition x:Name="RightInsetColumn" Width="140"/>
             </Grid.ColumnDefinitions>
@@ -38,7 +38,7 @@
             <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,1,1,0"
                     CornerRadius="8,8,0,0" Margin="0,0,12,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
                     <Grid MaxWidth="1000" Padding="36,24,36,28" HorizontalAlignment="Stretch">
                         <ContentPresenter x:Name="PageHost"/>
                     </Grid>

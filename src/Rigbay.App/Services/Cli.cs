@@ -68,7 +68,7 @@ static class Cli
                 var target = host.Find(words[0]);
                 if (target != null && host.IsEnabledByUser(target.Id) && target.Lifecycle == ModuleLifecycle.Off) await Task.Run(() => target.Enable());
             }
-            var result = await host.ExecuteCommandAsync(words);
+            var result = await AppCommands.ExecuteAsync(host, words);
             return (result.ExitCode, result.Output);
         }
         finally { await Task.Run(host.Shutdown); }

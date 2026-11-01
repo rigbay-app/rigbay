@@ -1,0 +1,14 @@
+@code = en
+@name = English
+
+module.demo-devices.group.devices = Devices
+module.demo-devices.row.list.header = Known devices
+module.demo-devices.row.list.description = The names come from data, not from a language file
+module.demo-devices.row.pick.header = Selected device
+module.demo-devices.row.pick.description = Choice labels are literal text too
+module.demo-devices.row.add.header = Add a device
+module.demo-devices.row.add.description = The module asks the host for a new page
+module.demo-devices.row.add.button = Add
+module.demo-devices.row.remove.header = Remove the last device
+module.demo-devices.row.remove.description = The list shrinks, the page is rebuilt
+module.demo-devices.row.remove.button = Remove

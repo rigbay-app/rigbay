@@ -131,6 +131,7 @@ static class SelfTest
         await LanguageChecks(w, fan);
 
         // ---------------------------------------------------------------- fault boundary
+        await RefreshChecks(w);
         await FaultChecks(w);
 
         // ---------------------------------------------------------------- single instance
@@ -257,7 +258,7 @@ static class SelfTest
         await Cmd("rigbay version (core verb, same text headless and forwarded)", new[] { "version" }, 0, "API");
         await Cmd("rigbay list: id state version enabled|disabled [reason]", new[] { "list" }, 0, "demo-fan  ");
         {
-            var listed = (await core.ExecuteCommandAsync(new[] { "list" })).Output;
+            var listed = (await AppCommands.ExecuteAsync(core, new[] { "list" })).Output;
             R("command: list has the version and enabled|disabled columns",
                 listed.Split('\n').Any(l => l.StartsWith("demo-future") && (l.Contains("  enabled") || l.Contains("  disabled"))) && listed.Contains("demo-fan  "), listed.ReplaceLineEndings(" | "));
         }
@@ -284,6 +285,53 @@ static class SelfTest
         core.SetLanguage("en");
         await Settle(600);
         R("language: back to English", w.NavItems().First(i => (i.Tag as string) == "dashboard").Content?.ToString() == "Dashboard");
+    }
+
+    // ================================================================ page refresh and literal text (A8, shown by A7)
+
+    static async Task RefreshChecks(MainWindow w)
+    {
+        var core = Host.Core;
+        var dev = core.Find("demo-devices")!;
+        AppState.Acknowledge(dev);
+        bool on = await Task.Run(() => dev.Enable());
+        R("refresh: demo-devices turns on", on && dev.Lifecycle == ModuleLifecycle.Running, $"state={dev.Lifecycle}");
+        w.Navigate(dev);
+        await Settle(600);
+        bool Shows(string s) => Find<TextBlock>(w.PageContent).Any(t => t.Text == s) || Find<ComboBox>(w.PageContent).Any(c => c.Items.OfType<ComboBoxItem>().Any(i => (i.Content as string) == s));
+        R("literal: device names show without a module.<id>. prefix", Shows("Pump A") && Shows("Radiator fan") && !Find<TextBlock>(w.PageContent).Any(t => t.Text.Contains("module.demo-devices.=")), "list and choice labels read 'Pump A', 'Radiator fan'");
+        R("literal: choice labels", Find<ComboBox>(w.PageContent).Any(c => c.Items.OfType<ComboBoxItem>().Select(i => i.Content as string).SequenceEqual(new[] { "Pump A", "Radiator fan" })), "combo items");
+        R("literal: tray item and hotkey name", dev.Localisation.T(Rigbay.Abstractions.Text.Literal("Open Pump A")) == "Open Pump A" && core.Hotkeys.Entries.Any(b => b.ModuleId == dev.Id && dev.Localisation.T(b.NameKey) == "Flush Pump A"), "resolved through the module localisation");
+        w.Navigate("settings"); await Settle(500);
+        R("literal: hotkey name on the Settings page", Find<SettingsCard>(w.PageContent).Any(c => c.Header as string == "Flush Pump A"), "Settings hotkey list");
+        w.Navigate(dev); await Settle(500);
+
+        {
+            // focus and expanders survive a refresh: focus the Add button, open the list, press Add
+            var add = Find<Button>(w.PageContent).First(b => b.Content as string == "Add");
+            foreach (var x in Find<SettingsExpander>(w.PageContent)) x.IsExpanded = true;
+            add.Focus(FocusState.Programmatic);
+            await Settle(200);
+            await Driver(w, "row.add.header").Edit(null);
+            await Settle(900);
+            var now = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(w.Content.XamlRoot) as Button;
+            R("refresh: focus goes back to the same button", now != null && now.Content as string == "Add" && !ReferenceEquals(now, add), $"focused: {(Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(w.Content.XamlRoot) as FrameworkElement)?.GetType().Name} '{now?.Content}' (new instance: {!ReferenceEquals(now, add)})");
+            R("refresh: an open list stays open", Find<SettingsExpander>(w.PageContent).All(x => x.IsExpanded), "expanders open after the rebuild");
+            await Driver(w, "row.remove.header").Edit(null);
+            await Settle(900);
+        }
+        int before = w.SearchFor("Sensor 3").Count();
+        await Driver(w, "row.add.header").Edit(null);
+        await Settle(900);
+        R("refresh: the open page gains the new device", Shows("Sensor 3"), "'Sensor 3' is on the page after Add");
+        R("refresh: search index re-indexed", before == 0 && w.SearchFor("Sensor 3").Any(), $"search for the new device: {w.SearchFor("Sensor 3").Count()} hits (0 before)");
+        await Driver(w, "row.remove.header").Edit(null);
+        await Driver(w, "row.remove.header").Edit(null);
+        await Settle(900);
+        R("refresh: the page loses the removed devices", !Shows("Sensor 3") && !Shows("Radiator fan") && Shows("Pump A"), "after Add then two Remove only Pump A is left");
+        R("refresh: search forgets the removed device", !w.SearchFor("Sensor 3").Any(), $"{w.SearchFor("Sensor 3").Count()} hits");
+        await Task.Run(() => dev.Disable());
+        w.Navigate("dashboard");
     }
 
     // ================================================================ fault boundary
@@ -372,7 +420,7 @@ static class SelfTest
 
     // ================================================================ visual tree helpers
 
-    static IEnumerable<T> Find<T>(DependencyObject? root) where T : DependencyObject
+    internal static IEnumerable<T> Find<T>(DependencyObject? root) where T : DependencyObject
     {
         if (root == null) yield break;
         if (root is T t) yield return t;

@@ -104,14 +104,17 @@ static class ReasonExtensions
     /// list itself is on the module page, see <see cref="IssueLines"/>); any other reason is the full text on one line, which
     /// the row trims with an ellipsis and shows in full as its tooltip.
     /// </summary>
-    public static string ShortReasonText(this ModuleEntry e)
+    public static string ShortReasonText(this ModuleEntry e) => e.ShortReasonText(Host.Core.Languages);
+
+    /// <summary>Same, with the languages given (the headless <c>list</c> verb has no <see cref="Host"/>).</summary>
+    public static string ShortReasonText(this ModuleEntry e, Rigbay.Core.LanguageCatalog languages)
     {
         if (e.Bay.Reason is not { } r) return "";
         var issues = r.Args.OfType<IReadOnlyList<ManifestIssue>>().FirstOrDefault();
         if (issues != null)
         {
             int n = issues.Count(i => i.IsError);
-            return n == 1 ? Host.T("reason.invalid-one") : Host.F("reason.invalid-many", n);
+            return n == 1 ? languages.T("reason.invalid-one") : languages.F("reason.invalid-many", n);
         }
         return e.ResolveReason(r).ReplaceLineEndings(" ");
     }
@@ -119,4 +122,45 @@ static class ReasonExtensions
     /// <summary>The manifest problems of a module, one localised line each ("entry.type: must be ..."), warnings included.</summary>
     public static IReadOnlyList<string> IssueLines(this ModuleEntry e) =>
         e.Issues.Select(i => (i.IsError ? "" : Host.T("fact.warning-prefix") + " ") + i.LocaliseLine(Host.Core.Languages)).ToList();
+}
+
+/// <summary>
+/// Runs a command line for the app. Identical to <see cref="RigbayHost.ExecuteCommandAsync"/> except for the bare <c>list</c> verb,
+/// whose reason column is the short form ("3 problems in module.json") instead of the core's full multi-problem text; the full
+/// text stays in the log and on the module page.
+/// </summary>
+static class AppCommands
+{
+    public static Task<CommandOutcome> ExecuteAsync(RigbayHost core, IReadOnlyList<string> words)
+    {
+        if (words.Count == 1 && words[0] == "list") return Task.FromResult(new CommandOutcome(CommandOutcome.Ok, List(core)));
+        return core.ExecuteCommandAsync(words);
+    }
+
+
+    /// <summary>The reason column of the <c>list</c> verb: for an invalid manifest the first problem and how many more there are; otherwise the one-line reason.</summary>
+    static string CliReason(ModuleEntry m, Rigbay.Core.LanguageCatalog languages)
+    {
+        var errors = m.Issues.Where(i => i.IsError).ToList();
+        if (m.Bay.Reason is { } r && r.Args.OfType<IReadOnlyList<ManifestIssue>>().Any() && errors.Count > 0)
+        {
+            var first = errors[0].LocaliseLine(languages).ReplaceLineEndings(" ");
+            return errors.Count == 1 ? first : languages.F("reason.cli-more", first, errors.Count - 1);
+        }
+        return m.ShortReasonText(languages);
+    }
+    public static string List(RigbayHost core)
+    {
+        var modules = core.Modules;
+        if (modules.Count == 0) return core.Languages.T("core.command.no-modules");
+        var sb = new System.Text.StringBuilder();
+        foreach (var m in modules)
+        {
+            sb.Append($"{m.Id}  {m.Bay.State}  {m.Manifest?.Version ?? "-"}  {(core.IsEnabledByUser(m.Id) ? "enabled" : "disabled")}");
+            var reason = CliReason(m, core.Languages);
+            if (reason.Length > 0) sb.Append("  ").Append(reason);
+            sb.AppendLine();
+        }
+        return sb.ToString().TrimEnd();
+    }
 }

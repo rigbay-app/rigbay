@@ -217,7 +217,7 @@ static class ModulePage
         return e.Lifecycle == ModuleLifecycle.Running;
     }
 
-    public static bool HasDeclarations(ModuleEntry e) => e.Manifest is { } m && (m.Requires.Admin || m.Requires.Network.Count + m.Requires.Registry.Count + m.Requires.Services.Count > 0);
+    public static bool HasDeclarations(ModuleEntry e) => e.Manifest is { } m && (m.Requires.Admin || m.Requires.Network.Count + m.Requires.Registry.Count + m.Requires.Services.Count > 0 || m.ReadsOutsideItsFolder);
 }
 
 static class UiExtensions
@@ -246,6 +246,7 @@ static class RequiresDialog
         Add(Host.T("requires.network"), m.Requires.Network);
         Add(Host.T("requires.registry"), m.Requires.Registry);
         Add(Host.T("requires.services"), m.Requires.Services);
+        Add(Host.T(ModuleManifest.OutsideFilesLabelKey), m.DeclaredProbePaths);
         body.Children.Add(Ui.Text(Host.T("requires.note"), "RbSecondaryCaption", wrap: true));
         var dialog = new ContentDialog
         {
@@ -304,7 +305,7 @@ static class ModulesPage
         {
             Header = header,
             Description = reason.Length > 0 ? $"{word}  ·  {reason}" : $"{word}  ·  {e.DisplayDescription}",
-            Content = sw,
+            Content = sw, Tag = e.Id,
         };
         void Fact(string label, string value)
         {
@@ -317,12 +318,13 @@ static class ModulesPage
         Fact(Host.T("fact.id"), e.Id);
         Fact(Host.T("fact.author"), e.AuthorText());
         Fact(Host.T("fact.description"), e.DisplayDescription);
-        Fact(Host.T("fact.group"), m != null ? Host.T("group." + m.Group) : "");
+        Fact(Host.T("fact.group"), m != null ? Host.T("group." + e.GroupKey()) : "");
         Fact(Host.T("fact.host-api"), m?.HostApi.Text ?? "");
         Fact(Host.T("fact.admin"), m == null ? "" : Host.T(m.Requires.Admin ? "value.yes" : "value.no"));
         Fact(Host.T("fact.network"), m == null ? "" : string.Join("\n", m.Requires.Network));
         Fact(Host.T("fact.registry"), m == null ? "" : string.Join("\n", m.Requires.Registry));
         Fact(Host.T("fact.services"), m == null ? "" : string.Join("\n", m.Requires.Services));
+        foreach (var path in m?.DeclaredProbePaths ?? Array.Empty<string>()) Fact(Host.T(ModuleManifest.OutsideFilesLabelKey), path);
         Fact(Host.T("fact.problems"), string.Join("\n", e.IssueLines()));
         Fact(Host.T("fact.folder"), e.Folder);
         if (m?.Homepage is { } home && Uri.TryCreate(home, UriKind.Absolute, out var uri))
@@ -449,7 +451,7 @@ static class LogPage
     {
         var box = new TextBox
         {
-            IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono, Consolas"),
+            IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono, Consolas"),
             FontSize = 12, MinHeight = 420, Height = 560, HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Auto);

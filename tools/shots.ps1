@@ -34,8 +34,20 @@ $jobs = @(
     @{ n = 'settings-dark';         a = '--theme', 'dark',  '--script', "$fan;page:settings" },
     @{ n = 'settings-light';        a = '--theme', 'light', '--script', "$fan;page:settings" },
     @{ n = 'log-dark';              a = '--theme', 'dark',  '--script', "$fan;page:log" },
+    @{ n = 'modules-probe-dark';    a = '--theme', 'dark',  '--size', '1240x1150', '--script', "page:modules;expand:demo-devices;wait:500" },
+    @{ n = 'modules-probe-light';   a = '--theme', 'light', '--size', '1240x1150', '--script', "page:modules;expand:demo-devices;wait:500" },
+    @{ n = 'requires-dark';         a = '--theme', 'dark',  '--script', "page:demo-devices;turn-on:demo-devices;wait:900" },
+    @{ n = 'requires-light';        a = '--theme', 'light', '--script', "page:demo-devices;turn-on:demo-devices;wait:900" },
+    @{ n = 'refresh-1-dark';        a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;wait:500" },
+    @{ n = 'refresh-2-added-dark';  a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:900;edit:row.add.header;wait:900" },
+    @{ n = 'refresh-3-removed-dark';a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:900;edit:row.remove.header;wait:600;edit:row.remove.header;wait:900" },
+    @{ n = 'refresh-added-light';   a = '--theme', 'light', '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:900" },
+    @{ n = 'refresh-scroll-dark';   a = '--theme', 'dark',  '--size', '1000x430', '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:700;edit:row.add.header;wait:700;edit:row.add.header;wait:700;scroll:9999;wait:300;edit:row.add.header;wait:900" },
     @{ n = 'module-on-tall-dark';   a = '--theme', 'dark',  '--size', '1240x1500', '--script', "$fan;page:demo-fan" },
-    @{ n = 'narrow-dark';           a = '--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
+    @{ n = 'narrow-modules-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:modules" },
+    @{ n = 'narrow-settings-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:settings" },
+    @{ n = 'narrow-log-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:log" },
+@{ n = 'narrow-dark';           a = '--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
 )
 $only = @($Names)
 if ($only.Count -gt 0) { $jobs = $jobs | Where-Object { $only -contains $_.n } }

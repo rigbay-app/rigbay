@@ -344,6 +344,7 @@ sealed class RowRenderer
         async Task Click()
         {
             if (busy) return;
+            FocusKey.RememberForRefresh(btn.XamlRoot, Host.Window.PageContent!);   // the button is disabled while it works; a page refresh then gives focus back to its replacement
             busy = true; btn.IsEnabled = false;
             try
             {
@@ -438,7 +439,13 @@ sealed class RowRenderer
             Description = ex.DescriptionKey is { Length: > 0 } k ? L.T(k) : "",
             IsExpanded = ex.IsExpanded,
         };
-        foreach (var child in ex.Children) x.Items.Add(Render(child));
+        // The expander gives every item the SettingsCard style, so only a SettingsCard can sit in it directly (an InfoBar throws when it is expanded);
+        // anything else is carried inside a card that lets it use the full width.
+        foreach (var child in ex.Children)
+        {
+            var el = Render(child);
+            x.Items.Add(el is SettingsCard ? el : new SettingsCard { Content = el, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Stretch });
+        }
         x.IsEnabled = ex.Enabled.Value;
         _scope.Bind(ex.Enabled, _e, v => x.IsEnabled = v);
         return x;
