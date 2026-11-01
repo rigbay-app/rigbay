@@ -31,6 +31,8 @@
   Registry key that holds the "Installed apps" entry. Default: the machine-wide Uninstall key. Used by tests.
 .PARAMETER NoUninstallEntry
   Do not write the "Installed apps" entry.
+.PARAMETER NoPause
+  When this script had to open an elevated window, close it at the end without waiting for Enter (for scripts).
 .PARAMETER SkipPrerequisiteCheck
   Do not check the prerequisites (tests on a machine that has them anyway; Rigbay will not start without them).
 
@@ -53,6 +55,7 @@ param(
     [string]$UninstallKeyRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
     [switch]$NoUninstallEntry,
     [switch]$SkipPrerequisiteCheck,
+    [switch]$NoPause,
     [switch]$Relaunched
 )
 
@@ -66,7 +69,7 @@ function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cya
 function Stop-Install($text) {
     Write-Host ''
     Write-Host "Rigbay was NOT installed. $text" -ForegroundColor Red
-    if ($Relaunched) { Read-Host 'Press Enter to close this window' | Out-Null }
+    if ($Relaunched -and -not $NoPause) { Read-Host 'Press Enter to close this window' | Out-Null }
     exit 1
 }
 
@@ -349,6 +352,6 @@ else {
     else { Say "Start it with: $rootExe" }
     Say 'First start: open Modules and install the modules you want; each one stays off until you turn it on.'
     Say 'Windows SmartScreen may warn about the first start, because the files are not signed.'
-    if ($Relaunched) { Read-Host 'Press Enter to close this window' | Out-Null }
+    if ($Relaunched -and -not $NoPause) { Read-Host 'Press Enter to close this window' | Out-Null }
 }
 exit 0

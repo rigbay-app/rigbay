@@ -20,6 +20,8 @@
   Folder that holds the shortcut. Default: the all-users Start menu Programs folder. Used by tests.
 .PARAMETER TaskName
   Name of the scheduled task. Default: Rigbay. Used by tests.
+.PARAMETER NoPause
+  When this script had to open an elevated window, close it at the end without waiting for Enter (for scripts).
 .PARAMETER UninstallKeyRoot
   Registry key that holds the "Installed apps" entry. Default: the machine-wide Uninstall key. Used by tests.
 
@@ -37,6 +39,7 @@ param(
     [string]$ShortcutDir = (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'),
     [string]$TaskName = 'Rigbay',
     [string]$UninstallKeyRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+    [switch]$NoPause,
     [switch]$Relaunched
 )
 
@@ -48,7 +51,7 @@ function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cya
 function Stop-Uninstall($text) {
     Write-Host ''
     Write-Host "Rigbay was NOT fully removed. $text" -ForegroundColor Red
-    if ($Relaunched) { Read-Host 'Press Enter to close this window' | Out-Null }
+    if ($Relaunched -and -not $NoPause) { Read-Host 'Press Enter to close this window' | Out-Null }
     exit 1
 }
 
@@ -157,5 +160,5 @@ else {
 
 Step 'Done'
 if ($dryRun) { Say 'WhatIf: nothing was changed.' } else { Say 'Rigbay is removed.' }
-if ($Relaunched) { Read-Host 'Press Enter to close this window' | Out-Null }
+if ($Relaunched -and -not $NoPause) { Read-Host 'Press Enter to close this window' | Out-Null }
 exit 0
