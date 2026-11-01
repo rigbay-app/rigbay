@@ -125,7 +125,7 @@ $co = Action-Sha 'actions/checkout'
 $sd = Action-Sha 'actions/setup-dotnet'
 $sln = (Get-ChildItem $OutDir -Filter *.sln -File | Select-Object -First 1).Name
 if (-not $sln) { throw 'no solution file at the root of the module' }
-Write-Text "$OutDir\.github\workflows\build.yml" @"
+Write-Text "$OutDir\.github\workflows\build.yml" (@"
 name: build
 
 on:
@@ -158,7 +158,7 @@ jobs:
 
       - name: Test
         run: dotnet test $sln --configuration Release --no-build --nologo
-"@
+"@ + $nl)
 Invoke-Git $OutDir add -A
 Invoke-Git $OutDir commit -q -m "CI: build and test on windows-latest (read-only token, actions pinned by SHA)" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 
