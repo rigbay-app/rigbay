@@ -1,7 +1,9 @@
-# Write proposals (task B3): NOTHING HERE HAS BEEN RUN
+# Write proposals (task B3), with the result of the first test (task B4)
 
-Status: **no write was run in B1, B2 or B3.** The probe (`tools/predatorsense-probe`) refuses every `Set*` method in code, so these cannot be
-run with it by accident. The coordinator presents them to the owner **one value at a time**; approval of one covers only that one call and value.
+Status: **exactly one write has been run on this machine: W4a (all fans Auto), in B4, status 0 (section "W4a result" below).** Every other
+candidate is still unrun. No write was run in B1, B2 or B3. The probe (`tools/predatorsense-probe`) refuses every `Set*` method in code. Writes go
+only through `tools/predatorsense-write`, whose code allow-list holds the owner-approved calls (today: W4a only, and the log blocks a repeat).
+The coordinator presents the candidates to the owner **one value at a time**; approval of one covers only that one call and value.
 Evidence tags as in `FINDINGS.md` (C read from the UI's code, O observed, G guess). Section numbers refer to `FINDINGS.md`.
 
 ## What the B3 reads changed
@@ -42,6 +44,29 @@ Evidence tags as in `FINDINGS.md` (C read from the UI's code, O observed, G gues
 | Worst case | the cache is stale and the firmware was in another mode, so this changes the mode to Auto (the safe, firmware-controlled state). A wrong mask would address the wrong fan; the mask is copied from the decoded table, never hand-built |
 | Testable? | **Partly.** The call's own status is checked; the effect is "no change", visible only as RPM staying put. It cannot prove that the mode took effect |
 | Why first | lowest risk of all: it only restates the recorded state and its undo is itself. It tests that the Set call format, the status and the timing work, before anything louder |
+
+#### W4a result (B4, run 2026-11-01 18:42 local; gate `g-write-w4a`, owner answered "approve", once)
+
+Run by `tools/predatorsense-write` (`--call W4a --execute`), elevated, on AC power at 100 %, CPU load 11 %. Raw log: `B4-w4a-run.txt`.
+
+| Item | Result |
+| --- | --- |
+| Schema check before the write | `gmInput` of `SetGamingFanBehavior` is **UInt64** (read from the schema, no coercion needed) |
+| The call | `SetGamingFanBehavior`, `gmInput` = `0x01410019`, once |
+| Answer | `gmOutput` raw `0x0`, **status 0**, returned in **11 ms**. No exception, no stall |
+| Baseline (3 passes, 2 s apart, the minute before) | CPU fan 2564 to 2586, GPU fan 1 2654, GPU fan 2 2663, CPU 57 to 61 C, system 44 to 46 C, GPU 52 C; `nvidia-smi` 52.69 C, 16.2 W, 22 % util, P8, fan "[N/A]" |
+| After the write (11 passes, t = 0 to 20 s, every 2 s) | CPU fan 2564 or 2586, GPU fan 1 2654 or 2678, GPU fan 2 2663 (all inside the baseline's own jitter), CPU 56 to 65 C, GPU 52 then 51 C; `nvidia-smi` 51.53 C, 13.5 W, 0 %. **No alert fired** (the tool's alert range was baseline min -30 % / max +30 %, and 90 C) |
+| Other calls | none. No second write, no retry, no other `Set*`. The run exited with code 0 |
+
+- **Verified (O):** the call format works (class, method, UInt64 input) and the firmware **accepts it with status 0**; the call is fast; RPM and temperatures stayed in the
+  baseline range for 20 s, as expected for a write that restates Auto.
+- **Not verified:** that the firmware mode changed or was re-asserted (the mode cannot be read back, and nothing was expected to move); that the Acer cache's "Auto"
+  was the true prior state (also unknown, but the RPM did not move); whether `PSSvc` re-applies its cached mode later; whether the setting survives a reboot or sleep;
+  anything about W4b, W1, W2 (their calls were not run); what the owner heard or saw at the machine (not reported to this worker).
+- **Fan RPM jitters by one step in Auto**: the values move in steps of about 22 to 24 (2564, 2586; 2654, 2678), so a pass can show a different number without any change.
+  A real fan-mode effect (W4b) must be judged against that, i.e. as a jump of hundreds of RPM.
+- `nvidia-smi` shows the GPU fan speed as `[N/A]` (the fans are driven by the EC, not the NVIDIA driver): the Acer sensors 6 and 9 are the only fan reading.
+- **For W4b:** W4a returned status 0, so the order rule "only after W4a returned status 0" is met. W4b still needs its own owner approval and its own entry in the write tool's allow-list.
 
 ### W4b: fan mode, all fans Max
 
@@ -107,7 +132,7 @@ Decoding needs a disassembly of `PSSvc.exe`, which has not been done. There is n
 | Step | Call | Value | Stop if |
 | --- | --- | --- | --- |
 | 0 | baseline reads (already-approved sensor reads) | n/a | any value odd |
-| 1 | W4a `SetGamingFanBehavior` | `0x01410019` | non-zero status, or RPM leaves the baseline range |
+| 1 | W4a `SetGamingFanBehavior` | `0x01410019` | non-zero status, or RPM leaves the baseline range. **DONE in B4: status 0, RPM unchanged** |
 | 2 | W4b `SetGamingFanBehavior` for at most 15 s | `0x02820019` | RPM does not rise in 10 s, or temperature above 90 C; then undo with step 1 |
 | 3 | step 1 again | `0x01410019` | RPM does not come back towards the baseline in 30 s: use the Acer app's Auto button |
 | 4 | W1 `SetFunction` for at most 15 s | `0x10007` | non-zero status; then `0x7` |
@@ -120,7 +145,7 @@ W3, custom speed, fan table, overclock levels and lighting: no steps until a dec
 
 | Candidate | State read-back | Effect check | Verdict |
 | --- | --- | --- | --- |
-| W4a fan Auto | none (cache only) | RPM unchanged | testable as a **format and status** test only |
+| W4a fan Auto | none (cache only) | RPM unchanged | testable as a **format and status** test only. **Run in B4: status 0, RPM unchanged** |
 | W4b fan Max | none | RPM indexes 2, 6, 9 rise | testable by **effect** |
 | W1 Cool Booster | read answered `0xE1`: unproven | RPM, maybe | testable by effect, state unproven |
 | W2 MaxQ | none | `nvidia-smi` under GPU load, not tried | weak |

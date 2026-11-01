@@ -1,0 +1,97 @@
+2026-11-01T11:42:09.396Z local=18:42:09.396 event=START key=W4a call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) mode=EXECUTE log=D:\Documents\Projects\rigbay\.claude\worktrees\feat-predatorsense-w4a\tools\predatorsense-write\bin\predatorsense-write.log
+2026-11-01T11:42:09.406Z local=18:42:09.406 event=POWER ac_line=1 battery_percent=100 battery_flag=1
+2026-11-01T11:42:10.446Z local=18:42:10.446 event=CPU_LOAD percent=11
+2026-11-01T11:42:10.451Z local=18:42:10.451 event=SCHEMA method=SetGamingFanBehavior in=gmInput type=UInt64
+2026-11-01T11:42:10.514Z local=18:42:10.514 event=NVIDIA_SMI tag=baseline exit=0 out="52.69, [N/A], 16.22 W, 22 %, 210 MHz, P8"
+2026-11-01T11:42:10.520Z local=18:42:10.520 event=READ phase=baseline1 call=GetGamingSysInfo(0x101) index=1 raw=0x3D00 status=0 value=61
+2026-11-01T11:42:10.523Z local=18:42:10.523 event=READ phase=baseline1 call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:10.526Z local=18:42:10.526 event=READ phase=baseline1 call=GetGamingSysInfo(0x301) index=3 raw=0x2D00 status=0 value=45
+2026-11-01T11:42:10.534Z local=18:42:10.534 event=READ phase=baseline1 call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:10.536Z local=18:42:10.536 event=READ phase=baseline1 call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:10.537Z local=18:42:10.537 event=READ phase=baseline1 call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:10.537Z local=18:42:10.537 event=PASS phase=baseline1 values: 1=61 2=2564 3=45 6=2654 9=2663 10=52
+2026-11-01T11:42:12.556Z local=18:42:12.556 event=READ phase=baseline2 call=GetGamingSysInfo(0x101) index=1 raw=0x3900 status=0 value=57
+2026-11-01T11:42:12.559Z local=18:42:12.559 event=READ phase=baseline2 call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:12.562Z local=18:42:12.562 event=READ phase=baseline2 call=GetGamingSysInfo(0x301) index=3 raw=0x2C00 status=0 value=44
+2026-11-01T11:42:12.565Z local=18:42:12.565 event=READ phase=baseline2 call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:12.567Z local=18:42:12.567 event=READ phase=baseline2 call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:12.570Z local=18:42:12.570 event=READ phase=baseline2 call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:12.570Z local=18:42:12.570 event=PASS phase=baseline2 values: 1=57 2=2564 3=44 6=2654 9=2663 10=52
+2026-11-01T11:42:14.583Z local=18:42:14.583 event=READ phase=baseline3 call=GetGamingSysInfo(0x101) index=1 raw=0x3C00 status=0 value=60
+2026-11-01T11:42:14.587Z local=18:42:14.587 event=READ phase=baseline3 call=GetGamingSysInfo(0x201) index=2 raw=0xA1A00 status=0 value=2586
+2026-11-01T11:42:14.590Z local=18:42:14.590 event=READ phase=baseline3 call=GetGamingSysInfo(0x301) index=3 raw=0x2E00 status=0 value=46
+2026-11-01T11:42:14.593Z local=18:42:14.593 event=READ phase=baseline3 call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:14.596Z local=18:42:14.596 event=READ phase=baseline3 call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:14.597Z local=18:42:14.597 event=READ phase=baseline3 call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:14.597Z local=18:42:14.597 event=PASS phase=baseline3 values: 1=60 2=2586 3=46 6=2654 9=2663 10=52
+2026-11-01T11:42:14.597Z local=18:42:14.597 event=BASELINE_RANGE fan2=1794..3361 fan6=1857..3450 fan9=1864..3461 (baseline min/max -30%/+30%)
+2026-11-01T11:42:14.597Z local=18:42:14.597 event=WRITE_ATTEMPT key=W4a call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) input=0x01410019 timeout_ms=15000
+2026-11-01T11:42:14.609Z local=18:42:14.609 event=WRITE_RESULT call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) input=0x01410019 raw=0x0 status=0 elapsed_ms=11
+2026-11-01T11:42:14.613Z local=18:42:14.613 event=READ phase=after+0.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA1A00 status=0 value=2586
+2026-11-01T11:42:14.616Z local=18:42:14.616 event=READ phase=after+0.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:14.619Z local=18:42:14.619 event=READ phase=after+0.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:14.622Z local=18:42:14.622 event=READ phase=after+0.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3C00 status=0 value=60
+2026-11-01T11:42:14.624Z local=18:42:14.624 event=READ phase=after+0.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:14.624Z local=18:42:14.624 event=PASS phase=after+0.0s values: 2=2586 6=2654 9=2663 1=60 10=52
+2026-11-01T11:42:16.623Z local=18:42:16.623 event=READ phase=after+2.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:16.629Z local=18:42:16.629 event=READ phase=after+2.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA7600 status=0 value=2678
+2026-11-01T11:42:16.632Z local=18:42:16.632 event=READ phase=after+2.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:16.638Z local=18:42:16.638 event=READ phase=after+2.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3D00 status=0 value=61
+2026-11-01T11:42:16.642Z local=18:42:16.642 event=READ phase=after+2.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:16.642Z local=18:42:16.642 event=PASS phase=after+2.0s values: 2=2564 6=2678 9=2663 1=61 10=52
+2026-11-01T11:42:18.624Z local=18:42:18.624 event=READ phase=after+4.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:18.628Z local=18:42:18.628 event=READ phase=after+4.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:18.630Z local=18:42:18.630 event=READ phase=after+4.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:18.633Z local=18:42:18.633 event=READ phase=after+4.0s call=GetGamingSysInfo(0x101) index=1 raw=0x4100 status=0 value=65
+2026-11-01T11:42:18.636Z local=18:42:18.636 event=READ phase=after+4.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:18.636Z local=18:42:18.636 event=PASS phase=after+4.0s values: 2=2564 6=2654 9=2663 1=65 10=52
+2026-11-01T11:42:20.628Z local=18:42:20.628 event=READ phase=after+6.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:20.632Z local=18:42:20.632 event=READ phase=after+6.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:20.634Z local=18:42:20.634 event=READ phase=after+6.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:20.636Z local=18:42:20.636 event=READ phase=after+6.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3B00 status=0 value=59
+2026-11-01T11:42:20.640Z local=18:42:20.640 event=READ phase=after+6.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:20.640Z local=18:42:20.640 event=PASS phase=after+6.0s values: 2=2564 6=2654 9=2663 1=59 10=52
+2026-11-01T11:42:22.623Z local=18:42:22.623 event=READ phase=after+8.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA1A00 status=0 value=2586
+2026-11-01T11:42:22.631Z local=18:42:22.631 event=READ phase=after+8.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:22.639Z local=18:42:22.639 event=READ phase=after+8.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:22.645Z local=18:42:22.645 event=READ phase=after+8.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3B00 status=0 value=59
+2026-11-01T11:42:22.653Z local=18:42:22.653 event=READ phase=after+8.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:22.653Z local=18:42:22.653 event=PASS phase=after+8.0s values: 2=2586 6=2654 9=2663 1=59 10=52
+2026-11-01T11:42:24.617Z local=18:42:24.617 event=READ phase=after+10.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:24.622Z local=18:42:24.622 event=READ phase=after+10.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA7600 status=0 value=2678
+2026-11-01T11:42:24.626Z local=18:42:24.626 event=READ phase=after+10.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:24.628Z local=18:42:24.628 event=READ phase=after+10.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3E00 status=0 value=62
+2026-11-01T11:42:24.630Z local=18:42:24.630 event=READ phase=after+10.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:24.630Z local=18:42:24.630 event=PASS phase=after+10.0s values: 2=2564 6=2678 9=2663 1=62 10=52
+2026-11-01T11:42:26.625Z local=18:42:26.625 event=READ phase=after+12.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:26.633Z local=18:42:26.633 event=READ phase=after+12.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA7600 status=0 value=2678
+2026-11-01T11:42:26.640Z local=18:42:26.640 event=READ phase=after+12.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:26.647Z local=18:42:26.647 event=READ phase=after+12.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3C00 status=0 value=60
+2026-11-01T11:42:26.649Z local=18:42:26.649 event=READ phase=after+12.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:26.649Z local=18:42:26.649 event=PASS phase=after+12.0s values: 2=2564 6=2678 9=2663 1=60 10=52
+2026-11-01T11:42:28.631Z local=18:42:28.631 event=READ phase=after+14.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:28.633Z local=18:42:28.633 event=READ phase=after+14.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:28.637Z local=18:42:28.637 event=READ phase=after+14.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:28.640Z local=18:42:28.640 event=READ phase=after+14.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3E00 status=0 value=62
+2026-11-01T11:42:28.643Z local=18:42:28.643 event=READ phase=after+14.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3400 status=0 value=52
+2026-11-01T11:42:28.643Z local=18:42:28.643 event=PASS phase=after+14.0s values: 2=2564 6=2654 9=2663 1=62 10=52
+2026-11-01T11:42:30.630Z local=18:42:30.630 event=READ phase=after+16.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:30.635Z local=18:42:30.635 event=READ phase=after+16.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:30.641Z local=18:42:30.641 event=READ phase=after+16.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:30.646Z local=18:42:30.646 event=READ phase=after+16.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3E00 status=0 value=62
+2026-11-01T11:42:30.651Z local=18:42:30.651 event=READ phase=after+16.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3300 status=0 value=51
+2026-11-01T11:42:30.651Z local=18:42:30.651 event=PASS phase=after+16.0s values: 2=2564 6=2654 9=2663 1=62 10=51
+2026-11-01T11:42:32.624Z local=18:42:32.624 event=READ phase=after+18.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA1A00 status=0 value=2586
+2026-11-01T11:42:32.627Z local=18:42:32.627 event=READ phase=after+18.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:32.630Z local=18:42:32.630 event=READ phase=after+18.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:32.632Z local=18:42:32.632 event=READ phase=after+18.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3800 status=0 value=56
+2026-11-01T11:42:32.637Z local=18:42:32.637 event=READ phase=after+18.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3300 status=0 value=51
+2026-11-01T11:42:32.637Z local=18:42:32.637 event=PASS phase=after+18.0s values: 2=2586 6=2654 9=2663 1=56 10=51
+2026-11-01T11:42:34.626Z local=18:42:34.626 event=READ phase=after+20.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA0400 status=0 value=2564
+2026-11-01T11:42:34.634Z local=18:42:34.634 event=READ phase=after+20.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA5E00 status=0 value=2654
+2026-11-01T11:42:34.638Z local=18:42:34.638 event=READ phase=after+20.0s call=GetGamingSysInfo(0x901) index=9 raw=0xA6700 status=0 value=2663
+2026-11-01T11:42:34.642Z local=18:42:34.642 event=READ phase=after+20.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3900 status=0 value=57
+2026-11-01T11:42:34.645Z local=18:42:34.645 event=READ phase=after+20.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3300 status=0 value=51
+2026-11-01T11:42:34.645Z local=18:42:34.645 event=PASS phase=after+20.0s values: 2=2564 6=2654 9=2663 1=57 10=51
+2026-11-01T11:42:34.697Z local=18:42:34.697 event=NVIDIA_SMI tag=after exit=0 out="51.53, [N/A], 13.54 W, 0 %, 210 MHz, P8"
+2026-11-01T11:42:34.697Z local=18:42:34.697 event=DONE mode=EXECUTE exit=0 (status 0, RPM inside the baseline range for the whole window)
