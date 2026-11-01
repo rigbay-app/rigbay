@@ -1,0 +1,1 @@
+﻿2026-11-01 22:37:56.793 INFO  host           shot (PrintWindow of the window) 1240x1620 dpi=96 printWindow=True -> D:\Documents\Projects\rigbay\.claude\worktrees\feat-module-recorder\docs\recorder\live\recorder-recording-dark.png

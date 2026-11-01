@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../../src/Rigbay.Abstractions/Rigbay.Abstractions.csproj" />
+  <Project Path="src/Rigbay.Recorder/Rigbay.Recorder.csproj" />
+  <Project Path="tests/Rigbay.Recorder.Tests/Rigbay.Recorder.Tests.csproj" />
+</Solution>

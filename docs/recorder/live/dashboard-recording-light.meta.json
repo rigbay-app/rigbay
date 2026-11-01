@@ -1,0 +1,73 @@
+{
+  "tool": "Rigbay recorder",
+  "tool_version": "0.1.0",
+  "host_version": "0.1.0",
+  "csv": "rigbay-log-2026-11-01_22-31-41.csv",
+  "started": "2026-11-01T22:31:41.291+07:00",
+  "ended": "2026-11-01T22:31:50.788+07:00",
+  "period_s": 1,
+  "limit_minutes": null,
+  "rows": 10,
+  "stop_reason": "module-stopped",
+  "error": null,
+  "machine": {
+    "manufacturer": "Acer",
+    "model": "Predator PT516-51s",
+    "cpu": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+    "os": "Microsoft Windows 10.0.26300"
+  },
+  "modules": {
+    "predatorsense": "0.1.0",
+    "recorder": "0.1.0"
+  },
+  "columns": [
+    {
+      "id": "cpu.temp",
+      "label": "CPU temperature",
+      "unit": "°C",
+      "source": "predatorsense",
+      "description": "CPU temperature"
+    },
+    {
+      "id": "fan.cpu.rpm",
+      "label": "CPU fan",
+      "unit": "rpm",
+      "source": "predatorsense",
+      "description": "CPU fan"
+    },
+    {
+      "id": "fan.gpu1.rpm",
+      "label": "GPU fan 1",
+      "unit": "rpm",
+      "source": "predatorsense",
+      "description": "GPU fan 1"
+    },
+    {
+      "id": "fan.gpu2.rpm",
+      "label": "GPU fan 2",
+      "unit": "rpm",
+      "source": "predatorsense",
+      "description": "GPU fan 2"
+    },
+    {
+      "id": "gpu.temp",
+      "label": "GPU temperature",
+      "unit": "°C",
+      "source": "predatorsense",
+      "description": "GPU temperature"
+    },
+    {
+      "id": "system.temp",
+      "label": "System temperature",
+      "unit": "°C",
+      "source": "predatorsense",
+      "description": "System temperature"
+    }
+  ],
+  "late_metrics": [],
+  "notes": [
+    "Each row holds the latest value every module had published at the time stamped on the row; a module that publishes about once a second is repeated when the period is shorter.",
+    "An empty cell means the metric had no value at that moment: it was withdrawn, or its newest value was more than 30 seconds old.",
+    "Columns are fixed when the recording starts. A metric that appeared later is listed in late_metrics and is not in the file."
+  ]
+}
