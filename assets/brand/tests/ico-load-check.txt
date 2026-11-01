@@ -1,0 +1,8 @@
+app-icon\rigbay.ico                            16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+app-icon\high-contrast\rigbay-hc-black.ico     16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+app-icon\high-contrast\rigbay-hc-white.ico     16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+app-icon\tray\rigbay-tray-dark.ico             16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+app-icon\tray\rigbay-tray-light.ico            16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+app-icon\tray\rigbay-tray-neutral.ico          16=16x16 20=20x20 24=24x24 32=32x32 48=48x48 64=64x64 256=256x256
+System.Drawing.Icon(rigbay.ico) default size: 32x32
+ok: every tray size loaded at the requested size

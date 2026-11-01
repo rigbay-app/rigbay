@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Rigbay app icon">
+  <title>Rigbay app icon</title>
+  <path fill="#7A5AF8" d="M68 0 A68 68 0 0 0 0 68 V188 A68 68 0 0 0 68 256 H188 A68 68 0 0 0 256 188 V68 A68 68 0 0 0 188 0 Z"/>
+  <g transform="translate(48.64 48.64) scale(0.763)">
+    <path fill="#FFFFFF" d="M0 60 V152 A56 56 0 0 0 56 208 H152 A56 56 0 0 0 208 152 V60 A12 12 0 0 0 184 60 V152 A32 32 0 0 1 152 184 H56 A32 32 0 0 1 24 152 V60 A12 12 0 0 0 0 60 Z"/>
+    <path fill="#FFFFFF" d="M88 0 A24 24 0 0 0 64 24 V120 A24 24 0 0 0 88 144 H120 A24 24 0 0 0 144 120 V24 A24 24 0 0 0 120 0 Z"/>
+  </g>
+</svg>

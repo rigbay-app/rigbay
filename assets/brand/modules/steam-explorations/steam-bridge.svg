@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 208" width="208" height="208" role="img" aria-label="Steam access exploration: bridge">
+  <title>Steam access exploration: bridge</title>
+  <path fill="#0A8FB0" d="M56 0 A56 56 0 0 0 0 56 V152 A56 56 0 0 0 56 208 H152 A56 56 0 0 0 208 152 V56 A56 56 0 0 0 152 0 Z"/>
+  <path fill="#FFFFFF" d="M176 128 A72 72 0 0 0 32 128 A12 12 0 0 0 56 128 A48 48 0 0 1 152 128 A12 12 0 0 0 176 128 ZM64 134 A20 20 0 0 0 24 134 A20 20 0 0 0 64 134 ZM184 134 A20 20 0 0 0 144 134 A20 20 0 0 0 184 134 ZM90 104 L90 156 A14 14 0 0 0 118 156 L118 104 A14 14 0 0 0 90 104 Z"/>
+</svg>

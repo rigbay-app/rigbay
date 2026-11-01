@@ -1,207 +1,354 @@
-# Rigbay brand: logo concepts (checkpoint)
+# Rigbay brand guidelines
 
-Status: **concept checkpoint, task L1, 2026-11-01.** Nothing here is final and no kit has been built. The owner picks a
-direction first; the section "What the kit contains" lists what gets built after that.
+Status: **kit built for review, task L2, 2026-11-01.** The owner picked the coordinator's recommendations from the L1
+concept round: the Rigbay mark is **B Dock** and the module marks are **direction 1 Tile**. This file is the guideline;
+the files are in `assets/brand/`. Nothing here is frozen until the owner has commented.
 
-Files: `assets/brand/concepts/` (SVGs, the three overview sheets as HTML + PNG).
+Look first at these (all rendered from the SVG masters and looked at):
 
 | Look at | File |
 | --- | --- |
-| Rigbay, three concepts | `assets/brand/concepts/overview-rigbay.png` |
-| Module marks, two directions | `assets/brand/concepts/overview-modules.png` |
-| One-colour, reversed, squint, mirror, shelf, family | `assets/brand/concepts/overview-tests.png` |
+| Whole kit on one sheet | `assets/brand/tests/test-01-kit-overview.png` |
+| 16 px pixel test | `assets/brand/tests/test-02-pixel-16.png` |
+| The social images | `assets/brand/social/social-preview-1280x640.png`, `org-avatar-512.png`, `readme-banner.png` |
+| Steam access: six drawings, one kept | `assets/brand/tests/test-10-steam-explorations.png` |
+| Module family | `assets/brand/tests/test-11-module-family.png` |
 
-## 1. Brief and assumptions
+## 1. The idea
 
-Rigbay is a Windows tuning and control host: one window, one tray icon, modules that plug into "bays". The look is
-Windows 11 Fluent (Mica, flat, hairlines), close to PowerToys Settings in structure (`docs/UI-DIRECTION.md`).
+Rigbay is a host with **bays**; a module is something you **plug into a bay**. The mark is that gesture, once: a
+U-shaped bay seen from the front, and a block lowered into it. The block is the only coloured element and is the one
+thing that can follow the user's Windows accent. Every module mark is then an **occupied bay of its own colour** (a
+tile) with one glyph that says what the module does.
 
-Nobody was available to answer questions, so these are my assumptions:
+Adjectives it has to carry (from the brief): precise, calm, modular, trustworthy with hardware, modern but not flashy.
+Not "gamer", not "enterprise". So: flat, rounded, one idea, one accent, no gradient, no effect.
 
-- **Audience:** one owner today, later other people who write modules for their own machine. Technical, Windows 11,
-  dark and light themes. The mark is seen small (title bar, tray, pane, module rows) far more often than large.
-- **Adjectives:** precise, calm, modular, trustworthy with hardware, modern but not flashy. Not "gamer", not
-  "enterprise".
-- **Name** is `Rigbay`, lowercase `rigbay` in the wordmark. The idea of the name (a bay is a slot a module plugs
-  into) is the idea of the mark. The app already shows three vertical bays in the title bar.
-- **Colour is a function in the app.** Green, red and amber are state colours (running, failed, warning), so none of
-  them is a brand hue. The app follows the Windows accent, so the mark has one accent element that can be bound to the
-  accent colour in the UI; the fixed brand accent is only for icons, the README and the website.
-- **Trademarks:** no Intel, Acer, Predator or Steam logo, shape, colour pairing or word inside any mark. The module
-  marks show what the module does (sliders, a fan, a detour), not whose product it works with.
-- **Not in scope here:** the full kit, guidelines, website, a final wordmark, trademark clearance.
+## 2. Decisions taken in this round
 
-### What I found in the repo that matters for the brand
-
-- The title bar draws three bays: two outlined, one filled with the Windows accent (`tools/shots/dashboard-dark.png`).
-  At 16 px the outlines are 1 px lines.
-- The **module rows already use a vertical bar as state** (outlined = off, filled green or red = running or failed).
-  A module icon must therefore not be a tall thin vertical bar, or it fights the state bar next to it. Concept A is the
-  closest to that and the reason for its risk note below.
-- `tools/make-icon.ps1` (placeholder icon) fills the third bay with **green** (47,182,124). Green is a state colour in
-  the app, so the placeholder should change once a direction is chosen. That file is outside my area; noting it only.
-
-## 2. Category audit
-
-I could not run `search_library.py` (no Python on this machine, see section 8), so I queried the library's
-`classifications.json` with Node and looked at the SVGs directly.
-
-- **Rigbay's neighbours** (Windows utilities): PowerToys is a bright, multi-colour toolbox tile; MSI Center and
-  Armoury Crate are black and red, angular, aggressive; HWiNFO is a dense chip-and-graph look. None of them is in the
-  library, and I do not copy any of them. For the shelf test I drew four **generic stand-ins** from those habits
-  (clearly labelled on the sheet) and, for my own eyes only, used real marks from the library that sit near the ideas
-  (Windows, VS Code, Terminal, Docker, retool, gitter, Power BI, Data Studio, Stencil).
-- **Clichés to avoid:** a gear, a wrench, a chip with pins, a lightning bolt, a shield, a flame or dragon, a
-  speedometer, green-on-black "hardware" colours.
-- **Library finds:** three upright bars are crowded (retool-icon, gitter, Power BI, Data Studio, Stencil). Nothing
-  resembles a U-shaped bay with a block lowered into it; the nearest is Stack Overflow's tray with fanned bars, a
-  different gesture. Many R marks exist (Remix, Riot, Rust, R language, Rax, Rollup, Heroku Redis).
-- **Rigbay's own gap:** the neighbours are saturated or aggressive tiles. A flat, mostly-ink mark with one calm accent
-  is distinct on the shelf and sits comfortably in the Windows 11 look.
-
-## 3. Shared construction (all marks)
-
-- Canvas 256, grid unit 8. Stroke weight 24 (wordmark and glyphs) or 20 (outlined bays); **all terminals are pills**
-  (round ends, radius = half the stroke); containers use **outer radius 56 and inner radius 32** (concentric, stroke 24).
-- **One accent per mark**, flat, no gradients. Ink is `#1F2430` on light and `#EEF1F8` on dark.
-- Every mark has a **small cut** for 24 px and below (heavier strokes, no hollow bays, mid-slate ink).
-
-### Colours
-
-All checked for contrast as graphic objects against Mica dark (`#202020`, `#2B2B2B`) and light (`#F3F3F3`, `#FFFFFF`).
-
-| Role | Name | HEX | on `#202020` | on `#F3F3F3` |
-| --- | --- | --- | --- | --- |
-| Rigbay accent (fixed brand) | Bay Violet | `#7A5AF8` | 3.6 : 1 | 4.1 : 1 |
-| XTU profiles | Blue | `#2F7BFF` | 4.2 : 1 | 3.5 : 1 |
-| PredatorSense | Magenta | `#D946B8` | 4.3 : 1 | 3.4 : 1 |
-| Steam access | Cyan | `#0A8FB0` | 4.3 : 1 | 3.4 : 1 |
-| Template, tray ink | Slate | `#7B8497` | 4.3 : 1 | 3.4 : 1 |
-| Ink (light / dark) | | `#1F2430` / `#EEF1F8` | | |
-
-Hues sit at about 265°, 215°, 320°, 190° and neutral: none is green, red or amber, and none is the default Windows
-blue (`#0078D4`). Blue and cyan are neighbours; the glyph, not the hue, tells them apart. Tint values for CMYK and
-Pantone are not done (kit phase). Slate lands between 3 : 1 on both Mica extremes, so a **single fixed tray file** is
-possible without switching icons by theme.
-
-## 4. Rigbay: three concepts
-
-Each concept comes as symbol, lockup (symbol + wordmark), small cut and app-icon tile. The wordmark is the same for
-all three: lowercase `rigbay`, a monoline geometric build with 24-wide strokes and pill ends, single-storey `a` and
-`g`, the **dot of the i in the accent** (the lit bay). It is built from strokes in these concept files and gets
-expanded to outlines in the kit.
-
-| | Concept | Type | Idea |
-| --- | --- | --- | --- |
-| A | **Rack** | abstract | Three bays: two empty (outline), one occupied (solid accent). The state language of the module rows, drawn as a mark. |
-| B | **Dock** | abstract | A U-shaped bay seen from the front with a module block lowered into it. "Plug a module in" in one gesture. |
-| C | **R-bay** | letterform | A rounded R whose leg is the module in the accent. |
-
-Files: `rigbay-a-rack-*.svg`, `rigbay-b-dock-*.svg`, `rigbay-c-r-*.svg`, each with `-symbol`, `-lockup`, `-small`,
-`-appicon`.
-
-### Recommendation: **B, Dock**
-
-One line: it is the only concept that says what Rigbay does (a module goes into a bay) without a letter or a generic
-bar shape, and its single accent block is exactly the element that can follow the Windows accent.
-
-- **A** is the continuation of the current title-bar mark, which is a real advantage, but three bars is the most
-  crowded shape in the library and, rotated 90°, becomes a menu icon. Its outlined bays do not survive 16 px (needs
-  the small cut with solid bays).
-- **C** is the strongest at 16 px because it is a letter, but R is one of the most used initials, and in the lockup the
-  R repeats the r of the wordmark.
-- **B** risk: it can read as an inbox or download tray. Keep the block a plain block (no arrow) and keep it floating
-  inside the bay.
-
-## 5. Module marks: two directions as a family
-
-Module marks: XTU profiles, PredatorSense, Steam access, plus the **module template** (neutral slot, a plus: "an
-empty bay, plug something in"). Glyphs share the grid above and are drawn once for both directions.
-
-| Mark | Glyph (what it says) | Accent |
+| Question left open by L1 | Decision | Why |
 | --- | --- | --- |
-| XTU profiles | Two sliders with knobs: power limits and profiles | Blue `#2F7BFF` |
-| PredatorSense | A three-blade fan with a hub: fan and performance | Magenta `#D946B8` |
-| Steam access | A route that hops over a blocked post, with an arrow: a network workaround | Cyan `#0A8FB0` |
-| Template | A plus: an empty bay waiting for a module | Slate `#7B8497` |
+| Rigbay mark | **B Dock** (as recommended) | The only concept that says what Rigbay does; one accent element. |
+| Module direction | **1 Tile** (as recommended), plus a glyph-only quiet form | Survives 16 px; the quiet form is the fallback if tiles feel loud next to state bars (tested, section 8). |
+| Steam access glyph | **A key** (`steam-access.svg`) | Six drawings tried at 16 px, see section 9 and `test-10-steam-explorations.png`. |
+| Fixed brand accent | **Bay Violet `#7A5AF8`** kept | Hue 252°, 98° from the nearest state colour (green 154°); passes 3:1 on every surface tested. |
+| Python | Not used. Node 26 + headless Edge replaced every script of the skill | See section 14. |
 
-- **Direction 1, Tile** (`module-d1-*.svg`): a solid accent tile (outer radius 56) with the glyph knocked out in white.
-  The tile radius matches the Rigbay app-icon tile and the Dock mark.
-- **Direction 2, Slot** (`module-d2-*.svg`): the empty-bay frame in neutral ink with the glyph lit in the accent.
+Open for the owner: whether Bay Violet stays, whether the key is the final Steam access glyph (the open padlock is
+the drop-in alternative), the licence terms for the logo files (section 12), and a trademark search before launch.
 
-### Recommendation: **Direction 1, Tile** (and keep a glyph-only quiet form)
+## 3. The mark: construction
 
-One line: it is the only direction that survives 16 px, the glyph is large, and the tile ties directly to the Rigbay
-app icon.
+One grid for everything: **208 × 208 units, cells of 8** (26 × 26). Stroke weight 24. Every terminal is a pill (round
+end, radius = half the stroke). Containers use **outer radius 56 and inner radius 32**, concentric.
 
-- Slot looks calmer on paper but fails the 16 px test: the frame is the heaviest thing in the icon and the glyph
-  shrinks by about a third, so below 24 px the frame has to be dropped anyway.
-- Tile adds colour to a screen where colour means state. The bay-row mock-up (24 px icon next to the state bar, light
-  and dark) holds up; if it feels loud in the real app, use the glyph alone in the accent colour (no tile). The glyphs
-  are shared, so both forms come out of the same drawing.
-- **Weakest glyph: Steam access.** The arch with an arrow over a post can read as "redo". The kit phase should try a
-  second drawing (for example a key or an open lock) before this is frozen.
-- The module marks must not become tall thin bars (state bar clash, see section 1).
+```
+Dock symbol (208 x 208)
+  bay    U-shape, wall 24, outer R56, inner R32, arm caps Ø24, arm tops 48 below the block top
+  block  80 x 144, corner radius 24, centred, floats: gap 40 to both arms and to the floor
+```
 
-## 6. Test results
+`assets/brand/tests/test-09-construction.png` draws it on the grid. Optical decisions:
 
-Run on every concept; the evidence is in the PNGs, all looked at.
+- The block floats (a gap of 40 on three sides) so it never reads as a download tray: no arrow, no contact with the bay.
+- Footprint is exactly square, so the symbol sits centred in every container without adjustment.
+- **Reversed** (light on dark) is thinned by 1 unit on every edge (wall 22, block 78 × 142) because light shapes on dark
+  look heavier. Compare black and white in `test-03-one-colour-reversed.png`: they read as equal weight.
+- **Small cut** for 16 to 24 px (use it below 32): wall 32, inner radius 24, same block. The gaps open from 40 to 32
+  and the wall stays 2 px or more at 16 px.
+- **Quiet form**: bay in slate `#7B8497`, block in the ink colour, no hue. For places where colour would compete with
+  state colours (footers, about boxes, watermarks).
+- **One-colour** (black or white) and **accent-variable** files are in section 11.
 
-| Test | A Rack | B Dock | C R-bay | Where |
-| --- | --- | --- | --- | --- |
-| 16 px, full drawing | fails: outlined bays close to 1 px lines and mush | holds: U and block both visible | holds: reads as R | `overview-rigbay.png`, ×6 pixel view |
-| 16 / 24 px, small cut | holds (solid bays) | holds (heavier dock) | holds | same |
-| Tray, one fixed slate file, light and dark taskbar | holds | holds | holds | same |
-| One colour, black and white | holds (solid vs outline) | holds (block vs dock) | holds, leg merges with R | `overview-tests.png` |
-| Reversed on the accent tile | holds | holds | holds (leg in a tint) | same |
-| Squint (blur 3 px) | three shapes, last one coloured | U and block | R, leg fades | same |
-| Mirror, rotate 180 / 90 | 90° gives a stack of bars (menu icon) | 180° gives an arch with a block, no bad reading | mirror gives a reversed R (expected) | same |
-| Greyscale | holds | holds | holds | `overview-rigbay.png` |
-| Shelf (generic stand-ins, then real library marks) | crowded by bar marks | stands apart | stands apart, R is common | `overview-tests.png`, scratch image not committed |
-| Family: app icon plus four module tiles at 64 / 32 / 16 px | n/a | holds, one radius, one accent each | n/a | `overview-tests.png` |
+### Forms of the symbol
 
-Module marks: Tile holds at 48, 32, 24 and 16 px in light and dark (fan and sliders are crisp, Steam access is the
-busiest). Slot holds at 48 to 24 px, fails at 16 px.
+| Form | File (in `assets/brand/rigbay/`) | Use |
+| --- | --- | --- |
+| Colour, light | `rigbay-symbol.svg` | Default on light surfaces |
+| Reversed | `rigbay-symbol-reversed.svg` | Default on dark surfaces |
+| Black / white | `rigbay-symbol-black.svg`, `-white.svg` | One-colour print, stamps, embroidery, HC |
+| Accent variable | `rigbay-symbol-accent.svg` | Inline in HTML or app UI; `currentColor` ink, block = `--rigbay-accent` |
+| Small cut | `rigbay-symbol-small.svg`, `-small-reversed.svg` | 16 to 24 px |
+| Quiet | `rigbay-symbol-quiet.svg`, `-quiet-reversed.svg` | Where hue must stay out |
 
-### What I did not do or could not do
+### The wordmark
 
-- **`svg_audit.py`, `preview_sheet.py`, `concept_sheet.py`, `search_library.py`, `render_png.py`, `export_variants.py`
-  did not run: Python is not installed** and I was told not to install it. I replaced them with Node (library query),
-  headless Microsoft Edge (all rendering) and hand-built HTML sheets. Nothing essential was blocked at the concept
-  checkpoint. For the kit phase the scripts that matter are `export_variants.py` (variant and icon set) and
-  `svg_audit.py`; if the owner approves Python 3, they run as they are. Otherwise the same exports can be done with
-  Edge and Node, but the `.ico` build needs a small .NET or PowerShell step (as `tools/make-icon.ps1` already does).
-- Not tested: real Windows tray rendering at 125 / 150 / 200 % scale, Fluent title-bar placement, high contrast,
-  CMYK, embroidery or print. The tray row is a simulation on light and dark strips.
-- The SVGs are drawn with fills where simple (A, B, template frame) and with **strokes in places** (wordmark, concept C
-  R, module glyphs). Strokes get expanded to outlines in the kit. The marks have no text, rasters, filters or masks.
-- Clearance: no trademark or reverse-image search was done. Please search before launch.
-- Fonts: none used. The wordmark is drawn; it is not a licensed typeface.
+Lowercase `rigbay`, a monoline geometric drawing: stroke 24, round ends, single-storey `a` and `g`, the dot of the `i`
+is the second use of the accent (the lit bay). Round letters overshoot the x-height by 1 unit. Built from strokes, then
+**converted to outlines** (proved against the stroked drawing: 693 of 609,216 pixels differ by more than 30/255, none by
+more than 100, all along the round edges, i.e. anti-aliasing only; `tools/verify.mjs`). The x-height is 42 % of the
+lockup height; the wordmark spans exactly the symbol's height (ascender of `b` = block top, descender of `g` and `y` =
+bay floor).
 
-## 7. Using the accent in the app
+Known craft limits, kept on purpose: the rounded stem caps of `r`, `a` and `g` leave a small notch where they meet the
+bowl, normal for a rounded monoline. The `y` strokes are at 63.43° (a 1 : 2 slope), a deliberate angle, not a near-miss.
 
-The app accent colour (Windows) should drive **the one accent element** in the in-app mark (the module block in B, the
-third bay in A, the leg in C, the i-dot in the wordmark) and nothing else. The fixed Bay Violet is for the app icon
-tile, the README, the website and anywhere the Windows accent does not exist. State colours stay out of the mark.
-Module tiles keep their own fixed hue because they identify a module, not the user's theme.
+### Lockups
 
-## 8. What the kit contains (after the owner picks a direction)
+| Lockup | File | Rule |
+| --- | --- | --- |
+| Horizontal | `rigbay-lockup-horizontal.svg` (+ `-reversed`, `-black`, `-white`, `-accent`) | Symbol and wordmark 80 units apart (one block width). Default. |
+| Stacked | `rigbay-lockup-stacked.svg` (+ `-reversed`) | Symbol above, wordmark at 62 % size, 56 units apart. For square spaces. |
+| Wordmark only | `rigbay-wordmark.svg` (+ `-reversed`, `-black`, `-white`) | Only where the symbol is already on the page. |
 
-For the chosen Rigbay concept:
+## 4. Clear space and minimum sizes
 
-1. Final geometry with optical corrections and the thinned reversed version; wordmark outlined.
-2. Colour: palette with HEX / RGB / CMYK, one-colour and reversed files, on-accent version.
-3. Lockups: horizontal, stacked, symbol only, wordmark only; clear space and minimum sizes.
-4. Small cut, favicon, app icon tile; `rigbay.ico` (16, 24, 32, 48, 64, 256 as in `tools/make-icon.ps1`) and the PNG set.
-5. In-app: title-bar mark (follows the Windows accent), tray icon, pane icons for module groups.
+**Clear space `x` = the width of the module block = 80 units = 38 % of the symbol height**, on all four sides of the
+symbol and of any lockup. It is measured on the mark itself, so it scales with it (`test-09-construction.png`).
 
-For the module marks (chosen direction):
+| Item | Minimum | Rule |
+| --- | --- | --- |
+| Symbol, small cut | **16 px** | Never smaller; 16 to 24 px use the small cut (`test-02-pixel-16.png`). |
+| Symbol, full drawing | 32 px | Below 32 px use the small cut. |
+| Horizontal lockup | **24 px tall** (108 px wide) | At 16 and 20 px the `i`-dot and `y` merge; use the symbol alone. |
+| Stacked lockup | 48 px wide | Same reason. |
+| App icon | 16 px | Small cut up to 24 px, in `rigbay.ico`. |
+| Module tile | 16 px | Small cuts exist for the XTU, PredatorSense and Steam access tiles. |
+| Quiet glyph | 16 px | No small cut; the glyph is drawn larger (section 9). |
+| Print (provisional, **not tested**) | symbol 8 mm, lockup 25 mm wide | Screen product; nothing printed yet. |
 
-6. Tile and glyph-only forms of XTU, PredatorSense, Steam access and the template; 16 / 20 / 24 / 32 / 48 exports.
-7. A **module-author page**: how to make a mark that fits (grid, one accent, tile radius 56, no third-party logos),
-   shipped with the `module-template` repo as `icon.svg` plus the template mark.
-8. A short usage page (`docs/BRAND.md` grows into it), a README header image, and a test sheet for the final files.
+## 5. Colour
 
-Open decisions for the owner: the concept (B recommended), the module direction (Tile recommended), whether the
-Steam access glyph stays, whether Bay Violet stays as the fixed brand accent, and whether Python 3 may be installed
-for the kit phase.
+Only five hues plus two inks. Contrast ratios are computed (WCAG 2.x relative luminance) by `tools/contrast.mjs`;
+the full table is `assets/brand/tests/contrast.txt`. A graphic object needs **3 : 1** (WCAG 1.4.11), text 4.5 : 1.
+
+| Role | Name | HEX | RGB | on `#202020` | on `#2B2B2B` | on `#F3F3F3` | on `#FFFFFF` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Brand accent (fixed) | **Bay Violet** | `#7A5AF8` | 122 90 248 | 3.60 | 3.13 | 4.07 | 4.52 |
+| Ink, light theme | Ink | `#1F2430` | 31 36 48 | n/a | n/a | 13.98 | 15.52 |
+| Ink, dark theme | Ink Light | `#EEF1F8` | 238 241 248 | 14.41 | 12.52 | n/a | n/a |
+| Quiet / template / tray neutral | Slate | `#7B8497` | 123 132 151 | 4.34 | 3.77 | 3.39 | 3.76 |
+| XTU profiles | Blue | `#2F7BFF` | 47 123 255 | 4.19 | 3.64 | 3.51 | 3.89 |
+| PredatorSense | Magenta | `#D946B8` | 217 70 184 | 4.28 | 3.72 | 3.43 | 3.81 |
+| Steam access | Cyan | `#0A8FB0` | 10 143 176 | 4.32 | 3.75 | 3.40 | 3.77 |
+
+White glyph on its tile: violet 4.52, blue 3.89, magenta 3.81, cyan 3.77, slate 3.76. Everything passes; the weakest
+pairing is Bay Violet on the lighter dark card `#2B2B2B` at **3.13**. The bay and the block next to each other in the
+colour logo: 3.43.
+
+Hues (HSL): violet 252°, blue 218°, magenta 313°, cyan 192°. The state colours in the app are green 154°, red 358°,
+amber 37°. (The L1 note said violet was about 265°; the computed value is 252°. Blue and cyan are 26° apart, so the
+glyph, not the hue, tells those two modules apart; in greyscale the tiles are almost the same grey for the same reason,
+see `test-04-squint-mirror.png`.)
+
+**Not done on purpose:** CMYK and Pantone. Rigbay is a screen product; a computed CMYK would be a guess that a printer
+would not trust. If print ever matters, proof the violet on stock first.
+
+## 6. The accent rule
+
+1. **Green, red and amber are state colours** (running, failed, warning). They are never brand colours and never part
+   of any mark. No brand hue is within 30° of them.
+2. **One accent element per mark**: the block in the Rigbay mark, the tile colour in a module mark, the dot of the `i`
+   in the wordmark. Nothing else is coloured.
+3. **In the app window** the block follows the user's **Windows accent** (title bar mark, About page). Everywhere there
+   is no Windows accent (the exe icon, Start, README, repo, website, store listing) it is fixed Bay Violet.
+4. **The tray is not rendered with the accent**, so tray icons use fixed colours (section 7).
+5. **Module tiles keep their own fixed hue**: a tile identifies a module, not the user's theme.
+6. Proposal for the integration: if the user's Windows accent hue is within 30° of the state green, red or amber, show
+   the **quiet form** of the mark in the title bar so the block can never be mistaken for a state.
+
+The accent-variable files use a CSS custom property: `fill: var(--rigbay-accent, #7A5AF8)`. It works when the SVG is
+inline in HTML (shown teal in `test-01-kit-overview.png`); an SVG loaded through `<img>` ignores the page's variables
+and shows the fallback, which is the right behaviour for the README. The XAML equivalent is in
+`assets/brand/integration/`.
+
+## 7. App icon, tray, high contrast
+
+- **App icon** (`app-icon/rigbay-appicon.svg`): Bay Violet tile, corner radius 68 on 256 (26.6 %, the proportion of
+  the module tiles' 56 on 208), white symbol at 62 % of the tile. Small cut at 70 % for 16 to 24 px
+  (`rigbay-appicon-small.svg`). The symbol sits exactly in the centre of every frame (verified: margins equal at 16, 24,
+  64 and 256 px).
+- **`rigbay.ico`**: 16, 20, 24, 32, 40, 48, 64, 256 px, PNG entries. 16, 20 and 24 are the small cut, the rest the
+  full drawing. Windows' own loader (`LoadImage`, what `Native.LoadTrayIcon` calls) returns the requested size for each
+  (`tests/ico-load-check.txt`).
+- **PNG exports** (`app-icon/png/rigbay-N.png`): 16, 20, 24, 32, 40, 48, 64, 128, 256, 512.
+- **Tray pair** (`app-icon/tray/`): `rigbay-tray-light.ico` for a **light** taskbar (ink `#1F2430` bay) and
+  `rigbay-tray-dark.ico` for a **dark** taskbar (ink `#EEF1F8` bay), 16 / 20 / 24 / 32 px (100, 125, 150, 200 %),
+  small cut, and **both keep the block in fixed Bay Violet**, which passes 3 : 1 on `#202020` (3.60), `#2B2B2B` (3.13),
+  `#F3F3F3` (4.07) and white (4.52). `rigbay-tray-neutral.ico` (all slate, 3.77 on dark, 3.39 on light) is the fallback
+  when the taskbar theme cannot be read.
+- **High contrast** (`app-icon/high-contrast/`): one-colour, small cut, `rigbay-hc-black.ico` for light high contrast
+  themes and `rigbay-hc-white.ico` for dark ones. In one colour the block is told from the bay by the gap alone, which
+  holds (`test-03-one-colour-reversed.png`).
+
+## 8. Module family (Tile)
+
+Each module mark is a **solid tile** (corner radius 56 on 208, so the same shape as the app icon and the Dock's outer
+corner) in the module's colour with a **white glyph**. Strokes are 24, all terminals are pills.
+
+| Module | Glyph | Tile | Files (`assets/brand/modules/`) |
+| --- | --- | --- | --- |
+| XTU profiles | two sliders with knobs | Blue `#2F7BFF` | `xtu.svg`, `xtu-small.svg`, `xtu-glyph.svg` |
+| PredatorSense | a three-blade fan with a hub | Magenta `#D946B8` | `predatorsense.svg`, `-small`, `-glyph` |
+| Steam access | a key | Cyan `#0A8FB0` | `steam-access.svg`, `-small`, `-glyph` |
+| Module template | a plus: an empty bay | Slate `#7B8497` | `module-template.svg`, `-glyph` |
+| Unknown module | a "?" | Slate `#7B8497` | `module-unknown.svg`, `-glyph` |
+
+For each: `<id>.svg` (tile), `<id>-small.svg` (heavier drawing for 16 and 24 px, only where it differs), `<id>-glyph.svg`
+(quiet form, glyph in the accent colour, no tile), `<id>-glyph-currentcolor.svg` (same, `currentColor`),
+`<id>-unsupported.svg`. PNG sizes **16, 24, 32, 48, 64, 128** for the tile, the glyph and the unsupported variant:
+`modules/png/<id>[-glyph|-unsupported]-<size>.png`. Overview with every size: `tests/test-11-module-family.png`.
+
+- **Small cuts**: XTU gets heavier lines and bigger knobs; the fan gets fatter blades and a bigger hub (at 16 px the
+  first fan read as a "Y" and was redrawn); the key loses its second tooth and gets a thicker shaft.
+- **Quiet glyph form**: the glyph alone in the module colour, drawn in a 176 × 176 box (glyph 80 to 90 % of it) so it is as
+  large as possible at 16 px. Use it where colour fights state colours (the dashboard row, test below) or where the
+  tile is too loud. Glyph colour passes 3 : 1 on all four surfaces (table above).
+- **Unknown module**: the neutral slate tile with a "?" slot. Used by the host when a module has no icon, a bad icon or
+  fails to load.
+- **Unsupported variant** (a module whose Probe says the machine does not support it): the *same drawing* with the tile
+  colour replaced by the **grey of equal relative luminance** (`#818181` XTU, `#838383` PredatorSense and Steam access,
+  `#848484` template and unknown). Built by the same script from the same glyph, so it can never drift; white glyph on
+  grey is 3.74 to 3.90, the same contrast as on the colour tile. For a third-party icon the host cannot regenerate, the
+  documented fallback is the module's own icon at **45 % opacity**.
+- **Dashboard test** (`test-07-dashboard-rows.png`): the 24 px tile sits next to the 4 px state bar in light and dark
+  without confusing it (the glyph is never a tall thin bar); the quiet form is calmer and also works. Recommendation:
+  tiles on the Modules page (48 px) and in the dashboard rows (24 px), quiet glyphs in the navigation pane (16 px) and
+  compact lists. Changing it is a one-line decision for the integration.
+
+## 9. Steam access: the glyph that was flagged weak
+
+The L1 drawing (an arc with an arrow over a post) read as "redo". Six replacements were drawn with the same primitives
+and put through the same 16 px test (`assets/brand/modules/steam-explorations/`, sheet `test-10-steam-explorations.png`):
+
+| Drawing | Verdict |
+| --- | --- |
+| **Key** (kept) | Reads as "access" at 24 px and above; the hole in the bow survives at 16 px. Risk: it also reads as "keys / passwords" elsewhere; the cyan tile and its place in the Steam access row remove the doubt. |
+| Open padlock | The clearest at 16 px and says "unlocked", but reads as a security module in a tuning app, and "open padlock" can mean "insecure". **Drop-in alternative** if the owner prefers it. |
+| Signpost | "Choose a route"; becomes a cross-like block at 16 px, the arrows are the busiest detail. |
+| Detour (square route over a block) | Clean at 16 px but abstract: reads as a castle top. |
+| Bridge (the old arch, arrow replaced by two nodes) | The arrow went, but the arch on two round feet now reads as headphones. |
+| Shield with a gap | Says "protected", the opposite of a workaround; the gap is lost at 16 px. |
+
+No Steam, Valve, Intel, Acer or Predator mark, shape, colour pairing or word is used or imitated. The Steam logo is a
+circle with a piston and a smaller circle; a key shares nothing with that structure. The glyphs show what a module
+does (sliders, a fan, a key), not whose product it works with.
+
+## 10. How a module gets its mark: the `icon` convention (proposal)
+
+For module authors, in the module folder next to `module.json`:
+
+| File | Required | What |
+| --- | --- | --- |
+| `icon.svg` | for a mark | The tile, **208 × 208** viewBox, full-bleed tile with corner radius 56, one fill colour, white glyph, stroke 24 expanded to paths. Must not contain scripts, raster images, text, filters, gradients or external references. ≤ 64 KB. |
+| `icon-glyph.svg` | optional | The quiet form (glyph only, in the module colour). Used in the navigation pane and compact lists when present, otherwise `icon.svg`. |
+| `icon-16.png`, `icon-24.png`, `icon-32.png`, `icon-48.png`, `icon-64.png`, `icon-128.png` | optional | Raster fallbacks at exactly those sizes (the built-in modules ship all six). |
+
+Manifest, a field **proposed** for Core (not implemented here; section "manifest" of `assets/brand/integration/README.md`):
+
+```json
+{ "id": "xtu", "icon": "icon.svg" }
+```
+
+Rules for module authors: one accent colour, not green, red or amber, not within 30° of them; the tile radius is 56 of
+208; use the glyph grid (stroke 24, pill ends, glyph inside the central 160 × 160 of the tile); **no third-party logos, no
+shapes taken from a vendor's mark, no vendor names**; test it at 16 px before publishing. The `module-template` repo
+should ship `icon.svg` from `modules/module-template.svg` as the starting point. Without an icon, the host shows the
+"?" tile.
+
+## 11. File inventory (`assets/brand/`)
+
+```
+rigbay/               symbol, wordmark, lockups (SVG) and rigbay/png (symbol and lockup PNGs, light and dark)
+app-icon/             rigbay-appicon(.svg|-small.svg), rigbay.ico, png/ (16..512)
+  tray/               rigbay-tray-{light,dark,neutral}.svg + .ico + png/ (16 20 24 32)
+  high-contrast/      rigbay-hc-{black,white}.svg + .ico + png/
+modules/              tile, -small, -glyph, -glyph-currentcolor, -unsupported SVGs; png/ (16..128); steam-explorations/
+social/               social-preview-1280x640.png, org-avatar-512.png, readme-banner(.svg|.png|-reversed.*)
+tests/                test-01 .. test-11 sheets, svg-audit.txt, contrast.txt, verification.txt, ico-load-check.txt
+integration/          what the app needs, with a README (file names, sizes, proposal for the manifest icon)
+tools/                the Node scripts that build and check everything (below)
+concepts/             the L1 concept round, kept as the record
+```
+
+Scripts (all dependency-free Node, Edge for rendering): `build-all.mjs` runs `build-svgs`, `build-raster` (PNG + ICO
+packer), `build-social`, three sheet builders, `build-integration`, `svg-audit`, `contrast`, `verify`. `check-ico.ps1`
+loads each `.ico` through Windows' `LoadImage`. The geometry lives in `tools/lib/marks.mjs`; **change a mark there and
+rebuild, never edit generated SVGs by hand.**
+
+Social images (assets only; GitHub settings were not touched): `social-preview-1280x640.png` (repo social preview,
+Open Graph), `org-avatar-512.png` for the `rigbay-app` organisation (Bay Violet square, symbol at 60 %, inside the
+circle-safe zone), `readme-banner.svg` (+ `.png`, reversed). None carries a tagline (that would need a typeface); the
+repo description beside the image supplies the words.
+
+## 12. Fonts and licence
+
+**No typeface is used, embedded or required.** The wordmark is a custom drawing, converted to outlines; the SVG files
+contain no `<text>`, no strokes, no raster, no filter, no mask, no gradient (`tools/svg-audit.mjs`: 61 files, 0
+failures; the only warning is the rejected shield exploration). So there is no font licence to honour for the logo.
+
+The test sheets (PNG) show labels rendered in the system UI font (Segoe UI on the machine that built them) as
+screenshots; the font file is not distributed, and the labels are documentation, not part of any mark.
+
+The repository is MIT. Whether the **name and logo** are covered by the same licence or by a trademark policy is a
+decision for the owner; nothing here decides it. No trademark or reverse-image search was done: do that before launch.
+
+## 13. What not to do
+
+- Do not use green, red or amber in or beside the mark as a brand colour; do not use the accent block as a status light.
+- Do not stretch, rotate, outline, add shadows, gradients, glows or a stroke; do not rearrange the lockup.
+- Do not put an arrow, a plug, a lightning bolt or any drawing on the block; it must stay a plain floating block.
+- Do not use the full drawing below 32 px or the small cut above 48 px.
+- Do not use the light file on a dark surface (the bay vanishes: `test-03-one-colour-reversed.png`, third row).
+- Do not place the colour logo on a busy photo or pattern; use the white or black one-colour file, or the tile.
+- Do not colour the tray icon with the Windows accent.
+- Do not add a vendor's logo, name or recognisable shape to a module mark.
+- Do not recolour a module tile to show state; use the unsupported variant or the state bar.
+
+## 14. Tests and what changed because of them
+
+Evidence is in `assets/brand/tests/`; every PNG sheet was opened and looked at.
+
+| Test (skill checklist) | Result | Sheet |
+| --- | --- | --- |
+| 16 px, every mark | Holds. Changed: fan redrawn with fatter blades for 16 px (read as "Y"), key given a heavier small cut. | `test-02-pixel-16.png` |
+| 24 to 32 px | Holds in all marks. | `test-02`, `test-11` |
+| One colour, black and white | Holds; white file thinned 1 unit per edge so it does not look heavier. | `test-03` |
+| On brand colour, pattern, photo stand-in | Holds with the white/black file; the colour file is not for photos. | `test-03` |
+| Greyscale | Dock and every glyph hold by shape and value. The four tiles end up at almost the same grey: modules are told apart by glyph, not hue. | `test-04` |
+| Squint (blur 3 and 6 px) | Dock reads as U plus block; tiles keep their silhouette. | `test-04` |
+| Mirror, rotate 90 and 180 | No accidental letter or hazard sign. Dock at 90° is a "C" with a pill, at 180° an arch with a block. The fan is not the radiation trefoil: asymmetric swept blades joined to the hub. Key mirrors as a key. "?" mirrors as a reversed "?", expected. | `test-04` |
+| Windows 11 taskbar and tray, light and dark, 100 to 200 % | Holds in the mock; tray block 3.13 to 4.52 : 1 on all four surfaces. Mock only. | `test-05` |
+| Start menu (32, 24, 48 px) | Holds, stands apart from generic neighbours. | `test-06` |
+| Dashboard row, nav pane, Modules page | Tiles hold next to the state bar; quiet glyph form is the calm fallback; unsupported and "?" read clearly. | `test-07` |
+| Shelf test against six generic stand-ins (toolbox, black and red, chip and graph, dial, terminal, shield) | Rigbay stays findable at 64, 32, 24 and 16 px, light and dark, and belongs to none of them. | `test-08` |
+| Construction, clear space, size ladder | Done; minimum lockup height set to 24 px. | `test-09` |
+| Geometry audit | 61 SVG files, 0 failures. An early audit found a 1.9° near-miss in the "?" join (fixed to an exact 45° by ending the hook at 45°) and my own tool miscounting transforms (tool fixed). | `svg-audit.txt` |
+| Bugs found by looking | Fan hub and the signpost boards cancelled where outlines overlapped (winding direction; fixed in `shapes.mjs`); the first banner overlapped its own tiles; the first taskbar ×3 view overflowed. All fixed and re-rendered. | |
+| ICO structure and Windows loading | 8 sizes in `rigbay.ico`, PNG entries of the declared size; `LoadImage` returns each requested size. | `verification.txt`, `ico-load-check.txt` |
+
+### What was not verified
+
+- **The real taskbar and tray**: all taskbar, Start and tray images are mocks with generic neighbours drawn here; no real
+  Windows surface was captured. Whether Windows 11 draws the tray icon on its own tinted backgrounds as assumed is open.
+- **High-DPI screens** (125, 150, 200 %): the frames exist and load, but nobody looked at them on such a display.
+- **The app itself**: no file was put into `src/*`. The XAML path data was not compiled; `AppWindow.SetIcon`, the tray
+  path with a real shell, and `SvgImageSource` on the module icons are all untested. The renderer used for every image
+  is Chromium (Edge), not WinUI.
+- **Print, CMYK, embroidery, engraving**: not tested, not produced.
+- **High contrast themes** on a real machine: the mono files were looked at on black, white and yellow, not in the OS.
+- **Trademark clearance and reverse-image search**: not done.
+- **Other renderers**: the SVGs were rendered by Edge only (no Inkscape, Illustrator or the Explorer thumbnailer).
+- **Python tooling** (`svg_audit.py`, `preview_sheet.py`, `export_variants.py`, ...): not run (no Python). The Node
+  scripts in `tools/` reproduce the audit, the sheets and the exports, but they are not the skill's scripts, so scores
+  are not comparable with its library.
+
+## 15. Appendix: the L1 concept round (kept for the record)
+
+Three Rigbay concepts were drawn (A Rack: three bays, one filled; B Dock: a bay with a module lowered in; C R-bay: a
+rounded R whose leg is the module) and two module directions (1 Tile, 2 Slot). The record is in
+`assets/brand/concepts/` (SVGs, `overview-rigbay.png`, `overview-modules.png`, `overview-tests.png`). Findings from
+that round that still hold:
+
+- The title bar currently draws three bays (two outlined, one in the Windows accent). A is the continuation of that and
+  its outlined bays fail at 16 px; B replaces it.
+- **The module rows use a vertical bar as state** (outlined = off, filled green or red = running or failed). A module
+  icon must therefore never be a tall thin vertical bar. None of the five is.
+- `tools/make-icon.ps1` (placeholder icon) fills its third bay with green `(47, 182, 124)`. Green is a state colour in
+  the app, so the placeholder must be replaced by `assets/brand/app-icon/rigbay.ico` (see the integration README).
+- Category: neighbours are saturated or aggressive tiles (PowerToys multi-colour, MSI Center and Armoury Crate black
+  and red, HWiNFO dense). Clichés avoided: gear, wrench, chip with pins, lightning bolt, shield, flame, speedometer.
+  Three upright bars is the most crowded abstract shape in the skill's library; nothing there resembles a U-shaped bay
+  with a block lowered into it.
+- Slot (direction 2) fails at 16 px because the frame is the heaviest thing in the icon; it stays a documented
+  alternative only.

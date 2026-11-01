@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 208" width="208" height="208" role="img" aria-label="Rigbay tray icon for a light taskbar">
+  <title>Rigbay tray icon for a light taskbar</title>
+  <path fill="#1F2430" d="M0 60 V152 A56 56 0 0 0 56 208 H152 A56 56 0 0 0 208 152 V60 A16 16 0 0 0 176 60 V152 A24 24 0 0 1 152 176 H56 A24 24 0 0 1 32 152 V60 A16 16 0 0 0 0 60 Z"/>
+  <path fill="#7A5AF8" d="M88 0 A24 24 0 0 0 64 24 V120 A24 24 0 0 0 88 144 H120 A24 24 0 0 0 144 120 V24 A24 24 0 0 0 120 0 Z"/>
+</svg>
