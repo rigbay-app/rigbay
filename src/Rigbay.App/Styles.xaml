@@ -1,0 +1,93 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      Rigbay's own resources: reading hues (one family per kind of reading), and a few styles that follow the theme.
+      State colours (ok / warning / error) are the system's SystemFillColor*Brush, so they match Windows in dark, light and high contrast.
+      Brushes are looked up with ThemeResource inside styles; looking them up from code returns the APP theme, not the window's.
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="#A84300"/>
+            <SolidColorBrush x:Key="RbReadingPowerBrush" Color="#0B5CAD"/>
+            <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#00695C"/>
+            <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#6E5600"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="#FFA66B"/>
+            <SolidColorBrush x:Key="RbReadingPowerBrush" Color="#6CB8FF"/>
+            <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#5FD3C4"/>
+            <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#E5C95C"/>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbReadingPowerBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbReadingLoadBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <Style x:Key="RbSecondaryText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+    </Style>
+    <Style x:Key="RbSecondaryCaption" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+    </Style>
+    <Style x:Key="RbPrimaryText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+    </Style>
+    <Style x:Key="RbErrorText" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}"/>
+    </Style>
+    <Style x:Key="RbOkText" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource SystemFillColorSuccessBrush}"/>
+    </Style>
+    <Style x:Key="RbGroupHeader" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="Margin" Value="1,16,0,6"/>
+    </Style>
+
+    <Style x:Key="RbReadingTemperature" TargetType="TextBlock"><Setter Property="Foreground" Value="{ThemeResource RbReadingTemperatureBrush}"/></Style>
+    <Style x:Key="RbReadingPower" TargetType="TextBlock"><Setter Property="Foreground" Value="{ThemeResource RbReadingPowerBrush}"/></Style>
+    <Style x:Key="RbReadingSpeed" TargetType="TextBlock"><Setter Property="Foreground" Value="{ThemeResource RbReadingSpeedBrush}"/></Style>
+    <Style x:Key="RbReadingLoad" TargetType="TextBlock"><Setter Property="Foreground" Value="{ThemeResource RbReadingLoadBrush}"/></Style>
+
+    <!-- The bay mark: a 5 px bar. Filled green = ready, filled red = failed, filled amber = needs attention, outline = off / unsupported / empty. -->
+    <Style x:Key="RbBayReady" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Fill" Value="{ThemeResource SystemFillColorSuccessBrush}"/>
+    </Style>
+    <Style x:Key="RbBayFailed" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Fill" Value="{ThemeResource SystemFillColorCriticalBrush}"/>
+    </Style>
+    <Style x:Key="RbBayAttention" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Fill" Value="{ThemeResource SystemFillColorCautionBrush}"/>
+    </Style>
+    <Style x:Key="RbBayOutline" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Stroke" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+    </Style>
+    <Style x:Key="RbBrandSlot" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="Height" Value="20"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+    </Style>
+    <Style x:Key="RbBrandSlotOutline" TargetType="Rectangle">
+        <Setter Property="Width" Value="5"/><Setter Property="Height" Value="20"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
+        <Setter Property="Stroke" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/>
+        <Setter Property="StrokeThickness" Value="1.5"/>
+    </Style>
+
+    <Style x:Key="RbHairlineBottom" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    </Style>
+    <Style x:Key="RbHairlineTop" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    </Style>
+
+</ResourceDictionary>

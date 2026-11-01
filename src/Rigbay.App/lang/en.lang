@@ -1,0 +1,159 @@
+# Rigbay host strings. English is the reference; see docs/ABSTRACTIONS.md section 7.
+@code = en
+@name = English
+
+# navigation and shell
+nav.dashboard = Dashboard
+nav.modules = Modules
+nav.settings = Settings
+nav.log = Log
+search.placeholder = Search modules and settings
+status.admin = Administrator
+status.not-admin = Not elevated
+group.power = Power
+group.cooling = Cooling
+group.network = Network
+group.display = Display
+group.monitoring = Monitoring
+group.other = Other
+
+# bay states
+state.ready = Running
+state.off = Off
+state.unsupported = Not supported
+state.failed = Failed
+state.updateavailable = Update available
+state.restartrequired = Restart required
+bay.invalid = Invalid manifest: {0}
+bay.incompatible = Needs host API {0}, this is Rigbay {1}
+bay.unsupported = Not supported on this machine
+
+# dashboard
+dash.rack = Installed modules
+dash.empty-title = No modules installed
+dash.empty-body = Rigbay looked in {0} and found no module folders. A module is a folder with a module.json and its DLL.
+dash.empty-action = Open Modules
+
+# metric labels (dashboard readings)
+metric.cpu.temp = CPU
+metric.cpu.power = CPU power
+metric.cpu.usage = CPU load
+metric.cpu.clock = CPU clock
+metric.cpu.fan = CPU fan
+metric.cpu.power.pl1 = PL1
+metric.cpu.power.pl2 = PL2
+metric.gpu.temp = GPU
+metric.gpu.power = GPU power
+metric.gpu.usage = GPU load
+metric.gpu.clock = GPU clock
+metric.gpu.fan = GPU fan
+metric.memory.usage = Memory
+metric.battery.level = Battery
+metric.battery.rate = Battery rate
+
+# module page
+module.enable = Enable {0}
+page.homepage = Learn more
+page.view-log = View log
+page.off-hint = Turn this module on to see its settings.
+page.no-page = This module has no settings page.
+page.invalid-title = This module cannot be loaded
+page.failed-title = This module failed
+page.incompatible-title = Built for another host version
+page.unsupported-title = Not supported on this machine
+page.build-failed = This page could not be drawn
+value.on = On
+value.off = Off
+value.yes = Yes
+value.no = No
+row.apply = Apply
+row.discard = Discard
+row.revert = Revert
+row.applied = Applied. Now {0}
+row.applied-adjusted = The module set {0}
+row.reverted = Reverted to {0}
+row.reverted-plain = Reverted
+row.cancelled = Cancelled. Nothing changed
+row.done = Done
+row.failed = Failed
+row.shortcut-none = Not set
+row.hardware-note = Changes your hardware. Rigbay asks before it applies.
+row.custom-null = The module returned no control for '{0}'.
+row.custom-wrong-type = The module returned {0}, which is not a WinUI control.
+row.custom-threw = The module failed while building this control: {0}
+row.custom-unavailable = The module is not available.
+
+# hardware approval and first enable
+approval.title = Change your hardware?
+approval.apply = Apply
+approval.cancel = Cancel
+approval.hint-revertible = Rigbay shows the value the module reports afterwards and keeps a Revert next to it.
+approval.hint-not-revertible = This change cannot be undone from Rigbay.
+requires.title = Turn on {0}?
+requires.intro = {0} by {1} says it uses the following. This is the module's own declaration; Rigbay does not enforce it.
+requires.admin = Administrator rights
+requires.admin-yes = Needed
+requires.network = Network
+requires.registry = Registry
+requires.services = Services
+requires.note = A module runs inside Rigbay with the same rights. Turn on only modules you trust.
+requires.turn-on = Turn on
+capture.hint = Press the new shortcut.
+capture.set = Set
+capture.clear = Clear
+
+# modules page
+modules.placeholder-title = Install, update and remove are not built yet
+modules.placeholder-body = They will come with the module registry: download a release, check its SHA256, unpack it into the modules folder, then restart. For now, put a module folder into the folder below and restart Rigbay.
+modules.open-folder = Open folder
+modules.open-page = Open this module's page
+fact.id = Id
+fact.author = Author
+fact.description = Description
+fact.group = Group
+fact.host-api = Host API
+fact.admin = Needs administrator
+fact.network = Network
+fact.registry = Registry
+fact.services = Services
+fact.problems = Problems
+fact.folder = Folder
+fact.homepage = Homepage
+
+# settings page
+settings.general = General
+settings.language = Language
+settings.language-desc = Takes effect at once, no restart.
+settings.theme = Theme
+theme.system = Use Windows setting
+theme.light = Light
+theme.dark = Dark
+settings.start = Start with Windows
+settings.start-desc = Starts Rigbay in the tray shortly after you sign in, as administrator, without a prompt. Uses a scheduled task named Rigbay.
+settings.start-on = Scheduled task is set
+settings.log-level = Log level
+settings.log-level-desc = Applies to everything written from now on.
+level.debug = Debug
+level.info = Info
+level.warn = Warnings
+level.error = Errors
+settings.log-folder = Log folder
+settings.open = Open folder
+settings.hotkeys = Hotkeys
+settings.hotkeys-none = No module has registered a hotkey.
+settings.hotkey-conflict = Conflict
+settings.hotkey-refused = Held by another program
+log.copy = Copy
+
+# tray and notifications
+tray.open = Open Rigbay
+tray.quit = Quit
+toast.faulted-title = {0} stopped
+
+# command line
+cli.usage = Usage: Rigbay.App.exe <module> <verb> [args]   (also: list, version, <module> help)
+cli.unknown-module = Unknown module '{0}'. Try: Rigbay.App.exe list
+cli.not-running = Module '{0}' is not running. Turn it on in Rigbay first.
+cli.unknown-verb = Module '{0}' has no verb '{1}'. Try: Rigbay.App.exe {0} help
+cli.no-verbs = Module '{0}' has no command-line verbs.
+cli.faulted = The command failed and module '{0}' was stopped. See the log.

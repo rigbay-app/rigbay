@@ -1,0 +1,159 @@
+# Chuỗi giao diện của Rigbay (tiếng Việt). English là bản gốc.
+@code = vi
+@name = Tiếng Việt
+
+# điều hướng và khung ứng dụng
+nav.dashboard = Bảng điều khiển
+nav.modules = Mô-đun
+nav.settings = Cài đặt
+nav.log = Nhật ký
+search.placeholder = Tìm mô-đun và cài đặt
+status.admin = Quản trị viên
+status.not-admin = Chưa nâng quyền
+group.power = Nguồn điện
+group.cooling = Làm mát
+group.network = Mạng
+group.display = Màn hình
+group.monitoring = Giám sát
+group.other = Khác
+
+# trạng thái khoang
+state.ready = Đang chạy
+state.off = Tắt
+state.unsupported = Không hỗ trợ
+state.failed = Lỗi
+state.updateavailable = Có bản cập nhật
+state.restartrequired = Cần khởi động lại
+bay.invalid = Manifest không hợp lệ: {0}
+bay.incompatible = Cần host API {0}, đây là Rigbay {1}
+bay.unsupported = Máy này không được hỗ trợ
+
+# bảng điều khiển
+dash.rack = Mô-đun đã cài
+dash.empty-title = Chưa cài mô-đun nào
+dash.empty-body = Rigbay đã tìm trong {0} và không thấy thư mục mô-đun nào. Một mô-đun là thư mục có module.json và DLL của nó.
+dash.empty-action = Mở Mô-đun
+
+# nhãn số đo
+metric.cpu.temp = CPU
+metric.cpu.power = Công suất CPU
+metric.cpu.usage = Tải CPU
+metric.cpu.clock = Xung CPU
+metric.cpu.fan = Quạt CPU
+metric.cpu.power.pl1 = PL1
+metric.cpu.power.pl2 = PL2
+metric.gpu.temp = GPU
+metric.gpu.power = Công suất GPU
+metric.gpu.usage = Tải GPU
+metric.gpu.clock = Xung GPU
+metric.gpu.fan = Quạt GPU
+metric.memory.usage = Bộ nhớ
+metric.battery.level = Pin
+metric.battery.rate = Tốc độ pin
+
+# trang mô-đun
+module.enable = Bật {0}
+page.homepage = Tìm hiểu thêm
+page.view-log = Xem nhật ký
+page.off-hint = Bật mô-đun này để xem cài đặt của nó.
+page.no-page = Mô-đun này không có trang cài đặt.
+page.invalid-title = Không tải được mô-đun này
+page.failed-title = Mô-đun này bị lỗi
+page.incompatible-title = Được build cho phiên bản host khác
+page.unsupported-title = Máy này không được hỗ trợ
+page.build-failed = Không vẽ được trang này
+value.on = Bật
+value.off = Tắt
+value.yes = Có
+value.no = Không
+row.apply = Áp dụng
+row.discard = Bỏ
+row.revert = Hoàn tác
+row.applied = Đã áp dụng. Hiện là {0}
+row.applied-adjusted = Mô-đun đặt thành {0}
+row.reverted = Đã hoàn tác về {0}
+row.reverted-plain = Đã hoàn tác
+row.cancelled = Đã hủy. Không có gì thay đổi
+row.done = Xong
+row.failed = Thất bại
+row.shortcut-none = Chưa đặt
+row.hardware-note = Thay đổi phần cứng của bạn. Rigbay sẽ hỏi trước khi áp dụng.
+row.custom-null = Mô-đun không trả về điều khiển nào cho '{0}'.
+row.custom-wrong-type = Mô-đun trả về {0}, không phải điều khiển WinUI.
+row.custom-threw = Mô-đun lỗi khi tạo điều khiển này: {0}
+row.custom-unavailable = Mô-đun không khả dụng.
+
+# xác nhận phần cứng và lần bật đầu
+approval.title = Thay đổi phần cứng của bạn?
+approval.apply = Áp dụng
+approval.cancel = Hủy
+approval.hint-revertible = Rigbay hiển thị giá trị mô-đun báo lại sau đó và giữ nút Hoàn tác bên cạnh.
+approval.hint-not-revertible = Rigbay không thể hoàn tác thay đổi này.
+requires.title = Bật {0}?
+requires.intro = {0} của {1} khai báo sẽ dùng những thứ sau. Đây là khai báo của chính mô-đun; Rigbay không ép buộc.
+requires.admin = Quyền quản trị
+requires.admin-yes = Cần
+requires.network = Mạng
+requires.registry = Registry
+requires.services = Dịch vụ
+requires.note = Mô-đun chạy bên trong Rigbay với cùng quyền. Chỉ bật mô-đun bạn tin tưởng.
+requires.turn-on = Bật
+capture.hint = Nhấn tổ hợp phím mới.
+capture.set = Đặt
+capture.clear = Xóa
+
+# trang mô-đun
+modules.placeholder-title = Cài, cập nhật và gỡ chưa được làm
+modules.placeholder-body = Chúng sẽ có cùng kho mô-đun: tải bản phát hành, kiểm tra SHA256, giải nén vào thư mục mô-đun rồi khởi động lại. Hiện giờ, hãy chép thư mục mô-đun vào thư mục bên dưới và khởi động lại Rigbay.
+modules.open-folder = Mở thư mục
+modules.open-page = Mở trang của mô-đun này
+fact.id = Mã
+fact.author = Tác giả
+fact.description = Mô tả
+fact.group = Nhóm
+fact.host-api = Host API
+fact.admin = Cần quyền quản trị
+fact.network = Mạng
+fact.registry = Registry
+fact.services = Dịch vụ
+fact.problems = Vấn đề
+fact.folder = Thư mục
+fact.homepage = Trang chủ
+
+# cài đặt
+settings.general = Chung
+settings.language = Ngôn ngữ
+settings.language-desc = Có hiệu lực ngay, không cần khởi động lại.
+settings.theme = Giao diện
+theme.system = Theo cài đặt Windows
+theme.light = Sáng
+theme.dark = Tối
+settings.start = Khởi động cùng Windows
+settings.start-desc = Chạy Rigbay trong khay hệ thống ngay sau khi bạn đăng nhập, với quyền quản trị, không hỏi. Dùng một tác vụ đã lên lịch tên Rigbay.
+settings.start-on = Đã đặt tác vụ theo lịch
+settings.log-level = Mức nhật ký
+settings.log-level-desc = Áp dụng cho mọi thứ ghi từ giờ.
+level.debug = Gỡ lỗi
+level.info = Thông tin
+level.warn = Cảnh báo
+level.error = Lỗi
+settings.log-folder = Thư mục nhật ký
+settings.open = Mở thư mục
+settings.hotkeys = Phím tắt
+settings.hotkeys-none = Chưa có mô-đun nào đăng ký phím tắt.
+settings.hotkey-conflict = Trùng
+settings.hotkey-refused = Chương trình khác đang giữ
+log.copy = Sao chép
+
+# khay hệ thống và thông báo
+tray.open = Mở Rigbay
+tray.quit = Thoát
+toast.faulted-title = {0} đã dừng
+
+# dòng lệnh
+cli.usage = Cách dùng: Rigbay.App.exe <mô-đun> <lệnh> [tham số]   (còn: list, version, <mô-đun> help)
+cli.unknown-module = Không có mô-đun '{0}'. Thử: Rigbay.App.exe list
+cli.not-running = Mô-đun '{0}' chưa chạy. Hãy bật nó trong Rigbay trước.
+cli.unknown-verb = Mô-đun '{0}' không có lệnh '{1}'. Thử: Rigbay.App.exe {0} help
+cli.no-verbs = Mô-đun '{0}' không có lệnh dòng lệnh nào.
+cli.faulted = Lệnh thất bại và mô-đun '{0}' đã bị dừng. Xem nhật ký.
