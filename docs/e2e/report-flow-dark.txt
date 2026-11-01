@@ -1,0 +1,131 @@
+﻿00:56:19.340 == E2E1 main flow, theme=dark, run folder <repo>\tools\out\e2e\run-dark
+00:56:19.358 app exe: <repo>\tools\out\e2e\app\Rigbay.App.exe  (version 0.1.0)
+00:56:19.438   real before: ProgramData\Rigbay exists: False
+00:56:19.439   real before: Program Files\Rigbay exists: False
+00:56:19.448   real before: scheduled task Rigbay: absent
+00:56:19.455   real before: HKCU Internet Settings AutoConfigURL : length 32, sha1 778FF77C
+00:56:19.463   real before: HKCU Internet Settings ProxyEnable : length 1, sha1 B6589FC6
+00:56:19.469   real before: HKCU Internet Settings ProxyServer : length 9, sha1 59233E89
+00:56:19.477   real before: Documents\Rigbay\logs: rigbay-log-2026-11-01_22-23-42.csv:1355,rigbay-log-2026-11-01_22-23-42.meta.json:2121,rigbay-log-2026-11-01_22-25-20.csv:659,rigbay-log-2026-11-01_22-25-20.meta.json:2131,rigbay-log-2026-11-01_22-25-34.csv:659,rigbay-log-2026-11-01_22-25-34.meta.json:2131,rigbay-log-2026-11-01_22-25-47.csv:659,rigbay-log-2026-11-01_22-25-47.meta.json:2131,rigbay-log-2026-11-01_22-26-14.csv:659,rigbay-log-2026-11-01_22-26-14.meta.json:2131,rigbay-log-2026-11-01_22-28-47.csv:659,rigbay-log-2026-11-01_22-28-47.meta.json:2131,rigbay-log-2026-11-01_22-29-00.csv:659,rigbay-log-2026-11-01_22-29-00.meta.json:2131,rigbay-log-2026-11-01_22-29-43.csv:659,rigbay-log-2026-11-01_22-29-43.meta.json:2131,rigbay-log-2026-11-01_22-36-50.csv:1239,rigbay-log-2026-11-01_22-36-50.meta.json:2121
+00:56:19.485   real before: LOCALAPPDATA\Rigbay: absent
+00:56:20.188 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\run-dark\data --modules <repo>\tools\out\e2e\run-dark\modules --theme dark -> pid 28896
+00:56:20.903 PASS  first start: the window appears
+00:56:23.711 PASS  first start opens the Modules page by itself  -- the button "Get the module list" is on screen without any navigation
+00:56:23.726 PASS  the page shows the scratch modules folder, not ProgramData  -- <repo>\tools\out\e2e\run-dark\modules
+00:56:23.767   shot dark-01-first-start.png: 1240x1100
+00:56:23.773 PASS  nothing was created before the user asked: no install folder yet  -- present: data
+00:56:23.821   pressed 'Get the module list': True
+00:56:24.422 PASS  registry fetched from GitHub through the page  -- 0.6 s
+00:56:25.047 PASS  list shows PredatorSense with an Install button
+00:56:25.067 PASS  list shows Recorder with an Install button
+00:56:25.084 PASS  list shows Steam access with an Install button
+00:56:25.102 PASS  list shows XTU profiles with an Install button
+00:56:25.124 PASS  the list says when it was checked
+00:56:25.126 PASS  registry entry predatorsense exists on GitHub
+00:56:25.133 PASS  registry entry recorder exists on GitHub
+00:56:25.141 PASS  registry entry steam-bypass exists on GitHub
+00:56:25.150 PASS  registry entry xtu exists on GitHub
+00:56:25.196 PASS  PredatorSense row: size and declared needs match the registry  -- size 273405 bytes
+00:56:25.238   shot dark-02-module-list.png: 1240x1100
+00:56:26.054 PASS  details show the SHA-256, the source link and what it declares
+00:56:26.081 PASS  details say "Works on this PC: not known until it is installed"
+00:56:26.147   shot dark-03-details-predatorsense.png: 1240x1100
+00:56:26.208   pressed 'Check for updates': True
+00:56:26.487 PASS  Check for updates again: GitHub answers 304, the saved list is kept
+00:56:26.543   pressed 'Install Recorder': True
+00:56:27.236   shot dark-04-installing-recorder.png: 1240x1100
+00:56:27.498   state: 0.05s [Button] Check for updates | [Text] No module is installed. | [Text] Module list checked 11/2/2026 12:56 AM. | [Button] Cancel Recorder
+00:56:27.500   state: 0.64s [Button] Check for updates | [Text] No module is installed. | [Text] Module list checked 11/2/2026 12:56 AM. | [Text] Downloading 0 B / 73.5 KB | [Button] Cancel Recorder
+00:56:27.513   state: 0.95s [Button] Check for updates | [Text] Restart required | [Text] No module is installed. | [Text] Module list checked 11/2/2026 12:56 AM. | [Text] Installed. Appears after the restart, turned off.
+00:56:27.529 PASS  install recorder: reaches "Installed. Appears after the restart, turned off."  -- 1.0 s
+00:56:27.548 PASS  a progress state was visible while it ran  -- real download of a 73 KB zip takes under a second
+00:56:28.423 PASS  amber "Restart required" bar with Restart now
+00:56:28.468   shot dark-05-restart-required.png: 1240x1100
+00:56:28.484 PASS  pending.json has the install, with the registry SHA-256  -- 1c746e6bb7ec77adac0895a89612cac12e714fabe61c386c58ebcc892bb2a906
+00:56:28.490 PASS  the modules folder is still untouched (recorder is parked in ready\)  -- modules: 
+00:56:28.499 PASS  downloads\ and staging\ are empty after the install
+00:56:28.519 PASS  ACL of the scratch modules folder: Administrators and SYSTEM only  -- <repo>\tools\out\e2e\run-dark\modules NT AUTHORITY\SYSTEM:(OI)(CI)(F) BUILTIN\Administrators:(OI)(CI)(F)
+00:56:28.568   pressed 'Undo the change to Recorder': True
+00:56:30.876 PASS  Undo: the change is gone, the staged files are deleted, the Install button is back
+00:56:30.920   shot dark-06-after-undo.png: 1240x1100
+00:56:30.960   pressed 'Install Recorder': True
+00:56:32.415   pressed 'Install PredatorSense': True
+00:56:33.204 PASS  second install queues next to the first
+00:56:34.058   shot dark-07-both-queued.png: 1240x1100
+00:56:34.067 PASS  both queued changes carry the registry SHA-256
+00:56:34.074 PASS  steam-bypass and xtu were never installed or queued
+00:56:34.122   pressed 'Restart now': True
+00:56:34.214 PASS  Restart now: a new Rigbay.App process starts
+00:56:34.477 PASS  Restart now: the old process ended
+00:56:34.523   successor command line: "<repo>\tools\out\e2e\app\Rigbay.App.exe" --data <repo>\tools\out\e2e\run-dark\data --modules <repo>\tools\out\e2e\run-dark\modules --theme dark --wait-pid 28896
+00:56:34.525 PASS  successor runs the same exe with the same scratch data and modules folders
+00:56:38.933 PASS  after restart: Dashboard lists both modules, Off  -- [Button] PredatorSense, Off | [Button] Recorder, Off
+00:56:38.981   shot dark-08-after-restart-dashboard.png: 1240x1100
+00:56:38.991 PASS  modules\ now holds both, ready\ and pending are empty  -- predatorsense,recorder
+00:56:40.341 PASS  Modules page reports what the start applied, both installed turned off
+00:56:40.368 PASS  both switches are off
+00:56:40.371 PASS  host.json: nothing is enabled yet
+00:56:40.417   shot dark-09-after-restart-modules.png: 1240x1100
+00:56:41.689   shot dark-10-predatorsense-off.png: 1240x1100
+00:56:43.308 PASS  turn-on dialog names the declarations: administrator, the Acer service, the WMI class
+00:56:43.348   shot dark-11-predatorsense-turn-on-dialog.png: 1240x1100
+00:56:43.357   pressed 'Turn on': True
+00:56:47.934 PASS  PredatorSense turned on: its page shows Readings
+00:56:47.992 PASS  live readings: three temperatures and three fan speeds, all numbers  -- 55 °C, 55 °C, 50 °C | 2564 rpm, 2564 rpm, 2654 rpm, 2654 rpm, 2663 rpm, 2663 rpm
+00:56:47.998 PASS  temperatures are plausible (10..110)  -- 55,55,50
+00:56:48.030 PASS  the machine line is the firmware model string
+00:56:48.093 PASS  no write: "Last set by Rigbay" says Nothing yet and the speed check says No change made yet
+00:56:48.151   shot dark-12-predatorsense-readings.png: 1240x1100
+00:56:49.438   shot dark-13-dashboard-predatorsense-on.png: 1240x1100
+00:56:49.444 PASS  host.json: predatorsense is enabled
+00:56:52.236 PASS  recorder dialog lists its two registry reads
+00:56:52.276   shot dark-14-recorder-turn-on-dialog.png: 1240x1100
+00:56:52.284   pressed 'Turn on': True
+00:56:52.857 PASS  recorder turned on: Start is there
+00:56:54.609   pressed 'Apply': True
+00:56:55.470   shot dark-15-recorder-page.png: 1240x1100
+00:56:55.518   pressed 'Start': True
+00:56:55.603 PASS  recorder: State becomes Recording
+00:57:00.653   shot dark-16-recorder-running.png: 1240x1100
+00:57:05.676   pressed 'Stop': True
+00:57:07.734   shot dark-17-recorder-stopped.png: 1240x1100
+00:57:07.743 PASS  exactly one CSV and one .meta.json in the scratch folder  -- rigbay-log-2026-11-02_00-56-55.csv, rigbay-log-2026-11-02_00-56-55.meta.json
+00:57:07.764   CSV header: timestamp,elapsed_s,cpu.temp,fan.cpu.rpm,fan.gpu1.rpm,fan.gpu2.rpm,gpu.temp,system.temp
+00:57:07.785 PASS  CSV header: timestamp, elapsed_s and the six PredatorSense metrics
+00:57:07.800 PASS  CSV has 10 to 13 rows for a 10 s recording at 1 s  -- 11 rows
+00:57:07.846 PASS  rows are one second apart (every gap 1.000 +- 0.05 s)  -- min 1.000 max 1.000
+00:57:07.865 PASS  no empty cells and every value numeric  -- 2026-11-02T00:56:55.498+07:00,0,56,2564,2654,2663,51,44
+00:57:07.880 PASS  CSV is UTF-8 without a BOM
+00:57:07.891 PASS  .meta.json: rows equals the CSV, stop reason "user", no error, the machine and both module versions  -- rows=11 model=Predator PT516-51s
+00:57:07.915 PASS  .meta.json: the degree sign in the unit is real UTF-8
+00:57:07.982 PASS  the real Documents\Rigbay\logs did not change  -- the recording went to the scratch folder
+00:57:09.243 PASS  Modules page: both Installed rows say Running
+00:57:09.797 PASS  installed row found and expanded
+00:57:09.844   shot dark-18-installed-row-expanded.png: 1240x1100
+00:57:09.868   pressed 'Remove Recorder': True
+00:57:11.430 PASS  remove asks first: "Remove Recorder?", the settings are kept
+00:57:11.472   shot dark-19-remove-dialog.png: 1240x1100
+00:57:11.481   pressed 'Remove': True
+00:57:13.494 PASS  removal is queued, nothing deleted yet
+00:57:13.551 PASS  row says "Is removed after the restart" and offers Undo
+00:57:13.588   shot dark-20-remove-queued.png: 1240x1100
+00:57:13.625   pressed 'Restart now': True
+00:57:13.680 PASS  second Restart now: new process
+00:57:20.874 PASS  Modules page: "At the last start" says the recorder was removed
+00:57:20.906   report line: [Text] recorder was removed.
+00:57:20.933 FAIL  the removal report names the module by its display name "Recorder" (finding E2E-04)
+00:57:21.488 PASS  Recorder is gone from the Installed list and the nav pane
+00:57:21.520 PASS  Recorder is offered again under Available
+00:57:21.540 PASS  PredatorSense came back Running (it stayed enabled)
+00:57:21.579   shot dark-21-after-remove-modules.png: 1240x1100
+00:57:21.583 PASS  files cleaned: modules\recorder deleted  -- predatorsense
+00:57:21.602 PASS  files cleaned: previous\, ready\, staging\, downloads\, trash\ all empty, pending has no change  -- downloads,previous,ready,registry,staging,trash,last-run.json
+00:57:21.610 PASS  host.json forgot the recorder, kept predatorsense
+00:57:21.625   app.json: { "version": 1, "data": { "theme": "system", "logLevel": "info", "acknowledged": [ "predatorsense" ], "checkDaily": false, "lastModuleCheck": "2026-11-01T17:56:26.1637543\u002B00:00", "firstRunDone": true } }
+00:57:21.632 PASS  by design the recorder settings and the recordings stay
+00:57:21.641 PASS  the log never says ERROR  -- 2026-11-02 00:56:20.579 WARN  host           modules folder '<repo>\tools\out\e2e\run-dark\modules' does not exist
+00:57:22.920   shot dark-22-dashboard-final.png: 1240x1100
+00:57:22.968 stopping Rigbay.App pid 9752 (this run's scratch data folder)
+00:57:24.077 PASS  the real PC is unchanged: no ProgramData\Rigbay, no Program Files\Rigbay, no task, same proxy settings, same Documents logs, same LOCALAPPDATA\Rigbay
+00:57:24.115 PASS  no process of this run is left
+00:57:24.116 == E2E1 main flow (dark): 73 passed, 1 failed

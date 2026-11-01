@@ -661,6 +661,10 @@ static class SelfTest
         var buttonNames = string.Join(" | ", Find<Button>(w.PageContent).Select(NameOf).Where(n => n.Length > 0));
         R("install page: Install button for an installable module, none for installed or incompatible ones",
             installButton != null && FindButton(w, "Install Device list (demo)") == null && FindButton(w, "Install Keyboard lighting (next API)") == null, $"buttons: {buttonNames}");
+        // E2E1: the Installed rows had no accessible name (their header is a stack of icon and text), so assistive technology could not tell them apart
+        var installedRows = Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(w.PageContent).Where(x => x.Tag is string t && core.Find(t) != null).ToList();
+        var unnamed = installedRows.Where(x => string.IsNullOrWhiteSpace(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x))).Select(x => (string)x.Tag).ToList();
+        R("install page: every Installed row has an accessible name", installedRows.Count >= 3 && unnamed.Count == 0, $"installed rows={installedRows.Count} without a name={string.Join(",", unnamed)}");
 
         // --- cancel: press Install on the module with the bad hash, then Cancel while it downloads (the scratch source is slow on purpose)
         var tampered = FindButton(w, "Install Keyboard lighting (bad hash)");

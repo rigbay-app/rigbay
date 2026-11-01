@@ -1,0 +1,93 @@
+﻿01:00:12.955 == E2E1 hooks; app <repo>\tools\out\e2e\app\Rigbay.App.exe (version 0.1.0); scratch <repo>\tools\out\e2e\hooks
+01:00:13.045 -- H1 offline, no saved list (real registry address, dead proxy for this process only)
+01:00:13.097 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h1-offline-none\data --modules <repo>\tools\out\e2e\hooks\h1-offline-none\modules --theme dark --first-run -> pid 12768
+01:00:16.602 PASS  H1 window up on the Modules page (first run)
+01:00:16.640   pressed 'Get the module list': True
+01:00:18.831 PASS  H1 the page says "You are offline, and no list is saved on this PC yet."  -- <repo>\tools\out\e2e\hooks\h1-offline-none\modules | You are offline, and no list is saved on this PC yet.
+01:00:19.110 PASS  H1 a "Try again" button is offered, no module row is shown
+01:00:19.168   shot hooks-h1-offline-no-list.png: 1240x1100
+01:00:19.172 PASS  H1 only the registry address was tried: no install folder content beyond the cache folder
+01:00:19.237 stopping Rigbay.App pid 12768 (this run's scratch data folder)
+01:00:19.311 -- H2 offline with a saved list
+01:00:19.325 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h2-offline-cache\data --modules <repo>\tools\out\e2e\hooks\h2-offline-cache\modules --theme dark --first-run -> pid 7600
+01:00:22.709   pressed 'Get the module list': True
+01:00:23.285 PASS  H2 first the list is fetched from GitHub (no proxy)
+01:00:23.291 PASS  H2 the cache is on disk, next to the modules folder (not in LOCALAPPDATA)
+01:00:23.297   registry.meta.json: { "url": "https://raw.githubusercontent.com/rigbay-app/registry/main/registry.json", "eTag": "\u002255cb2a52250a6dbd46e931a967ccf37d426ba2972c84b41f0711c5c55a06ab1b\u0022", "fetchedAt": "2026-11-01T18:00:22.9670823+00:00" }
+01:00:23.345 stopping Rigbay.App pid 7600 (this run's scratch data folder)
+01:00:24.426 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h2-offline-cache\data --modules <repo>\tools\out\e2e\hooks\h2-offline-cache\modules --theme dark --first-run -> pid 31076
+01:00:28.147 PASS  H2 restarted with the dead proxy: the saved list is already on the page
+01:00:28.179 PASS  H2 the page says it is the saved list
+01:00:28.260   pressed 'Check for updates': True
+01:00:30.514 PASS  H2 Check for updates: "You are offline. Showing the list saved on <date>."  -- <repo>\tools\out\e2e\hooks\h2-offline-cache\modules | You are offline. Showing the list saved on 11/2/2026 1:00 AM.
+01:00:30.584 PASS  H2 the four modules are still listed from the saved copy
+01:00:30.632   shot hooks-h2-offline-saved-list.png: 1240x1100
+01:00:30.683   pressed 'Install Recorder': True
+01:00:32.897 PASS  H2 installing while offline fails honestly in the row  -- Failed. You are offline.
+01:00:32.906 PASS  H2 the failed install left nothing: no pending change, no ready\, no download
+01:00:32.927 PASS  H2 the row offers Try again
+01:00:32.971   shot hooks-h2-offline-install-failed.png: 1240x1100
+01:00:33.022 stopping Rigbay.App pid 31076 (this run's scratch data folder)
+01:00:33.093 -- H3/H4 damaged downloads and cancel: a local registry (the app's own --registry switch, scratch folders only) listing damaged copies of the real release zips
+01:00:34.225 PASS  the real recorder zip downloaded for the fixtures has the registry's SHA-256  -- 75255 bytes
+01:00:34.747 PASS  the real predatorsense zip downloaded for the fixtures has the registry's SHA-256  -- 273405 bytes
+01:00:34.822 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h3-damaged\data --modules <repo>\tools\out\e2e\hooks\h3-damaged\modules --theme dark --first-run --registry <repo>\tools\out\e2e\hooks\hook-registry.json --slow-download 60 -> pid 24512
+01:00:38.178 PASS  H3 window up
+01:00:38.216   pressed 'Get the module list': True
+01:00:38.809 PASS  H3 the local list shows the five fixture rows
+01:00:38.849   shot hooks-h3-list.png: 1240x1100
+01:00:38.929   pressed 'Install Recorder (one byte flipped)': True
+01:00:39.592   [one byte flipped, same size] row text: Failed. The download does not match its SHA-256 in the list. It was deleted and nothing was installed.
+01:00:39.595 PASS  H3 one byte flipped, same size: the install fails with a reason in the row  -- Failed. The download does not match its SHA-256 in the list. It was deleted and nothing was installed.
+01:00:40.162   pressed 'Install Recorder (cut in half)': True
+01:00:40.291   [cut in half] row text: Failed. The download does not match its SHA-256 in the list. It was deleted and nothing was installed. || Failed. The download is not the size the list promised.
+01:00:40.292 PASS  H3 cut in half: the install fails with a reason in the row  -- Failed. The download is not the size the list promised.
+01:00:40.854   pressed 'Install Not a zip (right hash)': True
+01:00:41.222   [not a zip] row text: Failed. The download does not match its SHA-256 in the list. It was deleted and nothing was installed. || Failed. The download is not the size the list promised. || Failed. The file is not a valid zip.
+01:00:41.223 PASS  H3 not a zip: the install fails with a reason in the row  -- Failed. The file is not a valid zip.
+01:00:41.791   pressed 'Install Recorder (list says 10 bytes more)': True
+01:00:41.909   [list size 10 bytes more than the file] row text: Failed. The download does not match its SHA-256 in the list. It was deleted and nothing was installed. || Failed. The download is not the size the list promised. || Failed. The file is not a valid zip. || Failed. The download is not the size the list promised.
+01:00:41.911 PASS  H3 list size 10 bytes more than the file: the install fails with a reason in the row  -- Failed. The download is not the size the list promised.
+01:00:42.471   shot hooks-h3-all-failed.png: 1240x1100
+01:00:42.478 PASS  H3 nothing was queued, parked or unpacked by any of the four  -- modules: 
+01:00:42.779 PASS  H3 no restart bar was raised by a failed install
+01:00:42.803 PASS  H3 the log has the exact English detail of each failure  -- 2026-11-02 01:00:38.932 INFO  install        install e2e-flipped 0.1.0: downloading file:///D:/Documents/Projects/rigbay/.claude/worktrees/feat-e2e-install/tools/out/e2e/hooks/zips/flipped.zip || 2026-11-02 01:00:40.162 INFO  install        install e2e-cut 0.1.0: downloading file:///D:/Documents/Projects/rigbay/.claude/worktrees/feat-e2e-install/tools/out/e2e/hooks/zips/cut.zip || 2026-11-02 01:00:40.854 INFO  install        install e2e-junk 0.1.0: downloading file:///D:/Documents/Projects/rigbay/.claude/worktrees/feat-e2e-install/tools/out/e2e/hooks/zips/junk.zip || 2026-11-02 01:00:41.791 INFO  install        install e2e-wrongsize 0.1.0: downloading file:///D:/Documents/Projects/rigbay/.claude/worktrees/feat-e2e-install/tools/out/e2e/hooks/zips/wrongsize.zip
+01:00:42.805 -- H4 cancel
+01:00:42.875 stopping Rigbay.App pid 24512 (this run's scratch data folder)
+01:00:43.973 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h3-damaged\data --modules <repo>\tools\out\e2e\hooks\h3-damaged\modules --theme dark --first-run --registry <repo>\tools\out\e2e\hooks\hook-registry.json --slow-download 1500 -> pid 16432
+01:00:47.792   pressed 'Check for updates': True
+01:00:47.894 PASS  H4 list is there
+01:00:48.006   pressed 'Install PredatorSense (slow, for Cancel)': True
+01:00:49.715 PASS  H4 progress is shown: "Downloading x / y" with a Cancel button  -- Downloading 16 KB / 267 KB
+01:00:54.741   progress bar value after 5 s: 23.9703004699987
+01:00:54.745 PASS  H4 the bar moves (some percent after 5 s) and the byte counter grew  -- value 23.9703004699987
+01:00:54.799   shot hooks-h4-downloading.png: 1240x1100
+01:00:54.801 PASS  H4 while it runs the partial file is in downloads\  -- d1feea2f41.zip
+01:00:54.822   pressed 'Cancel PredatorSense (slow, for Cancel)': True
+01:00:54.929 PASS  H4 Cancel: the Install button is back
+01:00:56.245 PASS  H4 a cancel is not shown as a failure, and no restart bar
+01:00:56.257 PASS  H4 the partial file is deleted, nothing queued or parked
+01:00:56.313   shot hooks-h4-after-cancel.png: 1240x1100
+01:00:56.362 stopping Rigbay.App pid 16432 (this run's scratch data folder)
+01:00:56.436 -- H6 admin-only folders, with the modules folder inside a parent named Rigbay (the layout of C:\ProgramData\Rigbay\modules)
+01:00:56.449 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h6-acl\data --modules <repo>\tools\out\e2e\hooks\h6-acl\Rigbay\modules --theme dark --first-run -> pid 23300
+01:00:59.842   pressed 'Get the module list': True
+01:01:00.425 PASS  H6 list fetched
+01:01:00.483   pressed 'Install Recorder': True
+01:01:01.105 PASS  H6 install queued
+01:01:01.152 stopping Rigbay.App pid 23300 (this run's scratch data folder)
+01:01:02.277 PASS  H6 ACL of h6-acl\Rigbay: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=True inherited=0
+01:01:02.280 PASS  H6 ACL of h6-acl\Rigbay\modules: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=True inherited=0
+01:01:02.292 PASS  H6 ACL of h6-acl\Rigbay\modules.install: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=True inherited=0
+01:01:02.302 PASS  H6 ACL of h6-acl\Rigbay\modules.install\pending.json: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=False inherited=2
+01:01:02.307 PASS  H6 ACL of h6-acl\Rigbay\modules.install\registry\registry.json: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=False inherited=2
+01:01:02.317 PASS  H6 ACL of h6-acl\Rigbay\modules.install\ready\recorder\module.json: only Administrators and SYSTEM, owned by one of them, not inherited from the parent  -- who=BUILTIN\Administrators,NT AUTHORITY\SYSTEM owner=BUILTIN\Administrators protected=False inherited=2
+01:01:02.324   (folders kept for the non-elevated check of run.ps1: <repo>\tools\out\e2e\hooks\h6-acl\Rigbay)
+01:01:02.333 -- H5 a list that is not valid
+01:01:02.355 started <repo>\tools\out\e2e\app\Rigbay.App.exe --data <repo>\tools\out\e2e\hooks\h5-invalid\data --modules <repo>\tools\out\e2e\hooks\h5-invalid\modules --theme dark --first-run --registry <repo>\tools\out\e2e\hooks\bad-registry.json -> pid 22616
+01:01:05.755   pressed 'Get the module list': True
+01:01:05.803 PASS  H5 an invalid list is refused as a whole and the page says so  -- <repo>\tools\out\e2e\hooks\h5-invalid\modules | The module list is not valid, so nothing from it is shown. The registry is not valid: modules[0].id: lowercase words joined by '-'; modules[0].description: a string is required; modules[0].repo: a string is required (+1 more)
+01:01:05.843   shot hooks-h5-invalid-list.png: 1240x1100
+01:01:05.886 stopping Rigbay.App pid 22616 (this run's scratch data folder)
+01:01:07.040 PASS  no process of this run is left
+01:01:07.042 == E2E1 hooks: 41 passed, 0 failed

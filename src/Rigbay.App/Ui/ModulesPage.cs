@@ -164,9 +164,10 @@ static class ModulesPage
             }
         }
 
-        static string ReportLine(PendingOutcome o)
+        string ReportLine(PendingOutcome o)
         {
-            var name = Host.Core.Find(o.Id)?.DisplayName ?? o.Id;
+            // a removed module has no folder and no manifest any more: take its name from the saved registry list before falling back to the id (E2E1)
+            var name = Host.Core.Find(o.Id)?.DisplayName ?? _m.RegistryNameOf(o.Id) ?? o.Id;
             if (!o.Applied && o.Message != null)
                 return Host.F(o.WillRetry ? "modules.report-retry" : "modules.report-failed", name, o.Message);
             return o.Op switch
@@ -236,6 +237,9 @@ static class ModulesPage
                 description = reason.Length > 0 ? $"{word}  ·  {reason}" : $"{word}  ·  {e.DisplayDescription}";
 
             var expander = new SettingsExpander { Header = header, Description = description, Content = right, Tag = e.Id };
+            // the header is a stack of icon and text, which gives the expander no accessible name; the available rows have one because their header is a string (E2E1)
+            AutomationProperties.SetName(expander, e.DisplayName);
+            AutomationProperties.SetName(header, e.DisplayName);
             AddFacts(expander, e);
 
             if (row.PreviousVersion is { } previous && e.Lifecycle is ModuleLifecycle.Invalid or ModuleLifecycle.Incompatible or ModuleLifecycle.Faulted && row.Pending is null && !working)

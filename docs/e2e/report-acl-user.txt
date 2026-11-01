@@ -1,0 +1,11 @@
+﻿PASS  this shell is NOT elevated (an elevated shell would prove nothing)
+PASS  cannot list the modules folder
+PASS  cannot plant a module folder in modules\
+PASS  cannot write a file in modules\
+PASS  cannot edit the pending list
+PASS  cannot replace the cached registry
+PASS  cannot swap a verified, parked module file
+PASS  cannot create anything in the Rigbay parent folder either
+PASS  cannot delete the modules folder
+PASS  control: the data folder next to it (not hardened, it plays the role of %LOCALAPPDATA%\Rigbay) is writable by this user
+== 10 passed, 0 failed

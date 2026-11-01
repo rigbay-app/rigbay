@@ -91,6 +91,12 @@ public sealed class ModuleManager
     public IReadOnlyList<PendingOp> PendingOps => _installer.Pending.Read();
     public bool RestartRequired => PendingOps.Count > 0;
 
+    /// <summary>
+    /// The name the registry gives a module, for a module the host no longer knows (a removed one: its folder is gone, so only the id is left).
+    /// Null when there is no list or the id is not in it.
+    /// </summary>
+    public string? RegistryNameOf(string id) => Snapshot.Document?.Find(id)?.Name;
+
     public OperationFailure? FailureOf(string id)
     {
         lock (_gate) return _failures.TryGetValue(id, out var f) ? f : null;
