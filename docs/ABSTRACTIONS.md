@@ -1,6 +1,6 @@
 # Rigbay.Abstractions v0.1: the module contract
 
-Status: v0.1, written before the code it describes (task A2). The assembly `Rigbay.Abstractions` is the only
+Status: v0.1 (task A2), updated with the findings of spike A1 (`docs/spike/ABSTRACTIONS-NOTES.md`). Everything is in the namespace `Rigbay.Abstractions`. The assembly `Rigbay.Abstractions` is the only
 thing a module references. `Rigbay.Core` (the host logic) and the WinUI shell are written against it. Where this
 file and the code disagree, fix the one that is wrong and say so in the commit message.
 
@@ -15,10 +15,10 @@ Contents: 1 Principles, 2 Module package and manifest, 3 Lifecycle, 4 Host servi
   breaking modules is left out now.
 - **No UI framework.** `Rigbay.Abstractions` targets `net8.0`, references nothing but the BCL and has no Windows
   App SDK type. A module that only reads sensors does not need a UI stack, and the contract survives a change of
-  UI framework (the WinUI spike may still fail and fall back to WPF).
-- **Declarative first.** A module describes its page as data (`ModulePage > RowGroup > Row`). The host draws it,
+  UI framework (the WinUI 3 spike passed, but the framework stays out of the contract).
+- **Declarative first.** A module describes its page as data (`PageModel > RowGroup > Row`). The host draws it,
   so every module looks the same, follows theme, DPI and language, and the host can search it. A module that
-  needs more supplies one custom control through an escape hatch (section 5.4).
+  needs more supplies one custom control through an escape hatch (section 5.5).
 - **Trust is in the install step, not in the contract.** A module runs as administrator inside the host. The
   contract cannot sandbox it. What it does is make mistakes survivable (fault boundary) and visible (manifest
   `requires`, log).
@@ -117,13 +117,13 @@ Rules:
 
 1. The constructor does nothing but set fields. No hardware access, no file access, no threads.
 2. `Probe()` is called once per host start, before the user is shown the module as available, whether or not it
-   is enabled. It must be read-only and quick (it is given 10 s). It returns `ProbeResult.Supported()` or
-   `ProbeResult.Unsupported(reasonKey)`; the reason key is a module-relative language key shown to the user, for
+   is enabled. It must be read-only and quick (it is given 10 s). It returns `ProbeResult.Yes()` or
+   `ProbeResult.No(reasonKey)`; the reason key is a module-relative language key shown to the user, for
    example `probe.no-service` -> "The Acer gaming service is not installed". Throwing is a fault, not "unsupported".
 3. `Initialize(IHostServices host)` is called when the module is enabled and was probed as supported (10 s limit).
    Register hotkeys, tray items, commands and metrics subscriptions here, start timers, read settings. Hardware
    is not written during `Initialize` except to restore state the user chose.
-4. `CreatePage()` is called after `Initialize` succeeds and returns the page model (section 5).
+4. `GetPageModel(host)` is called after `Initialize` succeeds and returns the page model (section 5); `CreateCustomControl(host, controlId)` when a `CustomRow` is drawn. Both have default bodies that return null.
 5. `Shutdown()` is called when the user disables the module and when the host exits (5 s limit). Stop timers,
    release handles. The host removes whatever the module registered (hotkeys, tray items, commands,
    subscriptions) after `Shutdown`, so a module need not undo them.
@@ -147,76 +147,122 @@ Passed to `Initialize`; one instance per module (so the host knows who is callin
 | `Commands` | `ICommandRegistry`: add verbs to `rigbay <module> <verb>`. | 9 |
 | `Toast` | `IToastService`: show a notification. | 9 |
 | `Metrics` | `IMetricsBus`: publish readings, subscribe to others'. | 6 |
+| `Approval` | `IHardwareApproval`: ask the user to confirm a hardware write the module starts itself (rows marked `HardwareEffect` are confirmed by the host without this). | 5.4 |
+| `RunOnUi(Action)` | **Mandatory way to reach the UI thread.** Runs the action there inside the fault boundary. A module never uses a dispatcher of its own. | 5.3 |
+| `HostVersion` | Version of the host application (informational; compatibility is `HostApi.Current`). | 11 |
+
+No member of any service takes or returns a UI framework or Windows type. Where a UI concept is needed it is plain
+data: colours are `SemanticColor` names (`Ok`, `Warning`, `Error`, `Temperature`, ...), icons are glyph names or file
+paths, text is a language key. There is no "main window" or window handle for modules in v0.1: hotkeys, tray items,
+toasts and command verbs are host services described as data, and the host owns the window.
 
 All services are safe to call from any thread. Callbacks you give to a service (hotkey, tray, command,
 subscription, button) may run on any thread, and always run inside the fault boundary.
 
 ## 5. Page model
 
+Everything in this section lives in namespace `Rigbay.Abstractions`. Rows are C# records; text is always a
+module-relative language key; colours are `SemanticColor` names; icons are glyph names or file paths. No type from
+WinUI, XAML, `Windows.*` or WPF appears anywhere in the assembly, and none may appear in a host service.
+
 ### 5.1 Shape
 
+`IModule.GetPageModel(host)` returns the page, after `Initialize` succeeded (null for a module with no page).
+
 ```
-ModulePage
-  Groups : RowGroup[]            RowGroup = Id, HeaderKey, Rows[]
-  Links : PageLink[]             "Learn more" style links at the bottom
-  HeadlineMetrics : MetricId[]   the one or two readings the Dashboard shows next to the module
-  Status : IObservableValue<LocalisedText>?   short state line for the Dashboard ("Proxy on :18081")
-  Custom : ICustomPageProvider?  escape hatch, section 5.4
+PageModel
+  Icon : string?                      glyph name or path for the navigation pane
+  Groups : RowGroup[]                 RowGroup(HeaderKey, Rows)
+  Links : PageLink[]                  PageLink(TextKey, Url), "Learn more" at the bottom
+  Summary : PageSummary?              what the dashboard bay shows: StateLine (observable) + up to two MetricIds
 ```
 
-The host owns the first row of every module page (the enable toggle, name and one-line help from the manifest)
-and disables every group below it while the module is off. A module never draws its own enable switch.
+The host owns the first row of every module page (the enable switch with name and one-line help from the manifest)
+and disables every group below it while the module is off. "Off" means `Shutdown` was called: the module has no
+background work. A module never draws its own enable switch.
 
-### 5.2 Rows
+### 5.2 Rows (level 1)
 
-Every `Row` has: `Id` (unique inside the page, `[a-z0-9.-]`, used for search results and tests), `HeaderKey`,
-optional `DescriptionKey` (language keys, module-relative), `Enabled` (an observable bool, default always
-true), and `HardwareEffect` (see 5.3). Kinds:
+Every `Row` has `HeaderKey`, optional `DescriptionKey` (the host indexes both for search), `Enabled` (an
+`IObservableValue<bool>`, default true) and `HardwareEffect` (5.4). Kinds:
 
 | Row | Control the host draws | Value |
 | --- | --- | --- |
-| `ToggleRow` | switch | `IMutableValue<bool>` |
-| `ChoiceRow` | drop-down | `Options` (`ChoiceOption(Id, LabelKey)`), selected option id in `IMutableValue<string>` |
-| `NumberRow` | number box | `IMutableValue<double>`, `Minimum`, `Maximum`, `Step`, `Unit` (`MetricUnit`) |
-| `TextRow` | text box | `IMutableValue<string>`, `MaxLength`, `PlaceholderKey` |
-| `ShortcutRow` | key capture | `IMutableValue<HotkeyGesture?>`, normally `IHotkeyBinding.Gesture` |
-| `ButtonRow` | button | `InvokeAsync(CancellationToken) -> Task<ActionResult>`, `ButtonKey` |
+| `ToggleRow` | switch | `IObservableValue<bool>` |
+| `ChoiceRow` | drop-down | `Options` (`ChoiceOption(Id, LabelKey)`), selected option id in `IObservableValue<string>` |
+| `NumberRow` | number box | `IObservableValue<double>`, `Minimum`, `Maximum`, `Step`, `Unit` (`MetricUnit`), `Apply`, `Validate` |
+| `TextRow` | text box | `IObservableValue<string>`, `MaxLength`, `PlaceholderKey`, `Apply`, `Validate` |
+| `ShortcutRow` | key capture | `IObservableValue<HotkeyGesture?>`, normally `IHotkeyBinding.Gesture`; `Apply` |
+| `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` |
 | `ValueRow` | read-only text | `IObservableValue<string>` (already localised by the module) |
-| `ReadingRow` | live number with unit | `MetricId` (the host subscribes to the metrics bus), `Decimals` |
+| `ReadingRow` | live number with unit | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color` |
 | `ExpanderRow` | row that folds `Children` | `IsExpanded` initially |
-| `InfoBarRow` | inline message | `Severity` (info, success, warning, error), `Message` (observable `LocalisedText`), `IsOpen` |
+| `InfoRow` | inline message | `Severity` (info, success, warning, error), `IsOpen`; header = title, description = text |
+| `CustomRow` | whatever the module builds | `ControlId` (5.5) |
 
-Values are observable: `IObservableValue<T>` has `Value` and a `Changed` event; `IMutableValue<T>` adds a setter.
-`ObservableValue<T>` is a ready implementation. Two directions of travel:
+### 5.3 Values and threads
 
-- **Module to UI:** the module sets `Value` (from a timer, after a hardware read); the host redraws.
-- **UI to module:** the user changes a control; the host sets `Value`; the module's `Changed` handler does the
-  work (the hardware write) and, if it fails or clamps, sets `Value` back. The host calls the setter inside the
-  fault boundary.
+`IObservableValue<T>` has a settable `Value` and an event `Changed`. Either side may set it. **`Changed` is raised
+synchronously on the thread that set the value**, after the new value is stored; the host marshals to the UI thread
+when it needs to. `ObservableValue<T>` is a ready implementation (equal values do not raise the event).
 
-Events can be raised on any thread; the host marshals to the UI thread. Rows are plain objects: a module may
-build the page once and keep mutating the values.
+- **Module to UI:** the module sets `Value` from a timer thread or after a hardware read; the host redraws on the UI thread.
+- **UI to module:** the user changes a control; the host sets `Value` on the UI thread, inside the fault boundary; the
+  module's `Changed` handler does the work. If the work fails or the value must be clamped, set `Value` back.
+- A module must reach the UI thread only through `IHostServices.RunOnUi(Action)`, never through a dispatcher of
+  its own. The spike proved why: an exception thrown inside a raw `DispatcherQueue` callback ends the whole process
+  without reaching any handler. `RunOnUi` runs the action inside the fault boundary.
 
-### 5.3 Hardware effects
+### 5.4 Hardware effects, approval, apply and revert
 
-A toggle, choice, number or button that changes the state of the machine sets
-`HardwareEffect = new HardwareEffect("effect.turbo")` (a description key, for example "Raises fan speed to the
-maximum. Noise will increase."). The host then, before applying: shows the effect text and asks for confirmation;
-remembers the previous value; shows a "Revert" action next to the control (for value rows it sets the previous
-value back; for a `ButtonRow` it calls `RevertAsync` when the module provides one). A module must not rely on
-this for safety: refuse dangerous values inside the module. This marking is what the user's approval rule for
-hardware writes (`docs/DESIGN.md`) looks for in the UI.
+A row that changes the state of the machine sets `HardwareEffect = new HardwareEffect("effect.turbo")` (a description
+key; for example "Sets the fans to maximum. Noise will increase."). `ChangesHardware` is then true. The host, before
+it applies such a change: shows the effect, asks for confirmation through its approval service, remembers the previous
+value, and shows "Revert" next to the control (value rows: sets the previous value back; `ButtonRow`: calls
+`RevertAsync` when `Revertible` and the module provides it). A module that starts a write by itself (after a hotkey or
+a command) asks `IHostServices.Approval.ConfirmAsync(effect)`; when the host has no way to ask, the answer is no. None
+of this replaces the module's own checks: refuse dangerous values inside the module.
 
-### 5.4 Custom page escape hatch
+`NumberRow`, `TextRow` and `ShortcutRow` have `Apply`:
 
-`ModulePage.Custom` is an `ICustomPageProvider` with one method, `object CreateControl(CustomPageContext context)`.
-The returned `object` must be a control of the host's UI framework (for WinUI 3, a `Microsoft.UI.Xaml.UIElement`);
-`CustomPageContext.Framework` names that framework (`"winui3"`, later maybe `"wpf"`) so a module can refuse a
-framework it does not support, and a module can build for several. The contract holds an `object` so
-`Rigbay.Abstractions` stays free of any UI reference. The host places the control below the declarative groups (or
-alone if the page has no groups). It is for things a row cannot express: a curve editor, a graph, an activity log.
-Whether a dynamically loaded assembly can build such a control, and how a module gets host styles, is being
-tested by task A1; the shape of `CustomPageContext` may grow (it is a class so it can) without breaking modules.
+- `ApplyMode.Immediate` (default): the host sets the value as the user edits. Right for toggles, choices and values
+  that are safe to change live.
+- `ApplyMode.ApplyRevert`: the host keeps a draft; the control shows **Apply** and **Discard** while the draft differs.
+  Apply checks `Minimum`/`Maximum`/`MaxLength`, then `Validate` (the module's check, returns an error text or null),
+  then confirmation if `ChangesHardware`, then sets `Value`. The previous value is kept so **Revert** can put it back.
+  Use it for every number, text or shortcut that writes to hardware (power limits, fan curves points). A toggle or
+  choice that changes hardware is applied after confirmation and also gets Revert. `Rigbay.Core` implements this as
+  `ValueEditor<T>`; the UI only binds to it.
+
+### 5.5 Custom controls (level 2)
+
+`CustomRow(controlId)` makes the host call `IModule.CreateCustomControl(host, controlId)`. The result is an `object`
+and must be a control of the host's UI framework (WinUI 3: `Microsoft.UI.Xaml.UIElement`); the host checks the type
+and shows an error row if it is not, or if the call throws. Build the control in code, with the host's theme resources;
+it appears inside a row. It is for things a row cannot express: a curve editor, a graph, an activity log. A module that
+does this references the same Windows App SDK line as the host (the host's line is part of the host release notes),
+so it is an optional second package; the spike A1 notes explain the limits.
+
+**Compiled XAML pages are not a supported route.** A compiled page asks for `ms-appx:///...`, which in an unpackaged
+app is the host's folder, so loading fails with `XamlParseException 0x802B000A` unless files are placed there by
+hand. `XamlReader.Load` of a string works for static markup without code-behind, events or `x:Bind`.
+
+### 5.6 Dashboard and bay states
+
+The Dashboard shows one bay per module. `PageModel.Summary` supplies the state line and up to two readings (from
+the metrics bus). The state of a bay is from the closed set `BayState`:
+
+| State | Meaning | Reason shown |
+| --- | --- | --- |
+| `Ready` | enabled, initialised, working | |
+| `Off` | supported, switched off by the user | |
+| `Unsupported` | probe said no, or the module's `hostApi` range does not match | the probe's reason, or "needs host API ..." |
+| `Failed` | invalid manifest, load error, or an exception/timeout in the module | the error |
+| `UpdateAvailable` | a newer version is in the registry (set by the installer) | |
+| `RestartRequired` | an install, update or removal waits for a restart (set by the installer) | |
+
+`Rigbay.Core` computes the state (`ModuleEntry.Bay`); precedence is Failed, Unsupported, RestartRequired,
+UpdateAvailable, then Ready or Off.
 
 ## 6. Metrics bus
 
@@ -301,15 +347,15 @@ rebinding in `%LOCALAPPDATA%\Rigbay\hotkeys.json`. Registering with the OS (and 
 rather than registering them) belongs to the UI host.
 
 **Tray.** `host.Tray.Add(new TrayItem("toggle", "tray.toggle", () => ...))`: `Id`, `TextKey`, a callback, and
-observable `Visible`, `Enabled`, `Checked` (with `Checkable`). Data only; the app draws the menu, grouped by module.
+observable `Visible`, `Enabled`, `Checked` (with `Checkable`) and an optional `Icon` (a glyph name or path). Data only; the app draws the menu, grouped by module.
 
 **Toast.** `host.Toast.Show(new ToastMessage(title, body, ToastKind.Warning))`. Interface only: the app supplies the
 implementation. Titles and bodies are `LocalisedText` (a module-relative key plus optional arguments).
 
 ## 10. Fault boundary, loading, logging
 
-- **Boundary.** Every call from the host into a module (`Probe`, `Initialize`, `CreatePage`, `Shutdown`, a value
-  setter, a button, a hotkey, a tray item, a command, a metrics subscriber, a custom page factory) runs in the
+- **Boundary.** Every call from the host into a module (`Probe`, `Initialize`, `GetPageModel`, `Shutdown`, a value
+  setter, a button, a hotkey, a tray item, a command, a metrics subscriber, `CreateCustomControl`, a `RunOnUi` action) runs in the
   boundary. An exception, or a timeout on the lifecycle calls, puts the module in `Faulted`: the host stops calling
   it (except `Shutdown`, once, best effort), removes its hotkeys, tray items, commands and subscriptions, writes the
   exception with its stack to the log, and raises `ModuleFaulted` so the app can say so. The host process continues.
@@ -342,11 +388,11 @@ read `HostApi.Current` and adapt.
 
 1. Reference `Rigbay.Abstractions` only. Set `<Private>false</Private>` / `ExcludeAssets="runtime"` so its DLL is not copied
    into your output.
-2. Target `net8.0` or later. Do not reference WinUI, WPF or Windows Forms in code that is not the custom page.
+2. Target `net8.0` or later. Do not reference WinUI, WPF or Windows Forms except in the code of a `CreateCustomControl` control, and then only the Windows App SDK line the host was built with. Do not ship compiled XAML.
 3. Constructors do nothing. Probe is read-only. Initialize registers things.
-4. Never block a callback for long. Value setters and buttons are called from the UI thread's path: start work in
+4. Never block a callback for long, and reach the UI thread only through `host.RunOnUi` (never a dispatcher of your own: an exception in a raw dispatcher callback kills the process). `Changed` handlers run on the setter's thread, which is the UI thread when the user edits a control: start work in
    the background and return.
-5. Any write to the machine is `HardwareEffect`-marked, clamped and validated inside the module. Reading is free.
+5. Any write to the machine is `HardwareEffect`-marked (so the host confirms and offers revert), uses `ApplyMode.ApplyRevert` for numbers, text and shortcuts, and is clamped and validated inside the module too. Reading is free.
 6. Catch exceptions on threads and timers you start. Do not throw for an expected failure; return a result.
 7. All user-visible text is a language key. Put `en.lang` first; keys are `module.<id>.<name>`.
 8. No static state that survives `Shutdown`, no reliance on the current directory (use `ModuleDirectory` and
@@ -377,16 +423,21 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
    ```csharp
    public sealed class SampleModule : IModule
    {
-       public ProbeResult Probe() => ProbeResult.Supported();
+       private readonly ObservableValue<bool> _echo = new(false);
+
+       public ProbeResult Probe() => ProbeResult.Yes();               // or ProbeResult.No("probe.no-service")
        public void Initialize(IHostServices host) { /* settings, registrations, timers */ }
-       public ModulePage? CreatePage() => new ModulePage(new[]
+       public PageModel? GetPageModel(IHostServices host) => new PageModel
        {
-           new RowGroup("main", "group.main", new Row[]
+           Groups = new[]
            {
-               new ToggleRow("echo", "row.echo.header", enabledValue) { DescriptionKey = "row.echo.description" },
-               new ReadingRow("temp", "row.temp.header", new MetricId("cpu.temp")),
-           })
-       });
+               new RowGroup("group.main", new Row[]
+               {
+                   new ToggleRow("row.echo.header", _echo) { DescriptionKey = "row.echo.description" },
+                   new ReadingRow("row.temp.header", WellKnownMetrics.CpuTemp) { Decimals = 0 },
+               }),
+           },
+       };
        public void Shutdown() { }
    }
    ```
@@ -402,11 +453,18 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
 - **Declarative pages.** PowerToys-style settings are, nearly without exception, a row of header, description and
   one control. Describing rows as data gives one look, search, localisation and theme for free, and avoids the
   hardest part of the WinUI spike (resources of a dynamically loaded assembly) for the common case.
-- **`object` for the custom control.** The alternative, an abstract UI base class in Abstractions, would tie the
-  contract to one framework.
+- **`object` for the custom control, asked for by a row.** The alternative, an abstract UI base class in
+  Abstractions, would tie the contract to one framework. The spike showed a control built in code crosses the
+  load-context boundary and picks up host theme resources; a compiled XAML page does not (the `ms-appx` layout).
 - **Observable values, not property-changed bindings.** `INotifyPropertyChanged` needs no UI assembly either, but a
-  two-member interface is easier to implement correctly by someone who does not write Windows apps for a living,
-  and it does not suggest XAML binding semantics.
+  two-member interface (`Value`, `Changed`) is easier to implement correctly by someone who does not write Windows apps
+  for a living, and it does not suggest XAML binding semantics. `Changed` fires on the setter's thread (documented rule)
+  because the contract cannot know the UI thread.
+- **`RunOnUi` and no dispatcher.** Measured in the spike: an exception in a raw `DispatcherQueue` callback ends the
+  process; a wrapped callback becomes a faulted module.
+- **Apply-or-revert for numbers, text and shortcuts.** A power limit typed one digit at a time must not reach the
+  firmware at every keystroke. The draft lives in the host (`ValueEditor<T>`), so modules stay simple.
+- **A closed set of bay states.** The dashboard can show every module honestly with one small vocabulary.
 - **Short keys in code, long keys in files.** Short keys keep module code readable; long keys keep files unambiguous
   once the host merges them with the host's and other modules'.
 - **Manifest before code.** The user sees what a module declares, and an incompatible or broken module is refused
@@ -430,4 +488,6 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
 - Module-to-module calls other than the metrics bus.
 - Unloading a module without a restart; sandboxing; code signing (the registry's SHA256 and the install prompt are
   the trust steps).
-- Custom page details beyond the framework name (waiting for spike A1).
+- Compiled XAML pages from a module (unsupported, see 5.5), and any window handle or dispatcher for modules.
+- Loading a custom-control module built for another Windows App SDK line than the host (not tested in spike A1).
+- A `net48` module (the XTU contract assemblies) in this net10 host: DESIGN.md open point 2 still has to settle it.
