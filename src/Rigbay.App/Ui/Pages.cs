@@ -45,18 +45,24 @@ static class DashboardPage
     {
         var grid = new Grid { MinHeight = 56, ColumnSpacing = 14, Padding = new Thickness(6, 8, 6, 8) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var bay = Ui.Bay(e.Bay.State, 34);
         grid.Children.Add(bay);
 
+        // the module's tile at 24 DIP, next to the state bar and never in its place; grey when the machine does not support the module
+        var tile = ModuleIconUi.Tile(e, 24);
+        Grid.SetColumn(tile, 1);
+        grid.Children.Add(tile);
+
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
         text.Children.Add(Ui.Text(e.DisplayName, trim: true));
         var state = Ui.Text("", "RbSecondaryCaption", trim: true);
         state.TextWrapping = TextWrapping.NoWrap; state.MaxLines = 1;
         text.Children.Add(state);
-        Grid.SetColumn(text, 1);
+        Grid.SetColumn(text, 2);
         grid.Children.Add(text);
 
         void ShowState()
@@ -79,7 +85,7 @@ static class DashboardPage
         {
             var strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 22, VerticalAlignment = VerticalAlignment.Center };
             foreach (var reading in readings) strip.Children.Add(Reading(e, reading, scope));
-            Grid.SetColumn(strip, 2);
+            Grid.SetColumn(strip, 3);
             grid.Children.Add(strip);
         }
 
@@ -140,7 +146,7 @@ static class ModulePage
             right.Add(new HyperlinkButton { Content = Host.T("page.homepage"), NavigateUri = hu });
         right.Add(new HyperlinkButton { Content = Host.T("nav.log") }.With(b => b.Click += (_, _) => Host.Window.Navigate("log")));
         var meta = string.Join("  ·  ", new[] { e.Id, e.VersionText().Length > 0 ? "v" + e.VersionText() : "", e.AuthorText() }.Where(s => s.Length > 0));
-        page.Children.Add(Ui.PageHeader(e.DisplayName, meta, right.ToArray()));
+        page.Children.Add(Ui.PageHeader(ModuleIconUi.Tile(e, 48), e.DisplayName, meta, right.ToArray()));
 
         page.Children.Add(EnableCard(e));
 
@@ -295,6 +301,7 @@ static class ModulesPage
     {
         var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         header.Children.Add(Ui.Bay(e.Bay.State, 28));
+        header.Children.Add(ModuleIconUi.Tile(e, 32));
         header.Children.Add(Ui.Text(e.DisplayName + (e.VersionText().Length > 0 ? "  v" + e.VersionText() : "")));
 
         bool canToggle = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;

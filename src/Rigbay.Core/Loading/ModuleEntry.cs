@@ -82,6 +82,9 @@ public sealed class ModuleEntry
     public string Id { get; private set; }
 
     public ModuleManifest? Manifest { get; private set; }
+
+    /// <summary>The module's icon files (full paths, validated); <see cref="ModuleIcons.None"/> when it has none or its manifest is invalid. The UI shows its own neutral tile then.</summary>
+    public ModuleIcons Icons { get; private set; } = ModuleIcons.None;
     public IReadOnlyList<ManifestIssue> Issues { get; private set; } = Array.Empty<ManifestIssue>();
     public ModuleLocalisation Localisation { get; }
     public ILog Log { get; }
@@ -157,6 +160,7 @@ public sealed class ModuleEntry
     {
         var result = ManifestReader.ReadFolder(Folder);
         Issues = result.Issues;
+        Icons = result.Icons ?? ModuleIcons.None;
         foreach (var issue in result.Issues.Where(i => !i.IsError)) Log.Warn($"module.json {issue}");
 
         if (result.Manifest is not { } m)

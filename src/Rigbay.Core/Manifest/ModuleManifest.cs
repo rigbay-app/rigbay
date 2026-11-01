@@ -32,7 +32,8 @@ public sealed record ModuleManifest(
     ModuleRequires Requires,
     string LanguagesFolder,
     string? Homepage,
-    IReadOnlyList<string>? ProbePaths = null)
+    IReadOnlyList<string>? ProbePaths = null,
+    string? Icon = null)
 {
     /// <summary>Host language key of the label for <see cref="DeclaredProbePaths"/> in the facts list ("Reads files outside its folder").</summary>
     public const string OutsideFilesLabelKey = "core.requires.outside-files";
@@ -72,7 +73,7 @@ public sealed record ManifestIssue(string Path, string Key, object[]? Args = nul
 }
 
 /// <summary>Outcome of reading a manifest: the manifest when there is no error, and every issue found.</summary>
-public sealed record ManifestResult(ModuleManifest? Manifest, IReadOnlyList<ManifestIssue> Issues)
+public sealed record ManifestResult(ModuleManifest? Manifest, IReadOnlyList<ManifestIssue> Issues, ModuleIcons? Icons = null)
 {
     public bool IsValid => Manifest is not null;
 
@@ -121,7 +122,7 @@ public static class ManifestReader
 
     private static readonly HashSet<string> KnownTop = new(StringComparer.Ordinal)
     {
-        "manifestVersion", "id", "name", "version", "author", "description", "entry", "hostApi", "group", "requires", "languages", "homepage", "probePaths",
+        "manifestVersion", "id", "name", "version", "author", "description", "entry", "hostApi", "group", "requires", "languages", "homepage", "probePaths", "icon",
     };
 
     private static readonly Regex IdPattern = new(@"^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant);
@@ -156,7 +157,9 @@ public static class ManifestReader
             if (!File.Exists(Path.Combine(folder, m.EntryAssembly)))
                 issues.Add(Issue("entry.assembly", "core.manifest.assembly-missing", m.EntryAssembly));
             if (issues.Any(i => i.IsError)) return new ManifestResult(null, issues);
-            return new ManifestResult(m, issues);
+            // A declared icon that failed the syntax check is already a warning from Parse: no icon then, not the convention files.
+            var icons = issues.Any(i => i.Path == "icon") ? ModuleIcons.None : ModuleIconResolver.Resolve(folder, m.Icon, issues);
+            return new ManifestResult(m, issues, icons);
         }
         return result;
     }
@@ -265,9 +268,17 @@ public static class ManifestReader
 
             var probePaths = ReadProbePaths(root, issues);
 
+            string? icon = null;
+            if (root.TryGetProperty("icon", out var ic))
+            {
+                var iconText = ic.ValueKind == JsonValueKind.String ? ic.GetString()?.Trim() : null;
+                if (ModuleIconResolver.IsValidDeclaration(iconText)) icon = iconText;
+                else issues.Add(new ManifestIssue("icon", "core.manifest.icon-invalid", IsError: false));   // a warning: the module still loads, with the host's neutral tile
+            }
+
             if (issues.Any(i => i.IsError)) return new ManifestResult(null, issues);
 
-            var manifest = new ModuleManifest(version, id!, name!, ver!, author!, description!, entryAssembly!, entryType!, range!, group, requires, languages, homepage, probePaths);
+            var manifest = new ModuleManifest(version, id!, name!, ver!, author!, description!, entryAssembly!, entryType!, range!, group, requires, languages, homepage, probePaths, icon);
             return new ManifestResult(manifest, issues);
         }
     }

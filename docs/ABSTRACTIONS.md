@@ -60,6 +60,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
   },
   "probePaths": ["%ProgramFiles%\\Vendor\\Contracts"],
   "languages": "lang",
+  "icon": "icon.svg",
   "homepage": "https://github.com/rigbay-app/module-steam-access"
 }
 ```
@@ -80,6 +81,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
 | `languages` | no | Folder with `*.lang` files, relative to the module folder. Default `lang`. |
 | `homepage` | no | `http` or `https` URL. |
 | `probePaths` | no | Up to 8 extra folders the module reads assemblies from, for files that stay where another product installed them and are never copied (for example `C:\Program Files\Intel\...`). Each is an absolute local path (drive letter; no `..`, no network share, no wildcards), and may use `%NAME%` environment variables, which must exist on the machine. Folders are used only by the loader rule in section 10 (last resort, after the host and the module folder). They are listed in the facts of the Modules page and the turn-on dialog as "Reads files outside its folder" (host key `core.requires.outside-files`; the app shows `ModuleManifest.DeclaredProbePaths` under that label). A declaration, not a sandbox. |
+| `icon` | no | The module's mark: a file name or relative path **inside the module folder** ending in `.svg` or `.png` (at most 100 characters; no rooted path, no `..`, no `:`, no link to outside the folder). Without the field the host looks for `icon.svg`, then `icon-48.png`. Next to it the host also picks up, by the same base name, `icon-glyph.svg` (quiet form for the navigation pane), `icon-unsupported.svg` (the tile in grey, shown when the module is unsupported or incompatible), `icon-16/24/32/48/64/128.png` and `icon-unsupported-16/24/32/48.png`; all optional. Limits: SVG up to 64 KiB, PNG up to 256 KiB, a PNG used as the main icon square and 48 to 1024 px (sidecars 16 to 1024 px). An SVG must be a plain drawing: well-formed XML, root `svg`, no DTD, none of `script`, `foreignObject`, `image`, `text`, `tspan`, `style`, `iframe`, `object`, `embed`, `link`, no `on*` attribute, no `href` that is not `#id`, no `url(...)` that is not `url(#id)`. A bad value is **a warning, never a load failure** (keys `core.manifest.icon-invalid`, `-missing`, `-too-large`, `-unsafe`, `-size`, `-unreadable`, path `icon`): the module loads and the host shows its neutral "?" tile. A value that fails the syntax check does not fall back to the convention files. Brand rules for authors: `docs/BRAND.md` section 10. |
 
 Unknown fields are ignored (a warning is logged) so a newer manifest still loads on an older host. The host
 validates every field and reports all problems at once; a module with an invalid manifest is listed as
@@ -342,14 +344,28 @@ vocabulary, so the label should be the same anyway).
 - **Describe.** `Describe(new MetricDescriptor(id, labelKey, unit, formatHint))` registers once what the metric is called
   and how to format it (section 5.6). `LabelKey` is module-relative or a `Text.Literal`; `FormatHint` is a .NET numeric
   format such as `"0"` or `"0.0"`, or null.
+- **Reading the catalogue (A12).** `Describe` is write-only for a module; to read what other modules described, call
+  `GetMetricInfo(id)` (a `MetricInfo` or null) or `GetAllMetricInfo()` (every known metric, ordered by owner module id
+  then metric id, ordinal). `MetricInfo(Id, Label, Description, Unit, FormatHint, OwnerModuleId, IsAvailable)` has the
+  texts **already resolved in the current UI language through the owner module's localisation**: a descriptor's
+  `LabelKey` and `DescriptionKey` are relative to the module that registered it, so a reader must never resolve them
+  with its own `host.Localisation`. `Label` is the descriptor's label, else the host's `metric.<id>` text, else the raw
+  id (never empty); `Description` is empty when there is none; a `Text.Literal` is shown as written. A metric nobody
+  described still has info once it was published: label = id, unit from its samples, owner = the publishing module.
+  `IsAvailable` is false only while the metric is withdrawn. Nothing is cached, so after a language switch the next call
+  returns the new texts. `event CatalogChanged` (and the counter `CatalogVersion`) tell a reader that the list or its
+  texts changed: a metric was described, appeared, was withdrawn or came back, or the language changed. The event does
+  not say what changed; call `GetAllMetricInfo()` again. It runs in your fault boundary on the thread that caused it:
+  keep it short. Sample values still come from `Latest`/`Subscribe`.
 - **Subscribers.** `SubscriberCount(id)` is how many readers want the id: subscribers of that id plus all-samples
   subscribers, from the host (dashboard, recorder) and from other modules, not this module's own. `SubscribersChanged`
   is raised (inside the module's fault boundary, on the thread that subscribed or disposed) when that can have changed;
   it does not say for which id, so call `SubscriberCount` for the ids you publish. Both are for the poll-rate pattern in
   section 13.
-- `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged` and `Latest` are default interface members on
+- `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged`, `Latest`, `GetMetricInfo`, `GetAllMetricInfo`,
+  `CatalogChanged` and `CatalogVersion` are default interface members on
   `IMetricsBus` (and `PageVisible` on `IHostServices`): a class that implements the interface itself, like a test double,
-  keeps compiling and gets "nobody listens, nothing to withdraw".
+  keeps compiling and gets "nobody listens, nothing to withdraw, an empty catalogue".
 
 ## 7. Localisation
 
@@ -587,6 +603,11 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
    `Initialize` (it is the current state, not always false). When a read keeps failing, `host.Metrics.Withdraw(id)` the
    metric instead of leaving the last value on the page. The sample module does all of this (`UpdatePollRate`,
    `OnPausedChanged`).
+   **Metrics: describe them, and read the ones of others.** Give each metric you publish a descriptor with an optional
+   description, both module-relative keys: `new MetricDescriptor(id, "metric.ticks", MetricUnit.Count, "0") { DescriptionKey
+   = "metric.ticks.description" }` (the sample module does this). A module that lists other modules' metrics (a recorder)
+   uses `host.Metrics.GetAllMetricInfo()` and shows `Label`, `Description` and `Unit.Symbol()` as given, re-reading when
+   `host.Metrics.CatalogChanged` fires; it does not look the keys up itself.
 4. **Language file** `lang\en.lang` with `module.<id>.group.main = ...` and so on; add `vi.lang` if you can.
 5. **Check.** `dotnet run --project src/Rigbay.LangCheck -- <your lang folder> --module <id> --source <your source folder>`.
 6. **Try.** Build; copy the output folder to `<modules root>\<id>\`; start the host. Read `rigbay.log` first when
@@ -683,6 +704,42 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after A12 (a module reads the descriptors of other modules' metrics; no version number change)
+
+Additive only; every new `IMetricsBus` member is a default interface member (a hand-written implementation, such as a
+test double, keeps compiling and gets "unknown metric, empty list, no events").
+
+- **Abstractions.** `MetricInfo(Id, Label, Description, Unit, FormatHint, OwnerModuleId, IsAvailable)` (texts resolved in
+  the current language); `MetricDescriptor.DescriptionKey` (init property, optional, owner-relative or `Text.Literal`;
+  not a constructor parameter, so existing `new MetricDescriptor(...)` calls are unchanged); `IMetricsBus.GetMetricInfo(MetricId)`
+  returning `MetricInfo?`; `IMetricsBus.GetAllMetricInfo()` returning `IReadOnlyList<MetricInfo>` ordered by owner module id,
+  then metric id (ordinal); `event Action? IMetricsBus.CatalogChanged`; `long IMetricsBus.CatalogVersion`.
+- **Core.** `MetricsBus` implements all of them for the module-side bus and also exposes them on the concrete class
+  (`GetMetricInfo`, `GetAllMetricInfo`, `CatalogChanged`, `CatalogVersion`, `NotifyCatalogChanged()`, `TextResolver`).
+  Labels and descriptions go through the owner module's localisation (`RigbayHost` installs `TextResolver`; an owner that
+  is not a loaded module, such as `host`, uses the host's texts). A metric with no descriptor appears once it is published
+  or withdrawn. The catalogue counts as changed when a descriptor is added or differs, a metric is published for the first
+  time or by another source/unit, a metric is withdrawn or comes back, and when the UI language changes.
+- **Behaviour note.** `IsAvailable` means "not withdrawn", not "has a sample": a described metric nobody published yet is
+  listed with `IsAvailable` true; use `Latest(id)` to know whether a value exists.
+- Sample module: the `sample.ticks` descriptor has a `DescriptionKey`. LangCheck needs no change: the key is a string
+  literal in the source, so `--strict` checks it for use like any other key.
+- For the recorder module (M2): call `host.Metrics.GetAllMetricInfo()` to build its list of choices, show
+  `Label`/`Description`/`Unit.Symbol()`, grey out `IsAvailable == false`, and re-read on `CatalogChanged`.
+
+### 0.1 after A11 (module icons; additive, no version number change)
+
+- `module.json` field `icon` (section 2.1), optional. `ModuleManifest.Icon` (constructor parameter, last, optional): the value as
+  written when it passed the syntax check, else null.
+- `ModuleIcons` (record: `Tile`, `Glyph`, `Unsupported`, `Png`, `UnsupportedPng`, all full paths), `ModuleIcons.None`, `HasIcon`,
+  `Choose(IconForm form, bool unsupported, double dip, double scale, bool preferSvg = true)` returning an `IconSource(Path, IsSvg, Opacity)`:
+  the SVG for any scale, or the smallest PNG with at least `dip * scale` pixels; the grey file for an unsupported tile, else the module's own
+  icon at 45 % opacity (`ModuleIcons.UnsupportedOpacity`); the quiet glyph for `IconForm.Glyph`. `ModuleIconResolver.Resolve` and
+  `IsValidDeclaration` do the validation (SVG treated as untrusted input, see the field row). `ManifestResult.Icons`, `ModuleEntry.Icons`
+  (`ModuleIcons.None` for an invalid manifest).
+- Six new host keys `core.manifest.icon-*` (en, vi; LangCheck strict is clean). They are warnings (`IsError` false), so `Issues` of a
+  loaded module can now contain `icon` entries; the App logs them like the other warnings.
 
 ### 0.1 after A9 (host gaps found by the PredatorSense module; no version number change)
 

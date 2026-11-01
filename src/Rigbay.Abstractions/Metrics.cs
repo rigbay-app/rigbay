@@ -119,7 +119,28 @@ public sealed record MetricSample(MetricId Id, double Value, MetricUnit Unit, Da
 /// A .NET numeric format string for the number ("0", "0.0"), or null to let the host choose. Informational: the
 /// host may ignore it.
 /// </param>
-public sealed record MetricDescriptor(MetricId Id, string LabelKey, MetricUnit Unit = MetricUnit.None, string? FormatHint = null);
+public sealed record MetricDescriptor(MetricId Id, string LabelKey, MetricUnit Unit = MetricUnit.None, string? FormatHint = null)
+{
+    /// <summary>
+    /// Optional module-relative language key of a one-sentence description ("Package temperature from the CPU's own
+    /// sensor"), resolved like <see cref="LabelKey"/> (a <see cref="Text.Literal"/> is allowed). Null or a key with no text
+    /// means no description.
+    /// </summary>
+    public string? DescriptionKey { get; init; }
+}
+
+/// <summary>
+/// What any module can learn about a metric another module publishes, with the texts already resolved in the current UI
+/// language (see <see cref="IMetricsBus.GetMetricInfo"/>). Read it again after a language change: the texts are not cached.
+/// </summary>
+/// <param name="Id">The metric.</param>
+/// <param name="Label">Short name in the current language. Never empty: falls back to the host's text for a shared id, then to the raw id.</param>
+/// <param name="Description">One-sentence description in the current language; empty when there is none.</param>
+/// <param name="Unit">The unit from the descriptor, or from the latest sample when the metric has no descriptor.</param>
+/// <param name="FormatHint">The descriptor's .NET numeric format, or null.</param>
+/// <param name="OwnerModuleId">Id of the module that described the metric, or else the one that published it (<c>host</c> for the host).</param>
+/// <param name="IsAvailable">False while the metric is withdrawn (<see cref="IMetricsBus.Withdraw"/>); true otherwise, even before the first sample (ask <see cref="IMetricsBus.Latest"/> for that).</param>
+public sealed record MetricInfo(MetricId Id, string Label, string Description, MetricUnit Unit, string? FormatHint, string OwnerModuleId, bool IsAvailable);
 
 /// <summary>
 /// The bus on which modules publish readings and subscribe to those of others. It caches the latest sample of
@@ -192,6 +213,28 @@ public interface IMetricsBus
     /// subscribed or disposed, inside this module's fault boundary; keep it short and hand slow work to a background thread.
     /// </summary>
     event Action? SubscribersChanged { add { } remove { } }
+
+    /// <summary>
+    /// Everything known about one metric, texts resolved through the OWNER module's localisation in the current language
+    /// (a descriptor's keys are relative to the module that registered it, so a reader cannot resolve them itself). Null
+    /// when the id was never described, published or withdrawn. A metric with no descriptor still has info: label = id,
+    /// unit from its samples. The default returns null.
+    /// </summary>
+    /// <param name="id">The id.</param>
+    MetricInfo? GetMetricInfo(MetricId id) => null;
+
+    /// <summary>The info of every known metric (described, published or withdrawn), ordered by owner module id and then metric id, both ordinal. The default returns an empty list.</summary>
+    IReadOnlyList<MetricInfo> GetAllMetricInfo() => [];
+
+    /// <summary>
+    /// Raised after the catalogue changed: a metric was described, appeared for the first time, was withdrawn or came back,
+    /// or the UI language changed (so labels differ). It does not say what changed: call <see cref="GetAllMetricInfo"/> again.
+    /// Synchronous on the thread that caused it, inside this module's fault boundary; keep it short.
+    /// </summary>
+    event Action? CatalogChanged { add { } remove { } }
+
+    /// <summary>A number that grows with every change that raises <see cref="CatalogChanged"/>; compare it to tell whether a cached list is stale. Always 0 in the default.</summary>
+    long CatalogVersion => 0;
 }
 
 /// <summary>Ids agreed across modules, so a recorder or the dashboard works with any source.</summary>

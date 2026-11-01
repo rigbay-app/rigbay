@@ -68,6 +68,16 @@ public sealed class RigbayHost : IDisposable
         Languages.LoadEmbedded(typeof(RigbayHost).Assembly, "Rigbay.Core.lang.");
         Languages.LoadDirectory(Paths.UserLanguageDirectory);
         Metrics = new MetricsBus(Log.ForSource("metrics"));
+        // metric descriptors carry owner-relative keys: resolve them through the owner's localisation (null owner = the host's own texts)
+        Metrics.TextResolver = (owner, key) =>
+        {
+            string? text = null;
+            bool found = owner is not null && Find(owner) is { } module
+                ? module.Localisation.TryGet(key, out text)
+                : Languages.TryGet(key, out text);
+            return found && !string.IsNullOrWhiteSpace(text) ? text : null;
+        };
+        Languages.LanguageChanged += Metrics.NotifyCatalogChanged; // labels differ after a language switch
         Hotkeys = new HotkeyRegistry(Log.ForSource("hotkeys"), Paths.HotkeysFile);
         Tray = new TrayRegistry();
         Commands = new CommandRegistry();

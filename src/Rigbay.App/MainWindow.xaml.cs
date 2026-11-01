@@ -67,9 +67,10 @@ public sealed partial class MainWindow : Window
         var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "rigbay.ico");
         if (File.Exists(ico)) { try { AppWindow.SetIcon(ico); } catch { } }
         ApplyTheme(opt.Theme ?? AppState.Settings.Theme);
+        if (opt.ShotScale > 1.01) ModuleIconUi.ScaleOverride = opt.ShotScale;
 
         Root.Loaded += OnLoaded;
-        Root.ActualThemeChanged += (_, _) => ApplyTitleBarColors();
+        Root.ActualThemeChanged += (_, _) => { ApplyTitleBarColors(); ApplyBrandMark(); };
         // The brand column is as wide as the pane (280) only while the pane is open; below 1000 px the pane is icons, so the search box gets the room.
         TitleBar.SizeChanged += (_, _) =>
         {
@@ -116,7 +117,7 @@ public sealed partial class MainWindow : Window
                 if (_opt.Page != null) await RunScriptAsync("page:" + _opt.Page);
             }
             if (_opt.SelfTest) await SelfTest.Run(this);
-            if (_opt.Shot != null) { await Task.Delay(1400); Shoot(_opt.Shot); }
+            if (_opt.Shot != null) { await Task.Delay(1400); if (_opt.ShotScale > 1.01) await ShootScaledAsync(_opt.Shot, _opt.ShotScale); else Shoot(_opt.Shot); }
             if (_opt.ExitAfterMs > 0) { await Task.Delay(_opt.ExitAfterMs); await QuitAsync(); }
         }
         catch (Exception ex)
@@ -161,7 +162,30 @@ public sealed partial class MainWindow : Window
         if (msg == Native.WM_HOTKEY) { WindowProcHotkeys++; return (Host.Hotkeys?.OnHotkey((int)wParam) == true, 0); }
         if (msg == Native.WM_APP_TRAY) { WindowProcTray++; return (Host.Tray?.OnCallback(lParam) == true, 0); }
         if (Host.Tray != null && msg == Host.Tray.TaskbarCreatedMessage && msg != 0) { Host.Tray.ReAdd(); return (false, 0); }
+        if (Host.Tray != null && msg is Native.WM_SETTINGCHANGE or Native.WM_THEMECHANGED or Native.WM_DISPLAYCHANGE or Native.WM_DPICHANGED && IsColourOrScaleChange(msg, wParam, lParam))
+        {
+            SettingChanges++;
+            // the registry value the taskbar theme is read from is written just before the broadcast; look again shortly after as well
+            Ui.Post(null, () => Host.Tray?.Refresh("system setting changed"), "tray refresh");
+            var again = DispatcherQueue.CreateTimer();
+            again.Interval = TimeSpan.FromMilliseconds(600);
+            again.IsRepeating = false;
+            again.Tick += (_, _) => Host.Tray?.Refresh("system setting changed (again)");
+            again.Start();
+        }
         return (false, 0);
+    }
+
+    internal int SettingChanges;
+
+    /// <summary>WM_SETTINGCHANGE is sent for many things; only the colour set ("ImmersiveColorSet", also sent when the accent changes) and high contrast matter here.</summary>
+    static bool IsColourOrScaleChange(uint msg, nint wParam, nint lParam)
+    {
+        if (msg != Native.WM_SETTINGCHANGE) return true;
+        if (wParam == Native.SPI_SETHIGHCONTRAST) return true;
+        if (lParam == 0) return false;
+        try { return System.Runtime.InteropServices.Marshal.PtrToStringUni(lParam) is "ImmersiveColorSet" or "WindowsThemeElement"; }
+        catch { return false; }
     }
 
     // ---------------------------------------------------------------- page visibility (poll rate of the module)
@@ -236,6 +260,8 @@ public sealed partial class MainWindow : Window
         _uiBuilt = true;
         Microsoft.UI.Xaml.Media.CompositionTarget.Rendered += (_, _) => { if (++_frames == 1) AppLog.Info("first frame rendered"); };
         ApplyTitleBarColors();
+        ApplyBrandMark();
+        WatchWindowsColors();
         ApplyLanguage();
         _uiReady.TrySetResult();
     }
@@ -309,6 +335,40 @@ public sealed partial class MainWindow : Window
         if (_uiBuilt) ApplyTitleBarColors();
     }
 
+    // ---------------------------------------------------------------- the Dock mark in the title bar
+
+    Windows.UI.ViewManagement.UISettings? _uiSettings;
+    /// <summary>True while the title bar shows the quiet form of the mark (the accent's hue is near a state colour).</summary>
+    internal bool MarkIsQuiet => MarkQuiet.Visibility == Visibility.Visible;
+    internal Color MarkAccent { get; private set; }
+
+    /// <summary>
+    /// Chooses the form of the title bar mark from the Windows accent (docs/BRAND.md section 6). The normal form binds the block to
+    /// <c>AccentFillColorDefaultBrush</c> in XAML, so a change of accent repaints it by itself; this only picks normal or quiet.
+    /// <c>--accent #RRGGBB</c> replaces the accent for screenshots.
+    /// </summary>
+    internal void ApplyBrandMark()
+    {
+        var over = BrandMark.TryParseColor(_opt.Accent, out var forced);
+        var accent = over ? forced : BrandMark.WindowsAccent();
+        MarkAccent = accent;
+        bool quiet = BrandMark.NeedsQuietForm(accent);
+        MarkQuiet.Visibility = quiet ? Visibility.Visible : Visibility.Collapsed;
+        MarkNormal.Visibility = quiet ? Visibility.Collapsed : Visibility.Visible;
+        if (over) MarkBlock.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(accent);
+    }
+
+    /// <summary>Follows the Windows colours at run time: the accent for the mark, the taskbar theme for the tray icon.</summary>
+    void WatchWindowsColors()
+    {
+        try
+        {
+            _uiSettings = new Windows.UI.ViewManagement.UISettings();
+            _uiSettings.ColorValuesChanged += (_, _) => Ui.Post(null, () => { ApplyBrandMark(); Host.Tray?.Refresh("colour change"); }, "colour change");
+        }
+        catch (Exception ex) { AppLog.Warn("could not watch the Windows colours", ex); }
+    }
+
     bool Dark => Root.ActualTheme == ElementTheme.Dark;
 
     void ApplyTitleBarColors()
@@ -345,7 +405,7 @@ public sealed partial class MainWindow : Window
             var header = new NavigationViewItem { Content = Host.T("group." + g), SelectsOnInvoked = false, IsExpanded = true, Icon = new FontIcon { Glyph = GroupGlyph(g) } };
             foreach (var e in items)
             {
-                var item = new NavigationViewItem { Content = e.DisplayName, Tag = e, Icon = new FontIcon { Glyph = ModuleGlyph(e) } };
+                var item = new NavigationViewItem { Content = e.DisplayName, Tag = e, Icon = ModuleNavIcon(e) };
                 var badge = e.Bay.State switch
                 {
                     BayState.Ready => "SuccessDotInfoBadgeStyle",
@@ -364,8 +424,16 @@ public sealed partial class MainWindow : Window
         SelectInNav(_current);
     }
 
-    static string ModuleGlyph(ModuleEntry e) =>
-        e.Page?.Icon is { Length: 1 } one ? one : GroupGlyph(e.GroupKey());
+    /// <summary>
+    /// The module's brand icon as the quiet glyph (16 DIP) when it ships icon files; otherwise the one-character icon its page names;
+    /// otherwise the host's neutral "?" glyph. (A page glyph does not override the module's own mark: the mark is how the module is told apart.)
+    /// </summary>
+    IconElement ModuleNavIcon(ModuleEntry e)
+    {
+        if (!e.Icons.HasIcon && e.Page?.Icon is { Length: 1 } one) return new FontIcon { Glyph = one };
+        double scale = ModuleIconUi.ScaleOverride ?? Nav.XamlRoot?.RasterizationScale ?? Root.XamlRoot?.RasterizationScale ?? 1.0;
+        return ModuleIconUi.NavIcon(e, scale) ?? new FontIcon { Glyph = GroupGlyph(e.GroupKey()) };
+    }
 
     IEnumerable<NavigationViewItem> AllNavItems() =>
         Nav.MenuItems.Concat(Nav.FooterMenuItems).OfType<NavigationViewItem>().SelectMany(i => new[] { i }.Concat(i.MenuItems.OfType<NavigationViewItem>()));
@@ -551,6 +619,40 @@ public sealed partial class MainWindow : Window
     };
 
     // ---------------------------------------------------------------- capture of this window only
+
+    /// <summary>
+    /// A screenshot as if the display scale were <paramref name="scale"/> (150 %, 200 %): the window's own content is rendered with
+    /// <c>RenderTargetBitmap</c> at that many pixels per DIP (vectors and the icons, which were picked for this scale, come out sharp),
+    /// flattened onto the theme's background (the Mica backdrop and the system caption buttons are not part of the content). Never the screen.
+    /// </summary>
+    internal async Task ShootScaledAsync(string path, double scale)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        var rtb = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
+        int pw = (int)Math.Round(Root.ActualWidth * scale), ph = (int)Math.Round(Root.ActualHeight * scale);
+        await rtb.RenderAsync(Root, pw, ph);
+        var buffer = await rtb.GetPixelsAsync();   // BGRA8, premultiplied
+        var pixels = new byte[buffer.Length];
+        Windows.Storage.Streams.DataReader.FromBuffer(buffer).ReadBytes(pixels);
+        var bg = Dark ? (R: (byte)0x20, G: (byte)0x20, B: (byte)0x20) : (R: (byte)0xF3, G: (byte)0xF3, B: (byte)0xF3);
+        for (int i = 0; i + 3 < pixels.Length; i += 4)
+        {
+            int inv = 255 - pixels[i + 3];
+            pixels[i] = (byte)Math.Min(255, pixels[i] + bg.B * inv / 255);
+            pixels[i + 1] = (byte)Math.Min(255, pixels[i + 1] + bg.G * inv / 255);
+            pixels[i + 2] = (byte)Math.Min(255, pixels[i + 2] + bg.R * inv / 255);
+            pixels[i + 3] = 255;
+        }
+        using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+        encoder.SetPixelData(Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, Windows.Graphics.Imaging.BitmapAlphaMode.Ignore, (uint)pw, (uint)ph, 96, 96, pixels);
+        await encoder.FlushAsync();
+        stream.Seek(0);
+        var bytes = new byte[stream.Size];
+        using (var reader = new Windows.Storage.Streams.DataReader(stream)) { await reader.LoadAsync((uint)stream.Size); reader.ReadBytes(bytes); }
+        await File.WriteAllBytesAsync(path, bytes);
+        AppLog.Info($"shot (RenderTargetBitmap of the window content at {scale:0.##}x, {pw}x{ph}) -> {path}");
+    }
 
     internal void Shoot(string path)
     {

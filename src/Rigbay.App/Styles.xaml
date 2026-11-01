@@ -13,18 +13,21 @@
             <SolidColorBrush x:Key="RbReadingPowerBrush" Color="#0B5CAD"/>
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#00695C"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#6E5600"/>
+            <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="#7B8497"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="#FFA66B"/>
             <SolidColorBrush x:Key="RbReadingPowerBrush" Color="#6CB8FF"/>
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#5FD3C4"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#E5C95C"/>
+            <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="#7B8497"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
             <SolidColorBrush x:Key="RbReadingPowerBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -68,15 +71,6 @@
     </Style>
     <Style x:Key="RbBayOutline" TargetType="Rectangle">
         <Setter Property="Width" Value="5"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
-        <Setter Property="Stroke" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/>
-        <Setter Property="StrokeThickness" Value="1.5"/>
-    </Style>
-    <Style x:Key="RbBrandSlot" TargetType="Rectangle">
-        <Setter Property="Width" Value="5"/><Setter Property="Height" Value="20"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
-        <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
-    </Style>
-    <Style x:Key="RbBrandSlotOutline" TargetType="Rectangle">
-        <Setter Property="Width" Value="5"/><Setter Property="Height" Value="20"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/>
         <Setter Property="Stroke" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/>
         <Setter Property="StrokeThickness" Value="1.5"/>
     </Style>

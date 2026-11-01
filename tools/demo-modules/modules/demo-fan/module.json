@@ -15,5 +15,6 @@
     "services": ["DemoFanService (read)"]
   },
   "languages": "lang",
-  "homepage": "https://github.com/rigbay-app/rigbay"
+  "homepage": "https://github.com/rigbay-app/rigbay",
+  "icon": "icon.svg"
 }

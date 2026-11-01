@@ -42,7 +42,9 @@
     <!-- host strings: embedded (the core loads them) and copied next to the exe so the langcheck switch can read the files -->
     <EmbeddedResource Include="lang\*.lang" LogicalName="Rigbay.App.lang.%(Filename)%(Extension)" />
     <Content Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="Assets\rigbay.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- app icon, tray pair, high-contrast pair and the neutral module icon: copies of assets\brand, listed in Assets\brand-files.txt -->
+    <Content Include="Assets\*.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets\modules\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

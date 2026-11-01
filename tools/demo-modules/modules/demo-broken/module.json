@@ -8,5 +8,6 @@
   "entry": { "assembly": "Rigbay.DemoModules.dll", "type": "Rigbay.DemoModules.BrokenModule" },
   "hostApi": ">=0.1 <0.2",
   "group": "power",
-  "languages": "lang"
+  "languages": "lang",
+  "icon": "icon.png"
 }

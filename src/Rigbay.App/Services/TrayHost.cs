@@ -3,6 +3,13 @@ using Rigbay.Core;
 
 namespace Rigbay.App.Services;
 
+/// <summary>
+/// Which of the brand's tray icons fits the taskbar (docs/BRAND.md section 7). The tray is drawn by the shell, so the icon cannot use the
+/// Windows accent: a light taskbar gets the ink bay, a dark one the light bay, both with the fixed violet block; high contrast gets the
+/// one-colour pair; when the taskbar theme cannot be read the all-slate fallback is used.
+/// </summary>
+enum TrayLook { Light, Dark, Neutral, HighContrastBlack, HighContrastWhite }
+
 /// <summary>A node of the tray menu, kept as data so it can be tested without showing a menu.</summary>
 sealed record TrayMenuNode(string Text, Action? Invoke = null, bool Checked = false, bool Enabled = true, bool Separator = false, IReadOnlyList<TrayMenuNode>? Children = null);
 
@@ -19,6 +26,98 @@ sealed class TrayHost
     nint _icon;
     uint _taskbarCreated;
     int _added;
+    TrayLook _look = TrayLook.Neutral;
+    int _iconSize;
+
+    /// <summary>The look now on the icon.</summary>
+    public TrayLook Look => _look;
+    /// <summary>Pixel size of the frame Windows was asked for (16, 20, 24 or 32 at 100, 125, 150 and 200 %).</summary>
+    public int IconSize => _iconSize;
+    /// <summary>How many times the icon was swapped after the first Add (self-test).</summary>
+    public int Swaps { get; private set; }
+    /// <summary>Whether the shell accepted the last icon change (self-test).</summary>
+    public bool LastSwapAccepted { get; private set; } = true;
+    /// <summary>When set (self-test), used instead of reading the system.</summary>
+    public TrayLook? ForcedLook { get; set; }
+
+    /// <summary>File name (in Assets) of the icon for a look.</summary>
+    public static string FileFor(TrayLook look) => look switch
+    {
+        TrayLook.Light => "rigbay-tray-light.ico",
+        TrayLook.Dark => "rigbay-tray-dark.ico",
+        TrayLook.HighContrastBlack => "rigbay-hc-black.ico",
+        TrayLook.HighContrastWhite => "rigbay-hc-white.ico",
+        _ => "rigbay-tray-neutral.ico",
+    };
+
+    /// <summary>
+    /// The pure choice. <paramref name="systemUsesLightTheme"/> is the <c>SystemUsesLightTheme</c> value (0 dark taskbar, 1 light; null when missing).
+    /// In high contrast <paramref name="highContrastIsLight"/> says whether the theme's window colour is light: a light theme gets the black icon.
+    /// </summary>
+    public static TrayLook Pick(bool highContrast, bool highContrastIsLight, int? systemUsesLightTheme)
+    {
+        if (highContrast) return highContrastIsLight ? TrayLook.HighContrastBlack : TrayLook.HighContrastWhite;
+        return systemUsesLightTheme switch { 0 => TrayLook.Dark, 1 => TrayLook.Light, _ => TrayLook.Neutral };
+    }
+
+    /// <summary>Reads the taskbar theme (<c>HKCU\...\Themes\Personalize\SystemUsesLightTheme</c>, not <c>AppsUseLightTheme</c>) and high contrast.</summary>
+    public static TrayLook Detect()
+    {
+        bool hc = false, hcLight = false;
+        try
+        {
+            hc = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
+            if (hc)
+            {
+                var bg = new Windows.UI.ViewManagement.UISettings().GetColorValue(Windows.UI.ViewManagement.UIColorType.Background);
+                hcLight = (0.2126 * bg.R + 0.7152 * bg.G + 0.0722 * bg.B) > 127;
+            }
+        }
+        catch (Exception ex) { AppLog.Warn("could not read the high contrast setting", ex); }
+        int? light = null;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            if (key?.GetValue("SystemUsesLightTheme") is int v) light = v;
+        }
+        catch (Exception ex) { AppLog.Warn("could not read the taskbar theme", ex); }
+        return Pick(hc, hcLight, light);
+    }
+
+    TrayLook CurrentLook() => ForcedLook ?? Detect();
+
+    nint LoadFor(TrayLook look, out int size)
+    {
+        size = Native.TrayIconSize();
+        var name = FileFor(look);
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", name);
+        if (!File.Exists(path)) path = Path.Combine(AppContext.BaseDirectory, name);
+        if (!File.Exists(path)) { AppLog.Warn("tray icon file missing: " + name); return 0; }
+        var h = Native.LoadTrayIcon(path, size);
+        if (h == 0) AppLog.Warn("tray icon file could not be loaded: " + name);
+        return h;
+    }
+
+    /// <summary>
+    /// Picks the icon again (the taskbar theme, high contrast or the display scale changed). Does nothing when look and size are unchanged.
+    /// The new icon goes to the shell first, then the old handle is destroyed; if the new file cannot be loaded the old icon stays.
+    /// </summary>
+    public void Refresh(string why)
+    {
+        var look = CurrentLook();
+        int size = Native.TrayIconSize();
+        if (look == _look && size == _iconSize && _icon != 0) return;
+        var fresh = LoadFor(look, out var loadedSize);
+        if (fresh == 0) return;
+        var old = _icon;
+        _icon = fresh;
+        bool ok = _added == 1 && Native.TrayModify(_hwnd, _icon, Tip);
+        LastSwapAccepted = ok || _added != 1;
+        AppLog.Info($"tray icon {FileFor(_look)}@{_iconSize} -> {FileFor(look)}@{loadedSize} ({why}); shell {(_added == 1 ? (ok ? "updated" : "REFUSED the update") : "not added yet")}");
+        _look = look; _iconSize = loadedSize;
+        Swaps++;
+        if (old != 0) Native.DestroyIcon(old);
+    }
 
     public TrayHost(nint hwnd, RigbayHost m, Action open, Action quit)
     {
@@ -34,9 +133,12 @@ sealed class TrayHost
     public bool Add()
     {
         Native.AllowDarkMenus();
-        var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "rigbay.ico");
-        if (!File.Exists(ico)) ico = Path.Combine(AppContext.BaseDirectory, "rigbay.ico");
-        if (_icon == 0 && File.Exists(ico)) _icon = Native.LoadTrayIcon(ico);
+        if (_icon == 0)
+        {
+            _look = CurrentLook();
+            _icon = LoadFor(_look, out _iconSize);
+        }
+        else if (CurrentLook() != _look || Native.TrayIconSize() != _iconSize) Refresh("re-add");
         bool ok = Native.TrayAdd(_hwnd, _icon, Tip);
         _added = ok ? 1 : 0;
         AppLog.Info(ok ? "tray icon added" : "tray icon NOT added (the shell may not be ready; will retry)");

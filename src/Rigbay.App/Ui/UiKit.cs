@@ -74,20 +74,32 @@ static class Ui
 
     public static string StateWord(BayState s) => Host.T("state." + s.ToString().ToLowerInvariant());
 
-    public static UIElement PageHeader(string title, string? meta, params UIElement[] right)
+    public static UIElement PageHeader(string title, string? meta, params UIElement[] right) => PageHeader(null, title, meta, right);
+
+    /// <summary>Page header with an optional mark on the left (a module page shows the module's tile there).</summary>
+    public static UIElement PageHeader(UIElement? lead, string title, string? meta, params UIElement[] right)
     {
         var g = new Grid { Margin = new Thickness(0, 0, 0, 18) };
+        if (lead != null)
+        {
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            g.ColumnSpacing = 14;
+            Grid.SetColumn((FrameworkElement)lead, 0);
+            g.Children.Add(lead);
+        }
         g.ColumnDefinitions.Add(new ColumnDefinition());
         g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        int first = lead != null ? 1 : 0;
         var left = new StackPanel { Spacing = 2 };
         var h = new TextBlock { Text = title, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"], TextTrimming = TextTrimming.CharacterEllipsis };
         AutomationHeading(h);
         left.Children.Add(h);
         if (!string.IsNullOrEmpty(meta)) left.Children.Add(Text(meta, "RbSecondaryCaption", trim: true));
+        Grid.SetColumn(left, first);
         g.Children.Add(left);
         var r = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Top };
         foreach (var x in right) r.Children.Add(x);
-        Grid.SetColumn(r, 1);
+        Grid.SetColumn(r, first + 1);
         g.Children.Add(r);
         return g;
     }

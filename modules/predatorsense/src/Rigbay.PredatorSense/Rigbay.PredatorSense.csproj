@@ -27,6 +27,8 @@
     <!-- Not part of the host (the host's default context does not have it); the loader rule finds it in this folder. -->
     <PackageReference Include="System.Management" Version="8.0.0" />
     <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <!-- the module's icon (manifest field "icon"): tile, quiet glyph, grey variant and the PNG fallbacks sit next to module.json -->
+    <None Include="..\..\icon*.svg;..\..\icon*.png" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
     <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
   </ItemGroup>
 
