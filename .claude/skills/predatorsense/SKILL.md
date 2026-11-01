@@ -1,6 +1,6 @@
 ---
 name: predatorsense
-description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). DRAFT from the B1, B2 and B3 tasks; firmware READS only so far (sensors, one Cool Booster read), no hardware write ever.
+description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). DRAFT from the B1 to B4 tasks; firmware reads (sensors, one Cool Booster read) and ONE hardware write so far (fan mode all Auto, status 0, B4).
 ---
 
 # PredatorSense: working knowledge (draft)
@@ -8,7 +8,7 @@ description: Working knowledge of how Acer PredatorSense V3 controls an Acer Pre
 Source of truth for the evidence is `docs/predatorsense/FINDINGS.md` (tables, evidence tags C/O/G). This file is the short
 version for people writing code. The first approval (CPU temperature, done) is `docs/predatorsense/GATE-getgamingsysinfo.md`;
 the candidate reads are in `docs/predatorsense/GATE-b2-reads.md`; B3's live results are `FINDINGS.md` section 12; the candidate
-writes (none run) are in `docs/predatorsense/WRITE-PROPOSALS.md`.
+writes are in `docs/predatorsense/WRITE-PROPOSALS.md` (only W4a has been run; its result is `FINDINGS.md` section 13).
 
 Detail files (read only when needed):
 - `references/wmi-encodings.md`: every input encoding decoded so far, with status.
@@ -61,7 +61,10 @@ PredatorSense.exe (WPF) --pipe--> PSSvc.exe (native, LocalSystem) --WMI root\WMI
   registry cache plus `GetGamingSysInfo`. So those `Get*` inputs are untraceable: do not call them. The traceable reads are
   in `references/wmi-encodings.md` (sysinfo, Cool Booster `GetFunction(0x207)`, keyboard backlight `GetFunction(0x80184)`).
 - Fan write encodings are decoded (`SetGamingFanBehavior`: fan mask low half, 2-bit mode per fan in the high half; all-Auto here
-  is `0x01410019`) but have never been run; see the encodings file. The operation mode has no known direct WMI route.
+  is `0x01410019`); see the encodings file. **`SetGamingFanBehavior(0x01410019)` was run once in B4: `gmInput` is UInt64, answer raw `0x0`
+  (status 0) in 11 ms, fans and temperatures unchanged for 20 s.** Max (`0x02820019`) and custom values have never been run. The operation mode has no known direct WMI route.
+- **Set methods take UInt64 `gmInput`; the Get methods take UInt32** (the probe casts to `uint`). The Set answer is `gmOutput` UInt32, status = low byte, 0 = ok.
+- **Fan RPM in Auto jitters by one step (about 22 to 24 RPM) and drifts with load**; use jumps of hundreds of RPM as the signal. `nvidia-smi` fan speed is `[N/A]` here, so sysinfo 2, 6, 9 are the only fan reading.
 
 ## Verified / not verified
 
@@ -70,7 +73,8 @@ PredatorSense.exe (WPF) --pipe--> PSSvc.exe (native, LocalSystem) --WMI root\WMI
 | Service, pipe names, WMI classes and method ids, registry and ini layout, command id lists | Any live firmware value other than the reads in the next two rows |
 | **Live:** `GetGamingSysInfo` indexes 1 to 17 all return status 0 (values above; elevated, owner-approved, read-only). GPU1 temp equals `nvidia-smi` | Fan speed unit (RPM by magnitude only); CPU `0x0101` against an independent CPU sensor; what the rate indexes mean |
 | **Live:** `GetFunction(0x207)` returned status `0xE1` (undecoded) | `GetFunction(0x80184)`, battery boost, `GetGamingMiscSetting(2/9)`, `GetGamingLEDBehavior(1)`: never run |
-| Encodings of CoolBooster, CPU/GPU OC level, MaxQ, GPU mode, sensor index, battery boost, AC mode, fan behaviour and fan speed writes (from UI code) | What those writes do on this machine (never run) |
+| Encodings of CoolBooster, CPU/GPU OC level, MaxQ, GPU mode, sensor index, battery boost, AC mode, fan behaviour and fan speed writes (from UI code) | What those writes do on this machine (never run), except the one below |
+| **Live write (B4):** `SetGamingFanBehavior(0x01410019)` once, elevated: status 0, 11 ms, RPM 2564 to 2586 / 2654 to 2678 / 2663 and temperatures unchanged for 20 s | That the fan mode changed or was re-asserted (no read-back); whether `PSSvc` re-applies its mode; survival across sleep or reboot; Max, Custom, Cool Booster, MaxQ |
 | UI variant Clubman, lighting route WMI, the UI has no read of fan/mode/colour | Operation-mode mapping in the service; fan table payload; lighting effect tables |
 | Pipe caller check exists | Pipe ACL, behaviour of a refused connect |
 | Charge limit is absent from PredatorSense v3 here | Charge limit via firmware Misc/Profile methods (no evidence) |
@@ -109,6 +113,13 @@ has the wrapper" is not enough: `WMIGetGamingFanGroupBehavior/Speed/Table` exist
 bytes with `System.Reflection.Metadata`; never load or run Acer code). Find who calls the `WMIFunction` wrapper first: no caller
 means no traced input. The model-to-window mapping is `App.OnStartup` on `Feature.ini [MachineType] Type`. Write the encoding into
 `references/wmi-encodings.md` with its status; open a gate before any run.
+
+**Run an approved write.** Only through `tools/predatorsense-write` (build with `build.ps1`; elevated). Its allow-list is a constant in `Write.cs` with the exact
+class, method and input the owner approved (today W4a only); the probe stays read-only. A new write = a new gate, then a new allow-list entry, never a command-line value.
+The tool checks AC power, battery above 50 %, CPU load, the UInt64 schema type, takes a three-pass baseline (sysinfo 1, 2, 3, 6, 9, 10 and `nvidia-smi`), makes the
+one call on a timeout thread, then reads 2, 6, 9, 1, 10 every 2 s for 20 s and logs every step (`--call <key>` is a dry run; `--execute` writes; a logged
+`WRITE_ATTEMPT` blocks a second write). Run it with `Start-Process -Verb RunAs -Wait` writing to a file. On a non-zero status, a timeout or an alert: no retry, no other write,
+mail the coordinator; the undo is the Acer app's Auto button.
 
 **Propose a write.** Fill in: exact call, value, expected effect, risk, how to undo, how the current state is read first.
 Ask with `csm gate open`. One value per approval. The filled-in candidates are in `docs/predatorsense/WRITE-PROPOSALS.md`. Rules that came out of B3:

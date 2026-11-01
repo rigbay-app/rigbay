@@ -6,8 +6,9 @@ Software read: Store package `AcerIncorporated.PredatorSenseV30` 3.0.3198.0 and 
 repo; names, ids and numbers below are facts, the wording is ours. Nothing in this study wrote to the hardware.
 Sections 1 to 10 are the B1 reading (no WMI method called then). **Task B2 (section 11) made exactly one WMI method
 call: `GetGamingSysInfo(0x0101)`, the owner-approved CPU temperature read.** **Task B3 (section 12) ran the owner-approved
-follow-up reads: sysinfo indexes 2 to 17 and `AcerGenericMethod.GetFunction(0x207)`; it still wrote nothing.** Where
-section 11 or 12 corrects an earlier statement, the later section wins.
+follow-up reads: sysinfo indexes 2 to 17 and `AcerGenericMethod.GetFunction(0x207)`; it still wrote nothing.** **Task B4
+(section 13) ran the first and only hardware write: `SetGamingFanBehavior(0x01410019)`, all fans Auto, status 0.** Where
+section 11, 12 or 13 corrects an earlier statement, the later section wins (the "nothing wrote" sentences above describe B1 to B3).
 
 ## How sure each statement is
 
@@ -580,3 +581,41 @@ do not try to reconcile it with `TZ00`, and do not use `TZ00` as a CPU temperatu
   established (output may have been buffered). The probe's own schema listing (names and ids only) works. That was a schema read, not a method call, but it is one more
   reason to give every WMI call in the host a timeout. Parameter names read before the stall: `AcerGenericMethod` uses `uiInput`/`uiOutput`, `AcerGamingFunction` uses
   `gmInput`/`gmOutput`; the Get methods take UInt32.
+
+## 13. B4: the first hardware write (W4a, all fans Auto), owner gate `g-write-w4a`
+
+Approval (owner, in the CSM app): exactly one call of `root\WMI:AcerGamingFunction.SetGamingFanBehavior` (id 14) with `gmInput` = `0x01410019`, once,
+elevated. Nothing else: no repeat, no other value, no other `Set*`. Full proposal and the table of numbers: `WRITE-PROPOSALS.md`, "W4a result". Raw log:
+`B4-w4a-run.txt` (this folder).
+
+### 13.1 Tool
+
+`tools/predatorsense-write` (C# 5, `csc.exe`, like the probe). Its write allow-list is a constant in code with **one entry** (W4a); the value cannot be passed on the
+command line, only a key. Refusals were exercised without touching WMI (`--check`): the W4b value `0x02820019`, `SetFunction(0x10007)`, `GetGamingFanBehavior(0x19)` and
+an unknown key are all refused. Every run appends timestamp, event, call, input, raw answer, status and elapsed time to a log. It refuses to write twice (the log
+line `WRITE_ATTEMPT` blocks a second `--execute`; that guard was read, **not** exercised live, because testing it would risk a second write). Every WMI call runs on a thread with a
+timeout (reads 10 s, the write 15 s); a timeout exits the process without a retry. The probe is unchanged and still read-only.
+
+### 13.2 Sequence and result (2026-11-01, local 18:42:09 to 18:42:34)
+
+| Step | Result |
+| --- | --- |
+| Preconditions | AC line on, battery 100 % (above 50 %), CPU load 11 % (limit 50 %); all checked by the tool before anything else |
+| Schema | `gmInput` of `SetGamingFanBehavior` is UInt64 (checked, not coerced) |
+| Baseline, same minute | `nvidia-smi` 52.69 C, 16.2 W, 22 %, P8; sysinfo 1, 2, 3, 6, 9, 10 three times, 2 s apart: CPU 57 to 61 C, CPU fan 2564 to 2586, system 44 to 46 C, GPU fan 1 2654, GPU fan 2 2663, GPU 52 C. All status 0 |
+| **The write** | `SetGamingFanBehavior(0x01410019)`: `gmOutput` raw `0x0`, **status 0**, 11 ms, no exception |
+| After, every 2 s for 20 s (11 passes of 2, 6, 9, 1, 10) | all status 0; CPU fan 2564 or 2586; GPU fans 2654 or 2678 and 2663; CPU 56 to 65 C; GPU 52 then 51 C. **No ALERT** (outside baseline -30 %/+30 %, or 90 C). `nvidia-smi` after: 51.53 C, 13.5 W, 0 % |
+| Not done | any retry, W4b, W1, W2 or any other `Set*`; the elevated process exited by itself |
+
+### 13.3 What this verifies, and what it does not
+
+- **Verified (O):** the Set call format (class, method id 14, UInt64 `gmInput`) is accepted by the firmware with status 0 and returns at once. Writes can be made from an elevated
+  .NET Framework process through `System.Management`, without the Acer pipe or the Acer app. The sensor reads (fan RPM, temperatures) keep working right after a write.
+- **Verified (O):** restating Auto did not move the fans (RPM within one step of the baseline) or the temperatures during 20 s, which is the expected "no visible effect".
+- **Not verified:** that the firmware mode was changed or re-asserted (the mode has no read-back, 11.2); that "Auto" was really the previous mode; whether `PSSvc` later re-applies its own cached
+  mode; whether the state survives sleep or reboot; anything about the other fan values (Max, Custom), Cool Booster or MaxQ; what the owner saw or heard. A status of 0 means the method
+  completed, not that the mode is what the module thinks.
+- **Fan RPM in Auto jitters by one quantisation step** (about 22 to 24 RPM: 2564/2586, 2654/2678). It also drifts between sessions (B3 saw 2857, 3061, 3083 at a different load/temperature).
+  Judge W4b by a jump of hundreds of RPM, not by a single step.
+- `nvidia-smi` reports the fan speed as `[N/A]` on this machine, so sysinfo 2, 6, 9 are the only fan-speed reading.
+- Section 12.5's remark that every WMI call should have a timeout stands; the write tool does that and nothing stalled in this run.
