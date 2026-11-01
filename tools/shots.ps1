@@ -1,15 +1,31 @@
 # Renders the app window itself (PrintWindow on its own HWND, never the screen) into tools\shots\*.png, in the states
 # the task lists: dashboard, empty, failed, unsupported, module page on and off, Vietnamese, in dark and light.
+# Every shot runs against neutral scratch folders (default C:\Rigbay-demo: a copy of the demo modules, one data folder per shot), so no
+# developer path, user name or machine name reaches a PNG: the Settings page and the log print the folders they use.
+# The app makes the scratch folders admin-only; remove them afterwards with tools\remove-elevated.ps1-style elevated delete.
 [CmdletBinding(PositionalBinding=$false)]
-param([string]$Out = (Join-Path $PSScriptRoot 'shots'), [Parameter(ValueFromRemainingArguments)][string[]]$Names)
+param([string]$Out = '', [string]$Demo = 'C:\Rigbay-demo', [Parameter(ValueFromRemainingArguments)][string[]]$Names)
 $ErrorActionPreference = 'Stop'
+if (-not $Out) { $Out = Join-Path $PSScriptRoot 'shots' }   # not in the param default: $PSScriptRoot is empty there on Windows PowerShell 5.1
 New-Item -ItemType Directory -Force $Out | Out-Null
+$demoModules = Join-Path $Demo 'modules'
+$demoEmpty = Join-Path $Demo 'modules-empty'
+if (Test-Path $demoModules) { Remove-Item $demoModules -Recurse -Force }
+New-Item -ItemType Directory -Force $Demo | Out-Null
+Copy-Item (Join-Path $PSScriptRoot 'out\modules') $demoModules -Recurse
+New-Item -ItemType Directory -Force $demoEmpty | Out-Null
+# the README hero: only well-behaved demo modules, no failed or broken rows
+$demoHero = Join-Path $Demo 'modules-hero'
+if (Test-Path $demoHero) { Remove-Item $demoHero -Recurse -Force }
+New-Item -ItemType Directory -Force $demoHero | Out-Null
+foreach ($m in 'demo-fan', 'demo-devices', 'demo-lighting') { Copy-Item (Join-Path $demoModules $m) (Join-Path $demoHero $m) -Recurse }
 $fan = 'enable:demo-fan;wait:1800'
 $jobs = @(
     @{ n = 'dashboard-dark';        a = '--theme', 'dark',  '--script', $fan },
+    @{ n = 'hero-dark';             a = '--theme', 'dark',  '--modules', $demoHero, '--size', '1240x520', '--script', "$fan;enable:demo-devices;wait:900" },
     @{ n = 'dashboard-light';       a = '--theme', 'light', '--script', $fan },
-    @{ n = 'empty-dark';            a = '--theme', 'dark',  '--modules', (Join-Path $PSScriptRoot 'out\modules-empty') },
-    @{ n = 'empty-light';           a = '--theme', 'light', '--modules', (Join-Path $PSScriptRoot 'out\modules-empty') },
+    @{ n = 'empty-dark';            a = '--theme', 'dark',  '--modules', $demoEmpty },
+    @{ n = 'empty-light';           a = '--theme', 'light', '--modules', $demoEmpty },
     @{ n = 'invalid-dark';          a = '--theme', 'dark',  '--script', 'page:demo-bad-manifest' },
     @{ n = 'invalid-light';         a = '--theme', 'light', '--script', 'page:demo-bad-manifest' },
     @{ n = 'invalid-vi-dark';       a = '--theme', 'dark',  '--lang', 'vi', '--script', 'page:demo-bad-manifest' },
@@ -49,8 +65,8 @@ $jobs = @(
     @{ n = 'module-vi-light';       a = '--theme', 'light', '--lang', 'vi', '--script', "$fan;page:demo-fan" },
     @{ n = 'modules-dark';          a = '--theme', 'dark',  '--script', "$fan;page:modules" },
     @{ n = 'modules-light';         a = '--theme', 'light', '--script', "$fan;page:modules" },
-    @{ n = 'settings-dark';         a = '--theme', 'dark',  '--script', "$fan;page:settings" },
-    @{ n = 'settings-light';        a = '--theme', 'light', '--script', "$fan;page:settings" },
+    @{ n = 'settings-dark';         a = '--theme', 'dark',  '--size', '1240x1100', '--script', "$fan;page:settings" },
+    @{ n = 'settings-light';        a = '--theme', 'light', '--size', '1240x1100', '--script', "$fan;page:settings" },
     @{ n = 'log-dark';              a = '--theme', 'dark',  '--script', "$fan;page:log" },
     @{ n = 'modules-probe-dark';    a = '--theme', 'dark',  '--size', '1240x1150', '--script', "page:modules;expand:demo-devices;wait:500" },
     @{ n = 'modules-probe-light';   a = '--theme', 'light', '--size', '1240x1150', '--script', "page:modules;expand:demo-devices;wait:500" },
@@ -88,11 +104,11 @@ foreach ($j in $jobs) {
     $run = @{ Wait = $true }
     $extra = @('--shot', $png, '--exit-after', '200', '--allow-multi') + $j.a
     # a fresh data folder per shot, so enabled/disabled choices never leak between states
-    $data = Join-Path $PSScriptRoot ('out\data-shot-' + $j.n)
+    $data = Join-Path $Demo ('data-shot-' + $j.n)
     if (Test-Path $data) { Remove-Item $data -Recurse -Force }
     $mods = $null
     for ($i = 0; $i -lt $extra.Count; $i++) { if ($extra[$i] -eq '--modules') { $mods = $extra[$i + 1]; $extra = $extra[0..($i - 1)] + $(if ($i + 2 -lt $extra.Count) { $extra[($i + 2)..($extra.Count - 1)] } else { @() }); break } }
     if ($mods) { & "$PSScriptRoot\run-elevated.ps1" -Wait -Data $data -Modules $mods @extra | Out-Null }
-    else { & "$PSScriptRoot\run-elevated.ps1" -Wait -Data $data @extra | Out-Null }
+    else { & "$PSScriptRoot\run-elevated.ps1" -Wait -Data $data -Modules $demoModules @extra | Out-Null }
     "{0}: {1}" -f $j.n, (Test-Path $png)
 }

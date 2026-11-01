@@ -15,13 +15,13 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
 | `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (129 checks, 16 of them install checks on a scratch copy of the demo modules and a local registry), prints the report. Exit code 0 when all pass. |
-| `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
+| `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light; and `hero-dark` for the README. It works in `C:\Rigbay-demo` (`-Demo <dir>` changes it; a copy of the demo modules and one data folder per shot), so no developer path, user name or machine name is drawn; the app makes that folder admin-only, so delete it with an elevated shell. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\sync-brand-assets.ps1 [-Check]` | Copies the brand files the app carries from `assets\brand` (list: `src\Rigbay.App\Assets\brand-files.txt`); `-Check` only compares and fails on a difference (`build.ps1` runs it). |
 | `tools\tray-mock.ps1` | Draws `tools\shots\tray-mock.png`: the tray icons by taskbar theme and size, and the menu model (a mock, not the real taskbar). |
 | `tools\make-local-registry.ps1`, `serve-registry.ps1` | A scratch modules folder and a local registry built from the demo modules (an update, an installed one, an installable one, a wrong hash, another host API); a loopback HTTP server for it. For rendering and testing install; never the real modules folder (`docs/INSTALL.md` section 8). |
-| `tools\shots-install.ps1` | The Modules page in every install state, dark and light, English and Vietnamese, into `tools\shots\install-*.png`. |
+| `tools\shots-install.ps1` | The Modules page in every install state, dark and light, English and Vietnamese, into `tools\shots\install-*.png`. Those images are not kept in the repository: the script works under `tools\out`, so the Modules page would print a developer path. Point it at a neutral scratch folder (as `shots.ps1` does with `C:\Rigbay-demo`) before keeping its output. |
 | `tools\install-http-test.ps1`, `tools\restart-test.ps1` | Install over real HTTP on loopback with the start-up swap, offline with a cache and `icacls` of the real folders; "Restart now" with two real elevated processes. |
 | `tools\remove-elevated.ps1` | Deletes the admin-only scratch folders those scripts leave under `tools\out` (an elevated PowerShell; refuses anything else). |
 
@@ -53,7 +53,9 @@ Rigbay.App.exe                       the UI
 Rigbay.App.exe --tray                the UI, hidden in the tray (what "start with Windows" runs)
 Rigbay.App.exe <module> <verb> ...   headless; forwarded to a running instance when there is one
 Rigbay.App.exe list | version        modules and their state / versions
+Rigbay.App.exe --version             "Rigbay <version>" and exit
 Rigbay.App.exe --langcheck           the core's LangCheck over the host's files and every module's
+Rigbay.App.exe --uninstall-cleanup [--keep-task]   quit a running instance, remove the logon task (install/uninstall scripts)
 ```
 
 Exit codes follow the contract: 0 ok, 1 failed, 2 not found or bad usage; text goes to stdout (stderr when not 0). Switches such
@@ -64,11 +66,49 @@ from PowerShell, which does not wait for GUI programs, or when the elevated proc
 A headless run loads the modules, turns on only the one the verb needs (and only if the user had enabled it), runs the verb and
 stops it. A hardware change asked for in a headless run is refused (no window to ask in).
 
-Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;revert:<row header key>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
-`--shot <png>`, `--size WxH`, `--accent <RRGGBB>`, `--shot-scale <1.5|2>`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
-Install (R1): `--registry <file|url>` (a local registry; ignored unless `--data` and `--modules` name scratch folders and the modules folder is not the real
-one), `--slow-download <ms>`, `--first-run`, `--wait-pid <pid>` (set by Restart now), and the script steps `check`, `install:<id>`, `install-bg:<id>`,
-`update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`, `restart` (`docs/INSTALL.md` section 8).
+### Every switch
+
+**Elevation.** `app.manifest` asks for `requireAdministrator`, so **every** start of `Rigbay.App.exe` is an elevated process, whichever
+switch it carries, including `--version` and `--help` (Windows asks, or auto-elevates for an administrator account that has UAC set so).
+The last column therefore says what a switch needs *beyond* that: "no" means the switch does nothing that depends on the elevated
+token; "yes" means it acts on something only an elevated process may change.
+
+| Switch | Value | What it does | Needs the elevated token itself |
+|---|---|---|---|
+| *(none)* | | Opens the UI. A second start only brings the running window forward. | yes (modules run as administrator; the modules folder is admin-only) |
+| `--tray` | | UI hidden in the tray. What the "Start with Windows" task runs. | yes (same) |
+| `<module> <verb> [args]` | | Headless verb; forwarded to the running instance when there is one. `list`, `version`, `help` are answered by the host. | yes for a verb that touches hardware (and those are refused headless anyway) |
+| `--version` | | Prints `Rigbay <version>` and exits (install scripts, bug reports). | no |
+| `--help`, `-h` | | One-line usage and exit. | no |
+| `--langcheck` | | `LangCheck` over the host's files and every installed module's; exit 1 on errors. | no |
+| `--uninstall-cleanup` | | Asks the running instance to quit (waits up to 30 s), then deletes the logon task through the code that created it. Leaves modules and settings alone. | yes in practice (the task has the highest run level, and the process is elevated anyway) |
+| `--keep-task` | | With `--uninstall-cleanup`: only the quit, keep the task (an upgrade). | no |
+| `--task-name` | `<name>` | Use another name for the logon task (letters, digits, `.`, `_`, `-`, up to 60 characters). Tests only: keeps the real task `Rigbay` out of reach. | same as the task it names |
+| `--data` | `<dir>` | Moves the settings, log and cache folder (default `%LOCALAPPDATA%\Rigbay`). | no |
+| `--modules` | `<dir>` | Moves the modules folder (default `%ProgramData%\Rigbay\modules`). | yes for the default folder (admin-only) |
+| `--out` | `<file>` | Also writes a headless run's output to a file. Before the verb words. | no |
+| `--registry` | `<file\|url>` | Test only: a local registry. Ignored unless `--data` and `--modules` are scratch folders (`docs/INSTALL.md`). | no |
+| `--slow-download` | `<ms>` | Test only, with `--registry`: waits before each 16 KB read, so progress and cancel can be seen. | no |
+| `--first-run` | | Test only: behave as the first start without modules (opens the Modules page). | no |
+| `--wait-pid` | `<pid>` | Set by "Restart now": the new process waits for that process to end first. | no |
+| `--allow-multi` | | Test only: skip the single-instance check. | no |
+| `--theme` | `dark\|light\|system` | Test and screenshots: force the theme. | no |
+| `--lang` | `<code>` | Test and screenshots: start in this language. | no |
+| `--page` | `<id>` | Test and screenshots: open this page first. | no |
+| `--script` | `"step;step"` | Test and screenshots: drive the UI (steps below). | no |
+| `--shot` | `<png>` | Render the window's own HWND (PrintWindow) to a PNG; never the screen. | no |
+| `--shot-mode` | `<mode>` | Parsed; nothing reads it yet (the default is `printwindow`). | no |
+| `--shot-scale` | `1.5\|2` | Render the shot as if the display scale were this (RenderTargetBitmap of the window content). | no |
+| `--size` | `WxH` | Window size for a shot. | no |
+| `--accent` | `RRGGBB` | Test: pretend the Windows accent colour is this (title bar mark). | no |
+| `--exit-after` | `<ms>` | Quit after this long (shots and tests). | no |
+| `--selftest` | | Run the in-app self-test. | yes (it checks the admin-only folders and elevated-only behaviour) |
+| `--selftest-out` | `<file>` | Where the self-test writes its report. | no |
+
+`--script` steps: `enable:id`, `disable:id`, `page:id`, `lang:vi`, `theme:dark`, `edit:<row header key>=<value>`, `revert:<row header key>`,
+`approve:true|false|ask`, `cancel-dialog`, `startup:on|off`, `turn-on:id`, `expand:id`, `expand-all`, `scroll:px`, `wait:ms`, `cmd:<verb words>`,
+and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`,
+`restart` (`docs/INSTALL.md` section 8).
 
 ## What it does
 
@@ -222,7 +262,7 @@ The A9 changes in the Core (`docs/ABSTRACTIONS.md`, "0.1 after A9") needed these
   "Change a system setting back?", the hint `approval.hint-revert-setting` and the row line "Changes a Windows setting. Rigbay asks before it applies."
   (`approval.title-setting`, `approval.revert-title-setting`, `row.system-note`; en, vi). The demo module has a "Web proxy" row for it; shots
   `approval-system-{dark,light,vi-dark}`, `revert-system-{dark,light}`. **`TextRow`** is a 280 px box at the right of the label (it used to take the width of its
-  text, so a long path squeezed the label and description): `textrow-before-dark` against `textrow-tall-{dark,light}`, `textrow-narrow-dark`.
+  text, so a long path squeezed the label and description): see `textrow-tall-{dark,light}`, `textrow-narrow-dark`.
 - **Page visibility.** `MainWindow.UpdatePageVisibility` calls `entry.SetPageVisible(true)` for the module page that is open while the
   window is shown, `false` for the one that was left, and `false` when the window is hidden to the tray or minimised (it runs on
   navigation, `AppWindow.Changed`, show and hide). `MainWindow.ShownEntry` is what the self-test reads.

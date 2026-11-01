@@ -1,10 +1,12 @@
 using Rigbay.Core;
+using Rigbay.LangCheckTool;
 
 // rigbay-langcheck <lang folder> [--module <id>] [--source <dir>] [--strict] [--out <file>]
 //   --module id   the files belong to a module: every key must start with module.<id>.
 //   --source dir  scan *.cs files under dir; English keys that no string literal uses are reported as unused
 //   --strict      warnings (missing, unused) also make the exit code 1
 //   --out file    write the report to a file as well
+//   <lang folder>/langcheck.json  optional { "dynamic": [ "prefix.*" ] }: key families built at run time, never reported unused
 // Exit codes: 0 ok, 1 errors (or warnings with --strict), 2 bad usage.
 
 const string Usage = "usage: rigbay-langcheck <lang folder> [--module <id>] [--source <dir>] [--strict] [--out <file>]";
@@ -46,7 +48,13 @@ if (source is not null)
 }
 
 var files = LangCheck.LoadDirectory(folder);
-var report = LangCheck.Check(files, new LangCheckOptions(module is null ? null : LanguageCatalog.ModulePrefix(module), sources));
+var requiredPrefix = module is null ? null : LanguageCatalog.ModulePrefix(module);
+var report = LangCheck.Check(files, new LangCheckOptions(requiredPrefix, sources));
+// langcheck.json next to the lang files declares families of keys the source builds at run time (see DynamicKeys)
+var (entries, familyProblems) = DynamicKeys.Load(folder);
+report.Problems.AddRange(familyProblems);
+var english = files.FirstOrDefault(f => f.Code == LanguageCatalog.Fallback);
+DynamicKeys.Apply(report, entries, english?.Text.Keys ?? Enumerable.Empty<string>(), requiredPrefix);
 var text = report.ToText();
 Console.Write(text);
 if (outFile is not null) File.WriteAllText(outFile, text);

@@ -51,6 +51,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{829047E5
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rigbay.SteamBypass.Tests", "modules\steambypass\tests\Rigbay.SteamBypass.Tests\Rigbay.SteamBypass.Tests.csproj", "{C9975F40-0F9F-4D70-9DB8-E7E97F2EC89A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rigbay.LangCheck.Tests", "tests\Rigbay.LangCheck.Tests\Rigbay.LangCheck.Tests.csproj", "{7A52C395-B5E6-4BB5-A091-7E41584F3431}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -265,6 +267,18 @@ Global
 		{C9975F40-0F9F-4D70-9DB8-E7E97F2EC89A}.Release|x64.Build.0 = Release|Any CPU
 		{C9975F40-0F9F-4D70-9DB8-E7E97F2EC89A}.Release|x86.ActiveCfg = Release|Any CPU
 		{C9975F40-0F9F-4D70-9DB8-E7E97F2EC89A}.Release|x86.Build.0 = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|x64.Build.0 = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Debug|x86.Build.0 = Debug|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|x64.ActiveCfg = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|x64.Build.0 = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|x86.ActiveCfg = Release|Any CPU
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -290,5 +304,6 @@ Global
 		{F737E640-0AE7-467D-8223-C339439D1DE0} = {2FA058BB-DC17-4098-1F70-C37930C7E51D}
 		{829047E5-8CCE-4FAF-AFAD-913774762DF4} = {815BD4D3-48E9-DA70-1107-3E4A36F5ECD8}
 		{C9975F40-0F9F-4D70-9DB8-E7E97F2EC89A} = {829047E5-8CCE-4FAF-AFAD-913774762DF4}
+		{7A52C395-B5E6-4BB5-A091-7E41584F3431} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
