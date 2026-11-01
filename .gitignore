@@ -1,0 +1,12 @@
+# build output
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.nupkg
+# editors and local files
+.vs/
+.vscode/
+*.user
+*.log
