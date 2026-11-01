@@ -97,3 +97,19 @@ test, and raise `hostApi` in `module.json` only if the contract's version range 
 - XML comments in a `.csproj` cannot contain `--`; the comment the script writes avoids spelling out `--recurse-submodules`.
 - `git subtree split` of a 54-commit history takes about 15 seconds and yields only the commits that touched the module folder.
 - The new repository gets the same `user.name` and `user.email` as this one (it is not a worktree of it, so it would have none).
+
+## Notes from the second run (xtu, `rigbay-app/module-xtu`)
+
+- The script now accepts both module layouts: `module.json` anywhere under `modules/<id>/` (the shallowest one; xtu keeps it next to the
+  project, predatorsense at the root), and one solution at the module root that is `.sln` or `.slnx`. The rewrite of the paths to
+  `Rigbay.Abstractions` and `Rigbay.Core` works with either slash and any depth (`.slnx` uses `/`). The README skeleton takes the target
+  framework and the build output folder from the module project. Re-running it for predatorsense gave the same repository as before (same
+  split commit, same layout and CI trees; only the submodule pin and two README lines differ).
+- The module keeps its own layout: `Rigbay.Module.Xtu/` and the tests project stay at the root of the new repository (a subtree split
+  moves nothing), so the README's "Build" section says where the output folder is. The docs the script copies still speak of `modules/<id>/`
+  and `docs/<id>/`: add a short note at the top of each copied document and fix the commands (done by hand for xtu, in one commit after the skeleton).
+- A path longer than about 260 characters breaks `git submodule add` (`Filename too long` while it writes the pack): use short `-OutDir` and
+  scratch folders, not a folder under the agent's temp directory.
+- Scanning for the machine name must be case sensitive (`git grep -F`), because the GitHub login is the same word in lower case and is in the LICENSE and in
+  the commit authors on purpose.
+- The first CI run of `module-xtu` was green (build 0 warnings, 190 tests) with no change to the generated workflow.

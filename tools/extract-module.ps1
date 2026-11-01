@@ -65,8 +65,25 @@ function Action-Sha { param([string]$Repo)
 
 # ---- 0. checks -------------------------------------------------------------------------------------------------------------
 $modulePath = "modules/$ModuleId"
-$manifestJson = Get-GitOut $root show "${SourceBranch}:$modulePath/module.json"
-$manifest = $manifestJson | ConvertFrom-Json
+# module.json: the shallowest one in the module folder (bin/obj are not tracked); it may sit next to the project instead of at the root.
+$files = @(& git -C $root ls-tree -r --name-only $SourceBranch -- $modulePath)
+if ($LASTEXITCODE -ne 0 -or -not $files.Count) { throw "$modulePath does not exist on $SourceBranch" }
+$manifestPath = $files | Where-Object { (Split-Path $_ -Leaf) -eq 'module.json' } | Sort-Object { ($_ -split '/').Count }, { $_ } | Select-Object -First 1
+if (-not $manifestPath) { throw "no module.json under $modulePath on $SourceBranch" }
+$manifest = (Get-GitOut $root show "${SourceBranch}:$manifestPath") | ConvertFrom-Json
+# The solution at the module root: .slnx or .sln (-Filter *.sln would also match .slnx on Windows, so the extension is compared exactly).
+$slnFiles = @($files | Where-Object { ($_ -split '/').Count -eq 3 -and $_ -match '\.(sln|slnx)$' })
+if ($slnFiles.Count -ne 1) { throw "expected exactly one .sln or .slnx at the root of $modulePath, found $($slnFiles.Count)" }
+$sln = Split-Path $slnFiles[0] -Leaf
+# Target framework and build output folder of the module project (the one that is not a test project), for the README.
+$moduleProject = $files | Where-Object { $_ -like '*.csproj' -and $_ -notmatch '[Tt]ests' } | Sort-Object { ($_ -split '/').Count } | Select-Object -First 1
+$tfm = 'net8.0'; $projectDir = ''
+if ($moduleProject) {
+    $m = [regex]::Match((Get-GitOut $root show "${SourceBranch}:$moduleProject"), '<TargetFramework>([^<]+)</TargetFramework>')
+    if ($m.Success) { $tfm = $m.Groups[1].Value }
+    $projectDir = (Split-Path $moduleProject -Parent).Replace('\', '/').Substring($modulePath.Length).TrimStart('/').Replace('/', '\')
+}
+$buildOut = if ($projectDir) { "$projectDir\bin\Release\$tfm" } else { "bin\Release\$tfm" }
 if ($manifest.id -ne $ModuleId) { throw "module.json id '$($manifest.id)' differs from the folder name '$ModuleId'" }
 if (Test-Path $OutDir) { if (Get-ChildItem $OutDir -Force | Select-Object -First 1) { throw "$OutDir exists and is not empty" } }
 if (-not $HostCommit) {
@@ -103,13 +120,15 @@ $comment = @"
     Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy.
   -->
 "@
-foreach ($rel in (& git -C $OutDir ls-files -- '*.csproj' '*.sln' '*.props')) {
+foreach ($rel in (& git -C $OutDir ls-files -- '*.csproj' '*.sln' '*.slnx' '*.props')) {
     $depth = ($rel -split '/').Count - 1
-    $replacement = (('..\' * $depth) + 'external\rigbay\') + 'src\$1'
     $isProject = $rel -like '*.csproj'
     Edit-File (Join-Path $OutDir $rel) {
         param($t)
-        $t = [regex]::Replace($t, '(?:\.\.\\)+src\\(Rigbay\.(?:Abstractions|Core)\\)', $replacement)
+        # Either slash ('..\' in .csproj/.sln, '../' in .slnx); the new path keeps the slash the old one used.
+        $t = [regex]::Replace($t, '(?:\.\.[\\/])+src([\\/])(Rigbay\.(?:Abstractions|Core)[\\/])', {
+            param($m) $s = $m.Groups[1].Value; (('..' + $s) * $depth) + 'external' + $s + 'rigbay' + $s + 'src' + $s + $m.Groups[2].Value
+        })
         if ($isProject) { $t = [regex]::Replace($t, '(?s)<!--(?:(?!-->).)*?ProjectReference(?:(?!-->).)*?-->', $comment.TrimEnd()) }
         $t
     }
@@ -123,8 +142,6 @@ Write-Text "$OutDir\LICENSE" ((Get-GitOut $root show "${SourceBranch}:LICENSE") 
 
 $co = Action-Sha 'actions/checkout'
 $sd = Action-Sha 'actions/setup-dotnet'
-$sln = (Get-ChildItem $OutDir -Filter *.sln -File | Select-Object -First 1).Name
-if (-not $sln) { throw 'no solution file at the root of the module' }
 Write-Text "$OutDir\.github\workflows\build.yml" (@"
 name: build
 
@@ -181,7 +198,7 @@ TODO: say honestly what was tested and on what.
 
 ## Build
 
-Needs Windows, the .NET 8 SDK or newer (the module targets ``net8.0``). The host contract (``Rigbay.Abstractions``) comes from the
+Needs Windows and the .NET SDK for ``$tfm`` or newer (the module targets ``$tfm``). The host contract (``Rigbay.Abstractions``) comes from the
 git submodule ``external/rigbay``, so clone with submodules:
 
 ``````powershell
@@ -191,7 +208,7 @@ dotnet build $sln --configuration Release
 dotnet test $sln --configuration Release
 ``````
 
-The module folder is the build output of the module project (``src\<project>\bin\Release\net8.0``).
+The module folder is the build output of the module project (``$buildOut``).
 
 ## Install into Rigbay
 
