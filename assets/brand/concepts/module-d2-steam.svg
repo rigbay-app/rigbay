@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Steam access module mark, slot</title>
+  <g id="frame">
+    <path fill="#1F2430" fill-rule="evenodd" d="M80 24 H176 A56 56 0 0 1 232 80 V176 A56 56 0 0 1 176 232 H80 A56 56 0 0 1 24 176 V80 A56 56 0 0 1 80 24 Z M80 48 H176 A32 32 0 0 1 208 80 V176 A32 32 0 0 1 176 208 H80 A32 32 0 0 1 48 176 V80 A32 32 0 0 1 80 48 Z"/>
+  </g>
+  <g id="glyph" transform="translate(12.8 12.8) scale(0.9)">
+    <g fill="#0A8FB0" stroke="#0A8FB0" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M56 172 C66 64 174 64 184 172" stroke-width="20" fill="none"/>
+      <path d="M158 146 L184 172 L210 146" stroke-width="20" fill="none"/>
+      <path d="M120 134 V188" stroke-width="28" fill="none"/>
+      <circle cx="56" cy="172" r="18" stroke="none"/>
+    </g>
+  </g>
+</svg>

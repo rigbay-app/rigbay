@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 256" width="960" height="256" role="img" aria-labelledby="t">
+  <title id="t">Rigbay logo, B Dock</title>
+  <g id="symbol">
+    <path fill="#1F2430" d="M24 84 V176 A56 56 0 0 0 80 232 H176 A56 56 0 0 0 232 176 V84 A12 12 0 0 0 208 84 V176 A32 32 0 0 1 176 208 H80 A32 32 0 0 1 48 176 V84 A12 12 0 0 0 24 84 Z"/>
+    <rect x="88" y="24" width="80" height="144" rx="24" fill="#7A5AF8"/>
+  </g>
+  <g transform="translate(312 0)">
+  <g id="wordmark" fill="none" stroke="#1F2430" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 84 V172 M12 128 A44 44 0 0 1 56 84"/>
+    <path d="M104 84 V172"/>
+    <circle cx="196" cy="128" r="44"/>
+    <path d="M240 84 V184 A36 36 0 0 1 204 220"/>
+    <path d="M284 36 V172"/>
+    <circle cx="328" cy="128" r="44"/>
+    <circle cx="460" cy="128" r="44"/>
+    <path d="M504 84 V172"/>
+    <path d="M548 84 L592 172 M636 84 L568 220"/>
+    <circle cx="104" cy="40" r="16" fill="#7A5AF8" stroke="none"/>
+  </g>
+  </g>
+</svg>
