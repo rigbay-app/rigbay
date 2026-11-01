@@ -65,8 +65,9 @@ $appSource = Join-Path $here 'app'
 $exeName = 'Rigbay.App.exe'
 
 function Say($text) { Write-Host $text }
-# read-only lookups must not report "What if: Set Alias ..." for the modules they load on first use
-function ReadOnly([scriptblock]$Block) { $WhatIfPreference = $false; & $Block }
+# Read-only lookups run in a child Windows PowerShell: a -WhatIf of this script would otherwise be passed on to the modules they load
+# (Appx, CimCmdlets) and the output would fill up with "What if: Set Alias ..." lines.
+function Invoke-Child([string]$Command) { $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Command)); @(& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $enc 2>$null) }
 # schtasks.exe writes to stderr when a task does not exist; with $ErrorActionPreference = 'Stop' that would become an exception
 function Invoke-Schtasks([string[]]$Arguments) {
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
@@ -135,10 +136,9 @@ if (-not $SkipPrerequisiteCheck) {
     else { $missing += @{ What = '.NET 10 runtime (Microsoft.NETCore.App 10.x)'; Id = 'Microsoft.DotNet.Runtime.10'; Why = 'Rigbay is built for .NET 10 and does not bring its own copy.' } }
 
     # Windows App Runtime 1.8 (framework package, x64)
-    if ($PSVersionTable.PSEdition -eq 'Core') { try { ReadOnly { Import-Module Appx -UseWindowsPowerShell -WarningAction SilentlyContinue } } catch { } }
-    $pkgs = @()
-    try { $pkgs = @(ReadOnly { if ($isAdmin) { Get-AppxPackage -AllUsers -Name 'Microsoft.WindowsAppRuntime.1.8*' } else { Get-AppxPackage -Name 'Microsoft.WindowsAppRuntime.1.8*' } }) } catch { }
-    $warOk = [bool]($pkgs | Where-Object { $_.Architecture -eq 'X64' -or "$($_.Architecture)" -eq '9' })
+    $all = if ($isAdmin) { '-AllUsers' } else { '' }
+    $pkgs = Invoke-Child "Get-AppxPackage $all -Name 'Microsoft.WindowsAppRuntime.1.8*' | ForEach-Object { `"`$(`$_.Name)|`$(`$_.Architecture)`" }"
+    $warOk = [bool]($pkgs | Where-Object { $_ -match '\|(X64|9)\s*$' })
     if ($warOk) { Say 'Windows App Runtime 1.8: ok' }
     else { $missing += @{ What = 'Windows App Runtime 1.8 (x64)'; Id = 'Microsoft.WindowsAppRuntime.1.8'; Why = 'Rigbay draws its window with WinUI 3, which comes from this runtime.' } }
 
@@ -318,7 +318,8 @@ function Get-TaskXml([string]$user, [string]$exe) {
 if (-not $NoTask) {
     # the user who signs in: when an administrator account other than the signed-in one confirmed the elevation, the task must still be for the signed-in user
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    try { $console = (ReadOnly { (Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).UserName }); if ($console) { $user = $console } } catch { }
+    $console = (Invoke-Child '(Get-CimInstance Win32_ComputerSystem).UserName' | Select-Object -First 1)
+    if ($console) { $user = "$console".Trim() }
     if ($PSCmdlet.ShouldProcess("scheduled task '$TaskName' for $user", 'Create (start Rigbay in the tray at logon, 15 s delay, highest privileges)')) {
         Step 'Start at logon'
         $xmlFile = Join-Path ([IO.Path]::GetTempPath()) ('rigbay-task-{0}.xml' -f $PID)
