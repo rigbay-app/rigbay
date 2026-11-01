@@ -1,0 +1,26 @@
+{
+  "manifestVersion": 1,
+  "id": "xtu",
+  "name": "XTU profiles",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Switch Intel XTU power-limit profiles (PL1, PL2, time window) and read CPU temperature and power.",
+  "entry": { "assembly": "Rigbay.Module.Xtu.dll", "type": "Rigbay.Module.Xtu.XtuModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "power",
+  "requires": {
+    "admin": true,
+    "network": [],
+    "registry": [
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power (HiberbootEnabled, read only)",
+      "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0 (CPU vendor, read only)"
+    ],
+    "services": [
+      "XTU3SERVICE (named pipes net.pipe://localhost/ExtremeTuningUtility/Tuning and /Monitoring; writes only PL1, PL2, PL2 enable and the time window, after approval)",
+      "reads C:\\ProgramData\\Intel\\Intel Extreme Tuning Utility\\Profiles.xml, uisettings.xml and xtu.hotkey.settings"
+    ]
+  },
+  "probePaths": [ "%ProgramFiles%\\Intel\\Intel(R) Extreme Tuning Utility\\Drivers" ],
+  "languages": "lang",
+  "homepage": "https://github.com/rigbay-app/module-xtu"
+}
