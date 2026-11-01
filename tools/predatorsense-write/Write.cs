@@ -1,6 +1,7 @@
 // predatorsense-write: the ONLY tool in this repo that may write to the Acer firmware, and only the writes in
 // Writes[] below, which are exactly the writes the owner approved (see docs/predatorsense/WRITE-PROPOSALS.md).
-// Today that is ONE entry: W4a, AcerGamingFunction.SetGamingFanBehavior(0x01410019) = all fans Auto.
+// Today that is TWO entries: W4a, AcerGamingFunction.SetGamingFanBehavior(0x01410019) = all fans Auto (B4), and
+// W4b, SetGamingFanBehavior(0x02820019) = all fans Max (B5), which always runs together with W4a as its undo.
 // The value cannot be given on the command line: the call is chosen by key, the input is a constant.
 //
 // C# 5 / csc.exe from .NET Framework, no SDK, same as tools/predatorsense-probe.
@@ -30,8 +31,9 @@ namespace Rigbay.PredatorSenseWrite
         {
             public string Key, Class, Method, InName, OutName, Description;
             public ulong Input;
-            public AllowedWrite(string key, string cls, string method, string inName, string outName, ulong input, string description)
-            { Key = key; Class = cls; Method = method; InName = inName; OutName = outName; Input = input; Description = description; }
+            public string UndoKey;   // when set, the run is "write, watch at most 15 s, then this undo write" (own log for the undo)
+            public AllowedWrite(string key, string cls, string method, string inName, string outName, ulong input, string description, string undoKey)
+            { Key = key; Class = cls; Method = method; InName = inName; OutName = outName; Input = input; Description = description; UndoKey = undoKey; }
             public string Describe() { return Class + "." + Method + "(0x" + Input.ToString("X8") + ")"; }
         }
 
@@ -40,8 +42,18 @@ namespace Rigbay.PredatorSenseWrite
             // Gate g-write-w4a, answered "approve" by the owner: once, elevated, all fans Auto.
             // lo 0x0019 = CPU fan (0x01) + GPU 1 (0x08) + GPU 2 (0x10); hi 0x0141 = mode 1 (auto) in slots 0, 3, 4.
             new AllowedWrite("W4a", ClassGaming, "SetGamingFanBehavior", "gmInput", "gmOutput", 0x01410019UL,
-                "fan mode, all fans Auto (restates the recorded state)")
+                "fan mode, all fans Auto (restates the recorded state)", null),
+            // Gate g-write-w4b, answered "approve" by the owner: exactly two calls, once each, elevated:
+            // this one for at most 15 s, then W4a (all fans Auto) as the undo. Same mask 0x0019, mode 2 (max) in slots 0, 3, 4.
+            new AllowedWrite("W4b", ClassGaming, "SetGamingFanBehavior", "gmInput", "gmOutput", 0x02820019UL,
+                "fan mode, all fans Max for at most 15 s, then W4a as the undo", "W4a")
         };
+
+        static AllowedWrite FindWrite(string key)
+        {
+            for (int i = 0; i < Writes.Length; i++) if (string.Equals(Writes[i].Key, key, StringComparison.Ordinal)) return Writes[i];
+            return null;
+        }
 
         // Defence in depth: checked when the call is chosen and again right before it is sent.
         static string WriteRefusal(string cls, string method, ulong input)
@@ -73,13 +85,30 @@ namespace Rigbay.PredatorSenseWrite
         static string _logPath;
         static readonly object LogLock = new object();
 
+        static StreamWriter OpenWriter(string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
+            FileStream fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+            StreamWriter w = new StreamWriter(fs, new UTF8Encoding(false));
+            w.AutoFlush = true;
+            return w;
+        }
+
         static void OpenLog(string path)
         {
             _logPath = path;
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
-            FileStream fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
-            _log = new StreamWriter(fs, new UTF8Encoding(false));
-            _log.AutoFlush = true;
+            _log = OpenWriter(path);
+        }
+
+        // Switches all further log lines to another, already open file (the undo write has its own log).
+        static void SwitchLog(string path, StreamWriter next)
+        {
+            lock (LogLock)
+            {
+                StreamWriter old = _log;
+                _log = next; _logPath = path;
+                if (old != null) { try { old.Flush(); old.Dispose(); } catch (Exception) { } }
+            }
         }
 
         static void Log(string evt, string detail)
@@ -213,19 +242,24 @@ namespace Rigbay.PredatorSenseWrite
             public Dictionary<int, int> Value = new Dictionary<int, int>();
         }
 
-        static Sample ReadPass(string phase, int[] indexes)
+        static Sample ReadPass(string phase, int[] indexes) { return ReadPass(phase, indexes, 10000, true); }
+
+        // exitOnTimeout = false is used only while a Max override is armed: the caller must be able to run the undo.
+        static Sample ReadPass(string phase, int[] indexes, int timeoutMs, bool exitOnTimeout)
         {
             Sample s = new Sample();
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < indexes.Length; i++)
             {
                 int idx = indexes[i];
-                CallResult r = ReadSysInfo(idx, 10000);
+                CallResult r = ReadSysInfo(idx, timeoutMs);
                 string call = "GetGamingSysInfo(0x" + ((idx << 8) | 1).ToString("X") + ")";
                 if (!r.Done)
                 {
-                    Log("READ_TIMEOUT", "phase=" + phase + " call=" + call + " (no further calls)");
-                    Environment.Exit(3);
+                    Log("READ_TIMEOUT", "phase=" + phase + " call=" + call + (exitOnTimeout ? " (no further calls)" : " (caller decides)"));
+                    if (exitOnTimeout) Environment.Exit(3);
+                    s.Ok = false;
+                    return s;
                 }
                 if (r.Error != null) { Log("READ_ERROR", "phase=" + phase + " call=" + call + " error=\"" + r.Error.Message + "\""); s.Ok = false; return s; }
                 uint status = (uint)(r.Raw & 0xFF);
@@ -240,6 +274,147 @@ namespace Rigbay.PredatorSenseWrite
             return s;
         }
 
+        // ---- one allow-listed write ---------------------------------------------------------------
+        // Logs WRITE_ATTEMPT and the outcome. Returns the status byte (0 = ok), -1 on a WMI error, -2 on a timeout, -3 refused.
+        // Never retries.
+
+        static int SendWrite(AllowedWrite w)
+        {
+            string again = WriteRefusal(w.Class, w.Method, w.Input);
+            if (again != null) { Log("REFUSED", "reason=" + again); return -3; }
+            Stopwatch clock = Stopwatch.StartNew();
+            Log("WRITE_ATTEMPT", "key=" + w.Key + " call=" + w.Describe() + " input=0x" + w.Input.ToString("X8") + " timeout_ms=15000");
+            ulong input = w.Input;
+            CallResult wr = RunWithTimeout(delegate ()
+            {
+                ManagementObject inst = Instance();
+                ManagementBaseObject p = inst.GetMethodParameters(w.Method);
+                p[w.InName] = input;                       // ulong: UInt64 in the schema, checked before
+                ManagementBaseObject o = inst.InvokeMethod(w.Method, p, null);
+                CallResult x = new CallResult();
+                x.Raw = Convert.ToUInt64(o[w.OutName], CultureInfo.InvariantCulture);
+                return x;
+            }, 15000);
+            long elapsed = clock.ElapsedMilliseconds;
+            if (!wr.Done) { Log("WRITE_TIMEOUT", "key=" + w.Key + " elapsed_ms=" + elapsed + " state unknown; NOT retried"); return -2; }
+            if (wr.Error != null) { Log("WRITE_ERROR", "key=" + w.Key + " elapsed_ms=" + elapsed + " error=\"" + wr.Error.Message + "\" (not retried)"); return -1; }
+            uint status = (uint)(wr.Raw & 0xFF);
+            Log("WRITE_RESULT", "key=" + w.Key + " call=" + w.Describe() + " input=0x" + w.Input.ToString("X8") + " raw=0x" + wr.Raw.ToString("X") + " status=" + status + " elapsed_ms=" + elapsed);
+            if (status != 0) Log("ALERT", "key=" + w.Key + " write status is non-zero; not retried");
+            return (int)status;
+        }
+
+        // ---- W4b: Max for at most 15 s, then the undo ----------------------------------------------
+        // Sequence (everything checked that can be checked BEFORE the Max write, so the undo cannot be refused afterwards):
+        //   Max write -> reads of 2, 6, 9, 1, 10 every 2 s (t = 0..14 s, 3 s read timeout) -> undo write (W4a, its own log)
+        //   -> reads every 2 s for up to 60 s until all three fans are inside the baseline range twice in a row.
+        // Abort rules (each ends the Max window at once and runs the undo): non-zero status or WMI error or timeout of the Max write,
+        // a failed or non-zero read, a temperature of 90 C or more, no fan rise of at least RiseRpm over the baseline maximum within 10 s.
+        const int RiseRpm = 300;
+
+        static int RunMaxThenUndo(AllowedWrite w, string undoLogPath, Dictionary<int, int> hi, Dictionary<int, int> rlo, Dictionary<int, int> rhi)
+        {
+            AllowedWrite undo = FindWrite(w.UndoKey);
+            if (undo == null || WriteRefusal(undo.Class, undo.Method, undo.Input) != null) { Log("REFUSED", "reason=the undo write is not on the allow-list"); return 2; }
+            if (string.Equals(Path.GetFullPath(undoLogPath), Path.GetFullPath(_logPath), StringComparison.OrdinalIgnoreCase)) { Log("REFUSED", "reason=the undo needs its own log file"); return 2; }
+            if (LogAlreadyHasWriteAttempt(undoLogPath)) { Log("REFUSED", "reason=the undo log already holds a write attempt: " + undoLogPath); return 2; }
+            StreamWriter undoWriter;
+            try { undoWriter = OpenWriter(undoLogPath); }
+            catch (Exception e) { Log("REFUSED", "reason=cannot open the undo log: " + e.Message); return 2; }
+
+            int[] fans = new int[] { 2, 6, 9 };
+            int[] temps = new int[] { 1, 10 };
+            int[] post = new int[] { 2, 6, 9, 1, 10 };
+            Dictionary<int, int> peak = new Dictionary<int, int>(), tpeak = new Dictionary<int, int>(), last = new Dictionary<int, int>();
+            for (int i = 0; i < fans.Length; i++) { peak[fans[i]] = 0; last[fans[i]] = 0; }
+            for (int i = 0; i < temps.Length; i++) tpeak[temps[i]] = 0;
+            bool risen = false;
+            string abort = null;
+            Log("MAX_PLAN", "rise_threshold_rpm=" + RiseRpm + " over the baseline max: fan2>=" + (hi[2] + RiseRpm) + " fan6>=" + (hi[6] + RiseRpm) + " fan9>=" + (hi[9] + RiseRpm)
+                + " window=14s of reads, hard cap 15s; undo=" + undo.Key + " undo_log=" + undoLogPath);
+
+            // ---- the Max write and the window ----
+            Stopwatch held = Stopwatch.StartNew();
+            int rc = SendWrite(w);
+            if (rc != 0) abort = "Max write did not return status 0 (code " + rc + ")";
+            else
+            {
+                try
+                {
+                    Stopwatch since = Stopwatch.StartNew();
+                    for (int n = 0; n <= 7 && abort == null; n++)
+                    {
+                        long wait = n * 2000L - since.ElapsedMilliseconds;
+                        if (wait > 0) Thread.Sleep((int)wait);
+                        Sample s = ReadPass("max+" + (since.ElapsedMilliseconds / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) + "s", post, 3000, false);
+                        if (!s.Ok) { abort = "a read failed, timed out or returned a non-zero status"; break; }
+                        for (int i = 0; i < fans.Length; i++)
+                        {
+                            int v = s.Value[fans[i]];
+                            last[fans[i]] = v;
+                            if (v > peak[fans[i]]) peak[fans[i]] = v;
+                            if (v >= hi[fans[i]] + RiseRpm && !risen) { risen = true; Log("RISE", "fan index " + fans[i] + " = " + v + " (baseline max " + hi[fans[i]] + ") at " + since.ElapsedMilliseconds + " ms"); }
+                        }
+                        for (int i = 0; i < temps.Length; i++)
+                        {
+                            int v = s.Value[temps[i]];
+                            if (v > tpeak[temps[i]]) tpeak[temps[i]] = v;
+                            if (v >= 90) { abort = "temperature index " + temps[i] + " = " + v + " C (90 or more)"; }
+                        }
+                        if (abort == null && !risen && since.ElapsedMilliseconds >= 10000) abort = "no fan rise within 10 s";
+                        if (since.ElapsedMilliseconds >= 15000) break;
+                    }
+                }
+                catch (Exception e) { abort = "exception in the window: " + e.Message; }
+            }
+
+            // ---- the undo (always, once) ----
+            long heldMs = held.ElapsedMilliseconds;
+            Log("UNDO_HANDOFF", "reason=" + (abort ?? "window over (14 s of reads)") + " max_window_ms=" + heldMs + " risen=" + risen
+                + " peak2=" + peak[2] + " peak6=" + peak[6] + " peak9=" + peak[9] + " temp_peak1=" + tpeak[1] + " temp_peak10=" + tpeak[10]
+                + " next_log=" + undoLogPath);
+            SwitchLog(undoLogPath, undoWriter);
+            Log("START", "key=" + undo.Key + " call=" + undo.Describe() + " mode=UNDO after " + w.Key + " (max window " + heldMs + " ms; reason: " + (abort ?? "window over") + ")");
+            int urc = SendWrite(undo);
+
+            // ---- back to baseline? ----
+            int exit = 0;
+            bool back = false;
+            int inRange = 0;
+            long backAtMs = -1;
+            Dictionary<int, int> fin = new Dictionary<int, int>();
+            Stopwatch u = Stopwatch.StartNew();
+            for (int n = 0; n <= 30 && !back; n++)
+            {
+                long wait = n * 2000L - u.ElapsedMilliseconds;
+                if (wait > 0) Thread.Sleep((int)wait);
+                Sample s = ReadPass("undo+" + (u.ElapsedMilliseconds / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) + "s", post, 3000, false);
+                if (!s.Ok) { Log("ALERT", "read failed after the undo (pass " + n + ")"); inRange = 0; continue; }
+                bool all = true;
+                for (int i = 0; i < fans.Length; i++)
+                {
+                    int v = s.Value[fans[i]];
+                    fin[fans[i]] = v;
+                    if (v < rlo[fans[i]] || v > rhi[fans[i]]) all = false;
+                }
+                for (int i = 0; i < temps.Length; i++) if (s.Value[temps[i]] >= 90) Log("ALERT", "temperature index " + temps[i] + " = " + s.Value[temps[i]] + " C after the undo");
+                inRange = all ? inRange + 1 : 0;
+                if (inRange >= 2) { back = true; backAtMs = u.ElapsedMilliseconds; }
+            }
+            NvidiaSmi("after");
+            if (urc != 0 || !back)
+            {
+                exit = 5;
+                Log("ALERT", "UNDO NOT CONFIRMED: undo_status=" + urc + " back_in_baseline=" + back + ". Press Auto in the Acer PredatorSense app NOW.");
+            }
+            else if (abort != null) exit = 1;
+            Log("DONE", "mode=EXECUTE exit=" + exit + " risen=" + risen + " abort=" + (abort ?? "none") + " max_window_ms=" + heldMs
+                + " undo_status=" + urc + " back_in_baseline=" + back + (backAtMs >= 0 ? " back_after_ms=" + backAtMs : "")
+                + " peak2=" + peak[2] + " peak6=" + peak[6] + " peak9=" + peak[9] + " final2=" + (fin.ContainsKey(2) ? fin[2].ToString() : "n/a")
+                + " final6=" + (fin.ContainsKey(6) ? fin[6].ToString() : "n/a") + " final9=" + (fin.ContainsKey(9) ? fin[9].ToString() : "n/a"));
+            return exit;
+        }
+
         // ---- main -----------------------------------------------------------------------------------
 
         static int Usage()
@@ -250,10 +425,13 @@ namespace Rigbay.PredatorSenseWrite
                 Console.WriteLine("  " + Writes[i].Key + "  " + Writes[i].Describe() + "  " + Writes[i].Description);
             Console.WriteLine();
             Console.WriteLine("  --call <key>               dry run: checks, baseline reads, NO write");
-            Console.WriteLine("  --call <key> --execute     the same, then the ONE write, then 20 s of reads. Once only (a log line blocks a repeat)");
+            Console.WriteLine("  --call W4a --execute       the same, then the ONE write, then 20 s of reads. Once only (a log line blocks a repeat)");
+            Console.WriteLine("  --call W4b --execute       the same, then W4b for at most 15 s with abort rules, then the undo W4a (own log), then reads until RPM is back (up to 60 s)");
             Console.WriteLine("  --check <Class> <Method> <hex input>   prints whether the allow-list would accept it; touches no WMI");
             Console.WriteLine("  --log <path>               log file (default: predatorsense-write.log next to the exe)");
-            Console.WriteLine("Exit codes: 0 ok, 1 write answered non-zero / alert during the reads, 2 refused or bad arguments, 3 timeout, 4 precondition failed.");
+            Console.WriteLine("  --undo-log <path>          W4b only: the undo's own log (default: the --log name with -undo before the extension)");
+            Console.WriteLine("Exit codes: 0 ok, 1 write answered non-zero / alert during the reads (W4b: aborted, undo confirmed), 2 refused or bad arguments, 3 timeout, 4 precondition failed,");
+            Console.WriteLine("            5 (W4b) undo not confirmed: use the Acer app's Auto button.");
             return 2;
         }
 
@@ -261,12 +439,14 @@ namespace Rigbay.PredatorSenseWrite
         {
             string key = null, logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "predatorsense-write.log");
             bool execute = false;
+            string undoLogPath = null;
             string[] check = null;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--call" && i + 1 < args.Length) key = args[++i];
                 else if (args[i] == "--execute") execute = true;
                 else if (args[i] == "--log" && i + 1 < args.Length) logPath = args[++i];
+                else if (args[i] == "--undo-log" && i + 1 < args.Length) undoLogPath = args[++i];
                 else if (args[i] == "--check" && i + 3 < args.Length) { check = new string[] { args[i + 1], args[i + 2], args[i + 3] }; i += 3; }
                 else return Usage();
             }
@@ -353,6 +533,18 @@ namespace Rigbay.PredatorSenseWrite
             Log("BASELINE_RANGE", "fan2=" + rlo[2] + ".." + rhi[2] + " fan6=" + rlo[6] + ".." + rhi[6] + " fan9=" + rlo[9] + ".." + rhi[9] + " (baseline min/max -30%/+30%)");
 
             if (!execute) { Log("DONE", "mode=DRYRUN no write was made"); return 0; }
+
+            // 4a. A write with an undo (W4b): Max for at most 15 s, then the undo, in its own sequence.
+            if (w.UndoKey != null)
+            {
+                if (undoLogPath == null)
+                {
+                    string ext = Path.GetExtension(logPath);
+                    undoLogPath = logPath.Substring(0, logPath.Length - ext.Length) + "-undo" + ext;
+                }
+                return RunMaxThenUndo(w, undoLogPath, hi, rlo, rhi);
+            }
+            if (undoLogPath != null) { Log("REFUSED", "reason=--undo-log is only for a write with an undo"); return 2; }
 
             // 4. The ONE write.
             string again = WriteRefusal(w.Class, w.Method, w.Input);

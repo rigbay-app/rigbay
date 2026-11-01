@@ -43,7 +43,7 @@ Input `2` (battery boost) has **not** been run. Details and the temperature cros
 | GetFunction R? | `BK_Hotkey_Number \| 0x100 \| 0x80000` (here `0x80184`, hotkey 132 from `HKLM\SOFTWARE\OEM\PredatorSense\BK_Hotkey_Number`) | keyboard backlight: bits 32..39 brightness percent, bits 40..47 == 30 means off | decoded, traced read, **not run** (held after the `0xE1` answer to `0x207`) |
 | GetFunction R? | `10` | AC adapter kind (only on machines with two adapters); bits 8.. give 1-AC, 2-AC, PD | partial |
 
-## AcerGamingFunction.SetGamingFanBehavior (id 14, UInt64 in, UInt32 out), W, never run
+## AcerGamingFunction.SetGamingFanBehavior (id 14, UInt64 in, UInt32 out), W, run for all Auto (B4) and all Max (B5)
 
 `input = lo | (hi << 16)`. Fan slots: 0 CPU, 1 and 2 system, 3 and 4 GPU (only fans that exist). `lo` bit `s` = fan in slot `s`
 addressed (CPU `0x01`, sys1 `0x02`, sys2 `0x04`, GPU1 `0x08`, GPU2 `0x10`). `hi` bits `2s..2s+1` = mode of that fan:
@@ -52,7 +52,7 @@ addressed (CPU `0x01`, sys1 `0x02`, sys2 `0x04`, GPU1 `0x08`, GPU2 `0x10`). `hi`
 | This machine (mask `0x19`) | Value |
 | --- | --- |
 | all Auto | `0x01410019` (run once in B4: UInt64 input, status 0, fans unchanged) |
-| all Max | `0x02820019` |
+| all Max | `0x02820019` (run once in B5 for 14 s: status 0, fan speeds 2600 to 2700 -> 5555 / 5882 / 5900 RPM within 2 s; undone with the all-Auto value, status 0, back in 2 s) |
 | CPU custom / CPU auto (single fan) | `0x30001` / `0x10001` |
 | GPU1 custom / auto | `0xC00008` / `0x400008` |
 | GPU2 custom / auto | `0x3000010` / `0x1000010` |

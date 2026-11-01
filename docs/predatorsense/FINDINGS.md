@@ -619,3 +619,47 @@ timeout (reads 10 s, the write 15 s); a timeout exits the process without a retr
   Judge W4b by a jump of hundreds of RPM, not by a single step.
 - `nvidia-smi` reports the fan speed as `[N/A]` on this machine, so sysinfo 2, 6, 9 are the only fan-speed reading.
 - Section 12.5's remark that every WMI call should have a timeout stands; the write tool does that and nothing stalled in this run.
+
+## 14. B5: the second hardware write (W4b, all fans Max for 14 s) and its undo (W4a), owner gate `g-write-w4b`
+
+Approval (owner, in the CSM app): exactly two calls of `root\WMI:AcerGamingFunction.SetGamingFanBehavior` (id 14), once each, elevated, in this order: (1) `gmInput` =
+`0x02820019` (all fans Max) for at most 15 s; (2) `gmInput` = `0x01410019` (all fans Auto) as the undo. No repeat, no other value, no other `Set*`. Abort rules: non-zero status,
+no RPM rise within 10 s, any temperature of 90 C or more; then the undo at once. Full table of numbers: `WRITE-PROPOSALS.md`, "W4b result". Raw logs: `B5-w4b-run.txt` and
+`B5-w4b-undo-run.txt` (this folder; one `WRITE_ATTEMPT` in each).
+
+### 14.1 Tool change
+
+`tools/predatorsense-write` got exactly one new allow-list entry, `W4b` (`0x02820019`), which carries `UndoKey = W4a`. `--call W4b --execute` does: preconditions (AC, battery above 50 %,
+CPU load below 50 %, UInt64 schema, three baseline passes) -> the W4b write -> sysinfo 2, 6, 9, 1, 10 every 2 s for 14 s (3 s read timeout; a read that fails, times out or returns non-zero
+status, a temperature of 90 C or more, or no fan rise of 300 RPM over the baseline maximum within 10 s ends the window at once) -> the undo W4a, which the tool sends itself and logs to a
+**separate file** (opened and checked before the Max write, so the undo cannot be refused or fail to log afterwards) -> sysinfo every 2 s for up to 60 s until the three fans are inside the
+baseline range (-30 %/+30 % of the baseline min/max) twice in a row; if they are not, or the undo status is not 0, the tool prints "press Auto in the Acer PredatorSense app" and exits with code 5.
+The undo also runs when the Max write itself errors or times out (state unknown). Neither write is ever retried. Refusals were exercised with `--check` (no WMI): `0x02820018`, `0x03C30019`,
+`SetFunction(0x10007)`, `GetGamingFanBehavior(0x19)`, `SetGamingMiscSetting(0x2005)` and an unknown key are refused; only the two approved values pass. The abort and exit-5 branches were
+**not** exercised live (that would need a fault; the Max write ran only once).
+
+### 14.2 Sequence and result (2026-11-01, local 20:21:44 to 20:22:07)
+
+| Step | Result |
+| --- | --- |
+| Dry run first (`--call W4b`, no write, 20:21:29) | preconditions passed; baseline CPU fan 2608, GPU fans 2631 to 2654 and 2693 |
+| Preconditions of the real run | AC on, battery 100 %, CPU load 24 % (limit 50 %, two other workers were active), UInt64 schema |
+| Baseline of the real run (3 passes) | CPU fan 2586 to 2608, GPU 1 2631 to 2654, GPU 2 2693, CPU 62 to 75 C, system 40 to 41 C, GPU 50 C |
+| **W4b** | raw `0x0`, status 0, 13 ms |
+| Window t = 0 / +2 / +4 ... +14 s | t = 0 (about 16 ms after the answer): 2608 / 2631 / 2693 (baseline). From +2 s on, every pass: **5555 / 5882 / 5900** (CPU fan / GPU 1 / GPU 2). GPU 50 to 51 C then 49; CPU 62, 62, 62, 70, 76, 63, 58, 56 C |
+| Abort rules | none fired; the window ended on its 14 s plan (14043 ms) |
+| **W4a undo** | raw `0x0`, status 0, 13 ms |
+| Recovery | +0 s 5555 / 5882 / 5900; **+2 s 2654 / 2631 / 2757**; +4 s 2884 / 2857 / 2929 (inside the baseline range, "back" at 4.0 s). `nvidia-smi` after: 49.3 C, 15.9 W, P8 |
+| Not done | any retry, W1, W2 or another `Set*`; the elevated process exited by itself with code 0 |
+
+### 14.3 What this verifies, and what it does not
+
+- **Verified (O): the Set takes effect.** Max (`0x02820019`) raised all three fans from about 2600 to 2700 to 5555 / 5882 / 5900 on the Acer sensor (about +2900 to +3200 RPM, 2.1 to 2.2x), the value was flat
+  for 12 s, and Auto (`0x01410019`) brought them back to the Auto range within 2 s. Both calls answered status 0 in 13 ms. The decoded table (low half = fan mask `0x19`, 2-bit mode per slot: 1 Auto, 2 Max) is
+  therefore right for the fan mask and for modes 1 and 2 on this machine. The undo works without the Acer app.
+- **Verified (O):** `GetGamingSysInfo` fan indexes 2, 6, 9 are a live, working check for a fan write; the temperatures stayed far below 90 C.
+- **Not verified:** the fan **mode** (no read-back exists; it is inferred from RPM); the RPM unit (still a working assumption); that 5555 to 5900 is the fans' ceiling; the ramp time between 0 and 2 s;
+  any cooling effect (CPU temperature followed load from other builds, so it says nothing about Max); noise or anything the owner saw or heard; whether `PSSvc` re-applies its mode later, or the state
+  survives sleep or reboot; behaviour under load; Cool Booster (W1), MaxQ (W2), custom speeds. After the undo the fans were at 2857 to 2929 at +4 s, in the Auto range but 200 to 300 above the pre-write
+  baseline (CPU 70 C then); whether Auto fully settled was not watched longer than that.
+- The first read after a write (about 16 ms later) still shows the old RPM; a check must wait at least a second or two (2 s worked).
