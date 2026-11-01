@@ -28,7 +28,7 @@ internal sealed class Rig : IDisposable
             Host.FakeSettings.Save(s);
         }
         Power.Line = PowerLine.Online;
-        Runtime = new XtuRuntime(Host, Client, Sys, new XtuPaths(Path.Combine(Dir, "Drivers"), Dir), Power) { ResumeDelay = TimeSpan.Zero };
+        Runtime = new XtuRuntime(Host, Client, Sys, new XtuPaths(Dir), Power) { ResumeDelay = TimeSpan.Zero };
         if (startRuntime) Runtime.Start();
     }
 
@@ -638,7 +638,7 @@ public class LanguageTests
         Assert.Equal("xtu", root.GetProperty("id").GetString());
         Assert.Equal("power", root.GetProperty("group").GetString());
         Assert.True(root.GetProperty("requires").GetProperty("admin").GetBoolean());
-        Assert.Contains(@"Intel(R) Extreme Tuning Utility\Drivers", root.GetProperty("probePaths")[0].GetString());
+        Assert.False(root.TryGetProperty("probePaths", out _), "no Intel file is loaded, so the manifest needs no probePaths");
         Assert.Contains("XTU3SERVICE", root.GetProperty("requires").GetProperty("services")[0].GetString());
         Assert.Contains("Profiles.xml", root.GetProperty("requires").GetProperty("services")[1].GetString());
     }

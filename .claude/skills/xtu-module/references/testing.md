@@ -3,8 +3,8 @@
 ## Unit tests (no hardware, no admin)
 
 ```
-dotnet test modules/xtu/Rigbay.Module.Xtu.Tests -c Release
-dotnet test Rigbay.sln -c Release          # also the 230 Core tests; the module project needs the Intel DLLs to compile
+dotnet test modules/xtu/Rigbay.Xtu.slnx -c Release          # also on a machine without XTU (CI)
+dotnet test Rigbay.sln -c Release          # also the Core tests; the module is part of the main solution and needs no Intel file
 dotnet run --project src/Rigbay.LangCheck -- modules/xtu/Rigbay.Module.Xtu/lang --module xtu --source modules/xtu/Rigbay.Module.Xtu --strict
 ```
 
@@ -15,7 +15,7 @@ background work with `Rig.WaitFor`.
 What the tests cover: profile loading and matching; the validation ranges and refusals; the apply sequence in order, and that locked, unsupported, rejected,
 failed and invalid inputs never leave a pending change; declined approval writes nothing; page and auto-switch do not ask twice; auto-switch decisions and
 resume; hotkey policy and XTU's combinations; metric ids, units and warm-up; probe outcomes; commands and exit codes; language keys (page, source scan, Vietnamese
-placeholders); the manifest; M1 (`MonitorGateTests.cs`): a descriptor and en/vi label for every id, revert texts on every hardware row, `MonitorWanted` and the monitor thread idle until the page is shown or something subscribes, withdraw after three failures and republish. `FakeMetrics` implements `Withdraw`, `Describe`, `SubscriberCount`, `SetSubscribers`; `FakeHost.PageVisibleValue`.
+placeholders); the manifest; `WireContractTests` (20, no XTU: the contract copies against the recording in `wire/`); M1 (`MonitorGateTests.cs`): a descriptor and en/vi label for every id, revert texts on every hardware row, `MonitorWanted` and the monitor thread idle until the page is shown or something subscribes, withdraw after three failures and republish. `FakeMetrics` implements `Withdraw`, `Describe`, `SubscriberCount`, `SetSubscribers`; `FakeHost.PageVisibleValue`.
 
 ## Live check on the real machine (read-only)
 

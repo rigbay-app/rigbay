@@ -13,14 +13,14 @@
     "network": [],
     "registry": [
       "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power (HiberbootEnabled, read only)",
-      "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0 (CPU vendor, read only)"
+      "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0 (CPU vendor, read only)",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Services\\XTU3SERVICE (ImagePath, read only: to show the XTU version)"
     ],
     "services": [
       "XTU3SERVICE (named pipes net.pipe://localhost/ExtremeTuningUtility/Tuning and /Monitoring; writes only PL1, PL2, PL2 enable and the time window, after approval)",
       "reads C:\\ProgramData\\Intel\\Intel Extreme Tuning Utility\\Profiles.xml, uisettings.xml and xtu.hotkey.settings"
     ]
   },
-  "probePaths": [ "%ProgramFiles%\\Intel\\Intel(R) Extreme Tuning Utility\\Drivers" ],
   "languages": "lang",
   "homepage": "https://github.com/rigbay-app/module-xtu"
 }

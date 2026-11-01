@@ -103,7 +103,7 @@ internal sealed partial class XtuRuntime
             _host.Metrics.Publish(XtuMetrics.Pl2, (double)state.Pl2, MetricUnit.Watt);
         }
         _fastStartup.Value = string.Equals(_sys.FastStartup(), "On", StringComparison.Ordinal);
-        var version = _sys.FileVersion(_paths.ServiceExe);
+        var version = _sys.ServiceVersion(XtuPaths.ServiceName);
         _versionText.Value = version.Length > 0 ? version : Loc.T("value.unknown");
     }
 

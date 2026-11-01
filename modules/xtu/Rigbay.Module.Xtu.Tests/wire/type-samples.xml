@@ -1,0 +1,117 @@
+﻿<samples>
+<sample name="XtuTuningControl">
+<XtuTuningControl xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Core">
+  <ActiveValue>55</ActiveValue>
+  <BootValue>44</BootValue>
+  <DefaultValue>45.5</DefaultValue>
+  <Enabled>false</Enabled>
+  <Id>48</Id>
+  <IsFavoredCore>true</IsFavoredCore>
+  <ProposedValue>56.25</ProposedValue>
+  <ReadOnly>true</ReadOnly>
+  <RealtimeOnly>true</RealtimeOnly>
+  <RequiresReboot>true</RequiresReboot>
+  <SupportedValues xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:decimal>10</d2p1:decimal>
+    <d2p1:decimal>20.5</d2p1:decimal>
+    <d2p1:decimal>30</d2p1:decimal>
+  </SupportedValues>
+</XtuTuningControl>
+</sample>
+<sample name="XtuTuningControl (SupportedValues null)">
+<XtuTuningControl xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Core">
+  <ActiveValue>2</ActiveValue>
+  <BootValue>0</BootValue>
+  <DefaultValue>0</DefaultValue>
+  <Enabled>false</Enabled>
+  <Id>1</Id>
+  <IsFavoredCore>false</IsFavoredCore>
+  <ProposedValue>0</ProposedValue>
+  <ReadOnly>false</ReadOnly>
+  <RealtimeOnly>false</RealtimeOnly>
+  <RequiresReboot>false</RequiresReboot>
+  <SupportedValues xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" i:nil="true" />
+</XtuTuningControl>
+</sample>
+<sample name="List&lt;XtuTuningProposal&gt;">
+<ArrayOfXtuTuningProposal xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Core">
+  <XtuTuningProposal>
+    <Id>49</Id>
+    <Value>1</Value>
+  </XtuTuningProposal>
+  <XtuTuningProposal>
+    <Id>48</Id>
+    <Value>55.5</Value>
+  </XtuTuningProposal>
+</ArrayOfXtuTuningProposal>
+</sample>
+<sample name="SdkClientToken">
+<SdkClientToken xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Common">
+  <ProcessId>4242</ProcessId>
+</SdkClientToken>
+</sample>
+<sample name="TuningResult">
+<TuningResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Common">
+  <__codes xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+      <d2p1:Key>47</d2p1:Key>
+      <d2p1:Value>Success</d2p1:Value>
+    </d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+    <d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+      <d2p1:Key>48</d2p1:Key>
+      <d2p1:Value>ReadOnlyControl</d2p1:Value>
+    </d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+  </__codes>
+  <_x003C_GeneralCode_x003E_k__BackingField>ReadOnlyControl</_x003C_GeneralCode_x003E_k__BackingField>
+</TuningResult>
+</sample>
+<sample name="TuningResult (no codes)">
+<TuningResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Common">
+  <__codes xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays" />
+  <_x003C_GeneralCode_x003E_k__BackingField>Success</_x003C_GeneralCode_x003E_k__BackingField>
+</TuningResult>
+</sample>
+<sample name="TuningResult (one control)">
+<TuningResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Common">
+  <__codes xmlns:d2p1="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+    <d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+      <d2p1:Key>66</d2p1:Key>
+      <d2p1:Value>UndervoltProtection</d2p1:Value>
+    </d2p1:KeyValueOfunsignedIntTuningErrorCodeUjw4C6Yr>
+  </__codes>
+  <_x003C_GeneralCode_x003E_k__BackingField>UndervoltProtection</_x003C_GeneralCode_x003E_k__BackingField>
+</TuningResult>
+</sample>
+<sample name="List&lt;XtuTuningProposalResult&gt;">
+<ArrayOfXtuTuningProposalResult xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/IronCity.Core">
+  <XtuTuningProposalResult>
+    <Enabled>true</Enabled>
+    <Id>66</Id>
+    <RebootRequired>false</RebootRequired>
+    <Value>28</Value>
+  </XtuTuningProposalResult>
+  <XtuTuningProposalResult>
+    <Enabled>false</Enabled>
+    <Id>47</Id>
+    <RebootRequired>true</RebootRequired>
+    <Value>60</Value>
+  </XtuTuningProposalResult>
+</ArrayOfXtuTuningProposalResult>
+</sample>
+<sample name="TuningErrorCode">
+<TuningErrorCode xmlns="http://schemas.datacontract.org/2004/07/IronCity.Common">IllegalVRAddress</TuningErrorCode>
+</sample>
+<sample name="Dictionary&lt;uint,decimal&gt;">
+<ArrayOfKeyValueOfunsignedIntdecimal xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+  <KeyValueOfunsignedIntdecimal>
+    <Key>7</Key>
+    <Value>1.25</Value>
+  </KeyValueOfunsignedIntdecimal>
+  <KeyValueOfunsignedIntdecimal>
+    <Key>3</Key>
+    <Value>40</Value>
+  </KeyValueOfunsignedIntdecimal>
+</ArrayOfKeyValueOfunsignedIntdecimal>
+</sample>
+</samples>
+

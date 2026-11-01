@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8"?>
+<messages>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/Connect">
+    <Connect xmlns="http://tempuri.org/"></Connect>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/ConnectResponse">
+    <ConnectResponse xmlns="http://tempuri.org/">
+      <ConnectResult>true</ConnectResult>
+    </ConnectResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/RefreshActiveValuesFromHardwareAccess">
+    <RefreshActiveValuesFromHardwareAccess xmlns="http://tempuri.org/"></RefreshActiveValuesFromHardwareAccess>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/RefreshActiveValuesFromHardwareAccessResponse">
+    <RefreshActiveValuesFromHardwareAccessResponse xmlns="http://tempuri.org/"></RefreshActiveValuesFromHardwareAccessResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/GetControl">
+    <GetControl xmlns="http://tempuri.org/">
+      <id>47</id>
+    </GetControl>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/GetControlResponse">
+    <!-- SupportedValues cut from 7994 to 6 entries (first 4, last 2) -->
+    <GetControlResponse xmlns="http://tempuri.org/">
+      <GetControlResult xmlns:b="http://schemas.datacontract.org/2004/07/IronCity.Core" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <b:ActiveValue>60.000</b:ActiveValue>
+        <b:BootValue>115</b:BootValue>
+        <b:DefaultValue>115.000</b:DefaultValue>
+        <b:Enabled>true</b:Enabled>
+        <b:Id>47</b:Id>
+        <b:IsFavoredCore>false</b:IsFavoredCore>
+        <b:ProposedValue>60.000</b:ProposedValue>
+        <b:ReadOnly>false</b:ReadOnly>
+        <b:RealtimeOnly>false</b:RealtimeOnly>
+        <b:RequiresReboot>false</b:RequiresReboot>
+        <b:SupportedValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+          <c:decimal>1.000</c:decimal>
+          <c:decimal>1.125</c:decimal>
+          <c:decimal>1.250</c:decimal>
+          <c:decimal>1.375</c:decimal>
+          <c:decimal>1000.000</c:decimal>
+          <c:decimal>4095.875</c:decimal>
+        </b:SupportedValues>
+      </GetControlResult>
+    </GetControlResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/GetControl">
+    <GetControl xmlns="http://tempuri.org/">
+      <id>48</id>
+    </GetControl>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/GetControlResponse">
+    <!-- SupportedValues cut from 7994 to 6 entries (first 4, last 2) -->
+    <GetControlResponse xmlns="http://tempuri.org/">
+      <GetControlResult xmlns:b="http://schemas.datacontract.org/2004/07/IronCity.Core" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <b:ActiveValue>55.000</b:ActiveValue>
+        <b:BootValue>90</b:BootValue>
+        <b:DefaultValue>90.000</b:DefaultValue>
+        <b:Enabled>true</b:Enabled>
+        <b:Id>48</b:Id>
+        <b:IsFavoredCore>false</b:IsFavoredCore>
+        <b:ProposedValue>55.000</b:ProposedValue>
+        <b:ReadOnly>false</b:ReadOnly>
+        <b:RealtimeOnly>false</b:RealtimeOnly>
+        <b:RequiresReboot>false</b:RequiresReboot>
+        <b:SupportedValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+          <c:decimal>1.000</c:decimal>
+          <c:decimal>1.125</c:decimal>
+          <c:decimal>1.250</c:decimal>
+          <c:decimal>1.375</c:decimal>
+          <c:decimal>1000.000</c:decimal>
+          <c:decimal>4095.875</c:decimal>
+        </b:SupportedValues>
+      </GetControlResult>
+    </GetControlResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/GetControl">
+    <GetControl xmlns="http://tempuri.org/">
+      <id>49</id>
+    </GetControl>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/GetControlResponse">
+    <GetControlResponse xmlns="http://tempuri.org/">
+      <GetControlResult xmlns:b="http://schemas.datacontract.org/2004/07/IronCity.Core" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <b:ActiveValue>1</b:ActiveValue>
+        <b:BootValue>1</b:BootValue>
+        <b:DefaultValue>1</b:DefaultValue>
+        <b:Enabled>true</b:Enabled>
+        <b:Id>49</b:Id>
+        <b:IsFavoredCore>false</b:IsFavoredCore>
+        <b:ProposedValue>1</b:ProposedValue>
+        <b:ReadOnly>false</b:ReadOnly>
+        <b:RealtimeOnly>false</b:RealtimeOnly>
+        <b:RequiresReboot>false</b:RequiresReboot>
+        <b:SupportedValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+          <c:decimal>0</c:decimal>
+          <c:decimal>1</c:decimal>
+        </b:SupportedValues>
+      </GetControlResult>
+    </GetControlResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/GetControl">
+    <GetControl xmlns="http://tempuri.org/">
+      <id>66</id>
+    </GetControl>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/GetControlResponse">
+    <!-- SupportedValues cut from 24 to 6 entries (first 4, last 2) -->
+    <GetControlResponse xmlns="http://tempuri.org/">
+      <GetControlResult xmlns:b="http://schemas.datacontract.org/2004/07/IronCity.Core" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <b:ActiveValue>56</b:ActiveValue>
+        <b:BootValue>56</b:BootValue>
+        <b:DefaultValue>56</b:DefaultValue>
+        <b:Enabled>true</b:Enabled>
+        <b:Id>66</b:Id>
+        <b:IsFavoredCore>false</b:IsFavoredCore>
+        <b:ProposedValue>56</b:ProposedValue>
+        <b:ReadOnly>false</b:ReadOnly>
+        <b:RealtimeOnly>false</b:RealtimeOnly>
+        <b:RequiresReboot>false</b:RequiresReboot>
+        <b:SupportedValues xmlns:c="http://schemas.microsoft.com/2003/10/Serialization/Arrays">
+          <c:decimal>1</c:decimal>
+          <c:decimal>2</c:decimal>
+          <c:decimal>3</c:decimal>
+          <c:decimal>4</c:decimal>
+          <c:decimal>112</c:decimal>
+          <c:decimal>128</c:decimal>
+        </b:SupportedValues>
+      </GetControlResult>
+    </GetControlResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuTuning/GetDoRestoreUserValuesOnBoot">
+    <GetDoRestoreUserValuesOnBoot xmlns="http://tempuri.org/"></GetDoRestoreUserValuesOnBoot>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuTuning/GetDoRestoreUserValuesOnBootResponse">
+    <GetDoRestoreUserValuesOnBootResponse xmlns="http://tempuri.org/">
+      <GetDoRestoreUserValuesOnBootResult>true</GetDoRestoreUserValuesOnBootResult>
+    </GetDoRestoreUserValuesOnBootResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuMonitoring/Connect">
+    <Connect xmlns="http://tempuri.org/">
+      <processId>1234</processId>
+    </Connect>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuMonitoring/ConnectResponse">
+    <ConnectResponse xmlns="http://tempuri.org/">
+      <ConnectResult>true</ConnectResult>
+    </ConnectResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuMonitoring/Start">
+    <Start xmlns="http://tempuri.org/">
+      <processId>1234</processId>
+    </Start>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuMonitoring/StartResponse">
+    <StartResponse xmlns="http://tempuri.org/"></StartResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuMonitoring/GetValues">
+    <GetValues xmlns="http://tempuri.org/"></GetValues>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuMonitoring/GetValuesResponse">
+    <GetValuesResponse xmlns="http://tempuri.org/">
+      <GetValuesResult xmlns:b="http://schemas.microsoft.com/2003/10/Serialization/Arrays" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2768240652</b:Key>
+          <b:Value>0</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3</b:Key>
+          <b:Value>0</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2768240653</b:Key>
+          <b:Value>63</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4</b:Key>
+          <b:Value>8</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2768240654</b:Key>
+          <b:Value>0.878</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>6</b:Key>
+          <b:Value>0.000</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>7</b:Key>
+          <b:Value>65</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>8</b:Key>
+          <b:Value>70</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>9</b:Key>
+          <b:Value>68</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>10</b:Key>
+          <b:Value>74</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>11</b:Key>
+          <b:Value>68</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>12</b:Key>
+          <b:Value>76</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>13</b:Key>
+          <b:Value>70</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>14</b:Key>
+          <b:Value>71</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>15</b:Key>
+          <b:Value>99.756</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>17</b:Key>
+          <b:Value>3192.1920000000000000000000000</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>20</b:Key>
+          <b:Value>3.391704</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>22</b:Key>
+          <b:Value>1</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>23</b:Key>
+          <b:Value>0</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4000</b:Key>
+          <b:Value>42</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4001</b:Key>
+          <b:Value>38</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4002</b:Key>
+          <b:Value>39</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2701131777</b:Key>
+          <b:Value>77</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4003</b:Key>
+          <b:Value>42</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4004</b:Key>
+          <b:Value>47</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4005</b:Key>
+          <b:Value>45</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4006</b:Key>
+          <b:Value>31</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>4007</b:Key>
+          <b:Value>33</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1000</b:Key>
+          <b:Value>40.45581264948806632010552011</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1001</b:Key>
+          <b:Value>34.734882352664496556272418547</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1002</b:Key>
+          <b:Value>0.231316579541453050116084058</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1003</b:Key>
+          <b:Value>0</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1004</b:Key>
+          <b:Value>0.000</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>1010</b:Key>
+          <b:Value>4.1632799891698</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2000</b:Key>
+          <b:Value>4.04616571077976</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2001</b:Key>
+          <b:Value>4.054653681701</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2002</b:Key>
+          <b:Value>4.09721658008051</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2003</b:Key>
+          <b:Value>4.05076233776965</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2004</b:Key>
+          <b:Value>4.1632799891698</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2005</b:Key>
+          <b:Value>0.798048</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2006</b:Key>
+          <b:Value>4.05735716116658</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2007</b:Key>
+          <b:Value>3.97860839057107</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>2717909008</b:Key>
+          <b:Value>0.813</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3000</b:Key>
+          <b:Value>1.105</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3001</b:Key>
+          <b:Value>1.105</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3002</b:Key>
+          <b:Value>1.105</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3003</b:Key>
+          <b:Value>1.112</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3004</b:Key>
+          <b:Value>1.105</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3005</b:Key>
+          <b:Value>1.135</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3006</b:Key>
+          <b:Value>1.155</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+        <b:KeyValueOfunsignedIntdecimal>
+          <b:Key>3007</b:Key>
+          <b:Value>1.165</b:Value>
+        </b:KeyValueOfunsignedIntdecimal>
+      </GetValuesResult>
+    </GetValuesResponse>
+  </message>
+  <message direction="request" action="http://tempuri.org/IXtuMonitoring/Stop">
+    <Stop xmlns="http://tempuri.org/">
+      <processId>1234</processId>
+    </Stop>
+  </message>
+  <message direction="reply" action="http://tempuri.org/IXtuMonitoring/StopResponse">
+    <StopResponse xmlns="http://tempuri.org/"></StopResponse>
+  </message>
+</messages>

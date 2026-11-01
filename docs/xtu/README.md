@@ -9,8 +9,10 @@ The folder is self-contained so it can move to its own repository (`module-xtu`)
 | Path | What |
 | --- | --- |
 | `modules/xtu/Rigbay.Module.Xtu/` | the module (`net10.0`, x64): code, `module.json`, `lang/en.lang`, `lang/vi.lang` |
-| `modules/xtu/Rigbay.Module.Xtu.Tests/` | 148 unit tests, no hardware |
+| `modules/xtu/Rigbay.Module.Xtu.Tests/` | 190 unit tests, no hardware and no XTU (170 with fakes, 20 wire-compatibility tests against `wire/`) |
+| `modules/xtu/Rigbay.Module.Xtu.Tests/wire/` | the recording of the real service's wire format (read-only, made once) the contract copies are checked against |
 | `modules/xtu/tools/live-read.ps1` | the read-only live check below, as a script |
+| `modules/xtu/tools/dump-contracts.ps1`, `record-wire.ps1` | print the contract metadata of the installed XTU; record the wire sample (needs XTU, run once, read-only) |
 | `docs/xtu/RECORDER-NOTES.md` | XTU columns and meta of the old recorder, for the future recorder module |
 | `docs/xtu/shots/` | the PNGs and text files of the live check |
 | `.claude/skills/xtu-module/` | the module's own knowledge for the next agent (style of the old `xtu-switcher` skill) |
@@ -29,8 +31,9 @@ The folder is self-contained so it can move to its own repository (`module-xtu`)
   exists in the module's data folder, the apply fails before it asks anyone, and the Intel port refuses its three write-path methods
   (`Discard`, `Propose`, `ApplyPending`). The live check below ran with the file present (an elevated process does not inherit the caller's
   environment, which is why the file exists). The module logs which state it started in.
-- Intel's DLLs are referenced in place (`HintPath` to the Intel folder, `Private=false`) and loaded from there through the host's
-  `probePaths` rule. None is copied or committed (`git ls-files modules | grep -i dll` is empty).
+- **No Intel file is referenced, loaded, copied or committed** (since C-lite, task C4). The module declares its own copies of the few contract
+  types it uses (`Intel/Contracts.cs`: names, namespaces and member shapes only) and builds the WCF client from them; the csproj has no
+  `Reference`, `HintPath` or `XtuDir`, and `module.json` has no `probePaths` (`git ls-files modules | grep -i dll` is empty).
 - Nothing is written at start: auto-switch is off by default, and its first check runs on the timer, not inside `Initialize`.
 
 ## Layers
@@ -42,7 +45,8 @@ XtuModule (IModule)  ->  XtuRuntime (page, hotkeys, tray, commands, timers, auto
                               +-- IXtuClient     ReadState, ReadMonitor, Apply      <- the interface the logic sees
                                      XtuClient   the proven apply sequence, the latch, validation   (plain C#)
                                         +-- IXtuTuningPort / IXtuMonitorPort
-                                              Intel/IntelPorts.cs   the ONLY code that touches Intel's assemblies and WCF
+                                              Intel/IntelPorts.cs   the ONLY code that uses the XTU contracts and WCF
+                                              Intel/Contracts.cs    the module's own copies of the contracts (interfaces, structs, enum)
 ```
 
 Unit tests replace the ports (`FakeTuningPort` records the calls in order and behaves like a small piece of hardware) or the client
@@ -119,15 +123,40 @@ put the limits back). A chosen profile that no longer exists is reported, not ap
 ## Build and test
 
 ```
-dotnet build modules/xtu/Rigbay.Xtu.slnx -c Release          # needs XTU installed: the Intel DLLs are compile references; 0 warnings
+dotnet build modules/xtu/Rigbay.Xtu.slnx -c Release          # builds anywhere (no XTU, no Intel file); 0 warnings
 dotnet test  modules/xtu/Rigbay.Xtu.slnx -c Release
+dotnet build Rigbay.sln -c Release                            # the module is part of the main solution too
 dotnet run --project src/Rigbay.LangCheck -- modules/xtu/Rigbay.Module.Xtu/lang --module xtu --source modules/xtu/Rigbay.Module.Xtu --strict
 ```
 
-`XtuDir` (an MSBuild property) points at the Intel folder; the default is `%ProgramFiles%\Intel\Intel(R) Extreme Tuning Utility\Drivers`. A
-public CI runner has no Intel files, so release zips are built on the author's machine until the "C-lite" follow-up of the spike (own copies of the
-contracts) is decided. The output folder is the module: copy it to `<modules root>\xtu\`. It holds the module DLL, `module.json`, `lang\`, and the
+Since C-lite (task C4) the module builds and its tests run on a machine that has no Intel XTU, for example a hosted `windows-latest` runner: the
+contracts are the module's own and the tests use fakes and the recorded wire sample. At run time it still talks to the real XTU service over the
+same named pipes. The output folder is the module: copy it to `<modules root>\xtu\`. It holds the module DLL, `module.json`, `lang\`, and the
 WCF client packages (`System.ServiceModel.*`, about 2.7 MB); no Intel file.
+
+### Why the copies are trustworthy without XTU: `wire/` and `WireContractTests`
+
+Intel's contract types have no `[DataContract]`, so the wire format comes from CLR namespaces, type names, member names (alphabetical) and the
+interface and method names (SOAP actions). A wrong copy would not show in the fake-based tests, only against the real service. So the real
+service was recorded once, read-only, by `modules/xtu/tools/record-wire.ps1` (elevated, Windows PowerShell 5.1, XTU installed; no write-path call is
+made anywhere in it) into three files under `modules/xtu/Rigbay.Module.Xtu.Tests/wire/`:
+
+| File | Content | How it was made |
+| --- | --- | --- |
+| `live-messages.xml` | real request and reply bodies of the read-only calls: tuning `Connect`, `RefreshActiveValuesFromHardwareAccess`, `GetControl` 47, 48, 49, 66, `GetDoRestoreUserValuesOnBoot`; monitoring `Connect`, `Start`, `GetValues` (51 values), `Stop` | message inspector on a real session. The `SupportedValues` lists of 7994 (two controls) and 24 entries are cut to 6 (first 4, last 2, with a comment), the process id is replaced by 1234. Nothing else was changed; it has no machine name, user name or serial number (checked) |
+| `service-contract.txt` | the WCF service description of the 11 mirrored operations: contract name and namespace, each action and reply action, wrapper and part names, order and types | computed from Intel's interfaces (`ContractDescription`), no service call |
+| `type-samples.xml` | the data contract serializer's output of Intel's own types for fixed values: `XtuTuningControl`, `XtuTuningProposal` list, `SdkClientToken`, `TuningResult` (3 cases), `XtuTuningProposalResult` list, `TuningErrorCode`, `Dictionary<uint,decimal>` | Intel's types serialised in a throw-away process, no service call. This is the only evidence for the **write-path types**: a reply with them cannot be recorded without a write |
+
+`WireContractTests` (20 tests, no XTU needed) check that: the copies' service description equals the recorded one line by line; each recorded
+sample read by the copies and written back is identical (element names, namespaces, order, values); the copies built from the same values
+serialise exactly like Intel's types; the copies' WCF formatters produce the recorded request bodies and understand the recorded real replies;
+the write-path requests are composed of the recorded pieces in the order of the contract; the error code enum keeps names and values. A
+mutation check (renaming the private `__codes` field) fails five of them. Two facts found while writing them are in the code comments:
+the data types must be `public` (the .NET serializer refuses a non-public type that has no `[DataContract]`), and `TuningResult` is
+`[Serializable]` with fields, so its wire names are `__codes` and `<GeneralCode>k__BackingField` (encoded).
+
+To record again after an XTU update: run `tools/dump-contracts.ps1 -XtuDir <Drivers folder>` to read the metadata, update `Contracts.cs`, run `tools/record-wire.ps1 -OutDir <folder> -XtuDir <Drivers folder>`
+elevated, look at the files, copy them over `wire/`, and run the tests.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, XTU 7.14.2.135, elevated, `no-write.flag` present, nothing written)
 
@@ -145,6 +174,28 @@ WCF client packages (`System.ServiceModel.*`, about 2.7 MB); no Intel file.
   (the confirmation with the exact values; the script did not answer it, the app quit with the dialog open), `page-vi-dark.png`.
 - After all of it `xtu-switcher --status` still read `PL1=55 PL2=60 pl2enable=True window=56`, and `rigbay.log` has no apply line.
 
+## Verification of C-lite (task C4, 2026-11-01, same machine, XTU 7.14.2.135, elevated, `no-write.flag` present, nothing written)
+
+The Intel references, `XtuDir` and `probePaths` were removed; the module now uses its own contract copies.
+
+- `dotnet build modules/xtu/Rigbay.Xtu.slnx -c Release` and `dotnet build Rigbay.sln -c Release`: 0 warnings, 0 errors. `dotnet test` of the module:
+  **190 passed** (the 161 of before, minus 1 test of the removed "DLLs missing" probe outcome, plus 4 for the new pipe outcomes of the probe, plus 6 for the service version, plus the 20
+  wire tests).
+- Read-only live check through the real host loader (`tools/live-read.ps1`, latch ON, the module laid out with no Intel file, no `probePaths`):
+  `rigbay xtu status` printed `active: PL1=55 PL2=60 pl2enable=True window=56`, `matching profile: PL55-60W`, `restore after reboot: True   fast startup: Off`
+  and the four profiles, the same as before and the same text as `xtu-switcher --status` run right after (`shots/clite-live-rigbay-xtu-status.txt`,
+  `shots/clite-live-xtu-switcher-status.txt`; the old app's file differs only by a BOM and the final newline). The module page showed the readings
+  (temperature, package power, usage, clock, PL1, PL2: `shots/clite-page-dark.png`), so the monitoring pipe (`Connect`, `Start`, `GetValues`) works with the
+  copies too. The log says `writes are switched OFF (no-write.flag)`; no apply line.
+- The wire recording (`wire/`, see above) was made during the same session.
+- Build without Intel files: the csproj has no reference or path to the Intel folder; see `docs/xtu/CLITE-PLAN.md` ("Result") for the clean-clone
+  build and the `git grep` check.
+- Probe: the service and **both pipes**. `PipeCheck` opens a channel to each endpoint and closes it at once (no operation is called). Only "endpoint not found"
+  that is not an access refusal counts as missing; from a process that is not elevated the answer is "unknown" and does not block the machine (a
+  non-elevated client gets `EndpointNotFoundException` caused by an access refusal, the same text as a missing pipe, which is why the causes are
+  looked at). The service version on the page is now read from the service's own image path in the Service Control Manager's registry entry, since
+  no path into Intel's folder is built any more (`module.json` lists that registry read).
+
 ### Not verified
 
 - **Any write.** No apply of any profile, no Revert, no auto-switch apply, not even the already-active profile. The apply sequence is verified
@@ -156,7 +207,13 @@ WCF client packages (`System.ServiceModel.*`, about 2.7 MB); no Intel file.
 - XTU stopped, restarted, or updated while the module runs; the probe outcomes with a real stopped service (tested with fakes).
 - High DPI above 100 % for the page (the dashboard shot was 144 dpi), a screen reader, keyboard use, real clicks.
 - The page redraw after creating, editing or deleting a profile: the module calls `IHostServices.RequestPageRefresh()` (tested with a fake host), but the app side that redraws (task A7) was not on main when this was checked, so the redraw itself was not seen. The tray menu and the hotkey list were not rendered at all.
-- A module repo build on a machine without XTU (needs the Intel DLLs).
+- **The write-path contracts against the real service** (C-lite): `DiscardChanges`, `ProposeChange`, `ApplyChanges` and the types `SdkClientToken`,
+  `TuningResult`, `XtuTuningProposalResult`, `XtuTuningProposal` are checked against Intel's own serializer output and a composed request, never against a
+  real reply (that needs a write). The first approved apply (the test below) is the proof; if the service rejects it, the first suspect is `Contracts.cs`.
+- `SdkClientToken.Default` is the process id of the caller: read once from Intel's property in a throw-away process (it equalled that process's id), not
+  from a service call.
+- A new XTU version may change a contract; the module then fails at run time (a failed call), not at build time. The probe does not compare versions.
+- A real GitHub-hosted runner build (a clean clone on this machine was built instead, with no path to the Intel folder; the runner itself was not used).
 
 ## Host dependencies (agreed with the coordinator; A8 landed, A7 pending)
 
@@ -187,6 +244,6 @@ for Pkcs; GHSA-23rf-6693-g89p, -37gx-xxp4-5rgx, -6588-8gv4-xfgh, -7hqp-7c5m-4vq6
 -r955-8q5j-3h83, -w3x6-4m5h-cxqf for Xml; the highest fixed version among them is 10.0.13). Both are now pinned with explicit `PackageReference`s to **10.0.14**
 (latest 10.x on nuget.org that day) in `Rigbay.Module.Xtu.csproj`, still with `ExcludeAssets="runtime"`: the named-pipe client never uses message signing, and
 neither DLL is in the build output. Result: `dotnet build modules/xtu/Rigbay.Xtu.slnx` 0 warnings, 0 errors; `dotnet list package --vulnerable --include-transitive`
-reports nothing for all three projects; 148 tests pass. No vulnerable assembly is left that cannot be avoided (the Intel DLLs are not NuGet packages and
-are not scanned by NuGet audit). `WarningsNotAsErrors` for NU1901 to NU1904 stays so that a future advisory is a visible warning, not a failed build.
+reports nothing for all three projects; 148 tests passed at that time. No vulnerable assembly is left that cannot be avoided (since C-lite no Intel DLL is
+used at all). `WarningsNotAsErrors` for NU1901 to NU1904 stays so that a future advisory is a visible warning, not a failed build.
 When the WCF packages are updated, drop the pins if the new version already depends on a patched version.

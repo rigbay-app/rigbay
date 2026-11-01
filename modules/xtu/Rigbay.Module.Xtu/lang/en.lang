@@ -11,8 +11,8 @@ module.xtu.description = Switch Intel XTU power-limit profiles (PL1, PL2, time w
 # --- probe: why the module is not available on a machine
 module.xtu.probe.not-intel = This CPU is not an Intel CPU ({0}). XTU profiles need an Intel processor.
 module.xtu.probe.no-service = Intel Extreme Tuning Utility is not installed (the service {0} was not found).
-module.xtu.probe.no-dlls = XTU's contract files were not found in {0}.
 module.xtu.probe.service-stopped = The XTU service {0} is not running. Start it, then restart Rigbay.
+module.xtu.probe.no-pipe = The XTU service is running but does not answer on {0}.
 
 # --- page: groups
 module.xtu.group.now = Power limits now

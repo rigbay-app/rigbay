@@ -10,12 +10,13 @@ Names are exact, line numbers left out on purpose. Everything is `internal` exce
 | `Rules.cs` | `Validate`/`Check` (ranges, returns a key), `CheckName` (1 to 40, not `@`, no tab/newline, unique ignoring case) |
 | `Catalog.cs` | `Catalog.Build/FindActive/FindByName`, `ProfilesXml.Load/Parse` |
 | `Client.cs` | ports and DTOs, `IXtuClient`, `WriteLatch`, `XtuClient` (`ReadState`, `ReadMonitor`, `Apply` = the sequence; every failure becomes `XtuException`) |
-| `Intel/IntelPorts.cs` | `Pipes` (binding with 64 MB quotas), `IntelTuningPort`, `IntelMonitorPort` (registers its pid with `Connect`/`Start`, `Stop` on dispose). Only file with Intel types |
+| `Intel/IntelPorts.cs` | `Pipes` (binding with 64 MB quotas), `PipeCheck` (probe: does an endpoint accept a connection; missing, listening or unknown), `IntelTuningPort`, `IntelMonitorPort` (registers its pid with `Connect`/`Start`, `Stop` on dispose). Only file that calls the XTU contracts or WCF |
+| `Intel/Contracts.cs` | the module's own copies of the XTU contracts: `IXtuTuning` (7 of 29 operations), `IXtuMonitoring` (4 of 12), `XtuTuningControl`, `XtuTuningProposal`, `XtuTuningProposalResult`, `SdkClientToken`, `TuningResult`, `TuningErrorCode`. Names and namespaces are the wire format: do not tidy |
 | `Apply.cs` | `ApplyOrigin`, `ApplyStatus`, `ApplyResult`, `ApplyService.ApplyAsync` (one apply at a time; `Busy` is dropped), `Detail` (the approval text), `Completed` event |
 | `Monitoring.cs` | `Mon` ids, `XtuMetrics` ids, lists (`Monitored`, `PerCore`, `All`) and `Descriptors` (labels), `MonitorSampler.Tick/Reset/WithdrawAll/PerCore` (warm-up, unit conversion) |
 | `AutoSwitch.cs` | `PowerLine`, `IPowerEnvironment`, `AutoSwitcher.Check` (pure decision) |
 | `Hotkeys.cs` | `HotkeyPolicy.Refuse`, `ReadXtuCombos`, `PairingOn`, `ActionId` |
-| `System.cs` | `XtuPaths` (Intel folder, ProgramData folder), `ISystemProbe` and `WindowsSystemProbe` (CPU vendor from the registry, `ServiceController`, Fast Startup flag, `GetSystemPowerStatus`), `ProbeLogic`, `WindowsPowerEnvironment` (`SystemEvents.PowerModeChanged`, all exceptions caught) |
+| `System.cs` | `XtuPaths` (ProgramData folder only), `ISystemProbe` and `WindowsSystemProbe` (CPU vendor from the registry, `ServiceController`, `Pipe` via `PipeCheck`, `ServiceVersion` from the service image path, Fast Startup flag, `GetSystemPowerStatus`), `ProbeLogic`, `WindowsPowerEnvironment` (`SystemEvents.PowerModeChanged`, all exceptions caught) |
 | `Commands.cs` | `XtuCommands`: `status` (same lines as the old CLI), `list`, `apply <name>` |
 | `Settings.cs` | `XtuSettings` (the settings object the host serialises) |
 | `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`/`MonitorWanted`/`MonitorFailed`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |

@@ -287,26 +287,18 @@ public class HotkeyTests
 
 public class ProbeTests
 {
-    private static readonly XtuPaths Paths = new(@"C:\Intel\Drivers", @"C:\ProgramData\Intel\XTU");
-
-    private static FakeSystem Healthy()
-    {
-        var sys = new FakeSystem();
-        sys.Files.Add(Paths.InterfaceDll);
-        sys.Files.Add(Paths.CommonDll);
-        return sys;
-    }
+    private static FakeSystem Healthy() => new();
 
     [Fact]
-    public void Intel_with_the_service_running_and_the_dlls_is_supported() =>
-        Assert.True(ProbeLogic.Run(Healthy(), Paths).Supported);
+    public void Intel_with_the_service_running_and_both_pipes_listening_is_supported() =>
+        Assert.True(ProbeLogic.Run(Healthy()).Supported);
 
     [Fact]
     public void Not_an_Intel_CPU()
     {
         var sys = Healthy();
         sys.Vendor = "AuthenticAMD";
-        var r = ProbeLogic.Run(sys, Paths);
+        var r = ProbeLogic.Run(sys);
         Assert.False(r.Supported);
         Assert.Equal("probe.not-intel", r.ReasonKey);
         Assert.Equal("AuthenticAMD", r.ReasonArgs![0]);
@@ -317,17 +309,37 @@ public class ProbeTests
     {
         var sys = Healthy();
         sys.ServiceState = ServiceState.NotFound;
-        Assert.Equal("probe.no-service", ProbeLogic.Run(sys, Paths).ReasonKey);
+        Assert.Equal("probe.no-service", ProbeLogic.Run(sys).ReasonKey);
+    }
+
+    [Theory]
+    [InlineData("net.pipe://localhost/ExtremeTuningUtility/Tuning")]
+    [InlineData("net.pipe://localhost/ExtremeTuningUtility/Monitoring")]
+    public void A_pipe_that_does_not_answer(string uri)
+    {
+        var sys = Healthy();
+        sys.Pipes[uri] = PipeState.Missing;
+        var r = ProbeLogic.Run(sys);
+        Assert.False(r.Supported);
+        Assert.Equal("probe.no-pipe", r.ReasonKey);
+        Assert.Equal(uri, r.ReasonArgs![0]);
     }
 
     [Fact]
-    public void Contract_dlls_missing()
+    public void A_pipe_that_cannot_be_told_does_not_block_the_machine()
     {
         var sys = Healthy();
-        sys.Files.Remove(Paths.CommonDll);
-        var r = ProbeLogic.Run(sys, Paths);
-        Assert.Equal("probe.no-dlls", r.ReasonKey);
-        Assert.Equal(Paths.DriversDir, r.ReasonArgs![0]);
+        sys.DefaultPipe = PipeState.Unknown;
+        Assert.True(ProbeLogic.Run(sys).Supported);
+    }
+
+    [Fact]
+    public void The_pipes_are_not_tried_when_the_service_is_not_running()
+    {
+        var sys = Healthy();
+        sys.ServiceState = ServiceState.Stopped;
+        sys.DefaultPipe = PipeState.Missing;
+        Assert.Equal("probe.service-stopped", ProbeLogic.Run(sys).ReasonKey);
     }
 
     [Theory]
@@ -337,7 +349,7 @@ public class ProbeTests
     {
         var sys = Healthy();
         sys.ServiceState = Enum.Parse<ServiceState>(stateName);
-        Assert.Equal("probe.service-stopped", ProbeLogic.Run(sys, Paths).ReasonKey);
+        Assert.Equal("probe.service-stopped", ProbeLogic.Run(sys).ReasonKey);
     }
 
     [Fact]
@@ -345,7 +357,26 @@ public class ProbeTests
     {
         var sys = Healthy();
         sys.Vendor = "";
-        Assert.True(ProbeLogic.Run(sys, Paths).Supported);
+        Assert.True(ProbeLogic.Run(sys).Supported);
+    }
+
+    [Theory]
+    [InlineData(@"""C:\Program Files\Vendor\Svc.exe""", @"C:\Program Files\Vendor\Svc.exe")]
+    [InlineData(@"""C:\Program Files\Vendor\Svc.exe"" /service", @"C:\Program Files\Vendor\Svc.exe")]
+    [InlineData(@"C:\Vendor\Svc.exe -k group", @"C:\Vendor\Svc.exe")]
+    [InlineData(@"C:\Vendor\Svc.EXE", @"C:\Vendor\Svc.EXE")]
+    [InlineData("", "")]
+    public void The_executable_is_taken_out_of_a_service_image_path(string imagePath, string expected) =>
+        Assert.Equal(expected, WindowsSystemProbe.ExecutableOf(imagePath));
+
+    [Fact]
+    public void The_service_version_is_read_when_the_service_exists_and_empty_when_it_does_not()
+    {
+        var probe = new WindowsSystemProbe();
+        var version = probe.ServiceVersion(XtuPaths.ServiceName);
+        if (probe.Service(XtuPaths.ServiceName) == ServiceState.NotFound) Assert.Equal("", version);   // a machine without XTU, such as a CI runner
+        else Assert.Matches(@"^\d+(\.\d+)+", version);
+        Assert.Equal("", probe.ServiceVersion("No-such-service-rigbay-test"));
     }
 
     [Fact]

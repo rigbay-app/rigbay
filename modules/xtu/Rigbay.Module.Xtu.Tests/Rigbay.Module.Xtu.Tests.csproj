@@ -26,6 +26,8 @@
   <ItemGroup>
     <Content Include="..\Rigbay.Module.Xtu\lang\*.lang" Link="lang\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\Rigbay.Module.Xtu\module.json" Link="module.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The recording of the real XTU service's wire format (tools/record-wire.ps1); WireContractTests compares the contract copies with it. -->
+    <Content Include="wire\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
