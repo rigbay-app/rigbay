@@ -72,10 +72,13 @@ public sealed class F1Tests
         var root = FindRepoRoot();
         var bad = new List<string>();
         int files = 0;
-        foreach (var path in Directory.EnumerateFiles(root, "*.lang", SearchOption.AllDirectories))
+        // IgnoreInaccessible: the install tests and E2E runs leave admin-only scratch folders under tools\out, which a normal shell cannot list (E2E1)
+        var walk = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
+        foreach (var path in Directory.EnumerateFiles(root, "*.lang", walk))
         {
             var rel = Path.GetRelativePath(root, path);
-            if (rel.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") || rel.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") || rel.StartsWith(".claude") || rel.StartsWith("spike")) continue;
+            if (rel.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") || rel.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") || rel.StartsWith(".claude") || rel.StartsWith("spike")
+                || rel.StartsWith("tools" + Path.DirectorySeparatorChar + "out")) continue;   // tools\out is build output and scratch copies, not source
             files++;
             var file = LanguageFile.ParseFile(path);
             bad.AddRange(file.Problems);   // includes a backslash that is not an escape

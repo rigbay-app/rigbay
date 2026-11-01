@@ -597,6 +597,23 @@ public class ModuleManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_module_the_host_no_longer_knows_is_named_by_the_registry_not_by_its_id()
+    {
+        // E2E1: after a removal the start-up report said "recorder was removed" (the id) because the folder, and with it the manifest name, was gone.
+        ServeRegistryAndZip((M, M.Zip()));
+        var manager = NewManager();
+        Assert.Null(manager.RegistryNameOf(M.Id));   // no list yet
+        await manager.CheckAsync();
+        Assert.Equal("Demo " + M.Id, manager.RegistryNameOf(M.Id));   // the name RegistryKit gives every entry
+        Assert.Null(manager.RegistryNameOf("not-in-the-list"));
+
+        _env.Http.Respond = _ => throw new HttpRequestException(HttpRequestError.NameResolutionError, "no host");
+        var later = NewManager();
+        later.LoadCache();   // what the app does at start, before the page is built: the name survives a restart and needs no network
+        Assert.Equal(manager.RegistryNameOf(M.Id), later.RegistryNameOf(M.Id));
+    }
+
+    [Fact]
     public async Task Offline_the_list_comes_from_the_cache_and_says_so()
     {
         ServeRegistryAndZip((M, M.Zip()));
