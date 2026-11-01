@@ -30,6 +30,12 @@ internal sealed partial class XtuRuntime : IDisposable
     private Timer? _statusTimer;
     private Thread? _monitorThread;
     private int _statusBusy;
+    private readonly ManualResetEventSlim _wake = new(false);
+    private int _monitorFailures;
+    private int _stateFailures;
+
+    /// <summary>Failed monitor reads (or state reads) in a row after which the readings are taken off the bus.</summary>
+    public const int FailureLimit = 3;
 
     public XtuRuntime(IHostServices host, IXtuClient client, ISystemProbe sys, XtuPaths paths, IPowerEnvironment power, WriteLatch? latch = null)
     {
@@ -81,6 +87,13 @@ internal sealed partial class XtuRuntime : IDisposable
         _power.Changed += OnPowerChanged;
         _power.Resumed += OnResumed;
         UpdatePowerText();
+
+        // Say once what every metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
+        foreach (var descriptor in XtuMetrics.Descriptors) _host.Metrics.Describe(descriptor);
+
+        // The monitor is read only while somebody looks (page visible or a subscriber); these signals wake it up.
+        _host.PageVisible.Changed += OnWatchSignal;
+        _host.Metrics.SubscribersChanged += OnWatchSignal;
     }
 
     /// <summary>Starts the 5 second state refresh (and the backup power check) and the 1 Hz monitor thread.</summary>
@@ -94,6 +107,9 @@ internal sealed partial class XtuRuntime : IDisposable
     public void Dispose()
     {
         try { _stop.Cancel(); } catch (ObjectDisposedException) { }
+        _host.PageVisible.Changed -= OnWatchSignal;
+        _host.Metrics.SubscribersChanged -= OnWatchSignal;
+        _wake.Set();
         _power.Changed -= OnPowerChanged;
         _power.Resumed -= OnResumed;
         _apply.Completed -= OnApplyCompleted;
@@ -130,13 +146,22 @@ internal sealed partial class XtuRuntime : IDisposable
         catch (XtuException ex) { error = ex; }
         catch (Exception ex) { error = new XtuException("err.unavailable", ex.Message); }
 
+        bool withdrawLimits = false;
         lock (_gate)
         {
             _state = state ?? _state;
             _error = error;
+            // PL1 and PL2 on the bus are the last values read from XTU; when XTU stays unreadable they are not true any more.
+            if (state is not null) _stateFailures = 0;
+            else if (++_stateFailures == FailureLimit) withdrawLimits = true;
             // The BIOS defaults come from the service, so rebuild the first entry when we have them.
             if (state is not null)
                 _profiles = Catalog.Build(state, _xtuProfiles, _settings.Customs.Select(c => c.ToProfile()));
+        }
+        if (withdrawLimits)
+        {
+            _host.Metrics.Withdraw(XtuMetrics.Pl1);
+            _host.Metrics.Withdraw(XtuMetrics.Pl2);
         }
         ShowState(state, error);
     }
@@ -167,9 +192,22 @@ internal sealed partial class XtuRuntime : IDisposable
         bool failedBefore = false;
         while (!stop.IsCancellationRequested)
         {
+            if (!MonitorWanted())
+            {
+                // Nobody looks: do not read XTU. The bus keeps the last value (a reader checks its age, see RECORDER-NOTES.md).
+                _wake.Reset();
+                if (MonitorWanted()) continue;                       // somebody arrived between the check and the reset
+                if (WaitHandle.WaitAny(new[] { _wake.WaitHandle, stop.WaitHandle }) == 1) break;
+                if (!MonitorWanted()) continue;                      // a signal that changed nothing for us
+                // What XTU would give after a pause may be old: connect again and skip samples until a value moves (the warm-up).
+                try { _sampler.Reset(); } catch (Exception) { }
+                next = Environment.TickCount64;
+                continue;
+            }
             try
             {
                 MonitorOnce();
+                MonitorSucceeded();
                 failedBefore = false;
                 next += 1000;
                 var wait = next - Environment.TickCount64;
@@ -181,11 +219,44 @@ internal sealed partial class XtuRuntime : IDisposable
                 // XTU gone or restarting: say so once, then try again in 5 s (the next read opens a new connection).
                 if (!failedBefore) _host.Log.Warn("monitor read failed: " + ex.Message);
                 failedBefore = true;
+                MonitorFailed();
                 try { _sampler.Reset(); } catch (Exception) { }
                 if (stop.WaitHandle.WaitOne(5000)) break;
                 next = Environment.TickCount64;
             }
         }
+    }
+
+    /// <summary>
+    /// True when somebody can see the readings: the module's page is on screen, or one of the monitor metrics has a subscriber
+    /// (the dashboard bay, a recorder, another module). Otherwise the monitor is not read.
+    /// </summary>
+    internal bool MonitorWanted()
+    {
+        if (_host.PageVisible.Value) return true;
+        var bus = _host.Metrics;
+        foreach (var id in XtuMetrics.Monitored)
+            if (bus.SubscriberCount(id) > 0) return true;
+        if (_settings.PublishPerCore)
+            foreach (var id in XtuMetrics.PerCore)
+                if (bus.SubscriberCount(id) > 0) return true;
+        return false;
+    }
+
+    /// <summary>The page was shown or left, or somebody (un)subscribed: wake the monitor thread, which decides what to do. Cheap.</summary>
+    private void OnWatchSignal()
+    {
+        try { _wake.Set(); }
+        catch (ObjectDisposedException) { }
+    }
+
+    /// <summary>A monitor read worked.</summary>
+    internal void MonitorSucceeded() => Volatile.Write(ref _monitorFailures, 0);
+
+    /// <summary>A monitor read failed; at <see cref="FailureLimit"/> in a row the readings leave the bus until XTU answers again.</summary>
+    internal void MonitorFailed()
+    {
+        if (Interlocked.Increment(ref _monitorFailures) == FailureLimit) _sampler.WithdrawAll();
     }
 
     /// <summary>One monitor read and publish (the sampler thread calls this once a second).</summary>

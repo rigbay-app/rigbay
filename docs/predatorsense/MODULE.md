@@ -14,10 +14,10 @@ reference) so the owner can move it to a `module-predatorsense` repository; ther
 | Readings | `GetGamingSysInfo` with input `1 \| (index << 8)` for index 1 CPU temperature, 3 system temperature, 10 GPU temperature, 2 CPU fan, 6 and 9 GPU fans. Value is `(raw >> 8) & 0xFFFF` when the status byte is 0. Metric ids and units: `cpu.temp`, `system.temp`, `gpu.temp` (degC), `fan.cpu.rpm`, `fan.gpu1.rpm`, `fan.gpu2.rpm` (rpm). |
 | Not available | A non-zero status, an error, a timeout, a temperature of 0, a fan at 0 that never turned, or a value outside 130 degC / 20000 rpm gives "not available": nothing is published for that sensor. Parts the machine does not have (no system fan here, a second GPU temperature) get no row. |
 | Page | Enable row (the host's), group **Readings** (CPU, GPU, system temperature, the fans, the machine), group **Cooling** (Fan mode, Last set by Rigbay, Speed check), group **Settings** (poll interval, restore Auto, fan shortcut). The dashboard bay shows a state line plus CPU temperature and CPU fan. |
-| Fan mode | One choice row, Auto or Maximum, flagged `ChangesHardware`. The host shows the effect text and the exact change ("Fan mode: Auto -> Maximum"), asks, then sets the value; the module writes on a pool thread. After the write the module reads the fan speeds every 2 s for 10 s and shows one line: speeds rose (Maximum), fell back (Auto after Maximum), stayed (Auto), or did not. The line says it is a reading, not proof of the mode. The host's Revert puts the previous value back (see "Things to know"). |
+| Fan mode | One choice row, Auto or Maximum, flagged `ChangesHardware`. The host shows the effect text and the exact change ("Fan mode: Auto -> Maximum"), asks, then sets the value; the module writes on a pool thread. After the write the module reads the fan speeds every 2 s for 10 s and shows one line: speeds rose (Maximum), fell back (Auto after Maximum), stayed (Auto), or did not. The line says it is a reading, not proof of the mode. The host's Revert puts the previous value back and is asked about like the change itself (see "Things to know"). |
 | Last set | There is no firmware read of the mode. The page says "Last set by Rigbay: Maximum at 18:42" and that PredatorSense may change it without telling Rigbay. After a refused write the row goes back; after a write that did not answer in time the row stays on Maximum and says "not confirmed", because it may have landed. |
-| Safety | When the module stops (turned off, host exit, fault) and Rigbay had set Maximum (also an unconfirmed one), it sends Auto, with a 2 s timeout so the 5 s Shutdown limit holds. Setting `restoreAutoOnExit`, on by default. After 5 failed polls in a row the page shows "Readings are not available" and the dashboard line says so; fan changes are off until a poll succeeds again. |
-| Settings | `pollSeconds` (1 to 30, default 2), `restoreAutoOnExit` (default true), in the module's settings file. |
+| Safety | When the module stops (turned off, host exit, fault) and Rigbay had set Maximum (also an unconfirmed one), it sends Auto, with a 2 s timeout so the 5 s Shutdown limit holds. Setting `restoreAutoOnExit`, on by default. After 5 failed polls in a row the sensors are withdrawn from the bus (their rows say "not available"), the dashboard line says "Readings not available", and fan changes are off until a poll succeeds again. |
+| Settings | `pollSeconds` (1 to 30, default 2; the rate while the page is visible or a sensor metric has a subscriber, 10 s otherwise), `restoreAutoOnExit` (default true), in the module's settings file. |
 | Hotkey | `toggle-fan`, **unbound by default** (that is how it is "off"). When the user binds a gesture, a press asks the host's approval service ("Set fan mode to Maximum" or "Fan mode: Maximum -> Auto"), and only on a yes writes. A toast says the result. |
 | Verbs | `rigbay predatorsense status` prints the model, six readings (or "not available") and the last-set line; exit 0, or 1 when no sensor answered. `rigbay predatorsense fan auto\|max` asks for approval; no yes (or no window to ask in) means exit 1 and no call; a refused or unanswered write is exit 1; other arguments are exit 2. |
 | Languages | `lang/en.lang`, `lang/vi.lang`, 75 keys each under `module.predatorsense.`; `Rigbay.LangCheck --strict` is clean (also the `name` and `description` overrides, so the enable row is translated). |
@@ -42,7 +42,7 @@ new table entry.
 
 ```
 PredatorSenseModule (IModule: Probe, Initialize, GetPageModel, Shutdown; page, texts, verbs and hotkey in partial files)
-  |-- SensorPoller + PollScheduler   reads, decodes, publishes on the metrics bus, counts failed polls
+  |-- SensorPoller + PollScheduler   reads, decodes, publishes on the metrics bus, counts failed polls, withdraws sensors that stay unreadable
   |-- FanController                  the only writer: one at a time, readings rule, RPM check, restore
   |-- GuardedAcerWmi : IAcerWmi      allow-list + one write at a time
   |       '-- AcerWmi                real System.Management (timeouts, one call in flight, UInt32 reads, UInt64 write)
@@ -93,17 +93,22 @@ record of every call, so "exactly one call with the exact value" is checked as a
 
 ## Things to know
 
-- **Revert is not asked about again** (the host's rule for value rows: "A revert is not asked about again"). A user who chose Maximum, then Auto,
-  then presses Revert gets Maximum written without a second confirmation. The write is still one of the two allowed values and the readings rule
-  still applies; the click is the user's own. Noted for the coordinator.
-- **The host gives a module no "page is open" signal and no subscriber count**, so the two-speed polling of the brief (2 s while watched, 10 s
-  otherwise) cannot be driven. `PollScheduler` implements both intervals (`Watched`, tested) and the module keeps `Watched = true`, i.e. 2 s
-  always (the dashboard bay is a standing subscriber while the window is open; with the window hidden to the tray the polls continue at 2 s,
-  about 70 ms of WMI time per poll).
-- **A metric cannot be withdrawn.** When a sensor becomes unavailable the bus keeps its last sample, so a `ReadingRow` shows the old number. The page
-  therefore opens a warning row ("Readings are not available ... the numbers below may be old") when 5 polls fail in a row.
-- The dashboard shows a reading by metric id when the host has no friendly label for it: `cpu.temp` shows as "CPU", `fan.cpu.rpm` as the raw id.
-  The brief fixes the ids; the label is the host's.
+- **Revert is asked about, both ways (host rule since A9).** The fan row does not set `SafeRevert`: Auto -> Maximum is loud, so a Revert after
+  "Auto" asks like any change (`effect.fan-mode-revert`: "Puts the fans back to the previous mode ...", with the exact current and previous value);
+  Maximum -> Auto asks too, because the module does not claim one direction is harmless for the user. The page has no button row, so there is no
+  `RevertButtonKey`. The app must call `RevertAsync` (a synchronous `Revert()` writes nothing and returns "must be confirmed").
+- **Two poll speeds follow what is looked at.** The sensors are read every `pollSeconds` (default 2 s) while the module's page is visible
+  (`IHostServices.PageVisible`) or any of the six sensor metrics has a subscriber (`IMetricsBus.SubscriberCount`; the dashboard bay, a recorder or
+  another module), and every 10 s (`PredatorSenseSettings.IdlePollSeconds`, not a setting) otherwise. Both signals are followed with
+  `PageVisible.Changed` and `SubscribersChanged`; when somebody starts to look, `PollScheduler.PollSoon()` reads at once. A host that does not
+  send the signals leaves `PageVisible` true (`ConstantValue`), which means 2 s always, as before. One poll is about 70 ms of WMI time.
+- **A sensor that cannot be read leaves the bus.** A sensor that had values and gets none for 5 polls in a row is withdrawn
+  (`IMetricsBus.Withdraw`), so its `ReadingRow` says "not available" instead of showing an old number; the next value publishes it again. A part the
+  machine does not have never published anything and is never withdrawn. The old "Readings are not available ... may be old" warning row is gone;
+  the state line and the disabled fan row still say the sensors cannot be read.
+- **Dashboard labels come from the module.** Each of the six metrics has a `MetricDescriptor` (label key `sensor.*`, unit), registered in
+  `Initialize`: `cpu.temp` shows as "CPU temperature", `fan.cpu.rpm` as "CPU fan". `cpu.temp` is also published by the XTU module (a different
+  sensor); the host keeps the first description it gets.
 - A host crash while Maximum is set leaves the fans on Maximum (nothing can restore it). The undo is PredatorSense's Auto button, or a reboot (untested).
 - Fan row at first start shows Auto although nothing was written: the mode is unknown until Rigbay sets it. "Last set by Rigbay: Nothing yet" says so.
 

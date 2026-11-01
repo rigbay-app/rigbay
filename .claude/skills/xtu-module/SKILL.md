@@ -45,7 +45,7 @@ Pure helpers: `Catalog` (list and active match), `ProfilesXml`, `Rules`, `Monito
 - **Reading state**: refresh first (`RefreshActiveValuesFromHardwareAccess`), then `GetControl(id).ActiveValue`. `GetTuningControlByID` returns 0 on this build.
 - **Apply sequence** (tested in order): latch, validate, refresh, already-in-use check, locked and supported-value checks, discard, propose (49, 47, 48, 66), apply,
   refresh, read back. Failures after the first write-path call discard. "Already in use" writes nothing and asks nothing.
-- **Monitor**: one thread, 1 Hz fixed slots, warm-up skip (after (re)connect XTU returns last run's values; skip until a probe value moves or 4 s), nothing
+- **Monitor**: one thread, 1 Hz fixed slots, read only while `PageVisible` or a monitor metric has a subscriber (`XtuRuntime.MonitorWanted`; idle = sleep on `_wake`, bus keeps the last value, connection reset on wake), `Withdraw` of all monitor ids after 3 failed reads in a row (PL1 and PL2 after 3 failed state reads), warm-up skip (after (re)connect XTU returns last run's values; skip until a probe value moves or 4 s), nothing
   published while warming or when XTU is unreachable; on failure retry in 5 s. cpu.clock is MHz (XTU gives GHz), `cpu.usage` is the mean of per-core utilisation.
 - **Auto-switch**: `AutoSwitcher.Check` on power change, on the 5 s timer, and forced 4 s after resume; first sight of a power source counts as a change; off by
   default; the first check runs on the timer, never inside `Initialize`.
@@ -55,12 +55,12 @@ Pure helpers: `Catalog` (list and active match), `ProfilesXml`, `Rules`, `Monito
 
 ## Recipes
 
-**Add a metric.** Id in `XtuMetrics` (shared ids from `WellKnownMetrics` when one fits, else `xtu.<name>`), publish it in `MonitorSampler.Publish` with the right
+**Add a metric.** Id in `XtuMetrics` (also add it to `Monitored`, a `MetricDescriptor` in `XtuMetrics.Descriptors` and a `metric.*` key in en and vi: the dashboard shows the label, and a test requires a descriptor for every id) (shared ids from `WellKnownMetrics` when one fits, else `xtu.<name>`), publish it in `MonitorSampler.Publish` with the right
 unit (convert GHz to MHz), add a row in `Page.BuildPage` if it should show, add it to `docs/xtu/RECORDER-NOTES.md`, add a sampler test.
 
 **Add a language key.** `en.lang` first, `vi.lang` the same placeholders, then `dotnet run --project src/Rigbay.LangCheck -- modules/xtu/Rigbay.Module.Xtu/lang --module xtu --source modules/xtu/Rigbay.Module.Xtu --strict`.
 
-**Add a row.** In `Page.BuildPage`. A row that changes the hardware must carry a `HardwareEffect`; a number that writes to hardware uses `ApplyMode.ApplyRevert`.
+**Add a row.** In `Page.BuildPage`. A row that changes the hardware must carry a `HardwareEffect` with a `RevertDescriptionKey` (en and vi; no `SafeRevert` unless every revert is harmless, a button row also a `RevertButtonKey`; the host asks about a revert); a number that writes to hardware uses `ApplyMode.ApplyRevert`.
 Do not add a row that writes anything but the four controls.
 
 **Add a command.** In `XtuCommands.Register`; exit codes 0 ok, 1 failed, 2 not found or usage; keep `status` lines identical to `xtu-switcher --status`.

@@ -12,6 +12,7 @@ public sealed class PollScheduler : IDisposable
     private readonly object _lock = new();
     private Timer? _timer;
     private bool _stopped = true;
+    private bool _running;
     private bool _watched = true;
     private TimeSpan _fast;
     private TimeSpan _idle;
@@ -32,8 +33,9 @@ public sealed class PollScheduler : IDisposable
     public TimeSpan IdleInterval { get { lock (_lock) return _idle; } set { lock (_lock) _idle = value; } }
 
     /// <summary>
-    /// True while something looks at the readings. The host gives a module no signal for this today (no "page open" event,
-    /// no subscriber count on the metrics bus), so the module keeps it true: the dashboard bay is a standing subscriber.
+    /// True while something looks at the readings: the module's page is visible or one of its metrics has a subscriber (the
+    /// module works that out from <c>IHostServices.PageVisible</c> and <c>IMetricsBus.SubscriberCount</c>). A change applies
+    /// after the poll that is armed now; call <see cref="PollSoon"/> to look at once.
     /// </summary>
     public bool Watched { get { lock (_lock) return _watched; } set { lock (_lock) _watched = value; } }
 
@@ -51,7 +53,21 @@ public sealed class PollScheduler : IDisposable
         }
     }
 
-    /// <summary>Stops polling. A poll that is running finishes; no new one starts.</summary>
+    /// <summary>
+    /// Polls right away (somebody started to look). Does nothing while a poll is running (it re-arms with the interval that
+    /// applies when it ends) or when the scheduler is stopped.
+    /// </summary>
+    public void PollSoon()
+    {
+        lock (_lock)
+        {
+            if (_stopped || _running) return;
+            try { _timer?.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan); }
+            catch (ObjectDisposedException) { }
+        }
+    }
+
+    /// <summary>Stops polling.A poll that is running finishes; no new one starts.</summary>
     public void Stop()
     {
         lock (_lock)
@@ -67,7 +83,7 @@ public sealed class PollScheduler : IDisposable
 
     private void OnTimer(object? state)
     {
-        lock (_lock) { if (_stopped) return; }
+        lock (_lock) { if (_stopped) return; _running = true; }
         try { _poller.PollOnce(); }
         catch (Exception ex)
         {
@@ -75,6 +91,7 @@ public sealed class PollScheduler : IDisposable
         }
         lock (_lock)
         {
+            _running = false;
             if (_stopped) return;
             _timer?.Change(_watched ? _fast : _idle, Timeout.InfiniteTimeSpan);
         }

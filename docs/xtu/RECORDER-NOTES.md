@@ -65,6 +65,15 @@ columns `gpu_temp_c`, `gpu_power_w`, `gpu_util_pct`, `gpu_clock_mhz`, `gpu_mem_c
 - **Warm-up.** Right after the module connects to the monitoring pipe, XTU returns what it measured last time. The old recorder
   skipped samples until a probe value moved (power, temperature, frequency) or 4 s passed. This module does that before publishing,
   so the recorder needs no warm-up logic of its own.
+- **Sampling only while somebody looks.** The module reads XTU only while its page is visible or one of its monitor metrics has a subscriber.
+  A recorder must **subscribe** (any of the ids it records, for example `cpu.temp`; `Subscribe` counts, `TryGetLatest` alone does not), otherwise
+  the module is idle and the cached value gets older than 2.5 s: write empty XTU cells then, as the old recorder did for `xtu_unavailable`. The bus
+  keeps the last value of an idle module (nothing is withdrawn for idling), so `TryGetLatest` still answers and its timestamp tells the age. After
+  the module wakes (a first subscriber, the page shown) the first sample takes one to four seconds (warm-up). `cpu.power.pl1` and `.pl2` keep their 5 s refresh
+  either way.
+- **Withdrawn readings.** After three failed monitor reads in a row (about 10 to 15 s) the module withdraws all its monitor ids: `TryGetLatest`
+  finds nothing and a subscriber gets one sample with `IsAvailable == false` (value NaN). That is `xtu_unavailable` without the age guess. Same for
+  PL1 and PL2 after three failed state reads. Publishing resumes with the first good sample.
 - **Sampling period.** XTU refreshes about once a second; sampling faster only repeats values. The module publishes at about 1 Hz
   with a fixed schedule (it resets the slot when more than a second behind). A recorder that writes every N seconds should take the
   latest cached value of each id (`TryGetLatest`) at its own slot.

@@ -9,6 +9,9 @@ public sealed class PredatorSenseSettings
     /// <summary>Highest poll interval, seconds.</summary>
     public const int MaxPollSeconds = 30;
 
+    /// <summary>Seconds between sensor reads while nobody watches them (page hidden, no subscriber). Not a setting.</summary>
+    public const int IdlePollSeconds = 10;
+
     /// <summary>Seconds between sensor reads while something watches them. One read takes about 11 ms.</summary>
     public int PollSeconds { get; set; } = 2;
 

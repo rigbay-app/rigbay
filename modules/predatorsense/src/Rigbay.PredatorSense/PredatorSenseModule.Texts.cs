@@ -20,7 +20,6 @@ public sealed partial class PredatorSenseModule
         var loc = host.Localisation;
 
         _modelText.Value = string.IsNullOrWhiteSpace(_modelName) ? loc.T("model.unknown") : _modelName!;
-        _unavailableOpen.Value = poller.State == ReadingsState.Unavailable;
         _choiceEnabled.Value = fan.CanWrite(FanMode.Max) || fan.MaxIsSet;
         _lastSetText.Value = LastSetText(loc, fan.Last);
         _checkText.Value = _watching ? loc.T("check.watching") : _result is null ? loc.T("check.none") : CheckText(loc, _result);

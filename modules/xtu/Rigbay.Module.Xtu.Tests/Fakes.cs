@@ -101,12 +101,14 @@ internal sealed class FakeClient : IXtuClient
     public XtuException? ApplyError;
     public readonly Queue<(Dictionary<uint, decimal> Values, bool JustOpened)> Monitor = new();
     public int MonitorResets;
+    public int MonitorReads;
     public bool Disposed;
 
     public XtuState ReadState() => ReadError is null ? State : throw ReadError;
 
     public IReadOnlyDictionary<uint, decimal> ReadMonitor(out bool justOpened)
     {
+        Interlocked.Increment(ref MonitorReads);
         var (values, opened) = Monitor.Count > 1 ? Monitor.Dequeue() : Monitor.Peek();
         justOpened = opened;
         return values;
@@ -155,13 +157,40 @@ internal sealed class FakeMetrics : IMetricsBus
 
     public void Publish(MetricId id, double value, MetricUnit unit)
     {
-        lock (Published) Published.Add((id, value, unit));
+        lock (Published) { Published.Add((id, value, unit)); _current.Add(id); }
     }
 
     public IDisposable Subscribe(Action<MetricSample> handler) => new Nothing();
     public IDisposable Subscribe(MetricId id, Action<MetricSample> handler) => new Nothing();
     public bool TryGetLatest(MetricId id, out MetricSample sample) { sample = null!; return false; }
     public IReadOnlyList<MetricSample> GetLatest() => Array.Empty<MetricSample>();
+
+    // ---- A9 members: withdraw, descriptors, subscriber count --------------------------------------------------------------
+    public readonly List<MetricId> Withdrawn = new();
+    public readonly List<MetricDescriptor> Descriptors = new();
+    private readonly Dictionary<MetricId, int> _subscribers = new();
+
+    /// <summary>Like the real bus: only an id that has a current sample can be withdrawn; publishing it again makes it current.</summary>
+    public void Withdraw(MetricId id)
+    {
+        lock (Published)
+        {
+            if (!_current.Remove(id)) return;
+            Withdrawn.Add(id);
+        }
+    }
+
+    private readonly HashSet<MetricId> _current = new();
+    public bool IsCurrent(MetricId id) { lock (Published) return _current.Contains(id); }
+    public void Describe(MetricDescriptor descriptor) { lock (Published) Descriptors.Add(descriptor); }
+    public int SubscriberCount(MetricId id) { lock (Published) return _subscribers.TryGetValue(id, out var n) ? n : 0; }
+    public event Action? SubscribersChanged;
+
+    public void SetSubscribers(MetricId id, int count)
+    {
+        lock (Published) _subscribers[id] = count;
+        SubscribersChanged?.Invoke();
+    }
 
     public double? Last(string id)
     {
@@ -330,6 +359,9 @@ internal sealed class FakeHost : IHostServices
     public IToastService Toast => FakeToast;
     public readonly FakeMetrics FakeMetrics = new();
     public IMetricsBus Metrics => FakeMetrics;
+    /// <summary>The page-shown signal. A real host starts it false until the app shows the page.</summary>
+    public readonly ObservableValue<bool> PageVisibleValue = new(false);
+    public IObservableValue<bool> PageVisible => PageVisibleValue;
     public readonly FakeApproval FakeApproval = new();
     public IHardwareApproval Approval => FakeApproval;
     public int Refreshes;

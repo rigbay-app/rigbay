@@ -21,7 +21,6 @@ public sealed partial class PredatorSenseModule : IModule
     // Values the page shows. They live as long as the instance, so enabling again after disabling works.
     private readonly ObservableValue<string> _choice = new("auto");
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
-    private readonly ObservableValue<bool> _unavailableOpen = new(false);
     private readonly ObservableValue<string> _modelText = new("");
     private readonly ObservableValue<string> _lastSetText = new("");
     private readonly ObservableValue<string> _checkText = new("");
@@ -78,8 +77,13 @@ public sealed partial class PredatorSenseModule : IModule
         _wmi = new GuardedAcerWmi(inner);
         _poller = new SensorPoller(_wmi, host.Metrics, host.Log, _now);
         _fan = new FanController(_wmi, _poller, message => host.Log.Info(message), _now, _delay, _carried);
-        _scheduler = new PollScheduler(_poller, TimeSpan.FromSeconds(_settings.PollSeconds), TimeSpan.FromSeconds(10),
+        _scheduler = new PollScheduler(_poller, TimeSpan.FromSeconds(_settings.PollSeconds), TimeSpan.FromSeconds(PredatorSenseSettings.IdlePollSeconds),
             ex => host.Log.Error("Polling the sensors failed", ex));
+        _scheduler.Watched = IsWatched(host);
+
+        // Say once what each metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
+        foreach (var info in SensorInfo.All)
+            host.Metrics.Describe(new MetricDescriptor(info.Metric, SensorLabelKey(info.Sensor), info.Unit, "0"));
 
         _poller.StateChanged += OnReadingsState;
         _poller.Polled += OnPolled;
@@ -89,6 +93,8 @@ public sealed partial class PredatorSenseModule : IModule
         _restore.Changed += OnRestoreChanged;
         _choice.Changed += OnChoiceChanged;
         host.Localisation.LanguageChanged += RefreshTexts;
+        host.PageVisible.Changed += OnWatchSignal;
+        host.Metrics.SubscribersChanged += OnWatchSignal;
 
         // Starting at 0 means "off": the user binds a gesture in the page. A press goes through the approval service.
         _hotkey = host.Hotkeys.Register(new HotkeyRegistration("toggle-fan", "hotkey.toggle-fan", null, () => _ = OnHotkeyAsync()));
@@ -123,7 +129,12 @@ public sealed partial class PredatorSenseModule : IModule
         _pollSeconds.Changed -= OnPollSecondsChanged;
         _restore.Changed -= OnRestoreChanged;
         _choice.Changed -= OnChoiceChanged;
-        if (host is not null) host.Localisation.LanguageChanged -= RefreshTexts;
+        if (host is not null)
+        {
+            host.Localisation.LanguageChanged -= RefreshTexts;
+            host.PageVisible.Changed -= OnWatchSignal;
+            host.Metrics.SubscribersChanged -= OnWatchSignal;
+        }
 
         // Rigbay set Maximum and is stopping: give the fans back to the firmware. Two seconds waiting for a running
         // write plus two for this one fit the 5 seconds the host allows.
@@ -143,6 +154,36 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     // ------------------------------------------------------------------ reactions
+
+    /// <summary>
+    /// True when somebody can see the readings: the module's page is on screen, or one of the sensor metrics has a subscriber
+    /// (the dashboard bay, a recorder, another module). Otherwise the sensors are read at the slow rate.
+    /// </summary>
+    internal static bool IsWatched(IHostServices host)
+    {
+        if (host.PageVisible.Value) return true;
+        foreach (var info in SensorInfo.All)
+            if (host.Metrics.SubscriberCount(info.Metric) > 0) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// The page was shown or left, or somebody (un)subscribed. Runs on the thread that changed it (often the UI thread): it only
+    /// flips the scheduler's rate and asks for a poll now when somebody started to look; the read itself runs on the timer thread.
+    /// </summary>
+    private void OnWatchSignal()
+    {
+        var host = _host;
+        var scheduler = _scheduler;
+        if (host is null || scheduler is null) return;
+        bool watched = IsWatched(host);
+        if (watched == scheduler.Watched) return;
+        scheduler.Watched = watched;
+        if (watched) scheduler.PollSoon();
+    }
+
+    /// <summary>The interval the sensors are read at now (tests).</summary>
+    internal TimeSpan? CurrentPollInterval => _scheduler?.CurrentInterval;
 
     private void OnReadingsState(ReadingsState state) => RefreshTexts();
 

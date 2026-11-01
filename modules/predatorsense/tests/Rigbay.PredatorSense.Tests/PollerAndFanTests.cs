@@ -335,3 +335,94 @@ public class FanControllerTests
         Assert.True(rig.Fan.MaxIsSet);
     }
 }
+
+public class PollerWithdrawTests
+{
+    private static (SensorPoller Poller, FakeAcerWmi Wmi, FakeMetrics Bus) Make()
+    {
+        var wmi = new FakeAcerWmi();
+        var bus = new FakeMetrics();
+        return (new SensorPoller(new GuardedAcerWmi(wmi), bus, new FakeLog()), wmi, bus);
+    }
+
+    [Fact]
+    public void Four_misses_keep_the_last_value_and_the_fifth_withdraws_every_sensor()
+    {
+        var (poller, wmi, bus) = Make();
+        poller.PollOnce();
+        wmi.ReadThrows = new AcerWmiException(AcerWmiFailure.Failed, "boom");
+        for (int i = 0; i < SensorPoller.FailureLimit - 1; i++) poller.PollOnce();
+        Assert.Empty(bus.Withdrawn);
+        Assert.True(bus.TryGetLatest(new MetricId("cpu.temp"), out _));
+
+        poller.PollOnce();
+        Assert.Equal(6, bus.Withdrawn.Count);
+        Assert.False(bus.TryGetLatest(new MetricId("cpu.temp"), out _));
+
+        poller.PollOnce();   // a sixth miss does not withdraw again
+        Assert.Equal(6, bus.Withdrawn.Count);
+    }
+
+    [Fact]
+    public void Readings_that_come_back_are_published_again()
+    {
+        var (poller, wmi, bus) = Make();
+        poller.PollOnce();
+        wmi.ReadThrows = new AcerWmiException(AcerWmiFailure.Failed, "boom");
+        for (int i = 0; i < SensorPoller.FailureLimit; i++) poller.PollOnce();
+        Assert.False(bus.TryGetLatest(new MetricId("fan.cpu.rpm"), out _));
+
+        wmi.ReadThrows = null;
+        poller.PollOnce();
+        Assert.True(bus.TryGetLatest(new MetricId("fan.cpu.rpm"), out var s));
+        Assert.Equal(2564, s.Value);
+
+        // and a new run of failures withdraws them again (the counters started over)
+        wmi.ReadThrows = new AcerWmiException(AcerWmiFailure.Failed, "boom");
+        for (int i = 0; i < SensorPoller.FailureLimit - 1; i++) poller.PollOnce();
+        Assert.Equal(6, bus.Withdrawn.Count);
+        poller.PollOnce();
+        Assert.Equal(12, bus.Withdrawn.Count);
+    }
+
+    [Fact]
+    public void One_sensor_that_stops_answering_is_withdrawn_alone()
+    {
+        var (poller, wmi, bus) = Make();
+        poller.PollOnce();
+        wmi.Sensors[9] = FakeAcerWmi.Raw(0, status: 5);   // GPU fan 2 refuses
+        for (int i = 0; i < SensorPoller.FailureLimit; i++) poller.PollOnce();
+        Assert.Equal(new[] { "fan.gpu2.rpm" }, bus.Withdrawn.Select(m => m.Value).ToArray());
+        Assert.Equal(ReadingsState.Available, poller.State);
+        Assert.True(bus.TryGetLatest(new MetricId("cpu.temp"), out _));
+    }
+
+    [Fact]
+    public void A_part_the_machine_does_not_have_is_never_withdrawn()
+    {
+        var (poller, wmi, bus) = Make();
+        wmi.Sensors[3] = FakeAcerWmi.Raw(0);   // no system temperature: status 0, value 0
+        for (int i = 0; i < SensorPoller.FailureLimit + 2; i++) poller.PollOnce();
+        Assert.Empty(bus.Withdrawn);
+    }
+
+    [Fact]
+    public void Scheduler_PollSoon_reads_now_even_with_the_slow_interval_and_does_nothing_when_stopped()
+    {
+        var (poller, wmi, _) = Make();
+        using var scheduler = new PollScheduler(poller, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30), _ => { });
+        scheduler.Watched = false;
+        scheduler.PollSoon();   // not started
+        Thread.Sleep(50);
+        Assert.Empty(wmi.Reads);
+
+        scheduler.Start(TimeSpan.FromSeconds(30));
+        scheduler.PollSoon();
+        Assert.True(Wait.Until(() => wmi.Reads.Count >= 6, 3000));
+        scheduler.Stop();
+        scheduler.PollSoon();
+        int after = wmi.Reads.Count;
+        Thread.Sleep(80);
+        Assert.Equal(after, wmi.Reads.Count);
+    }
+}

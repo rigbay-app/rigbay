@@ -12,13 +12,13 @@ Names are exact, line numbers left out on purpose. Everything is `internal` exce
 | `Client.cs` | ports and DTOs, `IXtuClient`, `WriteLatch`, `XtuClient` (`ReadState`, `ReadMonitor`, `Apply` = the sequence; every failure becomes `XtuException`) |
 | `Intel/IntelPorts.cs` | `Pipes` (binding with 64 MB quotas), `IntelTuningPort`, `IntelMonitorPort` (registers its pid with `Connect`/`Start`, `Stop` on dispose). Only file with Intel types |
 | `Apply.cs` | `ApplyOrigin`, `ApplyStatus`, `ApplyResult`, `ApplyService.ApplyAsync` (one apply at a time; `Busy` is dropped), `Detail` (the approval text), `Completed` event |
-| `Monitoring.cs` | `Mon` ids, `XtuMetrics` ids, `MonitorSampler.Tick/Reset/PerCore` (warm-up, unit conversion) |
+| `Monitoring.cs` | `Mon` ids, `XtuMetrics` ids, lists (`Monitored`, `PerCore`, `All`) and `Descriptors` (labels), `MonitorSampler.Tick/Reset/WithdrawAll/PerCore` (warm-up, unit conversion) |
 | `AutoSwitch.cs` | `PowerLine`, `IPowerEnvironment`, `AutoSwitcher.Check` (pure decision) |
 | `Hotkeys.cs` | `HotkeyPolicy.Refuse`, `ReadXtuCombos`, `PairingOn`, `ActionId` |
 | `System.cs` | `XtuPaths` (Intel folder, ProgramData folder), `ISystemProbe` and `WindowsSystemProbe` (CPU vendor from the registry, `ServiceController`, Fast Startup flag, `GetSystemPowerStatus`), `ProbeLogic`, `WindowsPowerEnvironment` (`SystemEvents.PowerModeChanged`, all exceptions caught) |
 | `Commands.cs` | `XtuCommands`: `status` (same lines as the old CLI), `list`, `apply <name>` |
 | `Settings.cs` | `XtuSettings` (the settings object the host serialises) |
-| `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |
+| `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`/`MonitorWanted`/`MonitorFailed`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |
 | `Page.cs` | `XtuRuntime` page side: observable values, `ShowState`, `OnProfileChosen`, `OnAutoSettingChanged`, `RegisterProfileEntries`/`GuardBinding` (hotkeys and tray), `BuildPage`, `NewProfileRow`/`CreateAsync`, `CustomProfileRow`/`DeleteAsync`, `ReloadAsync` |
 
 ## Threads

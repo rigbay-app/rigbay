@@ -587,7 +587,7 @@ public class CommandTests
 public class LanguageTests
 {
     private static readonly string[] Prefixes =
-        { "probe", "err", "val", "msg", "state", "value", "row", "group", "choice", "effect", "approve", "toast", "cmd", "hotkey", "reason", "link", "new" };
+        { "probe", "err", "val", "msg", "state", "value", "row", "group", "choice", "effect", "approve", "toast", "cmd", "hotkey", "reason", "link", "new", "metric" };
 
     private static string ModuleSource()
     {
