@@ -52,7 +52,7 @@ if ($proc) {
     # does the running instance answer? (the command line is forwarded to it over its pipe)
     $f = Join-Path $PSScriptRoot 'out\schtask-list.txt'
     Remove-Item $f -ErrorAction SilentlyContinue
-    Start-Process $exe -ArgumentList 'list', '--out', "`"$f`"" -Wait | Out-Null
+    Start-Process $exe -ArgumentList '--out', "`"$f`"", 'list' -Wait | Out-Null
     Say ("forwarded 'list' to the running instance: " + ((Get-Content $f -ErrorAction SilentlyContinue) -join ' | '))
     Say ("process still running after the check: " + [bool](Get-Process -Id $proc.Id -ErrorAction SilentlyContinue))
 } else { Say "process: Rigbay.App never appeared" }

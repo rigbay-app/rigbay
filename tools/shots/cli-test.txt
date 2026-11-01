@@ -1,0 +1,15 @@
+--- headless (no running instance): the exe loads the modules, runs the verb, stops them
+PASS list: exit 0 (want 0) | exit=0 / demo-bad-manifest  Failed / demo-broken  Off / demo-fan  Off / demo-future  Unsupported / demo-lighting  Unsupported
+PASS version: exit 0 (want 0) | exit=0 / Rigbay 0.1.0, host API 0.1
+PASS demo-fan status: exit 0 (want 0) | exit=0 / mode=auto pl1=45W boost=False
+PASS demo-fan help (lists the verbs, exit 2 as the contract says for usage): exit 2 (want 2) | exit=2 / Module 'demo-fan' has no verb 'help' / demo-fan max  Switch the fans to maximum (asks first) / demo-fan status  Print fan mode, power limit and boost
+PASS demo-fan max (nobody can approve, so it is refused): exit 1 (want 1) | exit=1 / Not confirmed. Nothing changed.
+PASS unknown verb: exit 2 (want 2) | exit=2 / Module 'demo-fan' has no verb 'nope' / demo-fan max  Switch the fans to maximum (asks first) / demo-fan status  Print fan mode, power limit and boost
+PASS unknown module: exit 2 (want 2) | exit=2 / No module named 'nope'
+PASS module that is not running: exit 2 (want 2) | exit=2 / Module 'demo-lighting' is not running
+--- forwarded to a running instance (its state is changed first; a headless run would still say mode=auto)
+PASS demo-fan status against the running instance: exit 0 (want 0) | exit=0 / mode=max pl1=45W boost=False
+--- langcheck
+PASS langcheck, host and demo modules: exit 0 (want 0) | exit=0 / == host: D:\Documents\Projects\rigbay\.claude\worktrees\feat-app-shell\tools\out\app\lang / English keys: 130 / en (English): 130/130 translated / vi (Ti?ng Vi?t): 130/130 translated / result: ok / == module demo-fan: D:\Documents\Projects\rigbay\.claude\worktrees\feat-app-shell\tools\out\modules\demo-fan\lang / English keys: 48 / e
+PASS langcheck finds a typo key and a placeholder mismatch: exit 1 (want 1) | exit=1 / == host: D:\Documents\Projects\rigbay\.claude\worktrees\feat-app-shell\tools\out\app\lang / English keys: 130 / en (English): 130/130 translated / vi (Ti?ng Vi?t): 130/130 translated / result: ok / == module demo-fan: D:\Documents\Projects\rigbay\.claude\worktrees\feat-app-shell\tools\out\modules-badlang\demo-fa
+failed checks: 0

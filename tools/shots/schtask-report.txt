@@ -1,0 +1,27 @@
+create: Rigbay.App.exe --script startup:on   (same code as the Settings switch)
+  app exit code 0
+task exists: True
+  <LogonTrigger>
+  </LogonTrigger>
+  <Delay>PT15S</Delay>
+  <LogonType>InteractiveToken</LogonType>
+  <RunLevel>HighestAvailable</RunLevel>
+  <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+  <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+  <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+  <Command>D:\Documents\Projects\rigbay\.claude\worktrees\feat-app-shell\tools\out\app\Rigbay.App.exe</Command>
+  <Arguments>--tray</Arguments>
+run: schtasks /run /tn Rigbay
+SUCCESS: Attempted to run the scheduled task "Rigbay".
+process: pid 31392, session 1 (the interactive desktop is session 1), responding=True
+log lines of that start:
+  2026-11-01 18:32:40.949 INFO  host           Rigbay host 0.1.0, API 0.1, modules in C:\ProgramData\Rigbay\modules
+  2026-11-01 18:32:41.073 INFO  host           discovered 0 module(s):
+  2026-11-01 18:32:41.084 INFO  host           tray icon added
+  2026-11-01 18:32:41.098 INFO  host           toast: registered
+forwarded 'list' to the running instance: exit=0 | 
+process still running after the check: True
+delete: Rigbay.App.exe --script startup:off
+  app exit code 0; task gone: True
+no Rigbay.App process left: True
+removed the %LOCALAPPDATA%\Rigbay folder this test created
