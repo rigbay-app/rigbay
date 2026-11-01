@@ -161,6 +161,7 @@ Passed to `Initialize`; one instance per module (so the host knows who is callin
 | `Approval` | `IHardwareApproval`: ask the user to confirm a hardware write the module starts itself (rows marked `HardwareEffect` are confirmed by the host without this). | 5.4 |
 | `RunOnUi(Action)` | **Mandatory way to reach the UI thread.** Runs the action there inside the fault boundary. A module never uses a dispatcher of its own. | 5.3 |
 | `RequestPageRefresh()` | Asks the host to call `GetPageModel` again and replace the page (a list that changed). Any thread, coalesced, no-op while the module is off. | 7.1, 13 |
+| `PageVisible` | `IObservableValue<bool>`: true while the host shows this module's page. Lets a polling module slow down when nobody looks. The module only observes it (a set from the module is ignored); false while the module is off; read it in `Initialize`. | 13 |
 | `HostVersion` | Version of the host application (informational; compatibility is `HostApi.Current`). | 11 |
 
 No member of any service takes or returns a UI framework or Windows type. Where a UI concept is needed it is plain
@@ -205,9 +206,9 @@ Every `Row` has `HeaderKey`, optional `DescriptionKey` (the host indexes both fo
 | `NumberRow` | number box | `IObservableValue<double>`, `Minimum`, `Maximum`, `Step`, `Unit` (`MetricUnit`), `Apply`, `Validate` |
 | `TextRow` | text box | `IObservableValue<string>`, `MaxLength`, `PlaceholderKey`, `Apply`, `Validate` |
 | `ShortcutRow` | key capture | `IObservableValue<HotkeyGesture?>`, normally `IHotkeyBinding.Gesture`; `Apply` |
-| `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` |
+| `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` and `RevertButtonKey` (label of the revert action, shown in the question) |
 | `ValueRow` | read-only text | `IObservableValue<string>` (already localised by the module) |
-| `ReadingRow` | live number with unit | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color` |
+| `ReadingRow` | live number with unit | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color`. Shows "not available" instead of a number when the metric has no sample or was withdrawn (section 6) |
 | `ExpanderRow` | row that folds `Children` | `IsExpanded` initially |
 | `InfoRow` | inline message | `Severity` (info, success, warning, error), `IsOpen`; header = title, description = text |
 | `CustomRow` | whatever the module builds | `ControlId` (5.5) |
@@ -245,6 +246,25 @@ of this replaces the module's own checks: refuse dangerous values inside the mod
   Use it for every number, text or shortcut that writes to hardware (power limits, fan curves points). A toggle or
   choice that changes hardware is applied after confirmation and also gets Revert. `Rigbay.Core` implements this as
   `ValueEditor<T>`; the UI only binds to it.
+
+**A revert is a hardware write like any other, so the host asks again.** Putting a previous value back is a change of
+the machine too: Maximum to Auto is harmless, but Auto to Maximum (the revert of a revert, or a revert after the
+read-back showed a different value than the one written) is not. Every call that changes hardware goes through the
+approval service, Revert included, and the question names the exact current and previous value: `Fan mode: Maximum → Auto`
+(`ApprovalRequest.IsRevert` is true; the effect text is `HardwareEffect.RevertDescriptionKey` when the module gave one).
+A declined revert changes nothing and the row stays revertible. This holds for value rows
+(`ValueEditor<T>.RevertAsync(ct)`) and for buttons (`RowEditors.RevertButtonAsync(entry, row, ct, detail?)`; its default
+question is `<header>: <RevertButtonKey text, or "Revert">`).
+
+One opt-out exists, and it is the module's to claim: `HardwareEffect.SafeRevert = true` (default **false**). The host then
+reverts without a question, but the status line still names what was written (`EditResult.Message` for a value row, for
+example `Reverted: Status light is now Off (was On)`; `ActionResult.Message` for a button: the module's own message, or the
+host's `core.revert.button-done`). Set it only when every possible revert of that row is harmless for the machine (a
+lighting colour); never on fan, power, voltage or charge rows, where the previous value can be the more dangerous one.
+The synchronous `ValueEditor<T>.Revert()` cannot ask, so it only reverts rows that need no question (no hardware
+effect, or `SafeRevert`); for any other hardware row it writes nothing and returns `EditOutcome.Declined`. The UI calls
+`RevertAsync`. The sample module has a `Profile` row (revert asked), a `Status light` row (`SafeRevert`) and a `Boost`
+button (revert asked) that show both.
 
 The confirmation shows the exact change: `ApprovalRequest.Detail` is the new value as text (a toggle "On" or "Off", a
 choice its label, a number, the text itself, a shortcut such as `Ctrl+F5` or "Not set"). The caller can pass its own
@@ -287,6 +307,15 @@ the metrics bus). The state of a bay is from the closed set `BayState`:
 `Rigbay.Core` computes the state (`ModuleEntry.Bay`); precedence is Failed, Unsupported, RestartRequired,
 UpdateAvailable, then Ready or Off.
 
+**Labels of the summary readings.** The summary names metric ids, not texts. A module registers the text once, in
+`Initialize`, with `host.Metrics.Describe(new MetricDescriptor(id, "metric.cpu-temp", MetricUnit.Celsius, "0"))`: the label
+key is module-relative like every other key (`module.<id>.metric.cpu-temp` in the language file) or a `Text.Literal`. The
+host resolves it in the current language: `RigbayHost.ResolveMetricLabel(id)` and `ModuleEntry.ResolveMetricLabel(id)`
+return the module's label, else the host's own `metric.<id>` text (shared ids such as `cpu.temp`), else the raw id.
+`ModuleEntry.GetSummaryReadings()` gives the dashboard everything for a bay in one call: up to two `SummaryReading(Id,
+Label, Unit, FormatHint)`. If two modules describe the same id, the first description is kept (the id is a shared
+vocabulary, so the label should be the same anyway).
+
 ## 6. Metrics bus
 
 - `MetricId`: a lowercase dotted id such as `cpu.temp`, `gpu.fan.rpm`, `cpu.power.pl1` (segments of `[a-z0-9_-]`,
@@ -303,6 +332,24 @@ UpdateAvailable, then Ready or Off.
 - NaN and infinity are dropped and logged. If two modules publish the same id, the newest sample wins and
   `SourceModule` says who. Delivery to subscribers is synchronous on the publisher's thread, each subscriber in
   its own module's fault boundary: a slow subscriber slows the publisher, so keep handlers short and hand off.
+- **Withdraw.** `Withdraw(id)` takes a metric back, for example after repeated read failures: the last value is no longer
+  true and must not stay on the page. Afterwards `TryGetLatest` is false, `Latest(id)` is null and `GetLatest()` leaves
+  the id out; every subscriber of the id (and every all-samples subscriber) gets one `MetricSample` with
+  `IsAvailable == false` and a NaN `Value`, so **check `IsAvailable` before you use `Value`**. Publishing the id again
+  makes it available again. `Withdraw` only acts on a reading this module published last (another module's newer sample
+  is not touched) and does nothing twice. A `ReadingRow` shows "not available" for a metric with no sample or a withdrawn
+  one (`ReadingFormat.Format(languages, row, sample)` in Core is the one function that formats it).
+- **Describe.** `Describe(new MetricDescriptor(id, labelKey, unit, formatHint))` registers once what the metric is called
+  and how to format it (section 5.6). `LabelKey` is module-relative or a `Text.Literal`; `FormatHint` is a .NET numeric
+  format such as `"0"` or `"0.0"`, or null.
+- **Subscribers.** `SubscriberCount(id)` is how many readers want the id: subscribers of that id plus all-samples
+  subscribers, from the host (dashboard, recorder) and from other modules, not this module's own. `SubscribersChanged`
+  is raised (inside the module's fault boundary, on the thread that subscribed or disposed) when that can have changed;
+  it does not say for which id, so call `SubscriberCount` for the ids you publish. Both are for the poll-rate pattern in
+  section 13.
+- `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged` and `Latest` are default interface members on
+  `IMetricsBus` (and `PageVisible` on `IHostServices`): a class that implements the interface itself, like a test double,
+  keeps compiling and gets "nobody listens, nothing to withdraw".
 
 ## 7. Localisation
 
@@ -513,6 +560,33 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
    Names that come from data, not from you (profiles, devices), go through `Text.Literal(name)` where a key is expected,
    and when that list changes you call `host.RequestPageRefresh()` so the host rebuilds the page (section 7.1; the sample
    module's "Devices" expander and "Add a device" button show both).
+   **Polling modules: poll fast only while somebody can see the result.** A module cannot know whether its page is open
+   or anybody reads its metrics, so give it the two signals the host offers and slow down without them:
+
+   ```csharp
+   private static readonly TimeSpan Fast = TimeSpan.FromSeconds(2), Slow = TimeSpan.FromSeconds(15);
+   private bool _fast = true;
+
+   // in Initialize, after the timer exists:
+   host.Metrics.Describe(new MetricDescriptor(CpuTemp, "metric.cpu-temp", MetricUnit.Celsius, "0")); // label for the dashboard
+   host.PageVisible.Changed += UpdateRate;           // the page opened or closed
+   host.Metrics.SubscribersChanged += UpdateRate;    // the dashboard, a recorder or another module started or stopped reading
+
+   private void UpdateRate()
+   {
+       // wanted = the page is open OR somebody reads a metric I publish (my own subscriptions are not counted)
+       bool wanted = _host.PageVisible.Value || _host.Metrics.SubscriberCount(CpuTemp) > 0;
+       if (wanted == _fast) return;
+       _fast = wanted;
+       _timer.Change(wanted ? TimeSpan.Zero : Slow, wanted ? Fast : Slow); // zero: read now when somebody starts looking
+   }
+   ```
+
+   Both events run on the thread that changed them (often the UI thread) inside your fault boundary: only retime a
+   timer there, hand anything slow to a background thread. Unsubscribe in `Shutdown`. Read `PageVisible.Value` in
+   `Initialize` (it is the current state, not always false). When a read keeps failing, `host.Metrics.Withdraw(id)` the
+   metric instead of leaving the last value on the page. The sample module does all of this (`UpdatePollRate`,
+   `OnPausedChanged`).
 4. **Language file** `lang\en.lang` with `module.<id>.group.main = ...` and so on; add `vi.lang` if you can.
 5. **Check.** `dotnet run --project src/Rigbay.LangCheck -- <your lang folder> --module <id> --source <your source folder>`.
 6. **Try.** Build; copy the output folder to `<modules root>\<id>\`; start the host. Read `rigbay.log` first when
@@ -573,17 +647,17 @@ off the UI thread, and binds its windows to the objects below. All of it is cove
 var host = new RigbayHost(new RigbayHostOptions { ModulesRoot = @"C:\Program Files\Rigbay\modules" });
 host.UiDispatcher = action => dispatcherQueue.TryEnqueue(() => action());   // the app's own wrapped UI dispatch
 host.ToastSink = myToastSink;           // IToastSink: Show(moduleId, title, body, kind), texts already localised
-host.ApprovalPrompt = myPrompt;         // IApprovalPrompt: ConfirmAsync(ApprovalRequest) -> bool; none set = every hardware change refused
+host.ApprovalPrompt = myPrompt;         // IApprovalPrompt: ConfirmAsync(ApprovalRequest) -> bool (request.IsRevert for a revert); none set = every hardware change refused
 await Task.Run(() => { host.Discover(); host.StartEnabled(); });
 ```
 
 | Object | What the app uses it for |
 | --- | --- |
 | `RigbayHost.Modules`, `Find(id)` | The list of `ModuleEntry`: one per folder, valid or not. `ModulesDiscovered`, `ModuleFaulted` events. |
-| `ModuleEntry` | `Id`, `DisplayName`, `DisplayDescription` (manifest text, overridden by `module.<id>.name` / `.description`), `Manifest` (group, requires, version), `Lifecycle`, `Bay` (a `BayStatus`: `BayState` plus `ModuleReason`), `ResolveReason(reason)`, `Page` (null while the module is off), `LastPage` (the last page built, kept after a stop or fault, so the UI can show the rows disabled), `Issues` (manifest problems as keys: `issue.Localise(host.Languages)`), `Fault`, `Enable()`, `Disable()`, `SetPending(...)` (installer sets update or restart), `Changed` event, `CreateCustomControl(id)`, `Invoke`/`InvokeAsync` (any other call into the module goes through these). `Enable()` and `Disable()` block for up to the time limits: call them off the UI thread. |
-| `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `Revert`, `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. `For` returns one editor per row instance (the same object each time); `ValueEditor<T>` is `IDisposable` and the entry disposes its editors when the module stops or faults and before it is enabled again, so the UI need not. |
-| `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects. |
-| `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. |
+| `ModuleEntry` | `Id`, `DisplayName`, `DisplayDescription` (manifest text, overridden by `module.<id>.name` / `.description`), `Manifest` (group, requires, version), `Lifecycle`, `Bay` (a `BayStatus`: `BayState` plus `ModuleReason`), `ResolveReason(reason)`, `Page` (null while the module is off), `LastPage` (the last page built, kept after a stop or fault, so the UI can show the rows disabled), `Issues` (manifest problems as keys: `issue.Localise(host.Languages)`), `Fault`, `Enable()`, `Disable()`, `SetPending(...)` (installer sets update or restart), `Changed` event, `SetPageVisible(bool)` (call it when the module page is shown or left, 4), `ResolveMetricLabel(id)` and `GetSummaryReadings()` (dashboard labels, 5.6), `CreateCustomControl(id)`, `Invoke`/`InvokeAsync` (any other call into the module goes through these). `Enable()` and `Disable()` block for up to the time limits: call them off the UI thread. |
+| `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `RevertAsync` (asks first for a hardware row, 5.4), `Revert` (synchronous: refuses hardware rows that need a question), `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. `For` returns one editor per row instance (the same object each time); `ValueEditor<T>` is `IDisposable` and the entry disposes its editors when the module stops or faults and before it is enabled again, so the UI need not. |
+| `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects, for the action and for its revert. `RevertButtonAsync(entry, row, ct, detail?)` asks too (5.4). |
+| `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `Latest(id)`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. A sample with `IsAvailable == false` is the "withdrawn" notice (6). `TryGetDescriptor`, `GetDescriptors`, `SubscriberCount(id)`, `SubscribersChanged`, `IsWithdrawn(id)`. `ReadingFormat.Format(host.Languages, row, sample)` turns a sample (or null) into the text of a reading, including "not available". |
 | `host.Hotkeys` (`HotkeyRegistry`) | `Entries`, `Conflicts`, `ReserveHost(name, gesture)`, `Press(gesture)` (call it from the window's hotkey message), `Changed`. Entry `Gesture` and `HasConflict` are observable. |
 | `host.Tray` (`TrayRegistry`) | `Items` (`TrayEntry`: module id, `TrayItem` data, a guarded `Invoke`), `Changed`. |
 | `host.Commands`, `ExecuteCommandAsync(args)` | `rigbay <module> <verb> [args]` to a `CommandOutcome(ExitCode, Output)`. The app carries the command line to the running process and prints `Output` (stdout for 0, stderr otherwise). |
@@ -609,6 +683,53 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after A9 (host gaps found by the PredatorSense module; no version number change)
+
+Additive in `Rigbay.Abstractions` (every new interface member is a default interface member, so a class that implements
+`IHostServices` or `IMetricsBus` itself keeps compiling), one **behaviour change** in Core:
+
+- **Behaviour change (safety).** A revert of a hardware row is asked about like any hardware change, with the exact
+  current and previous value in the question. Before, "a revert is not asked about again", so Auto -> Maximum could be
+  written by a Revert without a question. `ValueEditor<T>.Revert()` (synchronous) can no longer ask: for a hardware row it
+  now writes nothing and returns `EditOutcome.Declined` ("must be confirmed"). **The UI must call `RevertAsync`.**
+  `RowEditors.RevertButtonAsync` asks too (a declined question returns the failed result `core.approval.declined` and
+  does not call `RevertAsync`). Section 5.4.
+- `HardwareEffect.SafeRevert` (opt-in, default false): the module declares every revert of that row harmless; no question,
+  the status line still names what was written. `HardwareEffect.RevertDescriptionKey` (effect text for the revert
+  question). `ButtonRow.RevertButtonKey` (label of the revert action).
+- `ValueEditor<T>.RevertAsync(CancellationToken)`. `RowEditors.RevertButtonAsync(entry, row, ct, detail = null)`.
+  `ApprovalRequest.IsRevert` (init property). `RigbayHost.RequestApprovalTextAsync(..., bool isRevert = false)`.
+  `EditResult.Message` of an applied revert of a hardware row names what was written.
+- **Poll rate.** `IHostServices.PageVisible` (`IObservableValue<bool>`); Core: `ModuleEntry.SetPageVisible(bool)` (the app
+  calls it when the module's page is shown or left; also while the module is off, the state is kept), `IsPageVisible`.
+  `IMetricsBus.SubscriberCount(MetricId)` and `event SubscribersChanged` (own subscriptions of the module excluded);
+  Core: `MetricsBus.SubscriberCount(MetricId)` / `(string)`, `event SubscribersChanged(MetricId?)` (host and all modules).
+  Section 13 shows the pattern; the sample module uses it.
+- **Withdraw.** `IMetricsBus.Withdraw(MetricId)`, `IMetricsBus.Latest(MetricId)`; `MetricSample.IsAvailable` (init, default
+  true; false in the "unavailable" notification, whose `Value` is NaN); Core: `MetricsBus.Withdraw(source, id)`,
+  `Withdraw(id)`, `WithdrawAll(source)`, `IsWithdrawn(id)`, `Latest(MetricId)` / `(string)`; `TryGetLatest` is false and
+  `GetLatest` omits a withdrawn id. `ReadingFormat.IsAvailable(sample)` and `ReadingFormat.Format(languages, row, sample)`:
+  the text of a `ReadingRow` including "not available" (`core.reading.unavailable`). Section 6.
+- **Labels.** `MetricDescriptor(Id, LabelKey, Unit, FormatHint)` and `IMetricsBus.Describe(descriptor)`; Core:
+  `MetricsBus.Describe(owner, descriptor)`, `TryGetDescriptor`, `GetDescriptors`; `RigbayHost.ResolveMetricLabel(MetricId | string)`,
+  `ModuleEntry.ResolveMetricLabel(MetricId)`, `ModuleEntry.GetSummaryReadings()` / `(PageSummary?)` returning
+  `SummaryReading(Id, Label, Unit, FormatHint)`. Order: the module's descriptor, the host's `metric.<id>` text, the raw id.
+  Section 5.6.
+- New host language keys (en and vi): `core.revert.done`, `core.revert.button-done`, `core.revert.needs-approval`,
+  `core.revert.changed`, `core.revert.generic`, `core.reading.unavailable`.
+- Sample module: `Profile` (hardware choice, revert asked, own revert text), `Status light` (`SafeRevert`), `Boost` (hardware
+  button with revert), `Pause ticks` (withdraws the metric), a poll rate that follows `PageVisible` and
+  `SubscriberCount`, and a `MetricDescriptor` for `sample.ticks`.
+- For the App (task A7 or the next App task): (1) call `RowEditors.For(...).RevertAsync(ct)` instead of `Revert()` for the
+  Revert link of value rows and show `EditResult.Message` for `Applied`/`Declined`; pass nothing else, the question text is
+  built in Core; (2) let the approval dialog use `ApprovalRequest.IsRevert` for its title; (3) call
+  `entry.SetPageVisible(true/false)` when the module page is navigated to or left (and false when the window is hidden);
+  (4) show `ReadingFormat.Format(...)` for `ReadingRow` and handle `MetricSample.IsAvailable == false` in the live
+  subscription (show "not available"); (5) take dashboard labels from `entry.GetSummaryReadings()` instead of the raw ids;
+  (6) a module row that changes hardware and has a `RevertButtonKey` gets a more precise question from Core already.
+- Source-breaking only for code that matched on the exact positional shape of `MetricSample`/`ApprovalRequest` (both are
+  records that gained init properties, not constructor parameters) or that relied on the old "revert is not asked" rule.
 
 ### 0.1 after A8 (literal text and page refresh; no version number change)
 

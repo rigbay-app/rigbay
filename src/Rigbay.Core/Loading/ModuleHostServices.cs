@@ -18,7 +18,7 @@ internal sealed class ModuleHostServices : IHostServices
         Tray = new TrayService(host, entry);
         Commands = new CommandService(host, entry);
         Toast = new ToastService(host, entry);
-        Metrics = host.Metrics.ForModule(entry.Id, handler => entry.Guard("metrics subscriber", handler), entry.TrackSubscription);
+        Metrics = host.Metrics.ForModule(entry.Id, handler => entry.Guard("metrics subscriber", handler), action => entry.Guard("SubscribersChanged handler", action), entry.TrackSubscription);
         Approval = new ApprovalService(host, entry);
     }
 
@@ -48,6 +48,8 @@ internal sealed class ModuleHostServices : IHostServices
     public IHardwareApproval Approval { get; }
 
     public void RequestPageRefresh() => _entry.RequestPageRefresh();
+
+    public IObservableValue<bool> PageVisible => _entry.PageVisibleValue;
 
     public void RunOnUi(Action action)
     {

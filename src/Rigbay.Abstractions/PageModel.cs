@@ -53,7 +53,10 @@ public sealed record PageLink(string TextKey, string Url);
 
 /// <summary>What the dashboard bay shows next to the module's state.</summary>
 /// <param name="StateLine">Short text such as "Profile Quiet" or "Proxy on :18081"; null for none. Module-relative key.</param>
-/// <param name="Readings">The one or two most important readings; more than two are ignored.</param>
+/// <param name="Readings">
+/// The one or two most important readings; more than two are ignored. The label the dashboard shows for each comes from the
+/// <see cref="MetricDescriptor"/> the module registered with <see cref="IMetricsBus.Describe"/>; without one it shows the raw id.
+/// </param>
 public sealed record PageSummary(IObservableValue<LocalisedText>? StateLine = null, IReadOnlyList<MetricId>? Readings = null);
 
 /// <summary>
@@ -63,7 +66,24 @@ public sealed record PageSummary(IObservableValue<LocalisedText>? StateLine = nu
 /// </summary>
 /// <param name="DescriptionKey">Module-relative key of the effect text, for example "Sets the fans to maximum. Noise will increase."</param>
 /// <param name="Revertible">True when setting the previous value back (or calling <see cref="ButtonRow.RevertAsync"/>) undoes the change.</param>
-public sealed record HardwareEffect(string DescriptionKey, bool Revertible = true);
+public sealed record HardwareEffect(string DescriptionKey, bool Revertible = true)
+{
+    /// <summary>
+    /// Opt-in, default false. A revert is a hardware write like any other, so by default the host asks again before it
+    /// puts the previous value back, with the exact current and previous value in the question (Auto to Maximum is as
+    /// much a change as Maximum to Auto). Set it to true only when every possible revert of this row is harmless for the
+    /// machine (a lighting colour, a harmless label); the host then reverts without a question but its status line still
+    /// names what was written. Never set it on a row whose previous value could be a higher fan, power or voltage setting
+    /// than the current one.
+    /// </summary>
+    public bool SafeRevert { get; init; }
+
+    /// <summary>
+    /// Module-relative key of the effect text shown when the revert is asked about (for example "Puts the fans back to the
+    /// previous mode."); null shows <see cref="DescriptionKey"/>.
+    /// </summary>
+    public string? RevertDescriptionKey { get; init; }
+}
 
 /// <summary>How a value row applies the user's edit.</summary>
 public enum ApplyMode
@@ -166,6 +186,12 @@ public sealed record ButtonRow(string HeaderKey, string ButtonKey, Func<Cancella
 {
     /// <summary>Undoes the action; used for "Revert" when <see cref="Row.HardwareEffect"/> says it is revertible.</summary>
     public Func<CancellationToken, Task<ActionResult>>? RevertAsync { get; init; }
+
+    /// <summary>
+    /// Module-relative key of the label of the revert action (for example "Boost off"), shown in the question the host asks
+    /// before it calls <see cref="RevertAsync"/> (see <see cref="Abstractions.HardwareEffect.SafeRevert"/>); null shows the generic word "Revert".
+    /// </summary>
+    public string? RevertButtonKey { get; init; }
 }
 
 /// <summary>A read-only text at the right (already localised by the module).</summary>
@@ -173,7 +199,12 @@ public sealed record ButtonRow(string HeaderKey, string ButtonKey, Func<Cancella
 /// <param name="Value">The text.</param>
 public sealed record ValueRow(string HeaderKey, IObservableValue<string> Value) : Row(HeaderKey);
 
-/// <summary>A live number from the metrics bus, formatted by the host with the sample's unit.</summary>
+/// <summary>
+/// A live number from the metrics bus, formatted by the host with the sample's unit. When the metric is withdrawn
+/// (<see cref="IMetricsBus.Withdraw"/>) or was never published, the reading is "not available": the bus has no latest
+/// sample for it, or the sample says <see cref="MetricSample.IsAvailable"/> is false. The host then shows its
+/// "not available" text instead of a number.
+/// </summary>
 /// <param name="HeaderKey">Title key.</param>
 /// <param name="Metric">The metric to show.</param>
 public sealed record ReadingRow(string HeaderKey, MetricId Metric) : Row(HeaderKey)

@@ -95,7 +95,31 @@ public static class MetricUnits
 /// <param name="Unit">Its unit.</param>
 /// <param name="Timestamp">When it was published.</param>
 /// <param name="SourceModule">Id of the module that published it (<c>host</c> for the host itself).</param>
-public sealed record MetricSample(MetricId Id, double Value, MetricUnit Unit, DateTimeOffset Timestamp, string SourceModule);
+public sealed record MetricSample(MetricId Id, double Value, MetricUnit Unit, DateTimeOffset Timestamp, string SourceModule)
+{
+    /// <summary>
+    /// False for the notification the bus sends when a module withdrew the metric (<see cref="IMetricsBus.Withdraw"/>):
+    /// there is no reading any more and <see cref="Value"/> is NaN. Check this before you use <see cref="Value"/>.
+    /// Ordinary samples are always available.
+    /// </summary>
+    public bool IsAvailable { get; init; } = true;
+}
+
+/// <summary>
+/// What a module tells the host about a metric it publishes, once, so every place that shows the metric (the
+/// dashboard, a recorder) can label and format it without knowing the module. Register it with <see cref="IMetricsBus.Describe"/>.
+/// </summary>
+/// <param name="Id">The metric.</param>
+/// <param name="LabelKey">
+/// Module-relative language key of the short name ("CPU temperature"); the host adds the <c>module.&lt;id&gt;.</c> prefix. A
+/// <see cref="Text.Literal"/> is allowed for a name that comes from data.
+/// </param>
+/// <param name="Unit">The unit the module publishes it in.</param>
+/// <param name="FormatHint">
+/// A .NET numeric format string for the number ("0", "0.0"), or null to let the host choose. Informational: the
+/// host may ignore it.
+/// </param>
+public sealed record MetricDescriptor(MetricId Id, string LabelKey, MetricUnit Unit = MetricUnit.None, string? FormatHint = null);
 
 /// <summary>
 /// The bus on which modules publish readings and subscribe to those of others. It caches the latest sample of
@@ -125,8 +149,49 @@ public interface IMetricsBus
     /// <param name="sample">The sample when the result is true.</param>
     bool TryGetLatest(MetricId id, out MetricSample sample);
 
-    /// <summary>The latest sample of every id seen so far.</summary>
+    /// <summary>The latest sample of every id seen so far (withdrawn ids are not listed).</summary>
     IReadOnlyList<MetricSample> GetLatest();
+
+    // The members below were added after 0.1 as default interface members, so a class that implements the interface
+    // itself (a test double) still compiles. The host's implementation overrides all of them.
+
+    /// <summary>The latest sample of an id, or null when none was published yet or the id was withdrawn.</summary>
+    /// <param name="id">The id.</param>
+    MetricSample? Latest(MetricId id) => TryGetLatest(id, out var sample) ? sample : null;
+
+    /// <summary>
+    /// Takes back a metric this module published, for example after repeated read failures: the reading is no longer true,
+    /// so showing the last value would mislead. <see cref="TryGetLatest"/> and <see cref="Latest"/> then find nothing,
+    /// <see cref="GetLatest"/> leaves it out, and every subscriber of the id (and every all-samples subscriber) gets one
+    /// sample with <see cref="MetricSample.IsAvailable"/> false. Publishing the id again makes it available again.
+    /// Does nothing when the module has no current sample of the id (another module may have published it since; it is
+    /// not touched) or when it was withdrawn already.
+    /// </summary>
+    /// <param name="id">The id to withdraw.</param>
+    void Withdraw(MetricId id) { }
+
+    /// <summary>
+    /// Registers the label and format of a metric this module publishes. Call it once per id, in
+    /// <see cref="IModule.Initialize"/>; calling it again from the same module replaces the entry. If another module already
+    /// described the same id, the first description is kept.
+    /// </summary>
+    /// <param name="descriptor">The description.</param>
+    void Describe(MetricDescriptor descriptor) { }
+
+    /// <summary>
+    /// How many readers want this id right now: subscribers of exactly this id plus all-samples subscribers, from the
+    /// host (its dashboard, recorder) and from other modules; this module's own subscriptions are not counted. Zero means
+    /// nobody listens and the module can poll slower (see <see cref="IHostServices.PageVisible"/>). Cheap to call.
+    /// </summary>
+    /// <param name="id">The id.</param>
+    int SubscriberCount(MetricId id) => 0;
+
+    /// <summary>
+    /// Raised after another party subscribed or unsubscribed (not this module's own subscriptions). It does not say which
+    /// id changed: call <see cref="SubscriberCount"/> for the ids you publish. Runs synchronously on the thread that
+    /// subscribed or disposed, inside this module's fault boundary; keep it short and hand slow work to a background thread.
+    /// </summary>
+    event Action? SubscribersChanged { add { } remove { } }
 }
 
 /// <summary>Ids agreed across modules, so a recorder or the dashboard works with any source.</summary>

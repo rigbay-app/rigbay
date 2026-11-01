@@ -32,6 +32,13 @@ public sealed record ModuleReason(string Key, object[] Args, string? ModuleId = 
     public static ModuleReason Host(string key, params object[] args) => new(key, args, null);
 }
 
+/// <summary>One reading of a module's page summary, ready for the dashboard: the label is text in the current language.</summary>
+/// <param name="Id">The metric.</param>
+/// <param name="Label">Short name of the reading (never empty; the raw id when nothing better is known).</param>
+/// <param name="Unit">The unit from the module's descriptor, else from the latest sample, else <see cref="MetricUnit.None"/>.</param>
+/// <param name="FormatHint">The descriptor's format hint, or null.</param>
+public sealed record SummaryReading(MetricId Id, string Label, MetricUnit Unit, string? FormatHint);
+
 /// <summary>State and reason for one dashboard bay.</summary>
 public sealed record BayStatus(BayState State, ModuleReason? Reason);
 
@@ -55,6 +62,9 @@ public sealed class ModuleEntry
     private PageModel? _lastPage;
     private int _refreshState; // 0 idle, 1 rebuilding, 2 rebuilding and asked again
     private readonly Dictionary<Row, IDisposable> _editors = new(ReferenceEqualityComparer.Instance);
+    private bool _pageVisibleRequested;                  // what the app last said, kept while the module is off
+    private bool _pageVisibleLive;                       // true from the start of Enable until the module stops or faults
+    private HostOwnedValue<bool> _pageVisible = new(false);
 
     internal ModuleEntry(RigbayHost host, string folder)
     {
@@ -230,6 +240,8 @@ public sealed class ModuleEntry
             if (_lifecycle == ModuleLifecycle.Running) return true;
             if (_lifecycle != ModuleLifecycle.Off || _instance is null || _services is null) return false;
             _stop = new CancellationTokenSource();
+            _pageVisible = new HostOwnedValue<bool>(_pageVisibleRequested); // a new object: handlers of the previous run never fire again
+            _pageVisibleLive = true;
         }
 
         DisposeEditors(); // left over from the previous page (made for LastPage while the module was off)
@@ -258,6 +270,72 @@ public sealed class ModuleEntry
         if (persist) Host.SetEnabled(Id, true);
         RaiseChanged();
         return true;
+    }
+
+    // ---------------------------------------------------------------- page visibility
+
+    /// <summary>
+    /// The app tells the module whether its page is the one shown: <c>true</c> when the user opens it, <c>false</c> when
+    /// they leave. The module sees it as <see cref="IHostServices.PageVisible"/> and may poll slower while it is false.
+    /// Call it from the UI thread (the module's <c>Changed</c> handler runs on the calling thread, inside the fault
+    /// boundary). Safe to call while the module is off: the state is kept and the module sees it when it is enabled.
+    /// A call with the current state does nothing.
+    /// </summary>
+    /// <param name="visible">Whether the module's page is on screen.</param>
+    public void SetPageVisible(bool visible)
+    {
+        HostOwnedValue<bool>? value;
+        bool running;
+        lock (_gate)
+        {
+            _pageVisibleRequested = visible;
+            value = _pageVisibleLive ? _pageVisible : null;
+            running = _lifecycle == ModuleLifecycle.Running;
+        }
+        if (value is null) return;
+        if (running) Invoke("PageVisible handler", () => value.Set(visible));
+        else
+        {
+            // Initialize is running: a handler that throws here must not take the app down; the next call into the module faults it.
+            try { value.Set(visible); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Warn("a PageVisible handler threw: " + ex.Message); }
+        }
+    }
+
+    /// <summary>What the app last passed to <see cref="SetPageVisible"/> (false before the first call).</summary>
+    public bool IsPageVisible { get { lock (_gate) return _pageVisibleRequested; } }
+
+    internal IObservableValue<bool> PageVisibleValue { get { lock (_gate) return _pageVisible; } }
+
+    // ---------------------------------------------------------------- metric labels
+
+    /// <summary>
+    /// The text the dashboard shows for a metric: the label from the module's <see cref="MetricDescriptor"/> in the current
+    /// language, else the host's <c>metric.&lt;id&gt;</c> text, else the raw id. See <see cref="RigbayHost.ResolveMetricLabel(MetricId)"/>.
+    /// </summary>
+    public string ResolveMetricLabel(MetricId id) => Host.ResolveMetricLabel(id);
+
+    /// <summary>
+    /// The one or two readings of the page summary with their labels, units and format hints, for the dashboard bay. Empty
+    /// when the module is off or has no summary readings.
+    /// </summary>
+    public IReadOnlyList<SummaryReading> GetSummaryReadings() => GetSummaryReadings(Page?.Summary);
+
+    /// <summary>Like <see cref="GetSummaryReadings()"/> for a summary the caller holds (for example the one of <see cref="LastPage"/>).</summary>
+    /// <param name="summary">A page summary, or null.</param>
+    public IReadOnlyList<SummaryReading> GetSummaryReadings(PageSummary? summary)
+    {
+        var readings = summary?.Readings;
+        if (readings is null) return Array.Empty<SummaryReading>();
+        var list = new List<SummaryReading>();
+        foreach (var id in readings.Take(2))
+        {
+            if (id.Value.Length == 0) continue;
+            MetricDescriptor? descriptor = Host.Metrics.TryGetDescriptor(id, out var d, out _) ? d : null;
+            var unit = descriptor?.Unit is { } u && u != MetricUnit.None ? u : Host.Metrics.TryGetLatest(id, out var latest) ? latest.Unit : MetricUnit.None;
+            list.Add(new SummaryReading(id, Host.ResolveMetricLabel(id), unit, descriptor?.FormatHint));
+        }
+        return list;
     }
 
     // ---------------------------------------------------------------- page refresh
@@ -324,6 +402,7 @@ public sealed class ModuleEntry
             if (_lifecycle != ModuleLifecycle.Running) return false;
             _lifecycle = ModuleLifecycle.Off;
             _page = null;
+            _pageVisibleLive = false;
             _stop.Cancel();
         }
         RunGuardedOnly("Shutdown", () => _instance!.Shutdown(), Host.Options.ShutdownTimeout);
@@ -411,6 +490,7 @@ public sealed class ModuleEntry
             _lifecycle = ModuleLifecycle.Faulted;
             _fault = ex;
             _page = null;
+            _pageVisibleLive = false;
             _reason = timedOut ? ModuleReason.Host("core.reason.timeout", operation, timeout.TotalSeconds.ToString("0.#"))
                 : badPage ? ModuleReason.Host("core.reason.bad-page", ex.Message)
                 : ModuleReason.Host("core.reason.fault", operation, Describe(ex));

@@ -20,7 +20,11 @@ public sealed class RigbayHostOptions
 }
 
 /// <summary>Shown to the user before a hardware change is applied. The UI implements it; with none set the answer is no.</summary>
-public sealed record ApprovalRequest(string ModuleId, string ModuleName, string EffectText, string? Detail, bool Revertible);
+public sealed record ApprovalRequest(string ModuleId, string ModuleName, string EffectText, string? Detail, bool Revertible)
+{
+    /// <summary>True when the question comes before a revert (the user pressed Revert); <see cref="Detail"/> then names the current and the previous value.</summary>
+    public bool IsRevert { get; init; }
+}
 
 public interface IApprovalPrompt
 {
@@ -190,8 +194,12 @@ public sealed class RigbayHost : IDisposable
     public Task<bool> RequestApprovalAsync(ModuleEntry entry, HardwareEffect effect, LocalisedText? detail, CancellationToken cancellationToken) =>
         RequestApprovalTextAsync(entry, effect, detail is { IsEmpty: false } d ? entry.Localisation.Resolve(d) : null, cancellationToken);
 
-    /// <summary>Like <see cref="RequestApprovalAsync"/> with a detail that is already text in the current language (it becomes <see cref="ApprovalRequest.Detail"/>).</summary>
-    public async Task<bool> RequestApprovalTextAsync(ModuleEntry entry, HardwareEffect effect, string? detailText, CancellationToken cancellationToken)
+    /// <summary>
+    /// Like <see cref="RequestApprovalAsync"/> with a detail that is already text in the current language (it becomes
+    /// <see cref="ApprovalRequest.Detail"/>). <paramref name="isRevert"/> marks the question as the one before a revert
+    /// (<see cref="ApprovalRequest.IsRevert"/>; the effect text is then <see cref="HardwareEffect.RevertDescriptionKey"/> when the module gave one).
+    /// </summary>
+    public async Task<bool> RequestApprovalTextAsync(ModuleEntry entry, HardwareEffect effect, string? detailText, CancellationToken cancellationToken, bool isRevert = false)
     {
         var prompt = ApprovalPrompt;
         if (prompt is null)
@@ -199,8 +207,9 @@ public sealed class RigbayHost : IDisposable
             entry.Log.Warn("hardware change refused: the host has no way to ask for confirmation");
             return false;
         }
-        var request = new ApprovalRequest(entry.Id, entry.DisplayName, entry.Localisation.T(effect.DescriptionKey),
-            string.IsNullOrEmpty(detailText) ? null : detailText, effect.Revertible);
+        var effectKey = isRevert && !string.IsNullOrEmpty(effect.RevertDescriptionKey) ? effect.RevertDescriptionKey : effect.DescriptionKey;
+        var request = new ApprovalRequest(entry.Id, entry.DisplayName, entry.Localisation.T(effectKey),
+            string.IsNullOrEmpty(detailText) ? null : detailText, effect.Revertible) { IsRevert = isRevert };
         try { return await prompt.ConfirmAsync(request, cancellationToken).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -208,6 +217,26 @@ public sealed class RigbayHost : IDisposable
             return false;
         }
     }
+
+    /// <summary>
+    /// The short name the dashboard shows for a metric, in the current language. Order: the <see cref="MetricDescriptor"/>
+    /// a module registered (its <c>LabelKey</c> is resolved with that module's prefix; a <see cref="Text.Literal"/> is shown
+    /// as written), then the host's own <c>metric.&lt;id&gt;</c> text, then the raw id. Never empty for a valid id.
+    /// </summary>
+    public string ResolveMetricLabel(MetricId id)
+    {
+        if (Metrics.TryGetDescriptor(id, out var descriptor, out var owner))
+        {
+            var text = Find(owner) is { } module
+                ? (module.Localisation.TryGet(descriptor.LabelKey, out var found) ? found : "")
+                : (Languages.TryGet(descriptor.LabelKey, out var hostText) ? hostText : "");
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return Languages.TryGet("metric." + id.Value, out var shared) && !string.IsNullOrWhiteSpace(shared) ? shared : id.Value;
+    }
+
+    /// <summary>Same as <see cref="ResolveMetricLabel(MetricId)"/> for an id given as text; text that is not a valid id comes back unchanged.</summary>
+    public string ResolveMetricLabel(string id) => MetricId.IsValid(id) ? ResolveMetricLabel(new MetricId(id)) : id;
 
     /// <summary>
     /// <c>rigbay &lt;module&gt; &lt;verb&gt; [args]</c>. <paramref name="args"/> are the words after <c>rigbay</c>. Exit codes:

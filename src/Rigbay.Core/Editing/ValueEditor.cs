@@ -147,7 +147,44 @@ public sealed class ValueEditor<T> : IDisposable
         return new EditResult(EditOutcome.Applied);
     }
 
-    /// <summary>Puts the value from before the last applied change back. A revert is not asked about again.</summary>
+    /// <summary>
+    /// Puts the value from before the last applied change back, and asks first when that is a hardware change: a revert is a
+    /// write like any other, so the question names the exact current and previous value ("Fan mode: Maximum → Auto").
+    /// The exception is a row whose <see cref="HardwareEffect.SafeRevert"/> is true: it reverts without a question, and
+    /// <see cref="EditResult.Message"/> still names what was written. Rows that do not change hardware revert without a
+    /// question. A declined revert changes nothing and keeps <see cref="CanRevert"/>.
+    /// </summary>
+    public async Task<EditResult> RevertAsync(CancellationToken cancellationToken = default)
+    {
+        T previous;
+        lock (_gate)
+        {
+            if (!_hasPrevious) return new EditResult(EditOutcome.NothingToDo);
+            previous = _previous;
+        }
+        var current = _value.Value;
+
+        if (NeedsRevertApproval(current, previous, out var effect))
+        {
+            var detail = RevertDetail(current, previous);
+            var ok = await _entry.Host.RequestApprovalTextAsync(_entry, effect, detail, cancellationToken, isRevert: true).ConfigureAwait(false);
+            if (!ok) return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T(_entry.Host.ApprovalPrompt is null ? "core.approval.no-prompt" : "core.approval.declined"));
+
+            // What the user approved is "current → previous". If either moved while the question was open, write nothing.
+            bool stale;
+            lock (_gate) stale = !_hasPrevious || !EqualityComparer<T>.Default.Equals(_previous, previous);
+            if (stale) return new EditResult(EditOutcome.NothingToDo);
+            if (!EqualityComparer<T>.Default.Equals(_value.Value, current))
+                return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T("core.revert.changed"));
+        }
+        return CommitRevert(current, previous);
+    }
+
+    /// <summary>
+    /// The synchronous revert. It cannot ask the user, so it only reverts what needs no question: a row that does not change
+    /// hardware, or one with <see cref="HardwareEffect.SafeRevert"/>. For any other hardware row it writes nothing and returns
+    /// <see cref="EditOutcome.Declined"/> with a message; use <see cref="RevertAsync"/>, which asks.
+    /// </summary>
     public EditResult Revert()
     {
         T previous;
@@ -156,6 +193,35 @@ public sealed class ValueEditor<T> : IDisposable
             if (!_hasPrevious) return new EditResult(EditOutcome.NothingToDo);
             previous = _previous;
         }
+        var current = _value.Value;
+        if (NeedsRevertApproval(current, previous, out _))
+            return new EditResult(EditOutcome.Declined, _entry.Host.Languages.T("core.revert.needs-approval"));
+        return CommitRevert(current, previous);
+    }
+
+    // A write happens only when the value really changes; reverting to the value that is already set needs no question.
+    private bool NeedsRevertApproval(T current, T previous, out HardwareEffect effect)
+    {
+        effect = _row.HardwareEffect!;
+        return _row.HardwareEffect is { SafeRevert: false } && !EqualityComparer<T>.Default.Equals(current, previous);
+    }
+
+    private string? RevertDetail(T current, T previous)
+    {
+        try
+        {
+            var fmt = DetailFormatter ?? _format;
+            return $"{_entry.Localisation.T(_row.HeaderKey)}: {fmt(current)} → {fmt(previous)}";
+        }
+        catch (Exception ex)
+        {
+            _entry.Log.Warn("approval detail could not be formatted: " + ex.Message);
+            return null;
+        }
+    }
+
+    private EditResult CommitRevert(T current, T previous)
+    {
         if (!_entry.Invoke("revert " + _row.HeaderKey, () => _value.Value = previous))
             return new EditResult(EditOutcome.Faulted, _entry.Host.Languages.T("core.edit.failed"));
         lock (_gate)
@@ -165,7 +231,19 @@ public sealed class ValueEditor<T> : IDisposable
             _draft = previous;
         }
         Changed?.Invoke();
-        return new EditResult(EditOutcome.Applied);
+
+        // The status line names what was written, for every hardware row (the question was skipped for SafeRevert rows).
+        string? message = null;
+        if (_row.ChangesHardware)
+        {
+            try
+            {
+                var fmt = DetailFormatter ?? _format;
+                message = _entry.Host.Languages.F("core.revert.done", _entry.Localisation.T(_row.HeaderKey), fmt(previous), fmt(current));
+            }
+            catch (Exception ex) { _entry.Log.Warn("revert message could not be formatted: " + ex.Message); }
+        }
+        return new EditResult(EditOutcome.Applied, message);
     }
 
     /// <summary>Stops following the module's value. Safe to call more than once; the editor still works afterwards but no longer follows the module.</summary>
@@ -239,11 +317,31 @@ public static class RowEditors
         return completed && result is not null ? result : ActionResult.Fail("core.edit.failed");
     }
 
-    /// <summary>Runs a button's revert action, when the row has one.</summary>
-    public static async Task<ActionResult> RevertButtonAsync(ModuleEntry entry, ButtonRow row, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Runs a button's revert action, when the row has one. Like every call that changes hardware it asks first: the question
+    /// names the button and its revert (<see cref="ButtonRow.RevertButtonKey"/>) unless <paramref name="detail"/> gives the
+    /// exact text. A declined question returns the failed result "core.approval.declined" and calls nothing. A row whose
+    /// <see cref="HardwareEffect.SafeRevert"/> is true does not ask; a successful result without a message then gets one that
+    /// names the revert, so the status line says what was done.
+    /// </summary>
+    /// <param name="entry">The module.</param>
+    /// <param name="row">The button.</param>
+    /// <param name="cancellationToken">Cancels the wait and the action.</param>
+    /// <param name="detail">Text for the question; null builds it from the button and its revert label.</param>
+    public static async Task<ActionResult> RevertButtonAsync(ModuleEntry entry, ButtonRow row, CancellationToken cancellationToken = default, string? detail = null)
     {
         if (row.RevertAsync is not { } revert) return ActionResult.Ok();
+        var revertLabel = row.RevertButtonKey is { Length: > 0 } key ? entry.Localisation.T(key) : entry.Host.Languages.T("core.revert.generic");
+        if (row.HardwareEffect is { SafeRevert: false } effect)
+        {
+            var shown = detail ?? $"{entry.Localisation.T(row.HeaderKey)}: {revertLabel}";
+            if (!await entry.Host.RequestApprovalTextAsync(entry, effect, shown, cancellationToken, isRevert: true).ConfigureAwait(false))
+                return ActionResult.Fail("core.approval.declined");
+        }
         var (completed, result) = await entry.InvokeAsync("revert " + row.HeaderKey, () => revert(cancellationToken)).ConfigureAwait(false);
-        return completed && result is not null ? result : ActionResult.Fail("core.edit.failed");
+        if (!completed || result is null) return ActionResult.Fail("core.edit.failed");
+        if (row.HardwareEffect is { SafeRevert: true } && result.Succeeded && result.Message is not { IsEmpty: false })
+            return ActionResult.Ok(LocalisedText.Of("core.revert.button-done", entry.Localisation.T(row.HeaderKey), revertLabel));
+        return result;
     }
 }
