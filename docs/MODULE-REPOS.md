@@ -113,3 +113,65 @@ test, and raise `hostApi` in `module.json` only if the contract's version range 
 - Scanning for the machine name must be case sensitive (`git grep -F`), because the GitHub login is the same word in lower case and is in the LICENSE and in
   the commit authors on purpose.
 - The first CI run of `module-xtu` was green (build 0 warnings, 190 tests) with no change to the generated workflow.
+
+## Notes from the third and fourth run (`module-steam-bypass`, `module-recorder`)
+
+- A module whose id differs from its folder (`steam-bypass` lives in `modules/steambypass/`, `docs/steambypass/`): pass `-ModuleId steam-bypass
+  -Folder steambypass`. `-ModuleId` is the id in `module.json` (it names the repository, `module-steam-bypass`, and the install folder);
+  `-Folder` is the folder of this repository, and defaults to the id.
+- The personal-data check now ignores `C:\Users\USER\`, the placeholder the host's logs and verb output use for the home folder. Every other
+  hit still stops the script. The machine name is matched case sensitively (the GitHub login is the same word).
+- The check cannot see inside PNGs. **Look at every screenshot before the push**: two recorder screenshots showed the folder of the author's
+  development checkout in a text box, and one was an all-black capture. They were left out of the new repository by amending the local,
+  unpublished docs commit (before the first push, so they are not in the history), and the copied document says so at the top.
+- The READMEs of the two repositories are written by hand after the script (steps above), with a "Verified and not verified" section that only
+  claims what was run. The generated workflow needed no change. The first CI run of `module-steam-bypass` was green (248 tests); the first run of
+  `module-recorder` failed on one test, `The_real_services_work_on_this_machine`: it uses the real clock and asserted exactly two rows in a
+  1.2 s recording, and on the slow runner the first row started more than a period late, so the schedule moved the slot (designed behaviour)
+  and one row fitted. It was fixed in the module repository by a normal commit that accepts one or two rows (green after that). The same test
+  in `modules/recorder` here has the same flaw; port the change by hand when the module is next touched (the next `-Sync` would otherwise
+  conflict on that line, and the fix is to keep the module repository's version).
+- `tools/live-record.ps1` (recorder) and the other host tooling files that a module folder carries do not run from the module repository alone;
+  the README says so instead of hiding them.
+
+## Sync: bringing later changes into an existing module repository
+
+When the module changed in this repository after its extraction (a fix, new icons, language files), the module repository gets the same
+changes as a **normal merge commit**, never a force-push or a rewrite. `-Sync` automates it and is still local only:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\extract-module.ps1 -ModuleId xtu -OutDir D:\Documents\Projects\_repos\module-xtu -Sync -Verify
+# a module whose id differs from its folder: -ModuleId steam-bypass -Folder steambypass
+```
+
+`-OutDir` is a clone of the module repository with a clean working tree (an existing scratch clone is fine; `git pull` it first). The script:
+
+1. Splits `modules/<id>` of `-SourceBranch` again. `git subtree split` is deterministic, so the commits that were extracted before come out with
+   the same ids and are ancestors of the new split: the merge base is the last host state the repository already has. If it is not (the
+   repository was not made by this script), it stops.
+2. Lists the new module commits (`merge-base..split`) and merges the split into `main` with `--no-ff`, as `Sync with Rigbay main: N change(s)
+   of modules/<id>`. Hand edits of the module repository (README, docs, CI, layout commit) stay: they are on its side of the merge. A
+   conflict aborts the merge, leaves the repository as it was, and names the files; resolve those by hand (merge the split commit yourself).
+3. Runs the host-path rewrite again on what came in (a new project or reference that still points at `..\..\src\Rigbay.Abstractions`) and
+   commits it as `Layout: ...` if anything changed.
+4. Scans the files that came in for personal data (same check as the extraction).
+5. Moves the submodule pin to `-HostCommit` (default: tip of `main` on `https://github.com/rigbay-app/rigbay.git`). The pin must be a commit
+   on `origin/main` there, so a fresh clone can fetch it; a pin that is not stops the script. It is a separate commit, `Host contract: move the
+   submodule pin from <old> to <new>`.
+6. Does **not** merge `docs/<id>` of this repository, because the copies in the module repository carry hand-made path fixes. It prints which
+   host doc files changed since the merge base (`git diff --name-status`); compare those by hand.
+7. With `-Verify`: fresh `git clone --recurse-submodules`, `dotnet build`, `dotnet test`; any failure stops the script.
+
+Afterwards: `git log --graph` in the module repository, check the diff, then push `main` with the same credential line as above, and read
+`gh run list --repo rigbay-app/module-<id>`. If the host contract changed in a way that needs a new `hostApi` range, edit `module.json` by
+hand in a normal commit (see "Updating the pin later").
+
+First use (2026-11-01, task P3): `module-predatorsense` (the A11 icons and manifest `icon`, the F1 language fixes and test fix: 2 module
+commits, merge, pin move, 103 tests) and `module-xtu` (the same icons and F1 fix: 1 module commit, merge, pin move, 190 tests). Both builds
+had 0 warnings and the first CI run after the push was green. The host docs of both had no change that was not already in the module
+repository (`docs/xtu/CLITE-PLAN.md` changed, but before the extraction).
+
+Notes: the merge keeps the module's own commit ids and authors in the history of the module repository, so `git blame` stays useful. The
+first draft of the check for personal data in this mode passed an empty option list to `git grep`, which silently skipped three of the four
+patterns (git said `fatal: unable to resolve revision` and the script went on): when a native command's output is the safety check, test
+that it can fail. The final check was tried with planted hits: a user name, the machine name, a home path and a worktree path are each refused; the placeholder home path and the lower-case GitHub login are not.
