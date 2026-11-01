@@ -76,6 +76,7 @@ public sealed class FaultyModule : IModule
     // through commands. "signal-throws" does the same but its PageVisible and SubscribersChanged handlers throw.
     private readonly List<bool> _visibleChanges = new();
     private int _subscriberChanges;
+    private int _catalogChanges;
     private bool _visibleAtInit;
 
     private void InitSignals(IHostServices host)
@@ -95,10 +96,22 @@ public sealed class FaultyModule : IModule
         };
 
         // one label by module-relative key, one by literal text, one with a key the language file lacks
-        host.Metrics.Describe(new MetricDescriptor(temp, "metric.temp", MetricUnit.Celsius, "0.0"));
+        host.Metrics.Describe(new MetricDescriptor(temp, "metric.temp", MetricUnit.Celsius, "0.0") { DescriptionKey = "metric.temp.description" });
         host.Metrics.Describe(new MetricDescriptor(new MetricId("faulty.fan"), Text.Literal("Fan 1"), MetricUnit.Rpm));
         host.Metrics.Describe(new MetricDescriptor(new MetricId("faulty.nokey"), "metric.not-in-the-file"));
 
+        host.Metrics.CatalogChanged += () =>
+        {
+            if (throws) throw new InvalidOperationException("catalog handler blew up");
+            Interlocked.Increment(ref _catalogChanges);
+        };
+        host.Commands.Register("info", "cmd.info", ctx =>
+        {
+            var info = host.Metrics.GetMetricInfo(new MetricId(ctx.Args[0]));
+            return CommandResult.Ok(info is null ? "none" : $"{info.Id}|{info.Label}|{info.Description}|{info.Unit}|{info.FormatHint}|{info.OwnerModuleId}|{info.IsAvailable}");
+        });
+        host.Commands.Register("catalog", "cmd.catalog", _ =>
+            CommandResult.Ok(string.Join(";", host.Metrics.GetAllMetricInfo().Select(i => $"{i.OwnerModuleId}/{i.Id}={i.Label}")) + $"#changes={Volatile.Read(ref _catalogChanges)}#version={host.Metrics.CatalogVersion}"));
         host.Commands.Register("signals", "cmd.signals", _ =>
         {
             string changes;

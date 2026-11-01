@@ -52,6 +52,7 @@ module.sample.row.adddevice.description = Adds a device to the list and asks the
 module.sample.row.adddevice.button = Add
 
 module.sample.metric.ticks = Ticks
+module.sample.metric.ticks.description = How many times the sample timer has fired
 module.sample.row.profile.header = Profile
 module.sample.row.profile.description = Pretend fan profile; apply it, then revert it: the host asks both times
 module.sample.profile.auto = Auto

@@ -83,7 +83,9 @@ public sealed class SampleModule : IModule
             ctx.Args.Count == 0 ? CommandResult.Usage(host.Localisation.T("cmd.usage")) : CommandResult.Ok(string.Join(' ', ctx.Args)));
 
         // Say once what the metric is called, so the dashboard can show "Ticks" instead of "sample.ticks".
-        host.Metrics.Describe(new MetricDescriptor(new MetricId(TicksMetric), "metric.ticks", MetricUnit.Count, "0"));
+        // The description is optional. Both keys are relative to this module; other modules (a recorder) read the resolved texts
+        // with host.Metrics.GetMetricInfo(id), in the language the user has now, so you never resolve them for others.
+        host.Metrics.Describe(new MetricDescriptor(new MetricId(TicksMetric), "metric.ticks", MetricUnit.Count, "0") { DescriptionKey = "metric.ticks.description" });
 
         _paused.Changed += OnPausedChanged;
 

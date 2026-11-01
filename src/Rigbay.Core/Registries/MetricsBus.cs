@@ -16,6 +16,8 @@ public sealed class MetricsBus
     private readonly Dictionary<MetricId, MetricSample> _latest = new();
     private readonly HashSet<MetricId> _withdrawn = new();
     private readonly Dictionary<MetricId, (string Owner, MetricDescriptor Descriptor)> _descriptors = new();
+    private readonly Dictionary<MetricId, (string Source, MetricUnit Unit)> _known = new();
+    private long _catalogVersion;
     private readonly List<Subscription> _subscriptions = new();
     private readonly ILog _log;
     private readonly Func<DateTimeOffset> _clock;
@@ -56,12 +58,20 @@ public sealed class MetricsBus
             return;
         }
         Subscription[] targets;
+        bool catalogChanged;
         lock (_gate)
         {
             _latest[sample.Id] = sample;
-            _withdrawn.Remove(sample.Id);
+            catalogChanged = _withdrawn.Remove(sample.Id);
+            if (!_known.TryGetValue(sample.Id, out var known) || known.Source != sample.SourceModule || known.Unit != sample.Unit)
+            {
+                _known[sample.Id] = (sample.SourceModule, sample.Unit);
+                catalogChanged = true;
+            }
+            if (catalogChanged) _catalogVersion++;
             targets = Targets(sample.Id);
         }
+        if (catalogChanged) RaiseCatalogChanged();
         Deliver(targets, sample);
     }
 
@@ -86,8 +96,10 @@ public sealed class MetricsBus
             _latest.Remove(id);
             _withdrawn.Add(id);
             notice = new MetricSample(id, double.NaN, unit ?? current.Unit, _clock(), stampSource ?? current.SourceModule) { IsAvailable = false };
+            _catalogVersion++;
             targets = Targets(id);
         }
+        RaiseCatalogChanged();
         Deliver(targets, notice);
         return true;
     }
@@ -189,8 +201,92 @@ public sealed class MetricsBus
                 _log.Debug($"metric {descriptor.Id}: described by {existing.Owner} already, the description from {owner} is ignored");
                 return;
             }
+            if (_descriptors.TryGetValue(descriptor.Id, out var previous) && previous.Descriptor == descriptor) return; // nothing new
             _descriptors[descriptor.Id] = (owner, descriptor);
+            _catalogVersion++;
         }
+        RaiseCatalogChanged();
+    }
+
+    // ---------------------------------------------------------------- catalogue (what other modules may read)
+
+    /// <summary>Raised after the catalogue changed (see <see cref="IMetricsBus.CatalogChanged"/>); synchronous, no lock held, a handler that throws is logged and skipped.</summary>
+    public event Action? CatalogChanged;
+
+    /// <summary>Grows with every change that raises <see cref="CatalogChanged"/>.</summary>
+    public long CatalogVersion { get { lock (_gate) return _catalogVersion; } }
+
+    /// <summary>
+    /// How the bus turns a language key into text: <c>(ownerModuleId or null for the host, key)</c> returns the text in the
+    /// current language, or null when there is none. Set by the host; without it labels fall back to the raw id.
+    /// </summary>
+    public Func<string?, string, string?>? TextResolver { get; set; }
+
+    /// <summary>Tells readers the catalogue changed without a bus change (the host calls it when the UI language changes).</summary>
+    public void NotifyCatalogChanged()
+    {
+        lock (_gate) _catalogVersion++;
+        RaiseCatalogChanged();
+    }
+
+    private void RaiseCatalogChanged()
+    {
+        try { CatalogChanged?.Invoke(); }
+        catch (Exception ex) { _log.Warn("a CatalogChanged handler threw: " + ex.Message); }
+    }
+
+    /// <summary>Info about one metric in the current language; null when the id is unknown. See <see cref="IMetricsBus.GetMetricInfo"/>.</summary>
+    public MetricInfo? GetMetricInfo(MetricId id)
+    {
+        Raw? raw;
+        lock (_gate) raw = Snapshot(id);
+        return raw is null ? null : Materialize(raw);
+    }
+
+    /// <summary>Info about every known metric, ordered by owner module id then metric id (ordinal).</summary>
+    public IReadOnlyList<MetricInfo> GetAllMetricInfo()
+    {
+        Raw[] raws;
+        lock (_gate)
+        {
+            var ids = new HashSet<MetricId>(_known.Keys);
+            ids.UnionWith(_descriptors.Keys);
+            ids.UnionWith(_withdrawn);
+            raws = ids.Select(Snapshot).OfType<Raw>().ToArray();
+        }
+        return raws.Select(Materialize)
+            .OrderBy(i => i.OwnerModuleId, StringComparer.Ordinal).ThenBy(i => i.Id.Value, StringComparer.Ordinal).ToArray();
+    }
+
+    private sealed record Raw(MetricId Id, MetricDescriptor? Descriptor, string Owner, MetricUnit Unit, bool Available);
+
+    private MetricInfo Materialize(Raw raw)
+    {
+        var (id, descriptor, owner, unit, available) = raw;
+        string label = descriptor is null ? "" : Resolve(owner, descriptor.LabelKey);
+        if (string.IsNullOrWhiteSpace(label)) label = Resolve(null, "metric." + id.Value);
+        if (string.IsNullOrWhiteSpace(label)) label = id.Value;
+        string description = descriptor?.DescriptionKey is { Length: > 0 } dk ? Resolve(owner, dk) : "";
+        return new MetricInfo(id, label, description, unit, descriptor?.FormatHint, owner, available);
+    }
+
+    private Raw? Snapshot(MetricId id)
+    {
+        bool hasDescriptor = _descriptors.TryGetValue(id, out var entry);
+        bool hasKnown = _known.TryGetValue(id, out var known);
+        if (!hasDescriptor && !hasKnown && !_withdrawn.Contains(id)) return null;
+
+        var descriptor = hasDescriptor ? entry.Descriptor : null;
+        string owner = hasDescriptor ? entry.Owner : hasKnown ? known.Source : "host";
+        var unit = descriptor is not null ? descriptor.Unit : hasKnown ? known.Unit : MetricUnit.None;
+        return new Raw(id, descriptor, owner, unit, !_withdrawn.Contains(id));
+    }
+
+    private string Resolve(string? owner, string key)
+    {
+        if (Text.IsLiteral(key)) return Text.Unwrap(key);
+        try { return TextResolver?.Invoke(owner, key) ?? ""; }
+        catch (Exception ex) { _log.Warn($"resolving '{key}' for {owner ?? "host"} failed: {ex.Message}"); return ""; }
     }
 
     /// <summary>The description of an id and the id of the module that registered it.</summary>
@@ -237,6 +333,7 @@ public sealed class MetricsBus
     {
         private readonly object _eventGate = new();
         private readonly List<(Action Original, Action<MetricId?, string?> Hook)> _hooks = new();
+        private readonly List<(Action Original, Action Hook)> _catalogHooks = new();
 
         public void Publish(MetricId id, double value, MetricUnit unit) => bus.Publish(moduleId, id, value, unit);
 
@@ -263,6 +360,38 @@ public sealed class MetricsBus
         public void Withdraw(MetricId id) => bus.Withdraw(moduleId, id);
 
         public void Describe(MetricDescriptor descriptor) => bus.Describe(moduleId, descriptor);
+
+        public MetricInfo? GetMetricInfo(MetricId id) => bus.GetMetricInfo(id);
+
+        public IReadOnlyList<MetricInfo> GetAllMetricInfo() => bus.GetAllMetricInfo();
+
+        public long CatalogVersion => bus.CatalogVersion;
+
+        public event Action? CatalogChanged
+        {
+            add
+            {
+                if (value is null) return;
+                var guarded = guardAction(value);
+                lock (_eventGate) _catalogHooks.Add((value, guarded));
+                bus.CatalogChanged += guarded;
+                track(new Remover(() => RemoveCatalog(value)));
+            }
+            remove { if (value is not null) RemoveCatalog(value); }
+        }
+
+        private void RemoveCatalog(Action original)
+        {
+            Action? hook = null;
+            lock (_eventGate)
+            {
+                var index = _catalogHooks.FindIndex(h => h.Original == original);
+                if (index < 0) return;
+                hook = _catalogHooks[index].Hook;
+                _catalogHooks.RemoveAt(index);
+            }
+            bus.CatalogChanged -= hook;
+        }
 
         public int SubscriberCount(MetricId id) => bus.SubscriberCount(id, excludeOwner: moduleId);
 

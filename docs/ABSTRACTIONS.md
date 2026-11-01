@@ -342,14 +342,28 @@ vocabulary, so the label should be the same anyway).
 - **Describe.** `Describe(new MetricDescriptor(id, labelKey, unit, formatHint))` registers once what the metric is called
   and how to format it (section 5.6). `LabelKey` is module-relative or a `Text.Literal`; `FormatHint` is a .NET numeric
   format such as `"0"` or `"0.0"`, or null.
+- **Reading the catalogue (A12).** `Describe` is write-only for a module; to read what other modules described, call
+  `GetMetricInfo(id)` (a `MetricInfo` or null) or `GetAllMetricInfo()` (every known metric, ordered by owner module id
+  then metric id, ordinal). `MetricInfo(Id, Label, Description, Unit, FormatHint, OwnerModuleId, IsAvailable)` has the
+  texts **already resolved in the current UI language through the owner module's localisation**: a descriptor's
+  `LabelKey` and `DescriptionKey` are relative to the module that registered it, so a reader must never resolve them
+  with its own `host.Localisation`. `Label` is the descriptor's label, else the host's `metric.<id>` text, else the raw
+  id (never empty); `Description` is empty when there is none; a `Text.Literal` is shown as written. A metric nobody
+  described still has info once it was published: label = id, unit from its samples, owner = the publishing module.
+  `IsAvailable` is false only while the metric is withdrawn. Nothing is cached, so after a language switch the next call
+  returns the new texts. `event CatalogChanged` (and the counter `CatalogVersion`) tell a reader that the list or its
+  texts changed: a metric was described, appeared, was withdrawn or came back, or the language changed. The event does
+  not say what changed; call `GetAllMetricInfo()` again. It runs in your fault boundary on the thread that caused it:
+  keep it short. Sample values still come from `Latest`/`Subscribe`.
 - **Subscribers.** `SubscriberCount(id)` is how many readers want the id: subscribers of that id plus all-samples
   subscribers, from the host (dashboard, recorder) and from other modules, not this module's own. `SubscribersChanged`
   is raised (inside the module's fault boundary, on the thread that subscribed or disposed) when that can have changed;
   it does not say for which id, so call `SubscriberCount` for the ids you publish. Both are for the poll-rate pattern in
   section 13.
-- `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged` and `Latest` are default interface members on
+- `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged`, `Latest`, `GetMetricInfo`, `GetAllMetricInfo`,
+  `CatalogChanged` and `CatalogVersion` are default interface members on
   `IMetricsBus` (and `PageVisible` on `IHostServices`): a class that implements the interface itself, like a test double,
-  keeps compiling and gets "nobody listens, nothing to withdraw".
+  keeps compiling and gets "nobody listens, nothing to withdraw, an empty catalogue".
 
 ## 7. Localisation
 
@@ -587,6 +601,11 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
    `Initialize` (it is the current state, not always false). When a read keeps failing, `host.Metrics.Withdraw(id)` the
    metric instead of leaving the last value on the page. The sample module does all of this (`UpdatePollRate`,
    `OnPausedChanged`).
+   **Metrics: describe them, and read the ones of others.** Give each metric you publish a descriptor with an optional
+   description, both module-relative keys: `new MetricDescriptor(id, "metric.ticks", MetricUnit.Count, "0") { DescriptionKey
+   = "metric.ticks.description" }` (the sample module does this). A module that lists other modules' metrics (a recorder)
+   uses `host.Metrics.GetAllMetricInfo()` and shows `Label`, `Description` and `Unit.Symbol()` as given, re-reading when
+   `host.Metrics.CatalogChanged` fires; it does not look the keys up itself.
 4. **Language file** `lang\en.lang` with `module.<id>.group.main = ...` and so on; add `vi.lang` if you can.
 5. **Check.** `dotnet run --project src/Rigbay.LangCheck -- <your lang folder> --module <id> --source <your source folder>`.
 6. **Try.** Build; copy the output folder to `<modules root>\<id>\`; start the host. Read `rigbay.log` first when
@@ -683,6 +702,29 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after A12 (a module reads the descriptors of other modules' metrics; no version number change)
+
+Additive only; every new `IMetricsBus` member is a default interface member (a hand-written implementation, such as a
+test double, keeps compiling and gets "unknown metric, empty list, no events").
+
+- **Abstractions.** `MetricInfo(Id, Label, Description, Unit, FormatHint, OwnerModuleId, IsAvailable)` (texts resolved in
+  the current language); `MetricDescriptor.DescriptionKey` (init property, optional, owner-relative or `Text.Literal`;
+  not a constructor parameter, so existing `new MetricDescriptor(...)` calls are unchanged); `IMetricsBus.GetMetricInfo(MetricId)`
+  returning `MetricInfo?`; `IMetricsBus.GetAllMetricInfo()` returning `IReadOnlyList<MetricInfo>` ordered by owner module id,
+  then metric id (ordinal); `event Action? IMetricsBus.CatalogChanged`; `long IMetricsBus.CatalogVersion`.
+- **Core.** `MetricsBus` implements all of them for the module-side bus and also exposes them on the concrete class
+  (`GetMetricInfo`, `GetAllMetricInfo`, `CatalogChanged`, `CatalogVersion`, `NotifyCatalogChanged()`, `TextResolver`).
+  Labels and descriptions go through the owner module's localisation (`RigbayHost` installs `TextResolver`; an owner that
+  is not a loaded module, such as `host`, uses the host's texts). A metric with no descriptor appears once it is published
+  or withdrawn. The catalogue counts as changed when a descriptor is added or differs, a metric is published for the first
+  time or by another source/unit, a metric is withdrawn or comes back, and when the UI language changes.
+- **Behaviour note.** `IsAvailable` means "not withdrawn", not "has a sample": a described metric nobody published yet is
+  listed with `IsAvailable` true; use `Latest(id)` to know whether a value exists.
+- Sample module: the `sample.ticks` descriptor has a `DescriptionKey`. LangCheck needs no change: the key is a string
+  literal in the source, so `--strict` checks it for use like any other key.
+- For the recorder module (M2): call `host.Metrics.GetAllMetricInfo()` to build its list of choices, show
+  `Label`/`Description`/`Unit.Symbol()`, grey out `IsAvailable == false`, and re-read on `CatalogChanged`.
 
 ### 0.1 after A9 (host gaps found by the PredatorSense module; no version number change)
 
