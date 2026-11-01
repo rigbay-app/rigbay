@@ -55,7 +55,20 @@ $jobs = @(
     @{ n = 'narrow-modules-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:modules" },
     @{ n = 'narrow-settings-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:settings" },
     @{ n = 'narrow-log-dark'; a = '--theme', 'dark',  '--size', '640x700', '--script', "$fan;page:log" },
-@{ n = 'narrow-dark';           a = '--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
+    # A11 brand: the title bar mark follows the Windows accent (--accent stands in for it); near a state colour it is drawn in the quiet form
+    @{ n = 'mark-blue-dark';        a = '--theme', 'dark',  '--accent', '0078D4', '--size', '900x300', '--script', 'page:dashboard' },
+    @{ n = 'mark-blue-light';       a = '--theme', 'light', '--accent', '0078D4', '--size', '900x300', '--script', 'page:dashboard' },
+    @{ n = 'mark-violet-dark';      a = '--theme', 'dark',  '--accent', '7A5AF8', '--size', '900x300', '--script', 'page:dashboard' },
+    @{ n = 'mark-green-dark';       a = '--theme', 'dark',  '--accent', '10893E', '--size', '900x300', '--script', 'page:dashboard' },
+    @{ n = 'mark-red-light';        a = '--theme', 'light', '--accent', 'E81123', '--size', '900x300', '--script', 'page:dashboard' },
+    @{ n = 'mark-amber-dark';       a = '--theme', 'dark',  '--accent', 'FFB900', '--size', '900x300', '--script', 'page:dashboard' },
+    # the same window rendered as if the display scale were 150 % and 200 % (RenderTargetBitmap of the window content, not the screen)
+    @{ n = 'scale150-dashboard-dark';  a = '--theme', 'dark',  '--accent', '7A5AF8', '--shot-scale', '1.5', '--script', $fan },
+    @{ n = 'scale200-dashboard-dark';  a = '--theme', 'dark',  '--accent', '7A5AF8', '--shot-scale', '2',   '--script', $fan },
+    @{ n = 'scale200-dashboard-light'; a = '--theme', 'light', '--accent', '7A5AF8', '--shot-scale', '2',   '--script', $fan },
+    @{ n = 'scale150-modules-light';   a = '--theme', 'light', '--accent', '7A5AF8', '--shot-scale', '1.5', '--script', "$fan;page:modules" },
+    @{ n = 'scale200-module-dark';     a = '--theme', 'dark',  '--accent', '7A5AF8', '--shot-scale', '2',   '--script', "$fan;page:demo-fan" },
+@{ n = 'narrow-dark';           a ='--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
 )
 $only = @($Names)
 if ($only.Count -gt 0) { $jobs = $jobs | Where-Object { $only -contains $_.n } }

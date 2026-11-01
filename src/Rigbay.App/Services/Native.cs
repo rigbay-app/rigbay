@@ -7,7 +7,7 @@ namespace Rigbay.App.Services;
 /// <summary>P/Invoke for what WinUI 3 does not have: window subclass, hotkeys, tray icon and menu, console attach, window-only capture.</summary>
 static class Native
 {
-    public const int WM_HOTKEY = 0x0312, WM_APP_TRAY = 0x8001, WM_NULL = 0, WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205, WM_CONTEXTMENU = 0x007B;
+    public const int WM_HOTKEY = 0x0312, WM_APP_TRAY = 0x8001, WM_NULL = 0, WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_RBUTTONUP = 0x0205, WM_CONTEXTMENU = 0x007B, WM_SETTINGCHANGE = 0x001A, WM_THEMECHANGED = 0x031A, WM_DISPLAYCHANGE = 0x007E, WM_DPICHANGED = 0x02E0, SPI_SETHIGHCONTRAST = 0x0043;
     public const uint MOD_ALT = 1, MOD_CONTROL = 2, MOD_SHIFT = 4, MOD_WIN = 8, MOD_NOREPEAT = 0x4000;
 
     public delegate nint SubclassProc(nint hWnd, uint msg, nint wParam, nint lParam, nuint id, nuint data);
@@ -21,6 +21,9 @@ static class Native
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern nint LoadImage(nint hInst, string name, uint type, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool DestroyIcon(nint icon);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")] static extern int GetSystemMetricsForDpi(int index, uint dpi);
+    [DllImport("user32.dll")] static extern nint MonitorFromPoint(POINT pt, uint flags);
+    [DllImport("shcore.dll")] static extern int GetDpiForMonitor(nint monitor, int type, out uint dpiX, out uint dpiY);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
     [DllImport("user32.dll")] public static extern bool ShowWindow(nint h, int cmd);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(nint h);
@@ -31,6 +34,7 @@ static class Native
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool AppendMenuW(nint menu, uint flags, nuint idOrSub, string? text);
     [DllImport("user32.dll")] public static extern int TrackPopupMenuEx(nint menu, uint flags, int x, int y, nint hwnd, nint tpm);
     [DllImport("user32.dll")] public static extern bool PostMessage(nint h, uint msg, nint w, nint l);
+    [DllImport("user32.dll", EntryPoint = "SendMessageW")] public static extern nint SendMessage(nint h, uint msg, nint w, nint l);
     [DllImport("user32.dll")] static extern bool GetWindowRect(nint h, out RECT r);
     [DllImport("user32.dll")] static extern bool PrintWindow(nint h, nint hdc, uint flags);
     [DllImport("user32.dll")] static extern nint GetDC(nint h);
@@ -90,11 +94,21 @@ static class Native
 
     // ---------- tray ----------
 
-    public static nint LoadTrayIcon(string icoPath)
+    /// <summary>Pixels of a notification-area icon on the primary monitor (where the taskbar is): 16, 20, 24 or 32 at 100, 125, 150 and 200 %.</summary>
+    public static int TrayIconSize()
     {
-        int size = GetSystemMetrics(49 /* SM_CXSMICON */);
-        return LoadImage(0, icoPath, 1 /* IMAGE_ICON */, size, size, 0x10 /* LR_LOADFROMFILE */);
+        try
+        {
+            var monitor = MonitorFromPoint(default, 1 /* MONITOR_DEFAULTTOPRIMARY */);
+            if (monitor != 0 && GetDpiForMonitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, out var dpiX, out _) == 0 && dpiX > 0)
+                return GetSystemMetricsForDpi(49 /* SM_CXSMICON */, dpiX);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
+        return GetSystemMetrics(49 /* SM_CXSMICON */);
     }
+
+    public static nint LoadTrayIcon(string icoPath, int size) =>
+        LoadImage(0, icoPath, 1 /* IMAGE_ICON */, size, size, 0x10 /* LR_LOADFROMFILE */);
 
     public static bool TrayAdd(nint hwnd, nint icon, string tip)
     {

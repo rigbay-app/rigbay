@@ -14,13 +14,14 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (93 checks), prints the report. Exit code 0 when all pass. |
+| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (113 checks), prints the report. Exit code 0 when all pass. |
 | `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
-| `tools\make-icon.ps1` | Draws `src\Rigbay.App\Assets\rigbay.ico` (three bays, the last one filled). Run once; the file is committed. |
+| `tools\sync-brand-assets.ps1 [-Check]` | Copies the brand files the app carries from `assets\brand` (list: `src\Rigbay.App\Assets\brand-files.txt`); `-Check` only compares and fails on a difference (`build.ps1` runs it). |
+| `tools\tray-mock.ps1` | Draws `tools\shots\tray-mock.png`: the tray icons by taskbar theme and size, and the menu model (a mock, not the real taskbar). |
 
-`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the Core tests (285).
+`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the Core tests (343 now).
 Demo modules (`tools\demo-modules`) are test fixtures, not product: "Fan studio" talks to a pretend device kept in memory and
 shows the whole confirm, apply, read-back, revert flow; the others are unsupported, incompatible, invalid and failing
 modules, plus three that misbehave on purpose (self-test only).
@@ -59,7 +60,7 @@ A headless run loads the modules, turns on only the one the verb needs (and only
 stops it. A hardware change asked for in a headless run is refused (no window to ask in).
 
 Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;revert:<row header key>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
-`--shot <png>`, `--size WxH`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
+`--shot <png>`, `--size WxH`, `--accent <RRGGBB>`, `--shot-scale <1.5|2>`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
 
 ## What it does
 
@@ -94,6 +95,29 @@ Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `
   module is marked faulted. Updates that come from a module thread go through `Ui.Post`, which runs inside that module's
   boundary. A module is never given a raw dispatcher.
 
+## Brand in the app (A11)
+
+The kit is `assets/brand` (guidelines `docs/BRAND.md`, hand-over `assets/brand/integration/README.md`). The app carries **copies** of the files it needs
+(`src\Rigbay.App\Assets\brand-files.txt` lists them); `tools\sync-brand-assets.ps1` copies them, `-Check` fails when one differs, `tools\build.ps1`
+runs the check, and `ModuleIconTests` checks the same list, so the masters in `assets/brand` stay the single source. The placeholder
+`tools\make-icon.ps1` (three bays, the last one green; green is a state colour) is deleted.
+
+| Where | What | How |
+| --- | --- | --- |
+| exe, taskbar, Start, window | `rigbay.ico` (16 to 256 px) | `ApplicationIcon` in `Rigbay.App.csproj` and `AppWindow.SetIcon`. |
+| Tray | `rigbay-tray-light.ico` on a light taskbar, `rigbay-tray-dark.ico` on a dark one, `rigbay-tray-neutral.ico` when the theme cannot be read, `rigbay-hc-black.ico` / `rigbay-hc-white.ico` in high contrast (black for a light theme) | `TrayHost.Pick` chooses from `HKCU\...\Themes\Personalize\SystemUsesLightTheme` (the taskbar's theme, not `AppsUseLightTheme`) and `AccessibilitySettings.HighContrast`. The frame is the size Windows wants on the primary monitor (`GetSystemMetricsForDpi(SM_CXSMICON)`: 16, 20, 24, 32 at 100, 125, 150, 200 %). `WM_SETTINGCHANGE` with `ImmersiveColorSet` (or high contrast), `WM_THEMECHANGED`, `WM_DISPLAYCHANGE`, `WM_DPICHANGED`, a `UISettings` colour change and `TaskbarCreated` call `TrayHost.Refresh`, which puts the new icon on the shell (`NIM_MODIFY`) before it destroys the old handle. The tray is not drawn with the Windows accent (the shell draws it). |
+| Title bar | The Dock mark, small cut, 20 DIP, as XAML paths in a `Viewbox` (`Brand\RigbayMark.xaml`, a copy of `integration/xaml/RigbayMark.xaml`; used as `Path.Data="{StaticResource ...}"`, which WinUI accepted) | Bay in the text colour, block in `AccentFillColorDefaultBrush` (the Windows accent; high contrast comes from the theme resources). When the accent's hue is within 30 degrees of the state green (154), red (358) or amber (37) and its saturation is at least 0.12, the **quiet form** is shown instead (bay slate `#7B8497`, block in the text colour), see `BrandMark.NeedsQuietForm`. `UISettings.ColorValuesChanged` re-evaluates at run time. A vector in a `Viewbox` is sharp at every scale, so no raster is used. |
+| Module icons | The manifest field `icon` (`docs/ABSTRACTIONS.md` section 2.1) | Core validates the files and says which one fits (`ModuleIcons.Choose`); `Ui\ModuleIconUi.cs` draws them. Dashboard row: tile, 24 DIP, between the state bar and the name. Navigation pane: quiet glyph, 16 DIP (`ImageIcon`); a module without icon files keeps the one-character icon its page names, else the neutral "?" glyph. Module page header: tile, 48 DIP. Modules page: tile, 32 DIP. An unsupported or incompatible module uses its `icon-unsupported.svg` (the tile in grey); without that file its own icon is drawn at 45 % opacity. No icon, a bad icon (warning `core.manifest.icon-*`) or a file that cannot be decoded: the neutral "?" tile from `Assets\modules\unknown`; a decode failure is logged once (`icon of <id>: ... could not be drawn`) and never throws. |
+
+**SVG or PNG: SVG.** WinUI's `SvgImageSource` draws the brand's SVGs correctly (checked: all tiles, glyphs and grey variants in `tools\shots\*.png`, and the self-test counts that
+every image opened). `RasterizePixelWidth/Height` is set to `DIP x display scale`, so a tile is rasterised at the pixels it needs and stays sharp at 150 and 200 %; the scale is
+re-read when `XamlRoot.Changed` fires. The PNG sets are shipped and used as the fallback (`ModuleIcons.Choose(preferSvg: false)`: the smallest PNG with enough pixels) if SVG ever fails
+to open on a machine (`ModuleIconUi.SvgBroken`); that path is covered by the Core tests, not exercised in the app because SVG never failed here.
+
+New test switches: `--accent <RRGGBB>` (pretend the Windows accent is this colour, for the title bar mark) and `--shot-scale <1.5|2>` (render the shot as if the display scale were 150 % or 200 %:
+a `RenderTargetBitmap` of the window's own content, with icons picked and rasterised for that scale; the Mica backdrop and the system caption buttons are not part of it). `tools\tray-mock.ps1`
+draws a mock of the notification area (icons by taskbar theme and size, the menu model) into `tools\shots\tray-mock.png`.
+
 ## Start with Windows
 
 A scheduled task `Rigbay`: logon trigger for this user, `RunLevel HighestAvailable` (no prompt), `--tray`, 15 s delay, and, unlike
@@ -114,7 +138,7 @@ the spike saw once. Cause not found, so the script has no self-contained switch.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, 100 % DPI)
 
-Evidence is in `tools\shots\`: `selftest.txt` (93 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
+Evidence is in `tools\shots\`: `selftest.txt` (113 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
 the PNGs (each one was looked at).
 
 - Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 240 passed (2026-11-01, after A7).
@@ -196,3 +220,22 @@ come back), PNGs looked at: `revert-dark/light/vi-dark/button-dark`, `unavailabl
 Not verified: a real mouse click on Revert (the self-test drives the same code the link calls, the dialog was seen only in a PNG);
 window minimised by the user (only hide-to-tray was exercised; the minimise check reads `OverlappedPresenter.State`); the
 `SafeRevert` status line in a PNG (checked as text in the self-test); high contrast and 150 % / 200 % DPI.
+
+## A11: the brand in the app (task A11)
+
+Verified 2026-11-01 (this machine, Windows 11 10.0.26300, 100 % DPI): `dotnet build Rigbay.sln --no-incremental` 0 warnings 0 errors; `dotnet test`: 343 (Core, 16 of them new for icons and the brand copies)
+and 102 (PredatorSense) passed; `tools\selftest.ps1` 113 of 113 PASS (elevated; includes tray swaps for all five looks, a real `WM_SETTINGCHANGE`, the mark's geometry, the accent rule, and
+every module icon opening or falling back); `tools\cli-test.ps1` and `--langcheck` unchanged. PNGs looked at (dark and light): `dashboard-*`, `modules-*`, `module-on-*`, `unsupported-*`,
+`mark-*` (blue, violet, green, red, amber accents), `scale150-*`, `scale200-*`, `tray-mock.png`; the exe's own icon extracted from `Rigbay.App.exe` (violet tile with the Dock).
+
+Things seen in the renders: this machine's Windows accent is `#00B7C3` (hue 183), 29 degrees from the state green, so the real title bar shows the **quiet form**; that is the rule working, and
+`--accent` shows the normal form. A Windows "green" accent such as `#107C10` (hue 120) is 34 degrees from the state green and keeps the normal form by the guide's 30 degree rule; `#10893E` (143) and
+the Windows red, gold and orange accents go quiet.
+
+### Not verified
+
+The real tray at high DPI and on a real taskbar (the icons load at 16, 20, 24 and 32 px through `LoadImage`, `NIM_MODIFY` is accepted, but the shell's own drawing was not looked at; `tray-mock.png`
+is a mock from the brand PNGs); a real change of the taskbar theme or of high contrast (the look was forced and a `WM_SETTINGCHANGE` with `ImmersiveColorSet` was sent to the window, the registry was
+not touched); a real change of the Windows accent while the app runs; real 150 % and 200 % scaling (the `--shot-scale` renders simulate it, the window was never on a scaled monitor); Explorer
+thumbnails and the Start menu entry; the SVG-to-PNG fallback inside the app (only the Core choice is tested); a symbolic link inside a module folder (rejected by code, not tested because creating one
+needs a privilege).

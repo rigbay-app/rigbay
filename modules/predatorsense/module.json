@@ -20,5 +20,6 @@
       "PSSvc (Acer PredatorSense service): looked up, never started, stopped or called"
     ]
   },
-  "languages": "lang"
+  "languages": "lang",
+  "icon": "icon.svg"
 }

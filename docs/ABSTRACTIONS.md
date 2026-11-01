@@ -60,6 +60,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
   },
   "probePaths": ["%ProgramFiles%\\Vendor\\Contracts"],
   "languages": "lang",
+  "icon": "icon.svg",
   "homepage": "https://github.com/rigbay-app/module-steam-access"
 }
 ```
@@ -80,6 +81,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
 | `languages` | no | Folder with `*.lang` files, relative to the module folder. Default `lang`. |
 | `homepage` | no | `http` or `https` URL. |
 | `probePaths` | no | Up to 8 extra folders the module reads assemblies from, for files that stay where another product installed them and are never copied (for example `C:\Program Files\Intel\...`). Each is an absolute local path (drive letter; no `..`, no network share, no wildcards), and may use `%NAME%` environment variables, which must exist on the machine. Folders are used only by the loader rule in section 10 (last resort, after the host and the module folder). They are listed in the facts of the Modules page and the turn-on dialog as "Reads files outside its folder" (host key `core.requires.outside-files`; the app shows `ModuleManifest.DeclaredProbePaths` under that label). A declaration, not a sandbox. |
+| `icon` | no | The module's mark: a file name or relative path **inside the module folder** ending in `.svg` or `.png` (at most 100 characters; no rooted path, no `..`, no `:`, no link to outside the folder). Without the field the host looks for `icon.svg`, then `icon-48.png`. Next to it the host also picks up, by the same base name, `icon-glyph.svg` (quiet form for the navigation pane), `icon-unsupported.svg` (the tile in grey, shown when the module is unsupported or incompatible), `icon-16/24/32/48/64/128.png` and `icon-unsupported-16/24/32/48.png`; all optional. Limits: SVG up to 64 KiB, PNG up to 256 KiB, a PNG used as the main icon square and 48 to 1024 px (sidecars 16 to 1024 px). An SVG must be a plain drawing: well-formed XML, root `svg`, no DTD, none of `script`, `foreignObject`, `image`, `text`, `tspan`, `style`, `iframe`, `object`, `embed`, `link`, no `on*` attribute, no `href` that is not `#id`, no `url(...)` that is not `url(#id)`. A bad value is **a warning, never a load failure** (keys `core.manifest.icon-invalid`, `-missing`, `-too-large`, `-unsafe`, `-size`, `-unreadable`, path `icon`): the module loads and the host shows its neutral "?" tile. A value that fails the syntax check does not fall back to the convention files. Brand rules for authors: `docs/BRAND.md` section 10. |
 
 Unknown fields are ignored (a warning is logged) so a newer manifest still loads on an older host. The host
 validates every field and reports all problems at once; a module with an invalid manifest is listed as
@@ -725,6 +727,19 @@ test double, keeps compiling and gets "unknown metric, empty list, no events").
   literal in the source, so `--strict` checks it for use like any other key.
 - For the recorder module (M2): call `host.Metrics.GetAllMetricInfo()` to build its list of choices, show
   `Label`/`Description`/`Unit.Symbol()`, grey out `IsAvailable == false`, and re-read on `CatalogChanged`.
+
+### 0.1 after A11 (module icons; additive, no version number change)
+
+- `module.json` field `icon` (section 2.1), optional. `ModuleManifest.Icon` (constructor parameter, last, optional): the value as
+  written when it passed the syntax check, else null.
+- `ModuleIcons` (record: `Tile`, `Glyph`, `Unsupported`, `Png`, `UnsupportedPng`, all full paths), `ModuleIcons.None`, `HasIcon`,
+  `Choose(IconForm form, bool unsupported, double dip, double scale, bool preferSvg = true)` returning an `IconSource(Path, IsSvg, Opacity)`:
+  the SVG for any scale, or the smallest PNG with at least `dip * scale` pixels; the grey file for an unsupported tile, else the module's own
+  icon at 45 % opacity (`ModuleIcons.UnsupportedOpacity`); the quiet glyph for `IconForm.Glyph`. `ModuleIconResolver.Resolve` and
+  `IsValidDeclaration` do the validation (SVG treated as untrusted input, see the field row). `ManifestResult.Icons`, `ModuleEntry.Icons`
+  (`ModuleIcons.None` for an invalid manifest).
+- Six new host keys `core.manifest.icon-*` (en, vi; LangCheck strict is clean). They are warnings (`IsError` false), so `Issues` of a
+  loaded module can now contain `icon` entries; the App logs them like the other warnings.
 
 ### 0.1 after A9 (host gaps found by the PredatorSense module; no version number change)
 

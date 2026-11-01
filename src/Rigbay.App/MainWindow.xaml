@@ -18,11 +18,24 @@
                 <ColumnDefinition x:Name="RightInsetColumn" Width="140"/>
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                    <Rectangle Style="{StaticResource RbBrandSlotOutline}" Height="16"/>
-                    <Rectangle Style="{StaticResource RbBrandSlotOutline}" Height="16"/>
-                    <Rectangle Style="{StaticResource RbBrandSlot}" Height="16"/>
-                </StackPanel>
+                <!-- The Rigbay Dock mark, small cut (20 DIP). Normal form: bay in the text colour, block in the Windows accent.
+                     Quiet form (accent hue close to a state colour, see BrandMark.cs): bay in slate, block in the text colour.
+                     Both are vectors on a 208 unit grid inside a Viewbox, so they stay sharp at 100, 150 and 200 %. -->
+                <Grid x:Name="Mark" Width="20" Height="20" VerticalAlignment="Center"
+                      AutomationProperties.AccessibilityView="Raw">
+                    <Viewbox x:Name="MarkNormal" Width="20" Height="20">
+                        <Grid Width="208" Height="208">
+                            <Path Data="{StaticResource RbMarkBaySmall}" Fill="{ThemeResource TextFillColorPrimaryBrush}"/>
+                            <Path x:Name="MarkBlock" Data="{StaticResource RbMarkBlockSmall}" Fill="{ThemeResource AccentFillColorDefaultBrush}"/>
+                        </Grid>
+                    </Viewbox>
+                    <Viewbox x:Name="MarkQuiet" Width="20" Height="20" Visibility="Collapsed">
+                        <Grid Width="208" Height="208">
+                            <Path Data="{StaticResource RbMarkBaySmall}" Fill="{ThemeResource RbMarkQuietBayBrush}"/>
+                            <Path Data="{StaticResource RbMarkBlockSmall}" Fill="{ThemeResource TextFillColorPrimaryBrush}"/>
+                        </Grid>
+                    </Viewbox>
+                </Grid>
                 <TextBlock Text="Rigbay" VerticalAlignment="Center" FontWeight="SemiBold"
                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
             </StackPanel>

@@ -8,11 +8,13 @@ sealed class Options
 {
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase)
     {
-        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out",
+        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale",
     };
 
-    public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut;
+    public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut, Accent;
     public int ExitAfterMs;
+    /// <summary>Test switch: render the screenshot at this display scale (1.5, 2) with a RenderTargetBitmap of the window's own content; icons are then picked for that scale.</summary>
+    public double ShotScale = 1;
     public bool Tray, SelfTest, AllowMulti, LangCheck, Help;
     public List<string> Positional { get; } = new();
     public string[] Raw { get; private set; } = Array.Empty<string>();
@@ -45,6 +47,8 @@ sealed class Options
                 case "--script": o.Script = Next(); break;
                 case "--out": o.Out = Next(); break;
                 case "--size": o.Size = Next(); break;
+                case "--shot-scale": double.TryParse(Next(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out o.ShotScale); break;
+                case "--accent": o.Accent = Next(); break;   // test switch: pretend the Windows accent is this #RRGGBB (title bar mark)
                 case "--selftest-out": o.SelfTestOut = Next(); break;
                 case "--exit-after": int.TryParse(Next(), out o.ExitAfterMs); break;
                 case "--tray": o.Tray = true; break;
