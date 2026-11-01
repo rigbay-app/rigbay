@@ -75,10 +75,10 @@ static class DashboardPage
         if (e.Lifecycle == ModuleLifecycle.Running && e.Page?.Summary?.StateLine is { } sl)
             scope.Bind(sl, e, _ => ShowState());
 
-        if (e.Lifecycle == ModuleLifecycle.Running && e.Page?.Summary?.Readings is { Count: > 0 } readings)
+        if (e.Lifecycle == ModuleLifecycle.Running && e.GetSummaryReadings() is { Count: > 0 } readings)
         {
             var strip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 22, VerticalAlignment = VerticalAlignment.Center };
-            foreach (var id in readings.Take(2)) strip.Children.Add(Reading(e, id, scope));
+            foreach (var reading in readings) strip.Children.Add(Reading(e, reading, scope));
             Grid.SetColumn(strip, 2);
             grid.Children.Add(strip);
         }
@@ -95,22 +95,32 @@ static class DashboardPage
         return wrap;
     }
 
-    static UIElement Reading(ModuleEntry e, MetricId id, PageScope scope)
+    static UIElement Reading(ModuleEntry e, SummaryReading reading, PageScope scope)
     {
-        var label = Ui.Text(Host.Core.Languages.TryGet("metric." + id.Value, out var metricLabel) ? metricLabel : id.Value, "RbSecondaryCaption");
-        var value = Ui.Text("—");
+        // The label comes from the core: the module's descriptor, else the host's "metric.<id>" text, else the raw id.
+        var label = Ui.Text(reading.Label, "RbSecondaryCaption");
+        var value = Ui.Text("");
         Ui.Tabular(value);
-        string style = "RbPrimaryText";
-        void Show(MetricSample s)
+        int decimals = DecimalsOf(reading.FormatHint);
+        string style = "";
+        void Show(MetricSample? s)
         {
-            var sym = s.Unit.Symbol();
-            value.Text = Math.Round(s.Value).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + (sym.Length > 0 ? " " + sym : "");
-            var key = RowRenderer.ReadingStyle(SemanticColor.Auto, s.Unit);
+            value.Text = ReadingFormat.Format(Host.Core.Languages, s, decimals);
+            var key = ReadingFormat.IsAvailable(s) ? RowRenderer.ReadingStyle(SemanticColor.Auto, s!.Unit) : "RbSecondaryText";
             if (key != style) { style = key; value.Style = Ui.Style(key); }
         }
-        if (Host.Core.Metrics.TryGetLatest(id, out var latest)) Show(latest);
-        scope.Add(Host.Core.Metrics.Subscribe(s => Ui.Post(e, () => { if (!scope.Disposed) Show(s); }), id));
+        Show(Host.Core.Metrics.TryGetLatest(reading.Id, out var latest) ? latest : null);
+        scope.Add(Host.Core.Metrics.Subscribe(s => Ui.Post(e, () => { if (!scope.Disposed) Show(s); }), reading.Id));
         return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { label, value } };
+    }
+
+    /// <summary>Digits after the point named by a descriptor's format hint ("0", "0.0", "F1"); the bay showed whole numbers before, so no hint means 0.</summary>
+    static int DecimalsOf(string? hint)
+    {
+        if (string.IsNullOrEmpty(hint)) return 0;
+        int dot = hint.IndexOf('.');
+        if (dot >= 0) return hint.Length - dot - 1;
+        return hint[0] is 'F' or 'f' && int.TryParse(hint.AsSpan(1), out var n) && n is >= 0 and <= 6 ? n : 0;
     }
 }
 

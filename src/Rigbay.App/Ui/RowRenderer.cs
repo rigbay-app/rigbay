@@ -39,7 +39,7 @@ sealed class RowRenderer
         public required string Name { get; init; }
         public required Func<object?, Task> Edit { get; init; }
         public required Func<Task> Apply { get; init; }
-        public required Action Revert { get; init; }
+        public required Func<Task> Revert { get; init; }
         public required Func<string> Status { get; init; }
         public required Func<bool> CanRevert { get; init; }
     }
@@ -200,17 +200,39 @@ sealed class RowRenderer
 
         Task Apply() => Run(d => editor.ApplyAsync(d), editor.Draft);
 
-        void Revert()
+        // A revert of a hardware row is a write like any other: RevertAsync asks first (with the exact current -> previous value),
+        // and nothing is written when the answer is no. The synchronous Revert() would refuse, so it is never called here.
+        async Task Revert()
         {
-            var r = editor.Revert();
-            state.Status = r.Outcome == EditOutcome.Applied ? Host.F("row.reverted", fmt(read())) : r.Message ?? "";
-            state.StatusError = r.Outcome == EditOutcome.Faulted;
-            Sync();
+            if (busy) return;
+            busy = true;
+            try
+            {
+                var r = await editor.RevertAsync(_e.StopToken);
+                switch (r.Outcome)
+                {
+                    case EditOutcome.Applied:
+                        state.Status = !string.IsNullOrEmpty(r.Message) ? r.Message : Host.F("row.reverted", fmt(read()));
+                        state.StatusError = false;
+                        break;
+                    case EditOutcome.Declined:
+                        state.Status = !string.IsNullOrEmpty(r.Message) ? r.Message : Host.T("row.cancelled");
+                        state.StatusError = false;
+                        break;
+                    case EditOutcome.Faulted:
+                    case EditOutcome.Invalid:
+                        state.Status = r.Message ?? ""; state.StatusError = true;
+                        break;
+                    default: break;   // NothingToDo
+                }
+            }
+            catch (Exception ex) { AppLog.For(_e.Id).Error("revert failed", ex); }
+            finally { busy = false; Sync(); }
         }
 
         chrome.Apply.Click += async (_, _) => { try { await Apply(); } catch (Exception ex) { AppLog.For(_e.Id).Error("apply failed", ex); } };
         chrome.Discard.Click += (_, _) => { editor.Discard(); state.Status = ""; Sync(); };
-        chrome.Revert.Click += (_, _) => Revert();
+        chrome.Revert.Click += async (_, _) => { try { await Revert(); } catch (Exception ex) { AppLog.For(_e.Id).Error("revert failed", ex); } };
 
         // Changes the module makes itself (a timer, a hotkey, a clamp) reach the control through the editor.
         void OnEditorChanged() => Ui.Post(_e, () => { if (!_scope.Disposed) Sync(); });
@@ -329,6 +351,7 @@ sealed class RowRenderer
     {
         var btn = new Button { Content = L.T(b.ButtonKey) };
         var chrome = new Chrome(btn);
+        if (b.RevertButtonKey is { Length: > 0 } rk) chrome.Revert.Content = L.T(rk);   // the module's own word for the revert action
         var state = StateOf(b);
         bool busy = false;
         string Message(ActionResult? r) => r?.Message is { } m && !string.IsNullOrEmpty(m.Key)
@@ -361,11 +384,13 @@ sealed class RowRenderer
 
         async Task Revert()
         {
+            // asks first unless the row declares SafeRevert; a "no" writes nothing, so the Revert link stays
             var result = await RowEditors.RevertButtonAsync(_e, b, _e.StopToken);
             var msg = Message(result);
-            state.ButtonCanRevert = false;
+            bool declined = !result.Succeeded && result.Message?.Key == "core.approval.declined";
+            if (!declined) state.ButtonCanRevert = false;
             state.Status = msg.Length > 0 ? msg : Host.T(result.Succeeded ? "row.reverted-plain" : "row.failed");
-            state.StatusError = !result.Succeeded;
+            state.StatusError = !result.Succeeded && !declined;
             Ui.Post(null, Show);
         }
 
@@ -376,7 +401,7 @@ sealed class RowRenderer
         Drivers.Add(new RowDriver
         {
             Row = b, Name = L.T(b.HeaderKey),
-            Edit = _ => Click(), Apply = Click, Revert = () => { _ = Revert(); },
+            Edit = _ => Click(), Apply = Click, Revert = Revert,
             Status = () => state.Status, CanRevert = () => state.ButtonCanRevert,
         });
         return Card(b, chrome.Panel);
@@ -392,17 +417,17 @@ sealed class RowRenderer
 
     UIElement Reading(ReadingRow r)
     {
-        var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Text = "—" };
+        var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
         Ui.Tabular(tb);
-        string styleKey = "RbPrimaryText";
-        void Show(MetricSample s)
+        string styleKey = "";
+        // One place decides the text: a number with its unit, or the host's "Not available" (never published, or the module withdrew it).
+        void Show(MetricSample? s)
         {
-            var sym = s.Unit.Symbol();
-            tb.Text = s.Value.ToString("F" + Math.Max(0, r.Decimals), System.Globalization.CultureInfo.InvariantCulture) + (sym.Length > 0 ? " " + sym : "");
-            var key = ReadingStyle(r.Color, s.Unit);
+            tb.Text = ReadingFormat.Format(Host.Core.Languages, r, s);
+            var key = ReadingFormat.IsAvailable(s) ? ReadingStyle(r.Color, s!.Unit) : "RbSecondaryText";
             if (key != styleKey) { styleKey = key; tb.Style = Ui.Style(key); }
         }
-        if (Host.Core.Metrics.TryGetLatest(r.Metric, out var latest)) Show(latest);
+        Show(Host.Core.Metrics.TryGetLatest(r.Metric, out var latest) ? latest : null);
         _scope.Add(Host.Core.Metrics.Subscribe(s => Ui.Post(_e, () => { if (!_scope.Disposed) Show(s); }), r.Metric));
         return Card(r, tb);
     }

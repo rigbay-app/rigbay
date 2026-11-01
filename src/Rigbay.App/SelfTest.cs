@@ -111,6 +111,7 @@ static class SelfTest
 
         // ---------------------------------------------------------------- hardware flow with the real editors
         await FlowChecks(w, fan);
+        await VisibilityAndReadingChecks(w, fan);
 
         // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
         await Task.Run(() => fan.Disable());
@@ -171,9 +172,25 @@ static class SelfTest
         await d.Edit("max");
         await Settle();
         R("flow: approved change is applied and read back", mode.Value.Value == "max" && d.Status().Contains("Maximum") && d.CanRevert(), $"value={mode.Value.Value}; status='{d.Status()}'; revert offered={d.CanRevert()}");
-        d.Revert();
+        // Revert is a hardware write: it asks (title/wording of a revert, exact current -> previous), and "no" writes nothing
+        ApprovalPrompt.TestAnswer = false;
+        asked = ApprovalPrompt.Asked;
+        await d.Revert();
         await Settle();
-        R("flow: revert restores the previous value", mode.Value.Value == "auto" && !d.CanRevert(), $"value={mode.Value.Value}; status='{d.Status()}'");
+        R("flow: revert of a choice row asks, with the exact values", ApprovalPrompt.Asked == asked + 1 && ApprovalPrompt.LastWasRevert && ApprovalPrompt.LastQuestion?.Contains("Fan mode: Maximum → Auto") == true, $"asked={ApprovalPrompt.Asked - asked}x; isRevert={ApprovalPrompt.LastWasRevert}; question='{ApprovalPrompt.LastQuestion}'");
+        R("flow: declined revert writes nothing and keeps Revert", mode.Value.Value == "max" && d.CanRevert() && d.Status().Length > 0, $"value={mode.Value.Value}; revert offered={d.CanRevert()}; status='{d.Status()}'");
+        ApprovalPrompt.TestAnswer = true;
+        await d.Revert();
+        await Settle();
+        R("flow: approved revert restores the previous value and says so", mode.Value.Value == "auto" && !d.CanRevert() && d.Status().Contains("Auto") && d.Status().Contains("Maximum"), $"value={mode.Value.Value}; status='{d.Status()}'");
+        {
+            // the old synchronous Revert() must never write a hardware row
+            await d.Edit("max"); await Settle();
+            var ed = RowEditors.For(fan, mode);
+            var sync = ed.Revert();
+            R("flow: the synchronous Revert refuses a hardware row", sync.Outcome == EditOutcome.Declined && mode.Value.Value == "max", $"outcome={sync.Outcome}; value={mode.Value.Value}; '{sync.Message}'");
+            await d.Revert(); await Settle();   // approved (TestAnswer is true): back to auto for the checks below
+        }
 
         // number, apply-or-revert, device clamps to 55
         var np = Driver(w, "row.pl1.header");
@@ -182,9 +199,9 @@ static class SelfTest
         await np.Apply();
         await Settle();
         R("flow: read-back differs from what was typed", pl1.Value.Value == 55 && np.Status().Contains("55"), $"typed 60, module reports {pl1.Value.Value}; status='{np.Status()}'");
-        np.Revert();
+        await np.Revert();
         await Settle();
-        R("flow: revert of a number", pl1.Value.Value == 45, $"value={pl1.Value.Value}");
+        R("flow: revert of a number (hardware row, asked, approved)", pl1.Value.Value == 45 && ApprovalPrompt.LastWasRevert && ApprovalPrompt.LastQuestion?.Contains("55") == true, $"value={pl1.Value.Value}; question='{ApprovalPrompt.LastQuestion}'");
         await np.Edit(52.0);
         await np.Apply();
         await Settle();
@@ -206,9 +223,35 @@ static class SelfTest
         await Settle();
         R("flow: approved button runs and offers revert", boost.CanRevert() && boost.Status().Contains("Boost is on"), $"status='{boost.Status()}'");
         R("flow: module toast reaches the toast host", Host.Toast.Shown > toasts || !Host.Toast.Registered, $"Shown {toasts} -> {Host.Toast.Shown}; registered={Host.Toast.Registered}");
-        boost.Revert();
+        ApprovalPrompt.TestAnswer = false;
+        asked = ApprovalPrompt.Asked;
+        await boost.Revert();
         await Settle();
-        R("flow: button revert", boost.Status().Contains("Boost is off") && !boost.CanRevert(), $"status='{boost.Status()}'");
+        var st = (await Host.Core.ExecuteCommandAsync(new[] { "demo-fan", "status" })).Output;
+        R("flow: button revert asks, declined writes nothing and keeps Revert", ApprovalPrompt.Asked == asked + 1 && ApprovalPrompt.LastWasRevert && boost.CanRevert() && st.Contains("boost=True"), $"asked={ApprovalPrompt.Asked - asked}x; question='{ApprovalPrompt.LastQuestion}'; revert offered={boost.CanRevert()}; {st}");
+        ApprovalPrompt.TestAnswer = true;
+        await boost.Revert();
+        await Settle();
+        st = (await Host.Core.ExecuteCommandAsync(new[] { "demo-fan", "status" })).Output;
+        R("flow: button revert", boost.Status().Contains("Boost is off") && !boost.CanRevert() && st.Contains("boost=False"), $"status='{boost.Status()}'; {st}");
+
+        // SafeRevert: the forward change asks, the way back does not; the status line still says what was written
+        var light = Driver(w, "row.light.header");
+        await light.Edit("blue"); await Settle();
+        ApprovalPrompt.TestAnswer = false;          // a question here would be answered no and leave the light blue
+        asked = ApprovalPrompt.Asked;
+        await light.Revert(); await Settle();
+        st = (await Host.Core.ExecuteCommandAsync(new[] { "demo-fan", "status" })).Output;
+        R("flow: SafeRevert choice row reverts without asking", ApprovalPrompt.Asked == asked && st.Contains("light=off") && light.Status().Contains("Off") && !light.CanRevert(), $"asked={ApprovalPrompt.Asked - asked}x; status='{light.Status()}'; {st}");
+        ApprovalPrompt.TestAnswer = true;
+        var beacon = Driver(w, "row.beacon.header");
+        await beacon.Apply(); await Settle();
+        ApprovalPrompt.TestAnswer = false;
+        asked = ApprovalPrompt.Asked;
+        await beacon.Revert(); await Settle();
+        st = (await Host.Core.ExecuteCommandAsync(new[] { "demo-fan", "status" })).Output;
+        R("flow: SafeRevert button row reverts without asking", ApprovalPrompt.Asked == asked && st.Contains("beacon=False") && beacon.Status().Contains("Beacon is off") && !beacon.CanRevert(), $"asked={ApprovalPrompt.Asked - asked}x; status='{beacon.Status()}'; {st}");
+        ApprovalPrompt.TestAnswer = true;
 
         // a non-hardware apply-or-revert row asks nothing
         asked = ApprovalPrompt.Asked;
@@ -218,6 +261,43 @@ static class SelfTest
         await Settle();
         R("flow: a safe row does not ask", profile.Value.Value == "Night" && ApprovalPrompt.Asked == asked, $"value={profile.Value.Value}; asked={ApprovalPrompt.Asked - asked}x");
         ApprovalPrompt.TestAnswer = false;   // from here on, nothing may be approved by accident
+    }
+
+    // ================================================================ page visibility, unavailable readings, labels
+
+    static string ReadingText(DependencyObject root, string header) =>
+        Find<SettingsCard>(root).Where(c => c.Header?.ToString() == header).Select(c => (c.Content as TextBlock)?.Text).FirstOrDefault() ?? "(no card)";
+
+    static async Task VisibilityAndReadingChecks(MainWindow w, ModuleEntry fan)
+    {
+        var core = Host.Core;
+        async Task<string> Status() => (await core.ExecuteCommandAsync(new[] { "demo-fan", "status" })).Output;
+
+        // page visibility reaches the module: on its page true, anywhere else false, hidden window false
+        w.Navigate(fan); await Settle();
+        R("visibility: the open module page is told visible", w.ShownEntry == fan && fan.IsPageVisible && (await Status()).Contains("page-visible=True"), await Status());
+        w.Navigate("settings"); await Settle();
+        R("visibility: leaving the page tells the module", w.ShownEntry == null && !fan.IsPageVisible && (await Status()).Contains("page-visible=False"), await Status());
+        w.Navigate(fan); await Settle();
+        w.AppWindow.Hide(); w.UpdatePageVisibility(); await Settle();
+        R("visibility: a window hidden to the tray tells the module", !fan.IsPageVisible && (await Status()).Contains("page-visible=False"), await Status());
+        w.ShowFromTray(); await Settle(500);
+        R("visibility: showing the window again tells the module", fan.IsPageVisible && (await Status()).Contains("page-visible=True"), await Status());
+
+        // readings: a number, then "Not available" after the module withdraws it, then a number again
+        var na = core.Languages.T("core.reading.unavailable");
+        var live = ReadingText(w.PageContent!, "Pump flow");
+        R("readings: page row shows the number with its unit", live.Length > 0 && live != na && live.Contains('%'), $"'{live}'");
+        w.Navigate("dashboard"); await Settle(600);
+        var texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
+        R("dashboard: readings carry labels (module descriptor, host text)", texts.Contains("Pump") && texts.Contains("CPU") && !texts.Contains("demo-fan.pump") && !texts.Contains("cpu.temp"), "labels: " + string.Join(" | ", texts.Where(t => t is "Pump" or "CPU" or "demo-fan.pump" or "cpu.temp")));
+        await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "off" }); await Settle(500);
+        texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
+        R("dashboard: a withdrawn reading shows Not available", texts.Contains(na) && !core.Metrics.TryGetLatest(new MetricId("demo-fan.pump"), out _), $"text '{na}' present={texts.Contains(na)}");
+        w.Navigate(fan); await Settle(500);
+        R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
+        await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(500);
+        R("readings: a published value replaces Not available live", ReadingText(w.PageContent!, "Pump flow") is { } t2 && t2 != na && t2.Contains('%'), $"'{ReadingText(w.PageContent!, "Pump flow")}'");
     }
 
     // ================================================================ hotkey, tray, toast, commands
