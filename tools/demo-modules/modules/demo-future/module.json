@@ -7,5 +7,6 @@
   "description": "Built for a later host API; refused before any of its code is loaded.",
   "entry": { "assembly": "Rigbay.DemoModules.dll", "type": "Rigbay.DemoModules.LightingModule" },
   "hostApi": ">=1.0 <2.0",
-  "group": "network"
+  "group": "network",
+  "icon": "icon.svg"
 }

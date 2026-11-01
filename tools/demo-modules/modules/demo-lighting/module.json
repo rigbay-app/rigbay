@@ -9,5 +9,6 @@
   "hostApi": ">=0.1 <0.2",
   "group": "display",
   "requires": { "admin": true },
-  "languages": "lang"
+  "languages": "lang",
+  "icon": "icon.svg"
 }

@@ -128,6 +128,9 @@ static class SelfTest
         // ---------------------------------------------------------------- hotkey, tray, toast, commands
         await HostServiceChecks(w, fan);
 
+        // ---------------------------------------------------------------- brand: window mark, tray icon, module icons
+        await BrandChecks(w);
+
         // ---------------------------------------------------------------- language at run time
         await LanguageChecks(w, fan);
 
@@ -298,6 +301,107 @@ static class SelfTest
         R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(500);
         R("readings: a published value replaces Not available live", ReadingText(w.PageContent!, "Pump flow") is { } t2 && t2 != na && t2.Contains('%'), $"'{ReadingText(w.PageContent!, "Pump flow")}'");
+    }
+
+    // ================================================================ brand (A11)
+
+    static async Task BrandChecks(MainWindow w)
+    {
+        var core = Host.Core;
+        var tray = Host.Tray!;
+        var assets = Path.Combine(AppContext.BaseDirectory, "Assets");
+
+        // --- files and the pure choices
+        R("brand: app icon and tray files shipped next to the exe", new[] { "rigbay.ico", "rigbay-tray-light.ico", "rigbay-tray-dark.ico", "rigbay-tray-neutral.ico", "rigbay-hc-black.ico", "rigbay-hc-white.ico" }.All(f => File.Exists(Path.Combine(assets, f))), assets);
+        bool allLoad = true; var bad = new List<string>();
+        foreach (var look in Enum.GetValues<TrayLook>())
+            foreach (var size in new[] { 16, 20, 24, 32 })
+            {
+                var h = Native.LoadTrayIcon(Path.Combine(assets, TrayHost.FileFor(look)), size);
+                if (h == 0) { allLoad = false; bad.Add($"{look}@{size}"); } else Native.DestroyIcon(h);
+            }
+        R("brand: every tray icon loads at 16, 20, 24 and 32 px", allLoad, bad.Count == 0 ? "LoadImage returned a handle for 5 files x 4 sizes" : string.Join(", ", bad));
+        R("tray: icon by taskbar theme (pure choice)",
+            TrayHost.Pick(false, false, 1) == TrayLook.Light && TrayHost.Pick(false, false, 0) == TrayLook.Dark && TrayHost.Pick(false, false, null) == TrayLook.Neutral
+            && TrayHost.Pick(true, true, 0) == TrayLook.HighContrastBlack && TrayHost.Pick(true, false, 1) == TrayLook.HighContrastWhite,
+            "SystemUsesLightTheme 1 -> light, 0 -> dark, missing -> neutral; high contrast wins, light theme -> black icon");
+        var detected = TrayHost.Detect();
+        R("tray: the real taskbar theme was read", tray.Look == detected, $"detected={detected} (file {TrayHost.FileFor(detected)}), on the icon now={tray.Look}@{tray.IconSize}px");
+
+        // --- the tray follows a change at run time (the real registry is not touched: the look is forced, then the message is sent)
+        int swaps = tray.Swaps;
+        var results = new List<string>();
+        bool swapsOk = true;
+        foreach (var look in new[] { TrayLook.Dark, TrayLook.Light, TrayLook.HighContrastBlack, TrayLook.HighContrastWhite, TrayLook.Neutral })
+        {
+            tray.ForcedLook = look;
+            tray.Refresh("self-test");
+            bool ok = tray.Look == look && tray.LastSwapAccepted;
+            swapsOk &= ok;
+            results.Add($"{look}{(ok ? "" : "!")}");
+        }
+        R("tray: icon swaps for dark, light, both high contrast icons and neutral; the shell accepts each", swapsOk && tray.Swaps >= swaps + 4, string.Join(" ", results) + $" swaps {swaps}->{tray.Swaps}");
+        tray.ForcedLook = TrayLook.Light;
+        int changes = w.SettingChanges;
+        var text = System.Runtime.InteropServices.Marshal.StringToHGlobalUni("ImmersiveColorSet");
+        var other = System.Runtime.InteropServices.Marshal.StringToHGlobalUni("intl");
+        Native.SendMessage(w.Hwnd, Native.WM_SETTINGCHANGE, 0, other);
+        Native.SendMessage(w.Hwnd, Native.WM_SETTINGCHANGE, 0, text);
+        await Settle(900);
+        System.Runtime.InteropServices.Marshal.FreeHGlobal(text);
+        System.Runtime.InteropServices.Marshal.FreeHGlobal(other);
+        R("tray: WM_SETTINGCHANGE 'ImmersiveColorSet' is followed, other settings are ignored", w.SettingChanges == changes + 1 && tray.Look == TrayLook.Light, $"handled {w.SettingChanges - changes} of 2; look now {tray.Look}");
+        tray.ForcedLook = null;
+        tray.Refresh("self-test: back to the system value");
+        R("tray: back on the system's own theme", tray.Look == detected && tray.IsAdded, $"{tray.Look}@{tray.IconSize}px");
+
+        // --- the title bar mark
+        var markRoot = (FrameworkElement)((FrameworkElement)w.Content).FindName("Mark");
+        var paths = Find<Microsoft.UI.Xaml.Shapes.Path>(markRoot).ToList();
+        var bounds = paths.Select(p => p.Data?.Bounds ?? default).ToList();
+        R("title bar: the Dock mark's path data parsed into geometry", paths.Count == 4 && bounds.All(b => b.Width > 70) && bounds.Any(b => Math.Abs(b.Width - 208) < 1 && Math.Abs(b.Height - 164) < 1) && bounds.Any(b => Math.Abs(b.Width - 80) < 1 && Math.Abs(b.Height - 144) < 1),
+            $"{paths.Count} paths, bounds " + string.Join(" ", bounds.Select(b => $"{b.Width:0}x{b.Height:0}")));
+        R("title bar: the mark is 20 x 20 DIP", Math.Abs(markRoot.ActualWidth - 20) < 0.5 && Math.Abs(markRoot.ActualHeight - 20) < 0.5, $"{markRoot.ActualWidth}x{markRoot.ActualHeight}");
+        bool rule = new[] { ("0078D4", false), ("7A5AF8", false), ("0063B1", false), ("881798", false), ("E3008C", false), ("7A7574", false), ("107C10", false), ("10893E", true), ("E81123", true), ("FFB900", true), ("F7630C", true), ("00CC6A", true) }
+            .All(c => BrandMark.TryParseColor(c.Item1, out var col) && BrandMark.NeedsQuietForm(col) == c.Item2);
+        R("title bar: quiet form exactly when the accent hue is within 30 degrees of green, red or amber (greys never)", rule, "Windows blue, brand violet, purple, pink, grey, and 107C10 (hue 120, 34 degrees from the state green) -> normal; 10893E, red, gold, orange, spring green -> quiet");
+        R("title bar: the form shown matches the accent", w.MarkIsQuiet == BrandMark.NeedsQuietForm(w.MarkAccent), $"accent #{w.MarkAccent.R:X2}{w.MarkAccent.G:X2}{w.MarkAccent.B:X2} quiet={w.MarkIsQuiet}");
+
+        // --- module icons
+        var fan = core.Find("demo-fan")!;
+        var lighting = core.Find("demo-lighting")!;
+        var future = core.Find("demo-future")!;
+        var devices = core.Find("demo-devices")!;
+        var throwUi = core.Find("demo-throw-ui");
+        R("module icons: Core resolved the declared and the conventional files",
+            fan.Icons.Tile?.EndsWith("icon.svg") == true && fan.Icons.Glyph != null && fan.Icons.Unsupported != null && fan.Icons.Png.Count == 6
+            && devices.Manifest!.Icon == null && devices.Icons.Tile?.EndsWith("icon.svg") == true && devices.Icons.Glyph != null
+            && future.Icons.Tile != null && future.Icons.Unsupported == null && lighting.Icons.Unsupported != null,
+            $"fan tile+glyph+grey+{fan.Icons.Png.Count} png; devices by convention; future only icon.svg; throw-ui icon={throwUi?.Icons.HasIcon}");
+        R("module icons: the host has a neutral tile for a module with no icon", ModuleIconUi.Neutral.Tile != null && ModuleIconUi.Neutral.Glyph != null && (throwUi == null || !throwUi.Icons.HasIcon), $"neutral={Path.GetFileName(ModuleIconUi.Neutral.Tile)}");
+
+        int opened = ModuleIconUi.Opened, failures = ModuleIconUi.Failures;
+        w.Navigate("dashboard");
+        await Settle(1500);
+        var images = Find<Image>(w.PageContent).Where(i => i.Width == 24).ToList();
+        R("dashboard: every row has a 24 DIP tile", images.Count == core.Modules.Count && images.All(i => i.Source != null), $"{images.Count} tiles for {core.Modules.Count} rows");
+        R("dashboard: the tiles opened (SVG renders in WinUI here)", ModuleIconUi.Opened - opened >= core.Modules.Count - 1 && !ModuleIconUi.SvgBroken, $"{ModuleIconUi.Opened - opened} opened, {ModuleIconUi.Failures - failures} failed, SvgBroken={ModuleIconUi.SvgBroken}");
+        R("dashboard: a broken icon file falls back to the neutral tile and is logged; nothing throws", ModuleIconUi.Failures > failures && Host.Core.Log.Recent().Any(e => e.Message.Contains("icon of demo-broken")), $"{ModuleIconUi.Failures - failures} failure(s) handled; log has 'icon of demo-broken'");
+        var byModule = core.Modules.Zip(images, (m, i) => (m, i)).ToDictionary(x => x.m.Id, x => x.i);
+        R("dashboard: unsupported modules are grey, an incompatible one without a grey file is drawn at 45 %",
+            ModuleIconUi.IsUnsupported(lighting) && Math.Abs(byModule["demo-lighting"].Opacity - 1.0) < 1e-6 && ModuleIconUi.IsUnsupported(future) && Math.Abs(byModule["demo-future"].Opacity - 0.45) < 1e-6 && Math.Abs(byModule["demo-fan"].Opacity - 1.0) < 1e-6,
+            $"lighting opacity {byModule["demo-lighting"].Opacity} (grey file), future {byModule["demo-future"].Opacity}, fan {byModule["demo-fan"].Opacity}");
+        var navImages = w.NavItems().Select(i => i.Icon).OfType<ImageIcon>().Count();
+        R("navigation pane: module items show the quiet glyph", navImages >= 3, $"{navImages} ImageIcon items");
+        w.Navigate(fan);
+        await Settle(700);
+        var header = Find<Image>(w.PageContent).FirstOrDefault(i => i.Width == 48);
+        R("module page: the header shows the 48 DIP tile", header?.Source != null, "Image 48 DIP in the page header");
+        w.Navigate("modules");
+        await Settle(900);
+        R("modules page: one 32 DIP tile per module", Find<Image>(w.PageContent).Count(i => i.Width == 32) == core.Modules.Count, $"{Find<Image>(w.PageContent).Count(i => i.Width == 32)} tiles");
+        w.Navigate("dashboard");
+        await Settle(300);
     }
 
     // ================================================================ hotkey, tray, toast, commands

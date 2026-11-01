@@ -67,6 +67,12 @@ core.manifest.must-be-string-array = must be an array of strings
 core.manifest.string-entries = every entry must be a string of 1 to 200 characters
 core.manifest.probe-paths-count = at most {0} probe paths are allowed
 core.manifest.probe-path-invalid = '{0}' must be an absolute local path (drive letter, no '..', no network share); %NAME% variables must exist on this machine
+core.manifest.icon-invalid = must be a file name or relative path inside the module folder, ending in .svg or .png; the module shows the neutral icon
+core.manifest.icon-missing = the icon file '{0}' is not in the module folder; the module shows the neutral icon
+core.manifest.icon-too-large = the icon file '{0}' is larger than {1} KiB; the module shows the neutral icon
+core.manifest.icon-unsafe = the icon file '{0}' is not a plain drawing (an SVG may not contain scripts, text, styles, images or links; a PNG must be a real PNG); the module shows the neutral icon
+core.manifest.icon-size = the icon file '{0}' must be a square PNG of {1} to {2} pixels; the module shows the neutral icon
+core.manifest.icon-unreadable = the icon file '{0}' cannot be read; the module shows the neutral icon
 core.manifest.required-string = required, a string
 core.manifest.length-range = must be {0} to {1} characters
 

@@ -15,6 +15,8 @@ $out = Join-Path $PSScriptRoot 'out'
 $app = Join-Path $out 'app'
 function Run($a) { $ErrorActionPreference = 'Continue'; & dotnet @a 2>&1 | ForEach-Object { "$_" } | Write-Host; if ($LASTEXITCODE -ne 0) { throw "dotnet $($a -join ' ') failed ($LASTEXITCODE)" } }
 
+& "$PSScriptRoot\sync-brand-assets.ps1" -Check
+if ($LASTEXITCODE -ne 0) { throw 'the app copies of the brand files differ from assets\brand (run tools\sync-brand-assets.ps1)' }
 New-Item -ItemType Directory -Force $out | Out-Null
 $sc = 'false'
 Run @('publish', "$repo\src\Rigbay.App\Rigbay.App.csproj", '-c', $Config, '-r', 'win-x64', "--self-contained:$sc", "-p:WindowsAppSDKSelfContained=$sc", '-o', $app, '-v', 'q', '--nologo')
