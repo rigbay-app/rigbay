@@ -5,8 +5,9 @@ Software read: Store package `AcerIncorporated.PredatorSenseV30` 3.0.3198.0 and 
 `C:\Program Files\Acer\PredatorSense Service`. Everything was read in place. Nothing from Acer is copied into this
 repo; names, ids and numbers below are facts, the wording is ours. Nothing in this study wrote to the hardware.
 Sections 1 to 10 are the B1 reading (no WMI method called then). **Task B2 (section 11) made exactly one WMI method
-call: `GetGamingSysInfo(0x0101)`, the owner-approved CPU temperature read.** Where section 11 corrects an earlier
-statement, section 11 wins.
+call: `GetGamingSysInfo(0x0101)`, the owner-approved CPU temperature read.** **Task B3 (section 12) ran the owner-approved
+follow-up reads: sysinfo indexes 2 to 17 and `AcerGenericMethod.GetFunction(0x207)`; it still wrote nothing.** Where
+section 11 or 12 corrects an earlier statement, the later section wins.
 
 ## How sure each statement is
 
@@ -449,3 +450,133 @@ read and a traced write.
 | `GetGamingSysInfo` | `1 \| (index << 8)` | `(raw >> 8) & 0xFFFF` if low byte 0 | traced, **confirmed live for index 1** |
 
 Candidate next gates for these are written in `GATE-b2-reads.md` (not opened; see the note there).
+
+## 12. B3: the follow-up reads (owner approval: "read all parameters freely"; coordinator scope applied)
+
+Scope: **read-only, no `Set*` call, no pipe, no registry or service change.** The owner's gate `g-b3-reads` was read by the
+coordinator as: R1, R2, R3, `GetGamingSysInfo` indexes 2 to 17, battery boost, `GetGamingMiscSetting(2)` and `(9)`,
+`GetGamingLEDBehavior(1)`, each once, stop at the first odd status. After R2 answered with a non-zero status the coordinator
+narrowed it: continue with sysinfo 3 to 17 and a few repeats of `0x0101`; **hold** R3 and every other call until R2 is explained.
+
+Tool: `tools/predatorsense-probe`, extended with one flag per call (`--r1`, `--r2`, `--r3`, `--sysinfo-index N`, `--battery-boost`,
+`--misc-get 2|9`, `--led-behavior-get`). The probe has an allowlist of exact class, method and input, refuses any `Set*` method, refuses
+a repeated call, and halts the run at the first exception or non-zero status. All runs elevated through `Start-Process -Verb RunAs`,
+output to a file under `tools/predatorsense-probe/bin/` (git-ignored). Refusal paths were tested without touching WMI (wrong flag
+combination, duplicate call, out-of-range index).
+
+### 12.1 What was run, and what was not
+
+| Call | Input | Run? | Result |
+| --- | --- | --- | --- |
+| R1 `GetGamingSysInfo` | `0x0201` | yes, once | raw `0xB2900`, status 0, value 2857 |
+| R2 `AcerGenericMethod.GetFunction` | `0x207` | yes, once | raw `0x2E1`, **status byte `0xE1` (225)**, byte 1 = `0x02`. **Odd: run stopped.** |
+| R3 `AcerGenericMethod.GetFunction` | `0x80184` | **no (held by the coordinator)** | not run |
+| `GetGamingSysInfo` indexes 3 to 17 | `1 \| (index << 8)` | yes, once each (15 calls) | all status 0, table below |
+| `GetGamingSysInfo` battery boost | `2` | **no (held)** | not run |
+| `GetGamingMiscSetting` | `2`, `9` | **no (held)** | not run |
+| `GetGamingLEDBehavior` | `1` | **no (held)** | not run |
+| `GetGamingSysInfo` | `0x0101` | yes, 3 more times (approved by the coordinator for the temperature cross-check) | 64, 63, 63 |
+
+R1/R2 run (raw probe output, firmware part; the rest of the file is the B1 inventory, unchanged except the ACPI zone 52.1 C):
+
+```
+firmware_reads:
+  cpu_fan_speed:
+    call: AcerGamingFunction.GetGamingSysInfo(0x201)   raw: 0xB2900   status: 0   value: 2857
+  r2_cool_booster_state:
+    call: AcerGenericMethod.GetFunction(0x207)         raw: 0x2E1     status: 225
+  stopped_at: r2_cool_booster_state (error or non-zero status; remaining calls NOT made)
+```
+
+No exception and no hang on any call. I did not watch the fans, lighting or any other hardware state while the calls ran, so "no side effect" is **not verified**. What I can say: the registry cache (the app's own records, not firmware) was identical before and after (fan mode 0, operation mode 4, MaxQ mode 2, GPU level 0, keyboard colour 2), and the sensor values stayed in a normal range.
+
+### 12.2 The sensor table (indexes 1 to 17, this machine: 1 CPU fan, 2 GPU fans, 1 GPU, no system fan)
+
+Taken at about 18:16 to 18:18 local time, machine idle on AC (CPU 6 to 37 %, GPU 20 to 27 %), performance mode Extreme per the registry cache, fan mode Auto per the cache.
+
+| Index | Input | Name | raw | status | value | What it looks like |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `0x0101` | CPU temperature | `0x4900`, `0x4000`, `0x3F00`, `0x3F00` | 0 | 73 (B2), 64, 63, 63 | degrees C, see 12.3 |
+| 2 | `0x0201` | CPU fan speed | `0xB2900` | 0 | **2857** | RPM (magnitude only) |
+| 3 | `0x0301` | system temperature | `0x2C00` | 0 | **44** | degrees C; a board/system sensor, cooler than TZ00 |
+| 4 | `0x0401` | system fan speed | `0x0` | 0 | 0 | no such fan here |
+| 5 | `0x0501` | system fan speed, external | `0x0` | 0 | 0 | no such fan here |
+| 6 | `0x0601` | GPU 1 fan speed | `0xBF500` | 0 | **3061** | RPM |
+| 7 | `0x0701` | system 2 temperature | `0x0` | 0 | 0 | absent |
+| 8 | `0x0801` | system 2 fan speed | `0x0` | 0 | 0 | absent |
+| 9 | `0x0901` | GPU 2 fan speed | `0xC0B00` | 0 | **3083** | RPM |
+| 10 | `0x0A01` | GPU 1 temperature | `0x3500` | 0 | **53** | degrees C, **matches `nvidia-smi` (53.19 and 53.41 C at the same moment)** |
+| 11 | `0x0B01` | GPU 2 temperature | `0x0` | 0 | 0 | absent (one GPU) |
+| 12 | `0x0C01` | CPU fan rate | `0x0` | 0 | **0** | see below |
+| 13 to 15 | `0x0D01` to `0x0F01` | system, system 2, external fan rate | `0x0` | 0 | 0 | absent fans |
+| 16, 17 | `0x1001`, `0x1101` | GPU 1, GPU 2 fan rate | `0x0` | 0 | **0** | see below |
+
+- **Absent hardware answers status 0 and value 0**, not an error. A module must not treat 0 as "stopped" for a fan the machine does not have;
+  the fan count comes from `HW_Support.ini [FanSupport]` (CPU 1, GPU 2, System 0), which matches exactly which indexes returned non-zero.
+- **Temperature unit: degrees C (O) for index 10**, because it equals `nvidia-smi` at the same moment to within 0.4. Index 1 and 3 use the same
+  method and layout, so degrees C is the working assumption; index 1 is not independently confirmed (12.3).
+- **Fan speed unit: RPM is the working assumption (G+).** The three values (2857, 3061, 3083) are in the range of laptop fans at moderate load;
+  Windows has no fan counter set to compare with (the five "ACPI Fan" devices exist; I found no counter for them). Not proven.
+- **The "rate" indexes (12 to 17) all returned 0 while the fans were turning at ~3000.** So "rate" is not a live percent of maximum on this machine in
+  Auto mode. Possible reasons (all **G**): it is a commanded percent that is only non-zero in Custom mode, or it is not implemented on this model.
+  The UI's fan page reads speed and rate together; it shows the speed. Do not use the rate indexes as a fan-state read-back.
+
+### 12.3 CPU temperature cross-check
+
+Question from B2: `0x0101` gave 73 while ACPI `TZ00` was ~52 C. Do they agree, and if not why?
+
+Sources available **without a driver install**: the Windows thermal-zone counters (`Thermal Zone Information`; only one zone, `TZ00`, which is
+the same ACPI source as `MSAcpi_ThermalZoneTemperature`), the RAPL package power counters (`Energy Meter`, in milliwatts; power, not temperature),
+CPU utilisation/frequency counters, and `nvidia-smi` (GPU only). There is no second CPU temperature source: `Win32_TemperatureProbe` is empty,
+and I found no counter set for the Intel Dynamic Tuning participant devices (they are present as PnP devices) or for the five "ACPI Fan" devices. Anything else (LibreHardwareMonitor, HWiNFO, XTU) needs a driver or touches
+the Intel service; not done.
+
+Samples taken in the 2 s before and after each probe call (so within about 2 s of the firmware read):
+
+| Read | Acer `0x0101` | `TZ00` | package power (RAPL) | CPU utilisation | GPU (`nvidia-smi`) |
+| --- | --- | --- | --- | --- | --- |
+| B2 (earlier session) | **73** | 51.9 to 53.1 | n/a | ~15 % | n/a |
+| B3 run 1, 18:17:54 | **64** | 52.1 / 52.1 | 12.2 / 9.3 W | 9 / 6 % | 52.6 / 52.4 |
+| B3 run 2, 18:18:03 | **63** | 52.1 / 53.1 | 9.5 / 14.2 W | 6 / 12 % | 51.9 / 52.0 |
+| B3 run 3, 18:18:12 | **63** | 52.1 / 52.1 | 24.3 / 15.6 W | 37 / 13 % | 51.8 / 51.8 |
+
+**Verdict: they do not agree, and I cannot prove which is the CPU die temperature.** `0x0101` is 11 to 21 C above `TZ00`, and moves (73, 64, 63, 63
+over a few minutes as load dropped) while `TZ00` stays within 1 C of 52. Likely reasons, most to least likely:
+
+1. They are **different sensors**. `TZ00` is an ACPI thermal zone, which on most laptops is a board, skin or heat-pipe sensor with a slow response, and is
+   what Windows uses for passive cooling; the EC value behind `0x0101` is probably a CPU package/die sensor that follows load quickly. The pattern (one
+   fast, one slow and flat) fits that. **G**, but it is the only explanation that fits the data without assuming a faulty read.
+2. The Acer value is an **EC-filtered or offset value** (some ECs report a margin or an averaged number). Not testable without disassembling the service.
+3. The index-1 value is **not degrees C** at all. Unlikely: index 10 in the same method equals `nvidia-smi` in C to 0.4, and 63 to 73 is a normal idle-to-light-load
+   package range for this CPU in Extreme mode.
+
+What would settle it: a driver-based CPU package reader (needs an install, so it needs approval) or a short CPU load test showing `0x0101` climbing by tens of
+degrees within seconds while `TZ00` lags. I did not run a load test (not asked, and it adds heat for no write-safety reason). **For a module: show `0x0101` as "CPU",
+do not try to reconcile it with `TZ00`, and do not use `TZ00` as a CPU temperature.**
+
+### 12.4 R2: `AcerGenericMethod.GetFunction(0x207)` answered status `0xE1`
+
+- Raw `0x2E1`: low byte `0xE1` (225), byte 1 `0x02`. The UI's parse (`get_coolboost_state`, read again in B3) is: call `GetFunction(519)`;
+  if `(raw & 0xFF) == 0` **and** `((raw >> 8) & 0xFF) == 1` then Cool Booster on, **otherwise off**. So for this answer the UI would say "off" with no error.
+- **The UI makes this exact call itself.** `MainWindow_Clubman.initial_fan_page` (and every other variant) calls `get_coolboost_state` when the fan page is
+  initialised, and shows the result on the Cool Booster toggle of `FanControlPage`. So `0x2E1` is almost certainly what the Acer UI also gets on this machine
+  and silently turns into "off". **The UI cannot tell "off" from "not supported" or "error".** The UI's own cache has no Cool Booster value.
+- The setter `set_coolboost_state` sends `SetFunction(7 | (state << 16))` and counts it a success when the low byte of the answer is 0. It is only called from
+  the toggle's Checked and Unchecked events.
+- What I could not establish: what `0xE1` means. No UI method compares an answer with 225, the service strings have no decoding for it, and the service logs only
+  "WMI GetFunction input/output". Candidate readings, all **G**: (a) a "function not supported / invalid argument" code of the generic WMI method; (b) the answer's
+  layout for this selector is different (status is not the low byte); (c) Cool Booster exists but its read needs another input on this model. Note that the
+  answer echoes the input's byte 1 (`0x02`) in byte 1; that may or may not be meaningful.
+- **Consequence: the Cool Booster read-back is unproven.** R3 (same method, a different input) and all other calls were not run, as instructed.
+  W1 in `WRITE-PROPOSALS.md` says so.
+
+### 12.5 Things this changes in earlier sections
+
+- Section 3.3 / 6: `GetGamingSysInfo` fan speed indexes are **live and return plausible RPM**; the unit is still not independently proven. Rates read 0.
+- Section 10: W1 (Cool Booster) loses its "read first" check; it can still be judged by fan RPM (indexes 2, 6, 9). The proposals are now in `WRITE-PROPOSALS.md`.
+- Section 9 "Not verified": the sensor list there is now partly verified (12.2); R3, battery boost, `GetGamingMiscSetting`, `GetGamingLEDBehavior` remain unrun.
+- A WMI **schema enumeration** from PowerShell (`ManagementClass.Methods` with `InParameters`/`OutParameters`) printed the first 12 methods (up to `SetGamingLEDBehavior`,
+  id 10) and then produced nothing for 2 minutes; I stopped it. The next method to print would have been `GetGamingLEDBehavior` (id 11), but where exactly it hung is not
+  established (output may have been buffered). The probe's own schema listing (names and ids only) works. That was a schema read, not a method call, but it is one more
+  reason to give every WMI call in the host a timeout. Parameter names read before the stall: `AcerGenericMethod` uses `uiInput`/`uiOutput`, `AcerGamingFunction` uses
+  `gmInput`/`gmOutput`; the Get methods take UInt32.
