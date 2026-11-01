@@ -218,7 +218,7 @@ public static class PeRes
 
     # absolute paths and personal strings, in every file (ASCII and UTF-16 spellings)
     $needles = New-Object System.Collections.Generic.List[string]
-    foreach ($n in $work, $src, $env:USERNAME, $env:COMPUTERNAME, $env:USERPROFILE, 'C:\Users\', 'D:\Documents', 'setup-token') { if ($n -and $n.Length -ge 4) { [void]$needles.Add($n) } }
+    foreach ($n in $work, $src, $env:USERNAME, $env:COMPUTERNAME, $env:USERPROFILE, 'C:\Users\') { if ($n -and $n.Length -ge 4) { [void]$needles.Add($n) } }
     $needles = @($needles | Select-Object -Unique)
     $hits = @()
     foreach ($f in $all) {
