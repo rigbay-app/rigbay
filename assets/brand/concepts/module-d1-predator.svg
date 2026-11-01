@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">PredatorSense module mark, tile</title>
+  <rect x="24" y="24" width="208" height="208" rx="56" fill="#D946B8"/>
+  <g id="glyph">
+    <g fill="#FFFFFF">
+      <circle cx="128" cy="128" r="16"/>
+      <path d="M118 120 C92 98 98 62 128 52 C152 45 166 70 152 94 C147 104 142 112 140 120 Z"/>
+      <path d="M118 120 C92 98 98 62 128 52 C152 45 166 70 152 94 C147 104 142 112 140 120 Z" transform="rotate(120 128 128)"/>
+      <path d="M118 120 C92 98 98 62 128 52 C152 45 166 70 152 94 C147 104 142 112 140 120 Z" transform="rotate(240 128 128)"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Rigbay app icon, B Dock</title>
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#7A5AF8"/>
+  <g transform="translate(48.6 48.6) scale(0.62)">
+  <g id="symbol">
+    <path fill="#FFFFFF" d="M24 84 V176 A56 56 0 0 0 80 232 H176 A56 56 0 0 0 232 176 V84 A12 12 0 0 0 208 84 V176 A32 32 0 0 1 176 208 H80 A32 32 0 0 1 48 176 V84 A12 12 0 0 0 24 84 Z"/>
+    <rect x="88" y="24" width="80" height="144" rx="24" fill="#FFFFFF"/>
+  </g>
+  </g>
+</svg>

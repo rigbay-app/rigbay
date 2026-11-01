@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Rigbay app icon, C R-bay</title>
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#7A5AF8"/>
+  <g transform="translate(48.6 48.6) scale(0.62)">
+  <g id="symbol" fill="none" stroke-width="40" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#D8CEFF" d="M134 130 L190 220"/>
+    <path stroke="#FFFFFF" d="M68 220 V36 H126 A46 46 0 0 1 126 128 H68"/>
+  </g>
+  </g>
+</svg>

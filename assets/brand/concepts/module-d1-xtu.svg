@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">XTU profiles module mark, tile</title>
+  <rect x="24" y="24" width="208" height="208" rx="56" fill="#2F7BFF"/>
+  <g id="glyph">
+    <g fill="#FFFFFF" stroke="#FFFFFF" stroke-linecap="round">
+      <path d="M64 92 H192 M64 164 H192" stroke-width="20" fill="none"/>
+      <circle cx="148" cy="92" r="28" stroke="none"/>
+      <circle cx="104" cy="164" r="28" stroke="none"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Rigbay symbol small cut, A Rack</title>
+  <g id="symbol">
+    <rect x="12" y="12" width="64" height="232" rx="32" fill="#7B8497"/>
+    <rect x="96" y="12" width="64" height="232" rx="32" fill="#7B8497"/>
+    <rect x="180" y="12" width="64" height="232" rx="32" fill="#7A5AF8"/>
+  </g>
+</svg>
