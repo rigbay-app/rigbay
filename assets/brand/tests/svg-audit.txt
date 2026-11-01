@@ -1,0 +1,63 @@
+PASS  rigbay/rigbay-lockup-horizontal-accent.svg                 colours 2  anchors  69  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6]  1811 B
+PASS  rigbay/rigbay-lockup-horizontal-black.svg                  colours 1  anchors  69  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6]  1697 B
+PASS  rigbay/rigbay-lockup-horizontal-reversed.svg               colours 2  anchors  69  fill 100% x 100%  centre 0.1%, 0.0%  angles [90.0 0.0 63.4 116.6]  1735 B
+PASS  rigbay/rigbay-lockup-horizontal-white.svg                  colours 1  anchors  69  fill 100% x 100%  centre 0.1%, 0.0%  angles [90.0 0.0 63.4 116.6]  1729 B
+PASS  rigbay/rigbay-lockup-horizontal.svg                        colours 2  anchors  69  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6]  1683 B
+PASS  rigbay/rigbay-lockup-stacked-reversed.svg                  colours 2  anchors  69  fill 100% x 100%  centre -0.0%, 0.1%  angles [90.0 0.0 63.4 116.6]  1851 B
+PASS  rigbay/rigbay-lockup-stacked.svg                           colours 2  anchors  69  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6]  1799 B
+PASS  rigbay/rigbay-symbol-accent.svg                            colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  731 B
+PASS  rigbay/rigbay-symbol-black.svg                             colours 1  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  492 B
+PASS  rigbay/rigbay-symbol-quiet-reversed.svg                    colours 2  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  544 B
+PASS  rigbay/rigbay-symbol-quiet.svg                             colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  510 B
+PASS  rigbay/rigbay-symbol-reversed.svg                          colours 2  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  530 B
+PASS  rigbay/rigbay-symbol-small-reversed.svg                    colours 2  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  552 B
+PASS  rigbay/rigbay-symbol-small.svg                             colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  530 B
+PASS  rigbay/rigbay-symbol-white.svg                             colours 1  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  524 B
+PASS  rigbay/rigbay-symbol.svg                                   colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  478 B
+PASS  rigbay/rigbay-wordmark-black.svg                           colours 1  anchors  50  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 63.4 116.6]  1333 B
+PASS  rigbay/rigbay-wordmark-reversed.svg                        colours 2  anchors  50  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 63.4 116.6]  1339 B
+PASS  rigbay/rigbay-wordmark-white.svg                           colours 1  anchors  50  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 63.4 116.6]  1333 B
+PASS  rigbay/rigbay-wordmark.svg                                 colours 2  anchors  50  fill 100% x 100%  centre -0.0%, 0.0%  angles [90.0 63.4 116.6]  1319 B
+PASS  app-icon/high-contrast/rigbay-hc-black.svg                 colours 1  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  524 B
+PASS  app-icon/high-contrast/rigbay-hc-white.svg                 colours 1  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  556 B
+PASS  app-icon/rigbay-appicon-small.svg                          colours 2  anchors  26  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  724 B
+PASS  app-icon/rigbay-appicon.svg                                colours 2  anchors  26  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  676 B
+PASS  app-icon/tray/rigbay-tray-dark.svg                         colours 2  anchors  19  fill 99% x 99%  centre 0.0%, 0.0%  angles [90.0 0.0]  554 B
+PASS  app-icon/tray/rigbay-tray-light.svg                        colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  524 B
+PASS  app-icon/tray/rigbay-tray-neutral.svg                      colours 1  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  536 B
+PASS  modules/module-template-glyph-currentcolor.svg             colours 1  anchors   8  fill 80% x 80%  centre 0.0%, 0.0%  angles [90.0 0.0]  378 B
+PASS  modules/module-template-glyph.svg                          colours 1  anchors   8  fill 80% x 80%  centre 0.0%, 0.0%  angles [90.0 0.0]  365 B
+PASS  modules/module-template-unsupported.svg                    colours 2  anchors  15  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  538 B
+PASS  modules/module-template.svg                                colours 2  anchors  15  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  480 B
+PASS  modules/module-unknown-glyph-currentcolor.svg              colours 1  anchors  16  fill 45% x 81%  centre 0.0%, 0.0%  angles [135.0 90.0]  656 B
+PASS  modules/module-unknown-glyph.svg                           colours 1  anchors  16  fill 45% x 81%  centre 0.0%, 0.0%  angles [135.0 90.0]  643 B
+PASS  modules/module-unknown-unsupported.svg                     colours 2  anchors  23  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 135.0]  808 B
+PASS  modules/module-unknown.svg                                 colours 2  anchors  23  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 135.0]  750 B
+PASS  modules/predatorsense-glyph-currentcolor.svg               colours 1  anchors  14  fill 80% x 76%  centre 0.0%, 0.0%  angles [0.0 120.0 60.0]  717 B
+PASS  modules/predatorsense-glyph.svg                            colours 1  anchors  14  fill 80% x 76%  centre 0.0%, 0.0%  angles [0.0 120.0 60.0]  704 B
+PASS  modules/predatorsense-small-unsupported.svg                colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  897 B
+PASS  modules/predatorsense-small.svg                            colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  839 B
+PASS  modules/predatorsense-unsupported.svg                      colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  870 B
+PASS  modules/predatorsense.svg                                  colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  812 B
+PASS  modules/steam-access-glyph-currentcolor.svg                colours 1  anchors  16  fill 89% x 91%  centre 0.0%, 0.0%  angles [45.0 135.0]  661 B
+PASS  modules/steam-access-glyph.svg                             colours 1  anchors  16  fill 89% x 91%  centre 0.0%, 0.0%  angles [45.0 135.0]  648 B
+PASS  modules/steam-access-small-unsupported.svg                 colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  734 B
+PASS  modules/steam-access-small.svg                             colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  676 B
+PASS  modules/steam-access-unsupported.svg                       colours 2  anchors  23  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  817 B
+PASS  modules/steam-access.svg                                   colours 2  anchors  23  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  759 B
+PASS  modules/steam-explorations/steam-bridge.svg                colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  621 B
+PASS  modules/steam-explorations/steam-detour.svg                colours 2  anchors  42  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  990 B
+PASS  modules/steam-explorations/steam-key.svg                   colours 2  anchors  23  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  769 B
+PASS  modules/steam-explorations/steam-padlock.svg               colours 2  anchors  26  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  681 B
+WARN  modules/steam-explorations/steam-shield.svg                colours 2  anchors  47  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 133.3 46.7 161.0 18.4 140.2]  1314 B  ~ near-miss angles 133.26 46.74
+PASS  modules/steam-explorations/steam-signpost.svg              colours 2  anchors  75  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 42.3 137.7]  1616 B
+PASS  modules/xtu-glyph-currentcolor.svg                         colours 1  anchors  12  fill 82% x 73%  centre 0.0%, 0.0%  angles [0.0]  471 B
+PASS  modules/xtu-glyph.svg                                      colours 1  anchors  12  fill 82% x 73%  centre 0.0%, 0.0%  angles [0.0]  458 B
+PASS  modules/xtu-small-unsupported.svg                          colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  653 B
+PASS  modules/xtu-small.svg                                      colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  595 B
+PASS  modules/xtu-unsupported.svg                                colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  631 B
+PASS  modules/xtu.svg                                            colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  573 B
+PASS  social/readme-banner-reversed.svg                          colours 7  anchors 147  fill 85% x 42%  centre 0.0%, 0.0%  angles [90.0 0.0 63.4 116.6 120.0 60.0 45.0 135.0]  3923 B
+PASS  social/readme-banner.svg                                   colours 7  anchors 147  fill 85% x 42%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6 120.0 60.0 45.0 135.0]  3871 B
+
+61 files, 0 failures, 1 warnings

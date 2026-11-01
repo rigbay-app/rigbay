@@ -1,0 +1,44 @@
+Colour against each surface (graphic object needs >= 3.00). "ok" = passes 3:1; for the inks, which sit on their own theme, the other theme is shown as n/a.
+
+role                                              hex      Mica dark #202020     card dark #2B2B2B     Mica light #F3F3F3    white #FFFFFF         
+Bay Violet (accent block, tray block)             #7A5AF8  3.60 ok               3.13 ok               4.07 ok               4.52 ok             
+Ink, light theme                                  #1F2430  n/a                   n/a                   13.98 ok              15.52 ok            
+Ink, dark theme                                   #EEF1F8  14.41 ok              12.52 ok              n/a                   n/a                 
+Slate (quiet bay, tray neutral, template tile)    #7B8497  4.34 ok               3.77 ok               3.39 ok               3.76 ok             
+XTU blue                                          #2F7BFF  4.19 ok               3.64 ok               3.51 ok               3.89 ok             
+PredatorSense magenta                             #D946B8  4.28 ok               3.72 ok               3.43 ok               3.81 ok             
+Steam access cyan                                 #0A8FB0  4.32 ok               3.75 ok               3.40 ok               3.77 ok             
+Unsupported grey, XTU                             #818181  4.18 ok               3.63 ok               3.51 ok               3.90 ok             
+Unsupported grey, PredatorSense                   #838383  4.30 ok               3.73 ok               3.42 ok               3.79 ok             
+Unsupported grey, Steam access                    #838383  4.30 ok               3.73 ok               3.42 ok               3.79 ok             
+
+White glyph on a tile (the module marks and the app icon): >= 3.00 needed
+App icon tile, Bay Violet                         #7A5AF8  4.52 ok
+XTU profiles                                      #2F7BFF  3.89 ok
+PredatorSense                                     #D946B8  3.81 ok
+Steam access                                      #0A8FB0  3.77 ok
+Template / unknown                                #7B8497  3.76 ok
+Unsupported XTU                                   #818181  3.90 ok
+Unsupported PredatorSense                         #838383  3.79 ok
+Unsupported Steam access                          #838383  3.79 ok
+
+Ink on tile / on the other surfaces it meets
+Ink light on white                                15.52
+Ink light on Mica light                           13.98
+Ink dark on Mica dark                             14.41
+Ink dark on card dark                             12.52
+Ink dark on social background #171A22             15.38
+Bay Violet on social background #171A22           3.85
+Bay Violet on ink light (block next to bay)       3.43
+Quiet bay slate vs quiet block ink (light)        4.13
+
+Hues (HSL degrees). Brand colours must stay clear of the state colours: green ~150, red ~357, amber ~38.
+Bay Violet                                        #7A5AF8  252°
+XTU blue                                          #2F7BFF  218°
+PredatorSense magenta                             #D946B8  313°
+Steam access cyan                                 #0A8FB0  192°
+(state) running green                             #2FB67C  154°
+(state) failed red                                #E5484D  358°
+(state) warning amber                             #F5A524  37°
+
+all listed pairs pass 3:1

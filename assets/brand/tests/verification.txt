@@ -1,0 +1,31 @@
+ICO files
+ok    app-icon/rigbay.ico: 9497 bytes, entries 16 20 24 32 40 48 64 256
+ok    app-icon/rigbay.ico: every entry is a 32-bit PNG of its declared size
+ok    app-icon/tray/rigbay-tray-light.ico: 1738 bytes, entries 16 20 24 32
+ok    app-icon/tray/rigbay-tray-light.ico: every entry is a 32-bit PNG of its declared size
+ok    app-icon/tray/rigbay-tray-dark.ico: 1727 bytes, entries 16 20 24 32
+ok    app-icon/tray/rigbay-tray-dark.ico: every entry is a 32-bit PNG of its declared size
+ok    app-icon/tray/rigbay-tray-neutral.ico: 1654 bytes, entries 16 20 24 32
+ok    app-icon/tray/rigbay-tray-neutral.ico: every entry is a 32-bit PNG of its declared size
+ok    app-icon/high-contrast/rigbay-hc-black.ico: 5827 bytes, entries 16 20 24 32 48 64 256
+ok    app-icon/high-contrast/rigbay-hc-black.ico: every entry is a 32-bit PNG of its declared size
+ok    app-icon/high-contrast/rigbay-hc-white.ico: 5897 bytes, entries 16 20 24 32 48 64 256
+ok    app-icon/high-contrast/rigbay-hc-white.ico: every entry is a 32-bit PNG of its declared size
+
+PNG exports present with the right pixel size
+ok    114 PNG files checked, 0 wrong or missing
+
+Wordmark: outlines against the stroked drawing (rendered by Edge, mean absolute difference per channel, 0..255)
+ok    outline vs stroked: mean 0.111, max 86 (edge pixels only)
+
+Centring of the small frames (alpha bounding box of the pixels, in px; target: the same margin left and right, top and bottom)
+ok    app-icon/png/rigbay-16.png: margins left 0 right 0 top 0 bottom 0
+ok    app-icon/png/rigbay-24.png: margins left 0 right 0 top 0 bottom 0
+ok    app-icon/png/rigbay-32.png: margins left 0 right 0 top 0 bottom 0
+ok    app-icon/tray/png/rigbay-tray-light-16.png: margins left 0 right 0 top 0 bottom 0
+ok    app-icon/tray/png/rigbay-tray-dark-24.png: margins left 0 right 0 top 0 bottom 0
+ok    modules/png/xtu-16.png: margins left 0 right 0 top 0 bottom 0
+ok    modules/png/steam-access-24.png: margins left 0 right 0 top 0 bottom 0
+ok    modules/png/module-unknown-glyph-16.png: margins left 4 right 4 top 1 bottom 1
+
+all checks passed
