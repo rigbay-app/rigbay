@@ -1,7 +1,8 @@
 # WMI encodings decoded so far
 
-Status words: **decoded** (read from the UI's code), **partial**, **not decoded**, **live** (run and seen). Only one call has ever
-been run on the hardware: `GetGamingSysInfo(0x0101)`. All values are for `root\WMI`. "R" read, "W" write, "?" unproven.
+Status words: **decoded** (read from the UI's code), **partial**, **not decoded**, **live** (run and seen). Calls run on the hardware so far
+(all reads): `GetGamingSysInfo` indexes 1 to 17 and `AcerGenericMethod.GetFunction(0x207)`. No write ever. All values are for `root\WMI`.
+"R" read, "W" write, "?" unproven. Parameter names: `AcerGamingFunction` `gmInput`/`gmOutput`, `AcerGenericMethod` `uiInput`/`uiOutput`; Get methods take UInt32.
 This machine: 1 CPU fan, 0 system fans, 2 GPU fans; UI variant Clubman (`Feature.ini [MachineType] Type=8`).
 
 Rule that came out of B2: **a UI wrapper with no caller is not a traced read.** `WMIGetGamingFanGroupBehavior/Speed/Table`,
@@ -18,17 +19,28 @@ pipe commands `GetOperationMode(Capability)` (51, 52) are never called by the UI
 Sensor index: 1 CPU temp, 2 CPU fan speed, 3 system temp, 4 system fan speed, 5 system fan speed external, 6 GPU1 fan speed,
 7 system2 temp, 8 system2 fan speed, 9 GPU2 fan speed, 10 GPU1 temp, 11 GPU2 temp, 12 CPU fan rate, 13 system fan rate,
 14 system2 fan rate, 15 system external fan rate, 16 GPU1 fan rate, 17 GPU2 fan rate.
-Live: `0x0101` -> raw `0x4900`, status 0, value 73 (degrees C, consistent with load, one sample, not proven). Other indexes: units
-still guessed (C, RPM, percent). Clubman's refresh code reads, per fan, speed index then rate index: CPU 2/12, system 1 4/13,
-system 2 8/14, GPU 1 6/16, GPU 2 9/17. Approved so far: only `0x0101`. Next candidates: `docs/predatorsense/GATE-b2-reads.md`.
+**Live on this machine (B2, B3), all status 0:**
+
+| Index | Raw | Value | Note |
+| --- | --- | --- | --- |
+| 1 CPU temp | `0x4900`, `0x4000`, `0x3F00`, `0x3F00` | 73, 64, 63, 63 | degrees C by analogy; ACPI `TZ00` stayed ~52 (different sensor, not the CPU) |
+| 2 CPU fan speed | `0xB2900` | 2857 | RPM by magnitude |
+| 3 system temp | `0x2C00` | 44 | degrees C |
+| 6 / 9 GPU1 / GPU2 fan speed | `0xBF500` / `0xC0B00` | 3061 / 3083 | RPM by magnitude |
+| 10 GPU1 temp | `0x3500` | 53 | **equals `nvidia-smi` (53.19, 53.41) at the same moment: degrees C** |
+| 4, 5, 7, 8, 11 | `0x0` | 0 | hardware absent here; **status is still 0** |
+| 12 to 17 (rates) | `0x0` | 0 | read 0 while fans ran at ~3000: not a usable state read |
+
+Clubman's refresh code reads, per fan, speed index then rate index: CPU 2/12, system 1 4/13, system 2 8/14, GPU 1 6/16, GPU 2 9/17.
+Input `2` (battery boost) has **not** been run. Details and the temperature cross-check: `docs/predatorsense/FINDINGS.md` 12.2, 12.3.
 
 ## AcerGenericMethod (SetFunction id 1: UInt64 in, UInt32 out; GetFunction id 2: UInt32 in, UInt64 out)
 
 | Call | Input | Meaning | Status |
 | --- | --- | --- | --- |
 | SetFunction W | `7 \| (state << 16)` | Cool Booster off/on (name from UI) | decoded |
-| GetFunction R? | `0x207` | Cool Booster state: status low byte, then byte 1 of the answer == 1 means on | decoded, traced read |
-| GetFunction R? | `BK_Hotkey_Number \| 0x100 \| 0x80000` (here `0x80184`, hotkey 132 from the registry) | keyboard backlight: bits 32..39 brightness percent, bits 40..47 == 30 means off | decoded, traced read |
+| GetFunction R? | `0x207` | Cool Booster state: UI says on only if low byte is 0 **and** byte 1 is 1; any other answer counts as "off" | decoded; **live: raw `0x2E1`, status byte `0xE1` (undecoded), UI would show "off"; read-back unproven** |
+| GetFunction R? | `BK_Hotkey_Number \| 0x100 \| 0x80000` (here `0x80184`, hotkey 132 from `HKLM\SOFTWARE\OEM\PredatorSense\BK_Hotkey_Number`) | keyboard backlight: bits 32..39 brightness percent, bits 40..47 == 30 means off | decoded, traced read, **not run** (held after the `0xE1` answer to `0x207`) |
 | GetFunction R? | `10` | AC adapter kind (only on machines with two adapters); bits 8.. give 1-AC, 2-AC, PD | partial |
 
 ## AcerGamingFunction.SetGamingFanBehavior (id 14, UInt64 in, UInt32 out), W, never run

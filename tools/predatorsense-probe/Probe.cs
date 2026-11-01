@@ -8,9 +8,10 @@
 //     C:\ProgramData\oem\PredatorSense\*.ini (these are the app's own records, not live firmware state)
 //   - generic Windows battery and thermal-zone readings
 //
-// What it never does: call any WMI method, open the service pipe, write the registry, touch services
-// or drivers. The one optional firmware read (--acer-sysinfo) is off by default and needs the owner's
-// approval; see README.md.
+// What it never does by default: call any WMI method, open the service pipe, write the registry, touch
+// services or drivers. A short list of firmware READS exists behind explicit flags (see Refusal() below);
+// each needs --allow-call, an elevated process and the owner's approval of that exact call. Any call that is
+// not on that list, and every Set* method, is refused before WMI is touched. See README.md.
 //
 // Build: .\build.ps1   (uses the .NET Framework csc.exe that ships with Windows; no SDK needed)
 // C# 5 on purpose, so it compiles with that csc.
@@ -107,6 +108,8 @@ namespace PredatorSenseProbe
         const string WmiNamespace = @"root\wmi";
         const string WmiClassGaming = "AcerGamingFunction";
         const string WmiClassGeneric = "AcerGenericMethod";
+        const string ClassGaming = WmiClassGaming;
+        const string ClassGeneric = WmiClassGeneric;
 
         // Names of the sensor indexes of GetGamingSysInfo, as listed by the PredatorSense UI.
         static readonly string[] SysInfoNames = new string[]
@@ -120,36 +123,67 @@ namespace PredatorSenseProbe
         static int Main(string[] args)
         {
             bool json = false, allowCall = false, help = false, bad = false;
-            int sysinfoIndex = -1;
+            List<ReadCall> calls = new List<ReadCall>();
             for (int i = 0; i < args.Length; i++)
             {
                 string a = args[i];
+                string err = null;
                 if (a == "--json") json = true;
                 else if (a == "--allow-call") allowCall = true;
                 else if (a == "--sysinfo-index" && i + 1 < args.Length)
                 {
                     int v;
-                    if (int.TryParse(args[++i], NumberStyles.Integer, CultureInfo.InvariantCulture, out v) && v >= 1 && v <= 17) sysinfoIndex = v;
-                    else { Console.Error.WriteLine("--sysinfo-index must be 1..17"); bad = true; }
+                    if (int.TryParse(args[++i], NumberStyles.Integer, CultureInfo.InvariantCulture, out v) && v >= 1 && v <= 17) calls.Add(SysInfoIndexCall(v));
+                    else err = "--sysinfo-index must be 1..17";
                 }
+                else if (a == "--r1") calls.Add(SysInfoIndexCall(2));                  // CPU fan speed, GetGamingSysInfo 0x0201
+                else if (a == "--r2") calls.Add(new ReadCall("r2_cool_booster_state", ClassGeneric, "GetFunction", "uiInput", "uiOutput", 0x207, "coolbooster"));
+                else if (a == "--r3") calls.Add(new ReadCall("r3_keyboard_backlight", ClassGeneric, "GetFunction", "uiInput", "uiOutput", 0x80184, "backlight"));
+                else if (a == "--battery-boost") calls.Add(new ReadCall("battery_boost", ClassGaming, "GetGamingSysInfo", "gmInput", "gmOutput", 0x2, "batteryboost"));
+                else if (a == "--misc-get" && i + 1 < args.Length)
+                {
+                    string v = args[++i];
+                    if (v == "2") calls.Add(new ReadCall("misc_get_2_gpu_mode", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 2, "gpumode"));
+                    else if (v == "9") calls.Add(new ReadCall("misc_get_9_gpu_mode_capability", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 9, "gpucap"));
+                    else err = "--misc-get must be 2 or 9";
+                }
+                else if (a == "--led-behavior-get") calls.Add(new ReadCall("led_behavior_get_1", ClassGaming, "GetGamingLEDBehavior", "gmInput", "gmOutput", 1, "ledbehavior"));
                 else if (a == "-h" || a == "--help" || a == "/?") help = true;
-                else { Console.Error.WriteLine("Unknown argument: " + a); bad = true; }
+                else err = "Unknown argument: " + a;
+                if (err != null) { Console.Error.WriteLine(err); bad = true; }
             }
             if (help || bad)
             {
-                Console.WriteLine("predatorsense-probe [--json] [--allow-call --sysinfo-index N]");
+                Console.WriteLine("predatorsense-probe [--json] [--allow-call <read flags>]");
                 Console.WriteLine("  Read-only. Prints whether this machine looks supported and what PredatorSense has recorded.");
                 Console.WriteLine("  --json                 machine-readable output");
-                Console.WriteLine("  --allow-call           permit the ONE firmware call this tool knows (GetGamingSysInfo). Without it");
-                Console.WriteLine("                         the tool calls no WMI method at all. Needs the owner's approval first and admin.");
-                Console.WriteLine("  --sysinfo-index N      which sensor (1..17) to read with that call; one index per run.");
-                Console.WriteLine("                         1 = CPU temperature (the first approved input, 0x0101).");
+                Console.WriteLine("  --allow-call           required before any firmware read flag below is honoured. Without it the tool");
+                Console.WriteLine("                         calls no WMI method at all. Needs the owner's approval and an elevated process.");
+                Console.WriteLine("  Firmware read flags (each is exactly one call; they run in the order given, once each; the run");
+                Console.WriteLine("  stops at the first call that errors or returns a non-zero status):");
+                Console.WriteLine("    --sysinfo-index N    GetGamingSysInfo, input 1|(N<<8), N 1..17 (1 = CPU temperature)");
+                Console.WriteLine("    --r1                 GetGamingSysInfo 0x0201 (CPU fan speed) = --sysinfo-index 2");
+                Console.WriteLine("    --r2                 AcerGenericMethod.GetFunction 0x207 (Cool Booster state)");
+                Console.WriteLine("    --r3                 AcerGenericMethod.GetFunction 0x80184 (keyboard backlight)");
+                Console.WriteLine("    --battery-boost      GetGamingSysInfo 0x2 (battery boost flag)");
+                Console.WriteLine("    --misc-get 2|9       GetGamingMiscSetting 2 (GPU mode) or 9 (GPU mode capability)");
+                Console.WriteLine("    --led-behavior-get   GetGamingLEDBehavior 1");
+                Console.WriteLine("  Anything else, and every Set* method, is refused in code.");
                 return bad ? 2 : 0;
             }
-            if (allowCall != (sysinfoIndex > 0))
+            if (allowCall != (calls.Count > 0))
             {
-                Console.Error.WriteLine("--allow-call and --sysinfo-index N must be given together.");
+                Console.Error.WriteLine("--allow-call and at least one firmware read flag must be given together.");
                 return 2;
+            }
+            // Refuse the whole run, before touching WMI, if any call is off the allowlist or repeated.
+            List<string> seen = new List<string>();
+            foreach (ReadCall c in calls)
+            {
+                string why = Refusal(c);
+                if (why == null && seen.Contains(c.Key)) why = "call requested twice in one run (each is allowed once)";
+                if (why != null) { Console.Error.WriteLine("REFUSED " + c.Describe() + ": " + why); return 2; }
+                seen.Add(c.Key);
             }
 
             Node root = new Node();
@@ -166,8 +200,8 @@ namespace PredatorSenseProbe
             root.Set("feature_ini", Ini(Path.Combine(DataDir, "Feature.ini"), new string[] { "MainFunction", "OperationModeSupport", "OverclockSupport", "OverclockDetial", "MachineType", "PowerLimitSupport" }));
             root.Set("windows_battery", Battery());
             root.Set("windows_thermal_zones", ThermalZones());
-            if (allowCall) root.Set("acer_sysinfo", AcerSysInfo(sysinfoIndex));
-            else root.Set("acer_sysinfo", "not requested (no WMI method was called; needs owner approval, then --allow-call --sysinfo-index N)");
+            if (allowCall) root.Set("firmware_reads", RunReads(calls));
+            else root.Set("firmware_reads", "not requested (no WMI method was called; needs owner approval, then --allow-call plus read flags, see --help)");
 
             // verdict
             bool ok = (bool)support.Items.Find(delegate(KeyValuePair<string, object> kv) { return kv.Key == "service_present"; }).Value
@@ -393,47 +427,124 @@ namespace PredatorSenseProbe
             return n;
         }
 
-        // ---- optional firmware read -------------------------------------------------------------
-        // Calls ONLY AcerGamingFunction.GetGamingSysInfo, once, with input (index << 8) | 1 for the one
-        // index given on the command line (1..17). The PredatorSense dashboard makes the same call.
-        // It is still a firmware call that this project cannot prove side-effect free, so it is only
-        // reachable through --allow-call, after the owner approved the specific input
-        // (see docs/predatorsense/GATE-getgamingsysinfo.md).
-        static Node AcerSysInfo(int onlyIndex)
+        // ---- optional firmware reads -------------------------------------------------------------
+        // Every call below is a READ traced to the PredatorSense UI's own code (docs/predatorsense/FINDINGS.md,
+        // GATE-getgamingsysinfo.md, GATE-b2-reads.md). They are still firmware calls this project cannot prove
+        // side-effect free, so each is reachable only through its own flag plus --allow-call, in an elevated
+        // process, after the owner approved that exact call. Refusal() is the allowlist: exact class, method and
+        // input. Nothing else can run, and no method whose name starts with "Set" can run at all.
+
+        class ReadCall
+        {
+            public string Key, Class, Method, InName, OutName, Decoder;
+            public ulong Input;
+            public ReadCall(string key, string cls, string method, string inName, string outName, ulong input, string decoder)
+            { Key = key; Class = cls; Method = method; InName = inName; OutName = outName; Input = input; Decoder = decoder; }
+            public string Describe() { return Class + "." + Method + "(0x" + Input.ToString("X") + ")"; }
+        }
+
+        static ReadCall SysInfoIndexCall(int index)
+        {
+            return new ReadCall(SysInfoNames[index], ClassGaming, "GetGamingSysInfo", "gmInput", "gmOutput", (ulong)((index << 8) | 1), "sensor");
+        }
+
+        // Returns null when the call is on the allowlist, else the reason it is refused.
+        static string Refusal(ReadCall c)
+        {
+            if (c.Method.StartsWith("Set", StringComparison.OrdinalIgnoreCase)) return "Set* methods are never allowed";
+            if (c.Class == ClassGaming && c.Method == "GetGamingSysInfo")
+            {
+                if (c.Input == 2) return null;                                  // battery boost flag
+                if ((c.Input & 0xFF) == 1 && (c.Input >> 8) >= 1 && (c.Input >> 8) <= 17) return null;   // sensor index 1..17
+                return "GetGamingSysInfo input is not 2 and not 1|(1..17 << 8)";
+            }
+            if (c.Class == ClassGeneric && c.Method == "GetFunction")
+            {
+                if (c.Input == 0x207 || c.Input == 0x80184) return null;       // Cool Booster state, keyboard backlight (hotkey 132)
+                return "GetFunction input is not 0x207 or 0x80184";
+            }
+            if (c.Class == ClassGaming && c.Method == "GetGamingMiscSetting")
+            {
+                if (c.Input == 2 || c.Input == 9) return null;                  // GPU mode, GPU mode capability
+                return "GetGamingMiscSetting input is not 2 or 9";
+            }
+            if (c.Class == ClassGaming && c.Method == "GetGamingLEDBehavior")
+            {
+                if (c.Input == 1) return null;
+                return "GetGamingLEDBehavior input is not 1";
+            }
+            return "call is not on the approved read list";
+        }
+
+        static string Hex(ulong v) { return "0x" + v.ToString("X"); }
+
+        static Node RunReads(List<ReadCall> calls)
         {
             Node n = new Node();
-            if (onlyIndex < 1 || onlyIndex > 17) { n.Set("error", "index out of range"); return n; }
             if (!IsElevated()) { n.Set("error", "needs an elevated (administrator) process"); return n; }
+            Dictionary<string, ManagementObject> instances = new Dictionary<string, ManagementObject>();
             try
             {
-                using (ManagementClass mc = new ManagementClass(WmiNamespace, WmiClassGaming, null))
+                foreach (ReadCall c in calls)
                 {
-                    ManagementObject inst = null;
-                    foreach (ManagementObject o in mc.GetInstances()) { inst = o; break; }
-                    if (inst == null) { n.Set("error", "no instance of " + WmiClassGaming); return n; }
-                    for (int index = onlyIndex; index <= onlyIndex; index++)
+                    // Defence in depth: the allowlist is checked again right before the call.
+                    string why = Refusal(c);
+                    if (why != null) { n.Set(c.Key, "REFUSED: " + why); n.Set("stopped_at", c.Key); return n; }
+                    Node r = new Node();
+                    r.Set("call", c.Describe());
+                    bool clean = false;
+                    try
                     {
-                        uint input = (uint)((index << 8) | 1);
-                        Node r = new Node();
-                        try
+                        ManagementObject inst;
+                        if (!instances.TryGetValue(c.Class, out inst))
                         {
-                            ManagementBaseObject inParams = inst.GetMethodParameters("GetGamingSysInfo");
-                            inParams["gmInput"] = input;
-                            ManagementBaseObject outParams = inst.InvokeMethod("GetGamingSysInfo", inParams, null);
-                            ulong raw = Convert.ToUInt64(outParams["gmOutput"], CultureInfo.InvariantCulture);
-                            r.Set("input", "0x" + input.ToString("X"));
-                            r.Set("raw", "0x" + raw.ToString("X"));
-                            uint status = (uint)(raw & 0xFF);
-                            r.Set("status", status);
-                            if (status == 0) r.Set("value", (int)((raw >> 8) & 0xFFFF));
+                            using (ManagementClass mc = new ManagementClass(WmiNamespace, c.Class, null))
+                                foreach (ManagementObject o in mc.GetInstances()) { inst = o; break; }
+                            if (inst == null) throw new InvalidOperationException("no instance of " + c.Class);
+                            instances[c.Class] = inst;
                         }
-                        catch (Exception e) { r.Set("error", e.Message); }
-                        n.Set(SysInfoNames[index], r);
+                        ManagementBaseObject inParams = inst.GetMethodParameters(c.Method);
+                        // gmInput / uiInput of the Get* methods are UInt32 in the schema.
+                        inParams[c.InName] = (uint)c.Input;
+                        ManagementBaseObject outParams = inst.InvokeMethod(c.Method, inParams, null);
+                        ulong raw = Convert.ToUInt64(outParams[c.OutName], CultureInfo.InvariantCulture);
+                        r.Set("input", Hex(c.Input));
+                        r.Set("raw", Hex(raw));
+                        uint status = (uint)(raw & 0xFF);
+                        r.Set("status", status);
+                        Decode(r, c.Decoder, raw, status);
+                        clean = status == 0;
                     }
+                    catch (Exception e) { r.Set("error", e.Message); }
+                    n.Set(c.Key, r);
+                    if (!clean) { n.Set("stopped_at", c.Key + " (error or non-zero status; remaining calls NOT made)"); return n; }
                 }
             }
             catch (Exception e) { n.Set("error", e.Message); }
             return n;
+        }
+
+        // The decodings below are the UI's own parse of each answer (see FINDINGS.md); the raw value is always printed too.
+        static void Decode(Node r, string decoder, ulong raw, uint status)
+        {
+            if (status != 0) return;
+            switch (decoder)
+            {
+                case "sensor": r.Set("value", (int)((raw >> 8) & 0xFFFF)); break;
+                case "batteryboost": r.Set("battery_boost_flag_bits40_47", (int)((raw >> 40) & 0xFF)); break;
+                case "coolbooster": r.Set("byte1", (int)((raw >> 8) & 0xFF)); r.Set("cool_booster_on", ((raw >> 8) & 0xFF) == 1); break;
+                case "backlight":
+                    r.Set("brightness_percent_bits32_39", (int)((raw >> 32) & 0xFF));
+                    r.Set("bits40_47", (int)((raw >> 40) & 0xFF));
+                    r.Set("backlight_off_if_bits40_47_eq_30", ((raw >> 40) & 0xFF) == 30);
+                    break;
+                case "gpumode": r.Set("mode_bits8_15", (int)((raw >> 8) & 0xFF)); break;
+                case "gpucap": r.Set("cap_bit8", ((raw >> 8) & 1) == 1); r.Set("cap_bit9", ((raw >> 9) & 1) == 1); r.Set("cap_bit10", ((raw >> 10) & 1) == 1); break;
+                case "ledbehavior":
+                    r.Set("bits8_9", (int)((raw >> 8) & 3));
+                    r.Set("bits14_15", (int)((raw >> 14) & 3));
+                    break;
+            }
         }
 
         // ---- text output -----------------------------------------------------------------------

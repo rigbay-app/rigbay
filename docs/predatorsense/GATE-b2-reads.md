@@ -1,6 +1,10 @@
-# Approval requests: next firmware reads (candidates, none opened)
+# Approval requests: next firmware reads (candidates; B3 ran part of them)
 
-Status: **nothing here has been run, and no gate was opened for it.** B2 only decoded these. A gate holds its task until a person
+**B3 update (see `FINDINGS.md` section 12):** the owner approved reading freely (gate `g-b3-reads`). Run once each, elevated: **R1** (`0x0201`, status 0, value 2857) and
+**R2** (`0x207`, raw `0x2E1`, **status `0xE1`, odd, run stopped**), then sysinfo indexes 3 to 17 (all status 0). **R3, battery boost, `GetGamingMiscSetting(2)`/`(9)` and
+`GetGamingLEDBehavior(1)` were NOT run** (held by the coordinator until R2's status is understood). The rest of this file is the original B2 text.
+
+Original B2 status: **nothing here has been run, and no gate was opened for it.** B2 only decoded these. A gate holds its task until a person
 answers, and these reads are optional follow-ups, so they are written down for the coordinator to open one at a time
 (`csm gate open <task> "<question>" --options "approve,reject"`), each against its own task. Approval of one covers only that one call.
 
