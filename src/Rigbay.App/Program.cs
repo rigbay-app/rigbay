@@ -19,11 +19,18 @@ public static class Program
     {
         var opt = Options.Parse(args);
         AppPaths.Init(opt.Data, opt.Modules);
+        if (!string.IsNullOrEmpty(opt.TaskName) && System.Text.RegularExpressions.Regex.IsMatch(opt.TaskName, @"^[A-Za-z0-9._-]{1,60}$")) StartupTask.TaskName = opt.TaskName;
 
+        if (opt.Version)
+        {
+            Cli.Emit(opt, 0, "Rigbay " + AppPaths.Version);
+            return 0;
+        }
+        if (opt.UninstallCleanup) return Cli.UninstallCleanup(opt);
         if (opt.LangCheck) return Cli.LangCheck(opt);
         if (opt.Help)
         {
-            Cli.Emit(opt, 0, "Rigbay.App.exe [--tray] [--data <dir>] [--modules <dir>] | <module> <verb> [args] | list | version | --langcheck");
+            Cli.Emit(opt, 0, "Rigbay.App.exe [--tray] [--data <dir>] [--modules <dir>] | <module> <verb> [args] | list | version | --version | --langcheck | --uninstall-cleanup [--keep-task]");
             return 0;
         }
         if (opt.IsVerb) return Cli.RunVerb(opt);

@@ -33,6 +33,7 @@ dash.rack = Installed modules
 dash.empty-title = No modules installed
 dash.empty-body = Rigbay looked in {0} and found no module folders. A module is a folder with a module.json and its DLL.
 dash.empty-action = Open Modules
+dash.empty-restart = A module you install appears after one restart of Rigbay.
 
 # metric labels (dashboard readings)
 metric.cpu.temp = CPU
@@ -150,6 +151,9 @@ level.warn = Warnings
 level.error = Errors
 settings.log-folder = Log folder
 settings.open = Open folder
+settings.about = About Rigbay
+settings.about-desc = Version {0}, host API {1}. Open source under the MIT license.
+settings.about-repo = Source on GitHub
 settings.hotkeys = Hotkeys
 settings.hotkeys-none = No module has registered a hotkey.
 settings.hotkey-conflict = Conflict

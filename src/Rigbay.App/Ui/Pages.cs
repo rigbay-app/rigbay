@@ -22,7 +22,7 @@ static class DashboardPage
         {
             var go = Ui.LinkButton(Host.T("dash.empty-action"), () => Host.Window.Navigate("modules"));
             go.Style = Ui.Style("AccentButtonStyle");
-            page.Children.Add(Ui.StateBlock(BayState.Off, Host.T("dash.empty-title"), Host.F("dash.empty-body", AppPaths.ModulesRoot), go));
+            page.Children.Add(Ui.StateBlock(BayState.Off, Host.T("dash.empty-title"), Host.F("dash.empty-body", AppPaths.ModulesRoot) + "\n" + Host.T("dash.empty-restart"), go));
             return page;
         }
         page.Children.Add(new TextBlock { Text = Host.T("dash.rack"), Style = Ui.Style("RbGroupHeader"), Margin = new Thickness(1, 4, 0, 4) });
@@ -363,6 +363,9 @@ static class SettingsPage
 
         // log folder
         general.Children.Add(new SettingsCard { Header = Host.T("settings.log-folder"), Description = Host.Core.Paths.LogDirectory, Content = Ui.LinkButton(Host.T("settings.open"), () => ModulesPage.OpenFolder(Host.Core.Paths.LogDirectory)) });
+
+        // version and where the source is
+        general.Children.Add(new SettingsCard { Header = Host.T("settings.about"), Description = Host.F("settings.about-desc", AppPaths.Version, HostApi.Current), Content = new HyperlinkButton { Content = Host.T("settings.about-repo"), NavigateUri = new Uri("https://github.com/rigbay-app/rigbay") } });
         page.Children.Add(general);
 
         // hotkeys

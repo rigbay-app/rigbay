@@ -28,6 +28,12 @@
     -->
     <WinAppSdkVersion Condition="'$(WinAppSdkVersion)' == ''">1.8.260921001</WinAppSdkVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- version resource of the exe: product and file description, and a plain "0.1.0" (no +commit suffix) so a release build is the same bytes from any clone -->
+    <Product>Rigbay</Product>
+    <AssemblyTitle>Rigbay</AssemblyTitle>
+    <Description>Rigbay: a small Windows app that manages modules for your own machine</Description>
+    <Company>Rigbay contributors</Company>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

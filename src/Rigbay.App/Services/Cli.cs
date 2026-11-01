@@ -38,6 +38,41 @@ static class Cli
         return errors ? 1 : 0;
     }
 
+    /// <summary>
+    /// Used by uninstall.ps1 (and, with <c>--keep-task</c>, by an upgrade): asks a running instance to quit the normal way, waits up to
+    /// 30 s for it to end, then removes the "Start with Windows" task through the same code that created it. Touches nothing else:
+    /// not the modules, not the settings.
+    /// </summary>
+    public static int UninstallCleanup(Options o)
+    {
+        var lines = new List<string>();
+        int exit = 0;
+        var reply = InstanceServer.SendAsync(new[] { "quit" }).GetAwaiter().GetResult();
+        if (reply is null) lines.Add("no running instance");
+        else
+        {
+            lines.Add("asked the running instance to quit");
+            var end = DateTime.UtcNow.AddSeconds(30);
+            bool gone = false;
+            while (DateTime.UtcNow < end)
+            {
+                if (!Mutex.TryOpenExisting(@"Global\Rigbay.App.SingleInstance", out var m)) { gone = true; break; }
+                m.Dispose();
+                Thread.Sleep(250);
+            }
+            lines.Add(gone ? "the instance has ended" : "the instance did not end within 30 s");
+            if (!gone) exit = 1;
+        }
+        if (!o.KeepTask)
+        {
+            var (ok, msg) = StartupTask.Delete();
+            lines.Add("start with Windows task: " + (ok ? msg : "could not remove: " + msg));
+            if (!ok) exit = 1;
+        }
+        Emit(o, exit, string.Join(Environment.NewLine, lines));
+        return exit;
+    }
+
     public static int RunVerb(Options o)
     {
         var words = o.Positional;

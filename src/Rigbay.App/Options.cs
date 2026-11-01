@@ -8,7 +8,7 @@ sealed class Options
 {
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase)
     {
-        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--registry", "--wait-pid", "--slow-download",
+        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--registry", "--wait-pid", "--slow-download", "--task-name",
     };
 
     public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut, Accent;
@@ -22,6 +22,12 @@ sealed class Options
     /// <summary>Test switch: render the screenshot at this display scale (1.5, 2) with a RenderTargetBitmap of the window's own content; icons are then picked for that scale.</summary>
     public double ShotScale = 1;
     public bool Tray, SelfTest, AllowMulti, LangCheck, Help;
+    /// <summary><c>--version</c>: print the version and exit (install scripts, bug reports).</summary>
+    public bool Version;
+    /// <summary>Test switch: another name for the logon task (letters, digits, dot, dash), so install tests never touch the real <c>Rigbay</c> task.</summary>
+    public string? TaskName;
+    /// <summary><c>--uninstall-cleanup</c>: ask a running instance to quit, then remove the logon task. With <c>--keep-task</c> only the quit (used by an upgrade).</summary>
+    public bool UninstallCleanup, KeepTask;
     /// <summary>Test switch: behave as on the first start without modules (opens the Modules page).</summary>
     public bool FirstRun;
     public List<string> Positional { get; } = new();
@@ -68,6 +74,10 @@ sealed class Options
                 case "--first-run": o.FirstRun = true; break;
                 case "--langcheck": o.LangCheck = true; break;
                 case "--help": case "-h": o.Help = true; break;
+                case "--version": o.Version = true; break;
+                case "--uninstall-cleanup": o.UninstallCleanup = true; break;
+                case "--keep-task": o.KeepTask = true; break;
+                case "--task-name": o.TaskName = Next(); break;
                 default:
                     if (WithValue.Contains(a)) Next();
                     break;

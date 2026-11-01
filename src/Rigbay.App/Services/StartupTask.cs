@@ -12,7 +12,8 @@ namespace Rigbay.App.Services;
 /// </summary>
 static class StartupTask
 {
-    public const string TaskName = "Rigbay";
+    /// <summary>"Rigbay". Only the install tests change it (<c>--task-name</c>) so they never touch the real task.</summary>
+    public static string TaskName { get; set; } = "Rigbay";
 
     public static bool Exists() => Run("/query /tn " + TaskName).ExitCode == 0;
 

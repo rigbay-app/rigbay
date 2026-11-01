@@ -145,6 +145,7 @@ public sealed partial class MainWindow : Window
             _server = new InstanceServer
             {
                 OnShow = () => Ui.Post(null, ShowFromTray),
+                OnQuit = () => Ui.Post(null, async () => await QuitAsync()),
                 OnCommand = async words =>
                 {
                     var r = await AppCommands.ExecuteAsync(Host.Core, words);

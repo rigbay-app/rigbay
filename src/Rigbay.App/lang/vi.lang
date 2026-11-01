@@ -33,6 +33,7 @@ dash.rack = Mô-đun đã cài
 dash.empty-title = Chưa cài mô-đun nào
 dash.empty-body = Rigbay đã tìm trong {0} và không thấy thư mục mô-đun nào. Một mô-đun là thư mục có module.json và DLL của nó.
 dash.empty-action = Mở Mô-đun
+dash.empty-restart = Mô-đun bạn cài sẽ xuất hiện sau một lần khởi động lại Rigbay.
 
 # nhãn số đo
 metric.cpu.temp = CPU
@@ -150,6 +151,9 @@ level.warn = Cảnh báo
 level.error = Lỗi
 settings.log-folder = Thư mục nhật ký
 settings.open = Mở thư mục
+settings.about = Giới thiệu Rigbay
+settings.about-desc = Phiên bản {0}, host API {1}. Mã nguồn mở theo giấy phép MIT.
+settings.about-repo = Mã nguồn trên GitHub
 settings.hotkeys = Phím tắt
 settings.hotkeys-none = Chưa có mô-đun nào đăng ký phím tắt.
 settings.hotkey-conflict = Trùng

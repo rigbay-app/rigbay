@@ -19,6 +19,8 @@ sealed class InstanceServer : IDisposable
     Task? _loop;
 
     public Action? OnShow { get; set; }
+    /// <summary>"quit": the install and uninstall scripts ask the running instance to shut down the way the tray's Quit does (modules get their shutdown call).</summary>
+    public Action? OnQuit { get; set; }
     public Func<IReadOnlyList<string>, Task<(int Exit, string Output)>>? OnCommand { get; set; }
 
     public void Start() => _loop = Task.Run(Loop);
@@ -58,6 +60,7 @@ sealed class InstanceServer : IDisposable
                 var words = JsonSerializer.Deserialize<string[]>(line ?? "[]") ?? Array.Empty<string>();
                 (int, string) result;
                 if (words.Length > 0 && words[0] == "show") { OnShow?.Invoke(); result = (0, ""); }
+                else if (words.Length > 0 && words[0] == "quit" && OnQuit != null) { OnQuit(); result = (0, ""); }
                 else if (words.Length > 1 && words[0] == "cmd" && OnCommand != null) result = await OnCommand(words.Skip(1).ToList());
                 else result = (2, "unknown request");
                 var reply = JsonSerializer.Serialize(new { exit = result.Item1, output = result.Item2 });
