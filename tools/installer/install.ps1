@@ -104,7 +104,7 @@ if (-not $SkipPrerequisiteCheck) {
     Step 'Checking this PC'
     $build = [Environment]::OSVersion.Version.Build
     if ($build -lt 22000) { Stop-Install "This is Windows build $build. Rigbay needs Windows 11 (build 22000 or newer)." }
-    Say "Windows 11, build $build: ok"
+    Say "Windows 11, build ${build}: ok"
 
     $arch = $null
     try { $arch = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture } catch { }

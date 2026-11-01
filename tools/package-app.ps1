@@ -225,6 +225,8 @@ public static class PeRes
         $wide = [Text.Encoding]::Unicode.GetString($bytes)
         $wide2 = if ($bytes.Length -gt 1) { [Text.Encoding]::Unicode.GetString($bytes, 1, $bytes.Length - 1) } else { '' }
         foreach ($n in $needles) {
+            # LICENSE names its copyright holder on purpose; on the author's PC that is also the machine name
+            if ($f.Name -eq 'LICENSE' -and $n -eq $env:COMPUTERNAME) { continue }
             foreach ($text in $ascii, $wide, $wide2) {
                 if ($text.IndexOf($n, [StringComparison]::OrdinalIgnoreCase) -ge 0) { $hits += "$($f.FullName.Substring($check.Length).TrimStart('\')): contains '$n'"; break }
             }
