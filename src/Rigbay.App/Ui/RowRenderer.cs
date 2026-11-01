@@ -460,6 +460,9 @@ sealed class RowRenderer
 
     UIElement Custom(CustomRow cr)
     {
+        if (_e.Lifecycle != ModuleLifecycle.Running)
+            // a turned-off module is not called: its custom control is not drawn, the row keeps its place greyed out
+            return new SettingsCard { Header = cr.HeaderKey.Length > 0 ? L.T(cr.HeaderKey) : cr.ControlId, Description = cr.DescriptionKey is { Length: > 0 } dk ? L.T(dk) : "", IsEnabled = false };
         var created = _e.CreateCustomControl(cr.ControlId);   // inside the boundary; null when the module returned nothing or faulted
         string? error = null;
         if (created == null) error = _e.Lifecycle == ModuleLifecycle.Faulted ? Host.F("row.custom-threw", _e.ReasonText()) : Host.F("row.custom-null", cr.ControlId);

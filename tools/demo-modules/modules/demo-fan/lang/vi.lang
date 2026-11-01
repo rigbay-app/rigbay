@@ -47,3 +47,5 @@ module.demo-fan.cmd.refused = Chưa xác nhận. Không có gì thay đổi.
 module.demo-fan.toast.title = Fan studio
 module.demo-fan.toast.boost = Đang tăng tốc (demo).
 module.demo-fan.link.docs = Tìm hiểu thêm
+module.demo-fan.name = Fan studio (demo)
+module.demo-fan.description = Quạt và giới hạn công suất của một laptop giả. Minh họa luồng xác nhận, áp dụng, đọc lại và hoàn tác. Không ghi gì vào máy của bạn.

@@ -121,7 +121,7 @@ static class ModulePage
         var page = new StackPanel();
 
         var right = new List<UIElement>();
-        foreach (var link in e.Page?.Links ?? Array.Empty<PageLink>())
+        foreach (var link in PageCache.Get(e)?.Links ?? Array.Empty<PageLink>())
             if (Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
                 right.Add(new HyperlinkButton { Content = e.Localisation.T(link.TextKey), NavigateUri = uri });
         if (right.Count == 0 && e.Manifest?.Homepage is { } home && Uri.TryCreate(home, UriKind.Absolute, out var hu))
@@ -146,13 +146,14 @@ static class ModulePage
                 page.Children.Add(Ui.StateBlock(BayState.Unsupported, Host.T(e.Lifecycle == ModuleLifecycle.Incompatible ? "page.incompatible-title" : "page.unsupported-title"), e.ReasonText()));
                 break;
             default:
-                if (e.Page == null)
+                var shown = PageCache.Get(e);
+                if (shown == null)
                 {
                     page.Children.Add(Ui.Text(Host.T(e.Lifecycle == ModuleLifecycle.Running ? "page.no-page" : "page.off-hint"), "RbSecondaryText", wrap: true).With(t => t.Margin = new Thickness(1, 14, 0, 0)));
                     break;
                 }
                 renderer = new RowRenderer(e, scope);
-                var groups = renderer.RenderGroups(e.Page);
+                var groups = renderer.RenderGroups(shown);
                 var host = new ContentControl { Content = groups, HorizontalContentAlignment = HorizontalAlignment.Stretch, IsEnabled = e.Lifecycle == ModuleLifecycle.Running };
                 page.Children.Add(host);
                 break;

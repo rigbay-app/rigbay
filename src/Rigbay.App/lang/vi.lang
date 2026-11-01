@@ -150,10 +150,3 @@ tray.open = Mở Rigbay
 tray.quit = Thoát
 toast.faulted-title = {0} đã dừng
 
-# dòng lệnh
-cli.usage = Cách dùng: Rigbay.App.exe <mô-đun> <lệnh> [tham số]   (còn: list, version, <mô-đun> help)
-cli.unknown-module = Không có mô-đun '{0}'. Thử: Rigbay.App.exe list
-cli.not-running = Mô-đun '{0}' chưa chạy. Hãy bật nó trong Rigbay trước.
-cli.unknown-verb = Mô-đun '{0}' không có lệnh '{1}'. Thử: Rigbay.App.exe {0} help
-cli.no-verbs = Mô-đun '{0}' không có lệnh dòng lệnh nào.
-cli.faulted = Lệnh thất bại và mô-đun '{0}' đã bị dừng. Xem nhật ký.

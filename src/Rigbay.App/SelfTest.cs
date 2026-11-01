@@ -104,6 +104,18 @@ static class SelfTest
         // ---------------------------------------------------------------- hardware flow with the real editors
         await FlowChecks(w, fan);
 
+        // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
+        await Task.Run(() => fan.Disable());
+        w.Navigate(fan);
+        await Settle(800);
+        var offCards = Find<SettingsCard>(w.PageContent).ToList();
+        R("module page: a turned-off module keeps its rows, greyed out", fan.Lifecycle == ModuleLifecycle.Off && offCards.Count >= 8 && offCards[0].IsEnabled && offCards.Skip(1).All(c => !c.IsEnabled),
+            $"state={fan.Lifecycle}; {offCards.Count} cards; enable row enabled={offCards[0].IsEnabled}; the {offCards.Count - 1} others disabled={offCards.Skip(1).All(c => !c.IsEnabled)}");
+        R("module page: a turned-off module's hotkeys and tray items are gone", Host.Core.Hotkeys.Entries.All(h => h.ModuleId != "demo-fan") && Host.Core.Tray.Items.All(i => i.ModuleId != "demo-fan"), "removed by the core after Shutdown");
+        enabled = await Task.Run(() => fan.Enable());
+        R("module: turned on again after off (Initialize on the same instance)", enabled && fan.Lifecycle == ModuleLifecycle.Running && fan.Page != null, $"state={fan.Lifecycle}");
+        await Settle(700);
+
         // ---------------------------------------------------------------- hotkey, tray, toast, commands
         await HostServiceChecks(w, fan);
 

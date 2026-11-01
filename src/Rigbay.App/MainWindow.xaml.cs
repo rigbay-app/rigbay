@@ -232,6 +232,7 @@ public sealed partial class MainWindow : Window
     void OnEntryChanged()
     {
         if (!_uiBuilt) return;
+        foreach (var m in Host.Core.Modules) PageCache.Remember(m);
         BuildNav();
         RebuildSearchIndex();
         UpdateStatus();
@@ -380,8 +381,9 @@ public sealed partial class MainWindow : Window
         {
             list.Add(new SearchItem(e.DisplayName, e.DisplayName, e));
             if (e.DisplayDescription.Length > 0) list.Add(new SearchItem(e.DisplayDescription, e.DisplayName, e));
-            if (e.Page == null) continue;
-            foreach (var row in e.Page.EnumerateRows())
+            var cachedPage = PageCache.Get(e);
+            if (cachedPage == null) continue;
+            foreach (var row in cachedPage.EnumerateRows())
             {
                 if (row.HeaderKey.Length == 0) continue;
                 var header = e.Localisation.T(row.HeaderKey);
@@ -452,6 +454,12 @@ public sealed partial class MainWindow : Window
                 case "lang": Host.Core.Languages.SetLanguage(arg); break;
                 case "theme": ApplyTheme(arg); break;
                 case "approve": ApprovalPrompt.TestAnswer = arg == "true"; break;
+                case "startup":   // startup:on | startup:off  (the same code the Settings switch runs)
+                {
+                    var (ok, msg) = await Task.Run(() => arg == "on" ? StartupTask.Create() : StartupTask.Delete());
+                    AppLog.Info($"script: start with Windows {arg}: ok={ok} {msg}");
+                    break;
+                }
                 case "cancel-dialog": ApprovalPrompt.CancelOpen(); break;
                 case "edit":   // edit:<row header key>=<value> on the open module page; not awaited, so an approval dialog can stay open for a screenshot
                 {

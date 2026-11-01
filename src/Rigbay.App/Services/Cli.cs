@@ -31,7 +31,7 @@ static class Cli
                 var result = ManifestReader.ReadFolder(dir);
                 var id = result.Manifest?.Id ?? Path.GetFileName(dir);
                 var lang = Path.Combine(dir, result.Manifest?.LanguagesFolder ?? "lang");
-                if (Directory.Exists(lang)) Check("module " + id, lang, LanguageCatalog.ModulePrefix(id));
+                if (Directory.Exists(lang) && Directory.GetFiles(lang, "*.lang").Length > 0) Check("module " + id, lang, LanguageCatalog.ModulePrefix(id));
             }
         sb.AppendLine(errors ? "langcheck: ERRORS" : "langcheck: OK");
         Emit(o, errors ? 1 : 0, sb.ToString().TrimEnd());

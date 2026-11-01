@@ -150,10 +150,3 @@ tray.open = Open Rigbay
 tray.quit = Quit
 toast.faulted-title = {0} stopped
 
-# command line
-cli.usage = Usage: Rigbay.App.exe <module> <verb> [args]   (also: list, version, <module> help)
-cli.unknown-module = Unknown module '{0}'. Try: Rigbay.App.exe list
-cli.not-running = Module '{0}' is not running. Turn it on in Rigbay first.
-cli.unknown-verb = Module '{0}' has no verb '{1}'. Try: Rigbay.App.exe {0} help
-cli.no-verbs = Module '{0}' has no command-line verbs.
-cli.faulted = The command failed and module '{0}' was stopped. See the log.

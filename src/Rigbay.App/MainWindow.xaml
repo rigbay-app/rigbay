@@ -13,7 +13,7 @@
         <!-- 48 px title bar: mark, name, search, room for the caption buttons. This strip is the drag region. -->
         <Grid x:Name="TitleBar" Grid.Row="0" Padding="16,0,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="256"/>
+                <ColumnDefinition Width="280"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition x:Name="RightInsetColumn" Width="140"/>
             </Grid.ColumnDefinitions>
@@ -31,7 +31,7 @@
                             QuerySubmitted="OnSearchSubmitted"/>
         </Grid>
 
-        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Auto" OpenPaneLength="256" CompactModeThresholdWidth="1000" ExpandedModeThresholdWidth="1000"
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Auto" OpenPaneLength="280" CompactModeThresholdWidth="640" ExpandedModeThresholdWidth="1000"
                         IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="False"
                         SelectionChanged="OnNavChanged" Background="Transparent">
             <!-- The sheet: hairline border, layer fill, rounded at the top corners, content at most 1000 px wide. -->

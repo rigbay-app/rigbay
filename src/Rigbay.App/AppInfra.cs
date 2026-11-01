@@ -95,3 +95,23 @@ static class EntryExtensions
     public static string GroupKey(this ModuleEntry e) => (e.Manifest?.Group ?? ModuleGroup.Other).ToString().ToLowerInvariant();
     public static bool CanToggle(this ModuleEntry e) => e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
 }
+
+/// <summary>
+/// The last page model each module returned. The core drops a module's page when the module is turned off; the app keeps it so
+/// the page can show the rows greyed out (and search can still find them) instead of an empty screen.
+/// </summary>
+static class PageCache
+{
+    static readonly Dictionary<string, PageModel> Map = new();
+
+    public static void Remember(ModuleEntry e)
+    {
+        if (e.Page is { } p) lock (Map) Map[e.Id] = p;
+    }
+
+    public static PageModel? Get(ModuleEntry e)
+    {
+        if (e.Page is { } p) return p;
+        lock (Map) return Map.TryGetValue(e.Id, out var cached) ? cached : null;
+    }
+}

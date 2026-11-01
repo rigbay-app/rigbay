@@ -47,3 +47,5 @@ module.demo-fan.cmd.refused = Not confirmed. Nothing changed.
 module.demo-fan.toast.title = Fan studio
 module.demo-fan.toast.boost = Boost is on (demo).
 module.demo-fan.link.docs = Learn more
+module.demo-fan.name = Fan studio (demo)
+module.demo-fan.description = Fans and power limit of a pretend laptop. Demo of the confirm, apply, read-back and revert flow. Writes nothing to your machine.

@@ -30,6 +30,7 @@ $jobs = @(
     @{ n = 'settings-dark';         a = '--theme', 'dark',  '--script', "$fan;page:settings" },
     @{ n = 'settings-light';        a = '--theme', 'light', '--script', "$fan;page:settings" },
     @{ n = 'log-dark';              a = '--theme', 'dark',  '--script', "$fan;page:log" },
+    @{ n = 'module-on-tall-dark';   a = '--theme', 'dark',  '--size', '1240x1500', '--script', "$fan;page:demo-fan" },
     @{ n = 'narrow-dark';           a = '--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
 )
 if ($args.Count -gt 0) { $jobs = $jobs | Where-Object { $args -contains $_.n } }
