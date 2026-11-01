@@ -1,6 +1,6 @@
 ---
 name: predatorsense
-description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). DRAFT from the B1 to B5 tasks; firmware reads (sensors, one Cool Booster read) and two fan-mode writes so far (all Auto, B4; all Max for 14 s then Auto again, B5; both status 0).
+description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). The Rigbay module itself is `modules/predatorsense/` (task B6, rules below). DRAFT from the B1 to B6 tasks; firmware reads (sensors, one Cool Booster read) and two fan-mode writes so far (all Auto, B4; all Max for 14 s then Auto again, B5; both status 0).
 ---
 
 # PredatorSense: working knowledge (draft)
@@ -13,6 +13,25 @@ writes are in `docs/predatorsense/WRITE-PROPOSALS.md` (W4a and W4b have been run
 Detail files (read only when needed):
 - `references/wmi-encodings.md`: every input encoding decoded so far, with status.
 - `references/probe-and-recipes.md`: running the probe, reading the cache, a "supported?" check, how to add a decoded call.
+
+## The Rigbay module (B6): read this before touching `modules/predatorsense/`
+
+`modules/predatorsense/` is the real module (own solution, `Rigbay.Abstractions` is its only reference; it moves to the
+`module-predatorsense` repo later). How it works: `docs/predatorsense/MODULE.md`. The rules a change must keep:
+
+- **Two writes exist, both `SetGamingFanBehavior`: Auto `0x01410019`, Max `0x02820019`.** They are a hard-coded table in
+  `Wmi/WmiAllowList.cs`, checked in `GuardedAcerWmi` and again inside `AcerWmi`. Reads: `GetGamingSysInfo` indexes 1, 2, 3, 6, 9, 10
+  only. Any new call (Cool Booster, MaxQ, fan speed, lighting, battery) needs a decoded encoding, an owner gate, a table entry and
+  tests that show every other value is still refused. Never widen the table to "make it work".
+- **Never run a write from a test, a script or the app against the real machine as a check.** The fake (`FakeAcerWmi` in the tests)
+  covers the write path. The tests call the real `AcerWmi` only with values that must be *refused* (before any WMI object exists).
+- **No firmware read of the fan mode exists.** The page says "Last set by Rigbay", never "current mode". The RPM check after a write
+  is a reading (a jump of 300 rpm within 10 s), never proof. B5 saw about +3000 rpm within 2 s on Max.
+- **Absent parts read status 0 and value 0.** A temperature of 0 is never a reading; a fan at 0 counts only after that fan has turned.
+- **No write while the readings are not available** (the last poll got no answer, or 5 polls in a row). One exception, on purpose:
+  putting the fans back to Auto when Rigbay set Maximum.
+- Every WMI call has a timeout and runs one at a time; a stalled call keeps the line until it returns, so calls never pile up.
+- Reads send `UInt32`, the write sends `UInt64` after checking the schema type.
 
 ## Hard constraints
 
