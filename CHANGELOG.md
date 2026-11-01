@@ -15,7 +15,7 @@ Fixes for what the first-hour end-to-end run found against 0.1.0 (`docs/E2E.md`,
 - **No warning on the first start (E2E-09).** A fresh install without a modules folder used to log `WARN ... does not exist`. The host now creates the folder with the same administrators-only permissions the installer uses, and logs one INFO line; if it cannot, it logs one INFO line that says what to do.
 - Test and tool fixes: the language-file test skips admin-only and build-output folders, so `dotnet test` also runs from a normal shell while scratch folders exist (E2E-05). The end-to-end scripts in `tools\e2e` are part of the repository.
 
-Not changed, reported to the module owners: the Recorder's default folder is under the real Documents whatever `--data` says (E2E-02) and the PredatorSense fan box reads "Auto" before anything was set (E2E-10).
+Not part of the app, so not in this zip: the Recorder's default folder is under the real Documents whatever `--data` says (E2E-02, still open in the module), and the PredatorSense fan box reading "Auto" before anything was set (E2E-10) is fixed in the module's source on `main` (PS011, module version 0.1.1); that module is released from its own repository.
 
 ## 0.1.0 (2026-11-01)
 

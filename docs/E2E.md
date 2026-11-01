@@ -126,7 +126,7 @@ The released `v0.1.0` exe was built from `557d091`; the fixes are on this branch
 
 ## 9. Release 0.1.1 (task V011, 2026-11-02)
 
-The defects E2E-03, -04 (already on main), -06, -07, -08 and -09 are fixed in `v0.1.1`; E2E-02 and E2E-10 belong to modules and stay reported. Each fix has a test or a self-test
+The defects E2E-03, -04 (already on main), -06, -07, -08 and -09 are fixed in `v0.1.1`; E2E-02 and E2E-10 belong to modules (E2E-10 is fixed in the PredatorSense source on `main` by PS011, released separately; E2E-02 is still open). Each fix has a test or a self-test
 check and was rendered in dark and light and looked at (the Modules page while a module downloads, with a removal queued; a module page with a long path in the Folder box at 700, 1240 and 1800 px).
-Totals before packaging: `dotnet build Rigbay.sln --no-incremental` 0 warnings, 0 errors; `dotnet test`: Core 629 (626 + 3), PredatorSense 103, Recorder 146, XTU 190, Steam 248, LangCheck 19, 0 failed;
+Totals before packaging: `dotnet build Rigbay.sln --no-incremental` 0 warnings, 0 errors; `dotnet test`: Core 629 (626 + 3), PredatorSense 121 (103 + 18 from PS011), Recorder 146, XTU 190, Steam 248, LangCheck 19, 0 failed;
 `tools\selftest.ps1` 136 of 136 PASS (133 before the last 3 text-width checks; 130 on 0.1.0 + E2E-03). The verification of the zip itself and of the released asset is in the release notes of `v0.1.1`.
