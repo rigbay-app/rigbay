@@ -67,6 +67,13 @@ $exeName = 'Rigbay.App.exe'
 function Say($text) { Write-Host $text }
 # read-only lookups must not report "What if: Set Alias ..." for the modules they load on first use
 function ReadOnly([scriptblock]$Block) { $WhatIfPreference = $false; & $Block }
+# schtasks.exe writes to stderr when a task does not exist; with $ErrorActionPreference = 'Stop' that would become an exception
+function Invoke-Schtasks([string[]]$Arguments) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $o = & schtasks.exe @Arguments 2>&1 | ForEach-Object { "$_" }; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+    $global:LASTEXITCODE = 0
+    return @{ Code = $code; Out = (($o -join ' ').Trim()) }
+}
 function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
 function Stop-Install($text) {
     Write-Host ''
@@ -317,8 +324,8 @@ if (-not $NoTask) {
         $xmlFile = Join-Path ([IO.Path]::GetTempPath()) ('rigbay-task-{0}.xml' -f $PID)
         try {
             [IO.File]::WriteAllText($xmlFile, (Get-TaskXml $user $rootExe), [Text.Encoding]::Unicode)
-            $out = & schtasks.exe /create /tn $TaskName /xml $xmlFile /f 2>&1
-            if ($LASTEXITCODE -ne 0) { Stop-Install "The scheduled task could not be created: $out`nRun again with -NoTask to install without it." }
+            $r = Invoke-Schtasks @('/create', '/tn', $TaskName, '/xml', $xmlFile, '/f')
+            if ($r.Code -ne 0) { Stop-Install "The scheduled task could not be created: $($r.Out)`nRun again with -NoTask to install without it." }
             $global:LASTEXITCODE = 0
             Say "Scheduled task '$TaskName' created for $user."
         }

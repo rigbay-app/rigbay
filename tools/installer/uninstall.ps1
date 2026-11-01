@@ -47,6 +47,13 @@ $ErrorActionPreference = 'Stop'
 $exeName = 'Rigbay.App.exe'
 
 function Say($text) { Write-Host $text }
+# schtasks.exe writes to stderr when a task does not exist; with $ErrorActionPreference = 'Stop' that would become an exception
+function Invoke-Schtasks([string[]]$Arguments) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $o = & schtasks.exe @Arguments 2>&1 | ForEach-Object { "$_" }; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+    $global:LASTEXITCODE = 0
+    return @{ Code = $code; Out = (($o -join ' ').Trim()) }
+}
 function Step($text) { Write-Host ''; Write-Host "== $text" -ForegroundColor Cyan }
 function Stop-Uninstall($text) {
     Write-Host ''
@@ -112,13 +119,13 @@ else { Say 'Rigbay is not running.' }
 
 # ------------------------------------------------------------------------------------------------------------------- the task
 Step 'Start at logon'
-$null = & schtasks.exe /query /tn $TaskName 2>&1
-$taskExists = ($LASTEXITCODE -eq 0)
+$taskQuery = Invoke-Schtasks @('/query', '/tn', $TaskName)
+$taskExists = ($taskQuery.Code -eq 0)
 $global:LASTEXITCODE = 0
 if ($taskExists) {
     if ($PSCmdlet.ShouldProcess("scheduled task '$TaskName'", 'Delete')) {
-        $out = & schtasks.exe /delete /tn $TaskName /f 2>&1
-        if ($LASTEXITCODE -ne 0) { Stop-Uninstall "The scheduled task '$TaskName' could not be deleted: $out" }
+        $r = Invoke-Schtasks @('/delete', '/tn', $TaskName, '/f')
+        if ($r.Code -ne 0) { Stop-Uninstall "The scheduled task '$TaskName' could not be deleted: $($r.Out)" }
         $global:LASTEXITCODE = 0
         Say "Scheduled task '$TaskName' removed."
     }
