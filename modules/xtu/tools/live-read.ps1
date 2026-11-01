@@ -5,7 +5,7 @@
 # (PrintWindow of the app's HWND, never the screen) in dark and light.
 #
 # Usage:  .\live-read.ps1 -AppDir <published Rigbay.App folder> [-Work <folder>] [-OldApp <XtuProfileSwitcher.exe>] [-NoShots]
-# Publish the app first (does not touch the repo):
+# Publish the app first, from a Rigbay host checkout (does not touch this folder):
 #   dotnet publish src\Rigbay.App\Rigbay.App.csproj -c Release -r win-x64 --self-contained:false -p:WindowsAppSDKSelfContained=false -o <AppDir>
 # An elevated process cannot be stopped from a normal shell; every process here is short-lived and exits by itself (--exit-after).
 [CmdletBinding()]
@@ -16,7 +16,7 @@ param(
     [switch]$NoShots
 )
 $ErrorActionPreference = 'Stop'
-$repo = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+$modRoot = Resolve-Path (Join-Path $PSScriptRoot '..')   # the module folder; nothing outside it is read
 $exe = Join-Path $AppDir 'Rigbay.App.exe'
 if (-not (Test-Path $exe)) { throw "Not found: $exe (publish the app first, see the header)" }
 
@@ -26,9 +26,9 @@ $shots = Join-Path $Work 'shots'
 New-Item -ItemType Directory -Force (Join-Path $modules 'xtu'), (Join-Path $data 'modules\xtu'), $shots | Out-Null
 
 # 1. build and lay out the module (no Intel file ends up in the folder)
-& dotnet build (Join-Path $repo 'modules\xtu\Rigbay.Module.Xtu\Rigbay.Module.Xtu.csproj') -c Release -v q --nologo | Out-Null
+& dotnet build (Join-Path $modRoot 'Rigbay.Module.Xtu\Rigbay.Module.Xtu.csproj') -c Release -v q --nologo | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'module build failed' }
-$out = Join-Path $repo 'modules\xtu\Rigbay.Module.Xtu\bin\Release\net10.0'
+$out = Join-Path $modRoot 'Rigbay.Module.Xtu\bin\Release\net10.0'
 Copy-Item "$out\*" (Join-Path $modules 'xtu') -Recurse -Force
 $intel = Get-ChildItem (Join-Path $modules 'xtu') -Recurse -Include 'XtuInterface.dll', 'XtuCommon.dll'
 if ($intel) { throw 'an Intel file was copied next to the module: ' + $intel.FullName }

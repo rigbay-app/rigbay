@@ -77,7 +77,7 @@ assemblies on .NET 10, the fallback is design B of the spike (net48 helper proce
 - `xunit` only runs public test classes; public theory methods cannot take internal types as parameters (use strings and `Enum.Parse`).
 - `ProfileEntry` rows and observables outlive `Shutdown` (the instance is reused); handlers are wired once in the constructor, and `_suppressChoice` / `_suppressAuto`
   stop programmatic sets from looking like user edits (setting the saved auto-switch values in `Start` once reset them to empty).
-- `System.Security.Cryptography.Xml` (transitive of the WCF package) triggers NU1902/NU1903; it is excluded from the output and the warnings are not errors.
+- `System.Security.Cryptography.Xml` and `.Pkcs` (transitive of the WCF packages) are pinned in the csproj to 10.0.14 (patched) with `ExcludeAssets="runtime"`; the build has 0 warnings and neither DLL ships. After any package change run `dotnet list modules/xtu/Rigbay.Xtu.slnx package --vulnerable --include-transitive` and bump the pins (`docs/xtu/README.md`, "Package audit"). Keep `modules/xtu` self-contained for extraction: only the Abstractions ProjectReference may point outside it; it has its own `Directory.Build.props`; `tools/live-read.ps1` reads nothing outside the module folder.
 
 ## Verified vs not verified (see `docs/xtu/README.md` for the record)
 
