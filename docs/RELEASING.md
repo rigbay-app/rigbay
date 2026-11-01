@@ -172,3 +172,83 @@ The release on GitHub can stay, marked as such in its notes.
   (two clones in different folders give the same bytes only if no clone path is in any file).
 - The registry check's pull-request-only step (`--base`) had never run before PR #1; it ran and passed.
 - `verify-module-zip` cannot delete its scratch folder `%TEMP%\rigbay-verify-*` at the end (the module DLLs it loaded stay mapped until the process exits). Delete those folders afterwards; nothing else is left behind (`%TEMP%\rb-pkg` is removed by `package-module.ps1`).
+
+## 11. Host: releasing the app itself (task PKG1)
+
+The modules above are released from their own repositories. The **app** (`rigbay-app/rigbay`, tag `v<version>`) has one asset, `Rigbay-<version>-win-x64.zip`, made by
+`tools\package-app.ps1`. `<version>` is `<Version>` in `Directory.Build.props`. Releases are marked **pre-release** while the major number is 0. This section is the
+procedure; the user side is `docs/USER-GUIDE.md`.
+
+### 11.1 What is in the zip
+
+```
+install.ps1  uninstall.ps1  README.txt  LICENSE
+app\          Rigbay.App.exe and everything dotnet publish writes, minus *.pdb and *.xml
+modules\      empty (a module folder placed here is copied by install.ps1)
+```
+
+71 files, about 39 MB unpacked, about 10 MB zipped. **Framework-dependent**: it needs the .NET 10 runtime (`Microsoft.NETCore.App 10.x`, read from
+`Rigbay.App.runtimeconfig.json`: the Desktop runtime is not needed) and the Windows App Runtime 1.8. There is no self-contained build on purpose: 1.8 self-contained crashed at
+start in the spike and again when tried in `tools\build.ps1` (`docs/spike/SPIKE.md`, `docs/APP.md`). The installer checks both prerequisites and, only after asking (or
+with `-InstallPrerequisites`), installs them with `winget install --id Microsoft.DotNet.Runtime.10` and `Microsoft.WindowsAppRuntime.1.8` (both ids found with `winget search --exact`).
+Files are **not signed**.
+
+### 11.2 Package
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\package-app.ps1 -Ref main -Out D:\somewhere
+```
+
+`-Ref` is a branch, tag or commit; `-Repo` a path or URL (default: this repository). What it does:
+
+1. Clean clone of `-Ref` into `%TEMP%\rigbay-pkg-<random>` (short path: the Windows App SDK's `MakePri` fails on long ones), `git status` must be clean.
+2. `dotnet publish src\Rigbay.App -c Release -r win-x64 --self-contained false` with `ContinuousIntegrationBuild`, **`DebugType=none`**. The XAML compiler's generated
+   code carries `#line` directives with the clone's absolute path; they end up in the pdb, and the pdb's id and checksum are written into the dll, so two builds from two
+   folders differed in `Rigbay.App.dll` until the pdb was left out (the zip ships none anyway; stack traces in the log have method names, no line numbers).
+3. Lays out the zip, writes it: ordinal name order, forward slashes, every timestamp the commit's UTC time (2 s resolution), deflate. Prints size and SHA-256 and writes
+   `<zip>.sha256`.
+4. Checks the zip it just wrote, from an extracted copy: the exe has the embedded manifest with `requestedExecutionLevel level="requireAdministrator"`, an icon group,
+   `ProductVersion` equal to the version, `ProductName` Rigbay; no `.pdb`; `modules\` empty; no scratch path, user name, machine name or `C:\Users\` string in any file (ASCII and UTF-16);
+   no vendor-named file; both scripts parse and are plain ASCII. Any problem fails the script and the zip must not be released.
+
+Same commit gives the same bytes: two runs from two random clone folders gave the same SHA-256 (PowerShell 5.1, SDK 10.0.403). As for modules (section 4), **the hash that counts is that of the file you upload**;
+download the asset and compare.
+
+### 11.3 Test before the release
+
+All of this runs on a machine that must not be touched: everything goes to scratch folders and to test-named objects.
+
+- `dotnet build Rigbay.sln --no-incremental`, `dotnet test Rigbay.sln`, `tools\selftest.ps1` (elevated, UAC auto-elevates for an admin account).
+- The same `--selftest` with the exe **extracted from the zip** into another folder (copy the steps of `tools\selftest.ps1`, change the exe path).
+- `install.ps1 -WhatIf` (not elevated), then for real with `-Root <scratch> -DataRoot <scratch> -ShortcutDir <scratch> -UninstallKeyRoot HKCU:\Software\<test> -TaskName <test name>`:
+  install, upgrade over a running instance (it must be quit by the installer), the task XML equal to the one the app writes itself (`--task-name <other test name> --script startup:on`),
+  `uninstall.ps1 -WhatIf`, uninstall (modules and settings kept), reinstall, `-RemoveData`, a non-empty foreign folder refused, and both scripts from a non-elevated shell (they open an elevated one; `-NoPause` closes it).
+  Never use the real names (`C:\Program Files\Rigbay`, the task `Rigbay`, the real Start menu) on a machine you work on; the test switches exist for that.
+- `tools\stop-elevated.ps1` afterwards, and `tools\remove-elevated.ps1 <folder under tools\out>` for scratch folders the installer made admin-only.
+
+### 11.4 Create the release
+
+1. Everything is on `main` and pushed (a normal push, never a force). **Every new commit changes the zip** (the timestamps are the commit time), so make the last commit
+   first and package from it; a documentation commit after packaging does not belong to the zip.
+2. `package-app.ps1 -Ref main -Out <dir>`; note the commit and the SHA-256.
+3. ```powershell
+   gh release create v0.1.0 <dir>\Rigbay-0.1.0-win-x64.zip --repo rigbay-app/rigbay --target <commit> --prerelease --title "Rigbay 0.1.0" --notes-file <notes.md>
+   ```
+4. Download the asset again (`gh release download v0.1.0 --repo rigbay-app/rigbay --pattern "*.zip" --dir <empty folder>`) and compare its SHA-256 with the one printed in step 2.
+5. Notes say: the SHA-256 and the commit, the prerequisites, **unsigned binaries (SmartScreen will warn)**, and a list of what was verified and what was not.
+
+### 11.5 Notes from the first run (v0.1.0)
+
+The release itself is [v0.1.0](https://github.com/rigbay-app/rigbay/releases/tag/v0.1.0); its notes are the list of what was verified.
+
+- A first draft of `package-app.ps1` produced two different zips from the same commit: only `Rigbay.App.dll` differed (70 bytes: PE time stamp, the pdb id and checksum, the MVID
+  derived from them). The cause was the clone path in the generated XAML code (see 11.2). `Rigbay.Core.dll` was identical across folders from the start.
+- `install.ps1` under `$ErrorActionPreference = 'Stop'`: `schtasks /query` for a task that does not exist writes to stderr, which Windows PowerShell 5.1 turns into a terminating
+  error. Found by the uninstall test; both scripts now call `schtasks` through a small wrapper.
+- A `-WhatIf` run printed dozens of `What if: Set Alias ...` lines (the preference was passed on to the modules `Get-AppxPackage` and `Get-CimInstance` load). Those two lookups now run in a child
+  `powershell.exe`.
+- A function named `Ps` in a test script is shadowed by the alias `ps` (`Get-Process`). Not in the product, noted for the next person.
+- The uninstall script copies itself to `%TEMP%` when it has to elevate: it may sit in the folder it is about to delete.
+- The app got three switches for this: `--version`, `--uninstall-cleanup [--keep-task]` (asks a running instance to quit through its pipe, waits up to 30 s, removes the logon task) and
+  `--task-name <name>` (tests only; keeps the real task `Rigbay` out of reach). `--uninstall-cleanup` talks to **whichever** instance owns the user's pipe, so the scripts call it only
+  when a `Rigbay.App` process runs from the install folder.

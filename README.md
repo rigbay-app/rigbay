@@ -4,10 +4,30 @@ A small Windows app that manages **modules** for your own machine: power limits,
 modes, monitoring and logging, network fixes, and anything else a module can do. Each module lives in its
 own repository and can be installed, updated or removed from inside the app.
 
-Status: **early development (v0.1, not released).** The host app, the module contract and the core run and are
-tested; the first modules (XTU profiles, PredatorSense) are being written. Nothing is published as a release yet.
+Status: **pre-release (v0.1.0).** The host app, the module contract and the core run and are tested; the first modules (XTU profiles, PredatorSense,
+recorder, Steam access) are released separately. See Install below.
 
 <!-- screenshots: docs/spike and tools/shots hold the current renders -->
+
+## Install
+
+**v0.1.0 is a pre-release.** It needs Windows 11 (x64), the .NET 10 runtime and the Windows App Runtime 1.8; the installer checks them and offers to
+install them with `winget`. The files are **not code-signed**, so Windows SmartScreen may warn. Compare the SHA-256 in the
+[release notes](https://github.com/rigbay-app/rigbay/releases) with the zip you downloaded.
+
+1. Download `Rigbay-0.1.0-win-x64.zip` from the [latest release](https://github.com/rigbay-app/rigbay/releases) and extract it.
+2. In an administrator PowerShell, in the extracted folder: `powershell -ExecutionPolicy Bypass -File .\install.ps1` (add `-WhatIf` to see the steps first).
+3. Start **Rigbay** from the Start menu, open **Modules**, press **Get the module list**, install a module, restart, turn it on.
+
+The script copies the app to `C:\Program Files\Rigbay`, creates `C:\ProgramData\Rigbay\modules` (administrators only), adds a Start menu shortcut, an optional
+"start at logon" task (`-NoTask` skips it) and an Uninstall entry. Nothing else is changed. `uninstall.ps1` removes all of that and keeps your modules and
+settings unless you add `-RemoveData`. Details, the first run, troubleshooting and what each dialog means: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
+
+| Dashboard | Turning a module on | Changing hardware asks first |
+| --- | --- | --- |
+| ![Dashboard](tools/shots/dashboard-dark.png) | ![Turn on dialog](tools/shots/requires-dark.png) | ![Hardware confirmation](tools/shots/approval-dark.png) |
+
+The screenshots show the demo modules of this repository, not real hardware modules.
 
 ## Why
 
