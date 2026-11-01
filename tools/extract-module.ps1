@@ -236,10 +236,21 @@ try {
             if ($ExcludeDocs | Where-Object { $name -like $_ }) { return }
             $dest = Join-Path "$OutDir\docs" $_.FullName.Substring("$docsDir\docs\$ModuleId\".Length)
             New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
-            Copy-Item $_.FullName $dest
+            if ($_.Extension -in '.md', '.txt', '.log') {
+                # Logs name the developer's worktree (an absolute path on the author's machine): replace it before it reaches the history.
+                $text = [System.IO.File]::ReadAllText($_.FullName)
+                $text = [regex]::Replace($text, '[A-Za-z]:\\[^\r\n"''<>|*?]*?\\\.claude\\worktrees\\[^\\\s]+\\', '<worktree>\')
+                [System.IO.File]::WriteAllText($dest, $text, $utf8)
+            } else { Copy-Item $_.FullName $dest }
         }
     }
 } finally { Remove-Item $docsDir -Recurse -Force -ErrorAction SilentlyContinue }
+# Last check before the commit: nothing of the developer's machine in the new files (the pushed history keeps them forever).
+$bad = @()
+foreach ($needle in @($env:USERNAME, $env:COMPUTERNAME, '.claude\worktrees', 'C:\Users\')) {
+    if ($needle) { $bad += @(& git -C $OutDir grep -n -I -i -F --untracked -e $needle -- . ':!external' ':!LICENSE' | Select-Object -First 5) }
+}
+if ($bad.Count) { throw "personal data found, fix before committing:`n$($bad -join "`n")" }
 Invoke-Git $OutDir add -A
 Invoke-Git $OutDir commit -q -m "README skeleton, LICENSE, .gitignore, documentation of the module copied from the host repository" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 

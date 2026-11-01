@@ -61,7 +61,7 @@ powershell -ExecutionPolicy Bypass -File tools\extract-module.ps1 -ModuleId pred
    documents. English. Commit it.
 2. **Docs.** They reference paths of this repository (`tools/...`, `modules/<id>/...`). Fix them or say where they live. Check that they are
    written in our own words (rule 2 of `docs/plan/WORKER-RULES.md`).
-3. **Scan the whole repository and its history** (the history is pushed too):
+3. **Scan the whole repository and its history** (the history is pushed too; the script already refuses to commit files that name the Windows user, the machine or a worktree path, and rewrites worktree paths in copied logs to `<worktree>`):
    - binaries: `git ls-files` should list only source, text, and the evidence PNGs; no `.dll`, `.exe`, `.zip`;
    - vendor files (Acer, Intel and so on): none, in the tree or in the history;
    - secrets: `git grep -nIiE "token|secret|password|api[_-]?key|BEGIN (RSA|PRIVATE)"` and read each hit;
