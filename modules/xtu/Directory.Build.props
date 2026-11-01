@@ -1,0 +1,16 @@
+<Project>
+  <!-- Own copy of the repository-wide defaults, so this folder builds the same when it is moved to its own repository
+       (MSBuild stops at the first Directory.Build.props, so the one at the Rigbay root is no longer imported here). -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <Version>0.1.0</Version>
+    <Authors>Rigbay contributors</Authors>
+    <Copyright>MIT</Copyright>
+    <RepositoryUrl>https://github.com/rigbay-app/module-xtu</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/rigbay-app/module-xtu</PackageProjectUrl>
+  </PropertyGroup>
+</Project>

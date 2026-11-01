@@ -98,8 +98,8 @@ put the limits back). A chosen profile that no longer exists is reported, not ap
 ## Build and test
 
 ```
-dotnet build modules/xtu/Rigbay.Module.Xtu -c Release     # needs XTU installed: the Intel DLLs are compile references
-dotnet test  modules/xtu/Rigbay.Module.Xtu.Tests -c Release
+dotnet build modules/xtu/Rigbay.Xtu.slnx -c Release          # needs XTU installed: the Intel DLLs are compile references; 0 warnings
+dotnet test  modules/xtu/Rigbay.Xtu.slnx -c Release
 dotnet run --project src/Rigbay.LangCheck -- modules/xtu/Rigbay.Module.Xtu/lang --module xtu --source modules/xtu/Rigbay.Module.Xtu --strict
 ```
 
@@ -157,3 +157,15 @@ Smallest useful test, reversible, inside the old app's own safe range, using pro
 
 Lower values are the safe direction (less heat); the test does not go above the profile the machine already runs. A second test, only if the
 first is fine: `rigbay xtu apply PL35-40W` from a command line while the app runs, then the hotkey path, then auto-switch on AC and battery.
+
+## Package audit (task C3, 2026-11-01)
+
+The module runs inside the elevated host, so vulnerable packages are fixed, not suppressed. The WCF client packages (`System.ServiceModel.Primitives`
+and `.NetNamedPipe` 10.0.652802) pull `System.Security.Cryptography.Pkcs` and `.Xml` 10.0.0, which had 13 advisories (GHSA-2fmv-rv2c-59x7, GHSA-846f-f764-76mx
+for Pkcs; GHSA-23rf-6693-g89p, -37gx-xxp4-5rgx, -6588-8gv4-xfgh, -7hqp-7c5m-4vq6, -8q5v-6pqq-x66h, -c399-9853-6jmj, -cvvh-rhrc-wg4q, -g8r8-53c2-pm3f, -mmjf-rqrv-855v,
+-r955-8q5j-3h83, -w3x6-4m5h-cxqf for Xml; the highest fixed version among them is 10.0.13). Both are now pinned with explicit `PackageReference`s to **10.0.14**
+(latest 10.x on nuget.org that day) in `Rigbay.Module.Xtu.csproj`, still with `ExcludeAssets="runtime"`: the named-pipe client never uses message signing, and
+neither DLL is in the build output. Result: `dotnet build modules/xtu/Rigbay.Xtu.slnx` 0 warnings, 0 errors; `dotnet list package --vulnerable --include-transitive`
+reports nothing for all three projects; 148 tests pass. No vulnerable assembly is left that cannot be avoided (the Intel DLLs are not NuGet packages and
+are not scanned by NuGet audit). `WarningsNotAsErrors` for NU1901 to NU1904 stays so that a future advisory is a visible warning, not a failed build.
+When the WCF packages are updated, drop the pins if the new version already depends on a patched version.
