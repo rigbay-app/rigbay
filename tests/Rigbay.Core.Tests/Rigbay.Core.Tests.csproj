@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Core\Rigbay.Core.csproj" />
+    <!-- Built so their output exists; not referenced as assemblies. Tests copy the folders and load them like the host does. -->
+    <ProjectReference Include="..\..\samples\Rigbay.SampleModule\Rigbay.SampleModule.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Rigbay.FaultyModule\Rigbay.FaultyModule.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Target Name="CopyTestModules" AfterTargets="Build">
+    <ItemGroup>
+      <SampleModuleFiles Include="$(MSBuildThisFileDirectory)..\..\samples\Rigbay.SampleModule\bin\$(Configuration)\net8.0\**\*" />
+      <FaultyModuleFiles Include="$(MSBuildThisFileDirectory)..\Rigbay.FaultyModule\bin\$(Configuration)\net8.0\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SampleModuleFiles)" DestinationFiles="@(SampleModuleFiles->'$(OutDir)module-templates\sample\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(FaultyModuleFiles)" DestinationFiles="@(FaultyModuleFiles->'$(OutDir)module-templates\faulty\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+</Project>

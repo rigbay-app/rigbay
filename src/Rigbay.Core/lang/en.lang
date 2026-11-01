@@ -1,0 +1,27 @@
+# Rigbay.Core language file: English (the reference). Strings the host core produces for the UI.
+# Format:  key = text   ({0} {1} are placeholders; keep them in translations)
+
+@code = en
+@name = English
+
+core.reason.manifest-invalid = The module manifest is not valid: {0}
+core.reason.api-mismatch = Needs host API {0}, this host is API {1}
+core.reason.abstractions-newer = Built for a newer Rigbay.Abstractions ({0}) than this host ({1})
+core.reason.load-failed = The module could not be loaded: {0}
+core.reason.fault = The module failed in {0}: {1}
+core.reason.timeout = The module did not answer in {0} within {1} s
+core.reason.bad-page = The module returned an invalid page: {0}
+core.reason.not-supported = Not supported on this machine
+core.reason.restart = Restart Rigbay to finish the change
+core.reason.update = Version {0} is available
+core.approval.no-prompt = Rigbay cannot ask for confirmation here, so the change was not made
+core.approval.declined = Not applied: you did not confirm the change
+core.edit.out-of-range = Enter a value from {0} to {1}
+core.edit.too-long = Use at most {0} characters
+core.edit.unknown-option = That option does not exist
+core.edit.failed = The module failed while applying the change
+core.command.usage = Usage: rigbay <module> <verb> [arguments]
+core.command.unknown-module = No module named '{0}'
+core.command.not-running = Module '{0}' is not running
+core.command.unknown-verb = Module '{0}' has no verb '{1}'
+core.command.failed = Module '{0}' failed: {1}

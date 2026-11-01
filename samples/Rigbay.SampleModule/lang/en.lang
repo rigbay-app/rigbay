@@ -1,0 +1,47 @@
+# Sample module: English (the reference). Every key starts with module.<id>.
+@code = en
+@name = English
+
+module.sample.name = Sample module
+module.sample.description = A minimal module that shows every kind of row. It changes nothing on the machine.
+
+module.sample.group.basic = Basic rows
+module.sample.group.safe = Careful rows
+module.sample.group.live = Live
+
+module.sample.row.echo.header = Echo
+module.sample.row.echo.description = Log a line whenever this is switched
+module.sample.row.mode.header = Mode
+module.sample.row.mode.description = A fixed list of options
+module.sample.mode.quiet = Quiet
+module.sample.mode.normal = Normal
+module.sample.mode.fast = Fast
+module.sample.row.limit.header = Limit
+module.sample.row.limit.description = Pretend power limit; apply it, then revert it
+module.sample.effect.limit = Pretends to set a power limit. Nothing on this machine changes.
+module.sample.row.label.header = Label
+module.sample.row.label.description = Free text, at most 20 characters
+module.sample.label.placeholder = Name this bay
+module.sample.label.reserved = 'reserved' is not allowed
+module.sample.row.shortcut.header = Shortcut
+module.sample.row.shortcut.description = Toggles Echo
+module.sample.row.reset.header = Reset
+module.sample.row.reset.description = Sets everything back to the defaults
+module.sample.row.reset.button = Reset
+module.sample.row.ticks.header = Ticks
+module.sample.row.ticks.description = Counted by a timer in the module
+module.sample.row.status.header = State
+module.sample.row.more.header = More
+module.sample.row.more.description = Related rows fold here
+module.sample.row.note.header = Nothing here touches your machine
+module.sample.row.note.description = This module exists to show the page model and to be copied.
+module.sample.link.docs = Module contract
+
+module.sample.hotkey.toggle = Toggle echo
+module.sample.tray.toggle = Sample: toggle echo
+module.sample.cmd.status = Print the state
+module.sample.cmd.echo = Print the arguments
+module.sample.cmd.usage = Usage: rigbay sample echo <text>
+module.sample.state.line = {0} ticks
+module.sample.toast.title = Sample module
+module.sample.toast.body = Settings were reset

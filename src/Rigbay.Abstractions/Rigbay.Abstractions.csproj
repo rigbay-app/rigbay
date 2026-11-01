@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The only assembly a module references. No UI framework, no Windows App SDK. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.Abstractions</RootNamespace>
+    <AssemblyName>Rigbay.Abstractions</AssemblyName>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>true</IsPackable>
+    <PackageId>Rigbay.Abstractions</PackageId>
+    <Description>The contract between the Rigbay host and its modules (v0.1).</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A minimal real module and the template for module authors.
+    In your own repository replace the ProjectReference by:
+      <PackageReference Include="Rigbay.Abstractions" Version="0.1.*" ExcludeAssets="runtime" />
+    Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.SampleModule</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+  </ItemGroup>
+
+</Project>

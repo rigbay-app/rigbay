@@ -1,0 +1,26 @@
+# Rigbay.Core: tiếng Việt. Giữ nguyên {0} {1}; có thể đổi thứ tự.
+
+@code = vi
+@name = Tiếng Việt
+
+core.reason.manifest-invalid = Tệp mô tả module không hợp lệ: {0}
+core.reason.api-mismatch = Cần API máy chủ {0}, bản này là API {1}
+core.reason.abstractions-newer = Module được build cho Rigbay.Abstractions mới hơn ({0}) bản của máy chủ ({1})
+core.reason.load-failed = Không nạp được module: {0}
+core.reason.fault = Module bị lỗi trong {0}: {1}
+core.reason.timeout = Module không trả lời trong {0} sau {1} giây
+core.reason.bad-page = Module trả về trang không hợp lệ: {0}
+core.reason.not-supported = Máy này không hỗ trợ
+core.reason.restart = Khởi động lại Rigbay để hoàn tất thay đổi
+core.reason.update = Có phiên bản {0}
+core.approval.no-prompt = Rigbay không hỏi xác nhận được ở đây nên chưa thay đổi gì
+core.approval.declined = Chưa áp dụng: bạn chưa xác nhận thay đổi
+core.edit.out-of-range = Nhập giá trị từ {0} đến {1}
+core.edit.too-long = Tối đa {0} ký tự
+core.edit.unknown-option = Lựa chọn này không tồn tại
+core.edit.failed = Module bị lỗi khi áp dụng thay đổi
+core.command.usage = Cách dùng: rigbay <module> <lệnh> [tham số]
+core.command.unknown-module = Không có module '{0}'
+core.command.not-running = Module '{0}' chưa chạy
+core.command.unknown-verb = Module '{0}' không có lệnh '{1}'
+core.command.failed = Module '{0}' bị lỗi: {1}
