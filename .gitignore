@@ -10,3 +10,6 @@ obj/
 .vscode/
 *.user
 *.log
+
+# Claude Session Manager worktrees
+.claude/worktrees/
