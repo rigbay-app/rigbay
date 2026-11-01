@@ -1,8 +1,9 @@
-# Write proposals (task B3), with the result of the first test (task B4)
+# Write proposals (task B3), with the results of the first two tests (tasks B4 and B5)
 
-Status: **exactly one write has been run on this machine: W4a (all fans Auto), in B4, status 0 (section "W4a result" below).** Every other
-candidate is still unrun. No write was run in B1, B2 or B3. The probe (`tools/predatorsense-probe`) refuses every `Set*` method in code. Writes go
-only through `tools/predatorsense-write`, whose code allow-list holds the owner-approved calls (today: W4a only, and the log blocks a repeat).
+Status: **three write calls have been run on this machine, all with status 0: W4a (all fans Auto) in B4 ("W4a result" below), then in B5 W4b (all fans Max, 14 s)
+and W4a again as its undo ("W4b result" below).** Every other candidate (W1, W2) is still unrun. No write was run in B1, B2 or B3. The probe
+(`tools/predatorsense-probe`) refuses every `Set*` method in code. Writes go only through `tools/predatorsense-write`, whose code allow-list holds the
+owner-approved calls (today: W4a and W4b; each write attempt has its own log and the log blocks a repeat).
 The coordinator presents the candidates to the owner **one value at a time**; approval of one covers only that one call and value.
 Evidence tags as in `FINDINGS.md` (C read from the UI's code, O observed, G guess). Section numbers refer to `FINDINGS.md`.
 
@@ -82,6 +83,43 @@ Run by `tools/predatorsense-write` (`--call W4a --execute`), elevated, on AC pow
 | Testable? | **Yes for the effect** (RPM rises, readable), **no for the state** (no mode read) |
 | Order | only after W4a returned status 0 |
 
+#### W4b result (B5, run 2026-11-01 20:21:44 to 20:22:07 local; gate `g-write-w4b`, owner answered "approve": two calls, once each)
+
+Run by `tools/predatorsense-write` (`--call W4b --execute`), elevated, on AC power at 100 %, CPU load 24 % at the precondition check (other workers were building;
+the threshold of 50 % was not touched, no precondition retry was needed). The tool sends W4b, reads 2, 6, 9, 1, 10 every 2 s for 14 s, then sends the undo W4a
+by itself (its own log) and reads every 2 s until the three fans are inside the baseline range twice in a row. Raw logs: `B5-w4b-run.txt` (baseline, W4b, window)
+and `B5-w4b-undo-run.txt` (W4a undo, recovery). Each holds exactly one `WRITE_ATTEMPT`.
+
+| Item | Result |
+| --- | --- |
+| Schema check | `gmInput` is UInt64 (as in B4) |
+| Baseline (3 passes, 2 s apart, 5 s before the write) | CPU fan 2586 to 2608, GPU fan 1 2631 to 2654, GPU fan 2 2693; CPU 62 to 75 C, system 40 to 41 C, GPU 50 C; `nvidia-smi` 50.84 C, 17.4 W, 24 %, P5 |
+| W4b call | `SetGamingFanBehavior`, `gmInput` = `0x02820019`, once: `gmOutput` raw `0x0`, **status 0**, **13 ms**, no exception |
+| Read right after (t = 0, about 16 ms after the answer) | CPU fan 2608, GPU 1 2631, GPU 2 2693: **still the baseline** |
+| t = +2 s | CPU fan **5555**, GPU fan 1 **5882**, GPU fan 2 **5900** (about 2.1x, 2.2x, 2.2x the baseline) |
+| t = +4 s to +14 s (6 more passes) | the same three numbers on every pass: 5555, 5882, 5900 (flat, no further rise, no jitter) |
+| Temperatures during the 14 s | GPU (index 10) 50, 50, 50, 50, 50, 51, 49, 49 C. CPU (index 1) 62, 62, 62, 70, 76, 63, 58, 56 C |
+| Why the window ended | the planned 14 s of reads were over (`max_window_ms` 14043); no abort rule fired (all statuses 0, rise seen at +2 s, highest temperature 76 C) |
+| W4a undo, 13 ms after the last read | `SetGamingFanBehavior(0x01410019)`: raw `0x0`, **status 0**, **13 ms** |
+| Recovery | +0 s (3 ms after the answer) 5555 / 5882 / 5900; **+2 s 2654 / 2631 / 2757**; +4 s 2884 / 2857 / 2929. Inside the baseline range (-30 %/+30 %: 1825..3390, 1841..3450, 1885..3500) at +2 s and +4 s, so "back" was declared at 4.0 s |
+| After | `nvidia-smi` 49.34 C, 15.9 W, 13 %, P8; CPU 59 then 70 C, GPU 49 C. Exit code 0. No second write, no retry, no other `Set*` |
+
+- **The answer to "does the write take effect": yes, in the fan speed.** After `SetGamingFanBehavior(0x02820019)` all three fans (CPU fan, GPU fan 1, GPU fan 2) went from about
+  2600 to 2700 to 5555 to 5900 on the Acer sensor within 2 s, held that value for the whole 14 s, and the undo `0x01410019` brought them back to the Auto range within 2 s.
+  The change is hundreds of RPM (about +2900 to +3200), far above the one-step jitter of Auto (22 to 24 RPM). This is the first write on this machine with a measured effect.
+- **Verified (O):** the firmware accepts W4b with status 0 in 13 ms; the three fan speeds respond as the decoded table predicts (mode 2 in slots 0, 3, 4 = Max); the undo W4a
+  is accepted with status 0 and the speeds return to the Auto range within 2 s; sensor reads keep working during Max; no temperature came near 90 C.
+- **Not verified:**
+  - **The mode itself**: there is still no read of the fan mode, so "all fans are in Max/Auto" is inferred from RPM only. After the undo the speeds (2654 to 2757, then 2857 to 2929) were
+    in the Auto range but at +4 s about 200 to 300 above the pre-write baseline (CPU at 70 C then); whether that is normal Auto behaviour at that load, a still-settling fan or something else was not tested.
+  - **When the rise starts**: the first read (about 16 ms after the answer) still showed the baseline and the next (+2 s) showed the full value, so the ramp time is somewhere in 0 to 2 s; not resolved.
+  - **That 5555/5882/5900 is the fans' maximum** (it is flat for 12 s, which suggests a limit, but no other value was tried); that these numbers are RPM (unit still a working assumption, G+).
+  - **Cooling effect**: the temperatures cannot be read as an effect of Max. The CPU value moved with load from other builds on this machine (62, 70, 76, then 56 C), and the GPU stayed at 49 to 51 C at idle.
+  - **What the owner heard or felt** (not reported to this worker); noise level; any side effect other than RPM.
+  - Whether `PSSvc` re-applies its own cached mode later (observed for 14 s of Max and 4 s after the undo only); survival across sleep or reboot; behaviour under load; W1, W2 (not run).
+- **For a module:** a fan-mode write can be checked through sysinfo 2, 6, 9 with a threshold of a few hundred RPM, and a module should hold Max only briefly and always send the Auto value afterwards.
+  The tool's rule "undo in its own log, always, even on an abort" worked as designed and was needed by no abort in this run.
+
 ### W1: Cool Booster on
 
 | Item | Value |
@@ -133,8 +171,8 @@ Decoding needs a disassembly of `PSSvc.exe`, which has not been done. There is n
 | --- | --- | --- | --- |
 | 0 | baseline reads (already-approved sensor reads) | n/a | any value odd |
 | 1 | W4a `SetGamingFanBehavior` | `0x01410019` | non-zero status, or RPM leaves the baseline range. **DONE in B4: status 0, RPM unchanged** |
-| 2 | W4b `SetGamingFanBehavior` for at most 15 s | `0x02820019` | RPM does not rise in 10 s, or temperature above 90 C; then undo with step 1 |
-| 3 | step 1 again | `0x01410019` | RPM does not come back towards the baseline in 30 s: use the Acer app's Auto button |
+| 2 | W4b `SetGamingFanBehavior` for at most 15 s | `0x02820019` | RPM does not rise in 10 s, or temperature above 90 C; then undo with step 1. **DONE in B5: status 0, RPM 2600 to 2700 -> 5555 to 5900 within 2 s, 14 s window** |
+| 3 | step 1 again | `0x01410019` | RPM does not come back towards the baseline in 30 s: use the Acer app's Auto button. **DONE in B5: status 0, RPM back in the Auto range at +2 s** |
 | 4 | W1 `SetFunction` for at most 15 s | `0x10007` | non-zero status; then `0x7` |
 | 5 | `SetFunction` | `0x7` | RPM does not fall: use the Acer app's Cool Booster toggle |
 | 6 (optional) | W2 `SetGamingMiscSetting` | `0x2005` | non-zero status |
@@ -146,7 +184,7 @@ W3, custom speed, fan table, overclock levels and lighting: no steps until a dec
 | Candidate | State read-back | Effect check | Verdict |
 | --- | --- | --- | --- |
 | W4a fan Auto | none (cache only) | RPM unchanged | testable as a **format and status** test only. **Run in B4: status 0, RPM unchanged** |
-| W4b fan Max | none | RPM indexes 2, 6, 9 rise | testable by **effect** |
+| W4b fan Max | none | RPM indexes 2, 6, 9 rise | testable by **effect**. **Run in B5: status 0, RPM rose from about 2600 to 2700 to 5555 to 5900 within 2 s, undo W4a brought it back** |
 | W1 Cool Booster | read answered `0xE1`: unproven | RPM, maybe | testable by effect, state unproven |
 | W2 MaxQ | none | `nvidia-smi` under GPU load, not tried | weak |
 | W3 operation mode | none | none known | **not testable** |
