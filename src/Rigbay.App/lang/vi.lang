@@ -83,6 +83,7 @@ row.done = Xong
 row.failed = Thất bại
 row.shortcut-none = Chưa đặt
 row.hardware-note = Thay đổi phần cứng của bạn. Rigbay sẽ hỏi trước khi áp dụng.
+row.system-note = Thay đổi một cài đặt Windows. Rigbay sẽ hỏi trước khi áp dụng.
 row.custom-null = Mô-đun không trả về điều khiển nào cho '{0}'.
 row.custom-wrong-type = Mô-đun trả về {0}, không phải điều khiển WinUI.
 row.custom-threw = Mô-đun lỗi khi tạo điều khiển này: {0}
@@ -90,13 +91,16 @@ row.custom-unavailable = Mô-đun không khả dụng.
 
 # xác nhận phần cứng và lần bật đầu
 approval.title = Thay đổi phần cứng của bạn?
+approval.title-setting = Thay đổi một cài đặt hệ thống?
 approval.apply = Áp dụng
 approval.cancel = Hủy
 approval.hint-revertible = Rigbay hiển thị giá trị mô-đun báo lại sau đó và giữ nút Hoàn tác bên cạnh.
 approval.hint-not-revertible = Rigbay không thể hoàn tác thay đổi này.
 approval.revert-title = Hoàn tác thay đổi phần cứng?
+approval.revert-title-setting = Hoàn tác thay đổi cài đặt hệ thống?
 approval.revert-apply = Hoàn tác
 approval.hint-revert = Rigbay ghi lại giá trị trước đó vào phần cứng của bạn. Nếu bạn hủy thì không ghi gì.
+approval.hint-revert-setting = Rigbay đặt lại cài đặt trước đó. Nếu bạn hủy thì không thay đổi gì.
 requires.title = Bật {0}?
 requires.intro = {0} của {1} khai báo sẽ dùng những thứ sau. Đây là khai báo của chính mô-đun; Rigbay không ép buộc.
 requires.admin = Quyền quản trị

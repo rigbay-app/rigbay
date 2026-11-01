@@ -39,6 +39,12 @@ PASS  modules/predatorsense-small-unsupported.svg                colours 2  anch
 PASS  modules/predatorsense-small.svg                            colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  839 B
 PASS  modules/predatorsense-unsupported.svg                      colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  870 B
 PASS  modules/predatorsense.svg                                  colours 2  anchors  21  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 120.0 60.0]  812 B
+PASS  modules/recorder-glyph-currentcolor.svg                    colours 1  anchors   6  fill 86% x 86%  centre 0.0%, 0.0%  angles []  389 B
+PASS  modules/recorder-glyph.svg                                 colours 1  anchors   6  fill 86% x 86%  centre 0.0%, 0.0%  angles []  376 B
+PASS  modules/recorder-small-unsupported.svg                     colours 2  anchors  13  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  571 B
+PASS  modules/recorder-small.svg                                 colours 2  anchors  13  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  513 B
+PASS  modules/recorder-unsupported.svg                           colours 2  anchors  13  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  549 B
+PASS  modules/recorder.svg                                       colours 2  anchors  13  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0]  491 B
 PASS  modules/steam-access-glyph-currentcolor.svg                colours 1  anchors  16  fill 89% x 91%  centre 0.0%, 0.0%  angles [45.0 135.0]  661 B
 PASS  modules/steam-access-glyph.svg                             colours 1  anchors  16  fill 89% x 91%  centre 0.0%, 0.0%  angles [45.0 135.0]  648 B
 PASS  modules/steam-access-small-unsupported.svg                 colours 2  anchors  19  fill 100% x 100%  centre 0.0%, 0.0%  angles [90.0 0.0 45.0 135.0]  734 B
@@ -60,4 +66,4 @@ PASS  modules/xtu.svg                                            colours 2  anch
 PASS  social/readme-banner-reversed.svg                          colours 7  anchors 147  fill 85% x 42%  centre 0.0%, 0.0%  angles [90.0 0.0 63.4 116.6 120.0 60.0 45.0 135.0]  3923 B
 PASS  social/readme-banner.svg                                   colours 7  anchors 147  fill 85% x 42%  centre -0.0%, 0.0%  angles [90.0 0.0 63.4 116.6 120.0 60.0 45.0 135.0]  3871 B
 
-61 files, 0 failures, 1 warnings
+67 files, 0 failures, 1 warnings

@@ -88,7 +88,7 @@ public sealed partial class SteamBypassModule
         // Off also runs when it is off but the last restore failed, so the user can try again.
         if (wanted == controller.IsOn && (wanted || controller.LastError is null)) return new ChangeAnswer(ChangeStatus.AlreadyThere, null, null);
 
-        var effect = new HardwareEffect("effect.bypass") { RevertDescriptionKey = "effect.bypass-revert" };
+        var effect = new HardwareEffect("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" };
         var detail = LocalisedText.Of(wanted ? "detail.turn-on" : "detail.turn-off");
         bool approved = await host.Approval.ConfirmAsync(effect, detail, ct).ConfigureAwait(false);
         if (!approved)

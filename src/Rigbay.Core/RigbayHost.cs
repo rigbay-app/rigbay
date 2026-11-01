@@ -24,6 +24,9 @@ public sealed record ApprovalRequest(string ModuleId, string ModuleName, string 
 {
     /// <summary>True when the question comes before a revert (the user pressed Revert); <see cref="Detail"/> then names the current and the previous value.</summary>
     public bool IsRevert { get; init; }
+
+    /// <summary>What the change is (<see cref="EffectKind"/>); the dialog picks its title and hint from it.</summary>
+    public EffectKind Kind { get; init; } = EffectKind.Hardware;
 }
 
 public interface IApprovalPrompt
@@ -219,7 +222,7 @@ public sealed class RigbayHost : IDisposable
         }
         var effectKey = isRevert && !string.IsNullOrEmpty(effect.RevertDescriptionKey) ? effect.RevertDescriptionKey : effect.DescriptionKey;
         var request = new ApprovalRequest(entry.Id, entry.DisplayName, entry.Localisation.T(effectKey),
-            string.IsNullOrEmpty(detailText) ? null : detailText, effect.Revertible) { IsRevert = isRevert };
+            string.IsNullOrEmpty(detailText) ? null : detailText, effect.Revertible) { IsRevert = isRevert, Kind = effect.Kind };
         try { return await prompt.ConfirmAsync(request, cancellationToken).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

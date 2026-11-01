@@ -42,6 +42,8 @@
   <ItemGroup>
     <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+    <!-- the module icon (manifest field "icon"): tile, quiet glyph, grey variant and PNG fallbacks next to module.json -->
+    <None Include="icon*.svg;icon*.png" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Rigbay.Module.Xtu.Tests" />
   </ItemGroup>
 

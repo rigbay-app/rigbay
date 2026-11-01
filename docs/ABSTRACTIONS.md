@@ -238,6 +238,13 @@ value, and shows "Revert" next to the control (value rows: sets the previous val
 a command) asks `IHostServices.Approval.ConfirmAsync(effect)`; when the host has no way to ask, the answer is no. None
 of this replaces the module's own checks: refuse dangerous values inside the module.
 
+`HardwareEffect.Kind` (`EffectKind`, default `Hardware`; additive, F1) only chooses the wording of the host's texts. A row or a
+write that changes a Windows or application setting that is **not** hardware (a proxy setting, a registry value) sets
+`Kind = EffectKind.SystemSetting`: the dialog then asks "Change a system setting?" (revert: "Change a system setting back?"),
+the row says "Changes a Windows setting. Rigbay asks before it applies.", and a declined revert says "Reverting this changes a
+Windows setting". The default keeps "Change your hardware?" for every existing module. `ApprovalRequest.Kind` carries it to
+an `IApprovalPrompt`. It changes nothing about confirmation, revert or `SafeRevert`.
+
 `NumberRow`, `TextRow` and `ShortcutRow` have `Apply`:
 
 - `ApplyMode.Immediate` (default): the host sets the value as the user edits. Right for toggles, choices and values
@@ -704,6 +711,26 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after F1 (fixes found by S1, M2 and R1; no version number change)
+
+Additive only.
+
+- **Abstractions.** `enum EffectKind { Hardware, SystemSetting }` and `HardwareEffect.Kind` (init property, default `Hardware`,
+  see 5.4). The Steam access module sets `SystemSetting` on its three effects.
+- **Core.** `ApprovalRequest.Kind`; `core.revert.needs-approval-setting` (en, vi). `LangCheck` reports **garbled text**
+  (`LanguageReport.Mojibake`, an error): UTF-8 that was read as Latin-1 or Windows-1252 leaves pairs such as a lead letter
+  followed by a symbol from the 0x80 to 0xBF range (`LangCheck.LooksGarbled`) or a replacement character. It runs on every
+  language file, so a file saved in the wrong encoding cannot ship. Six Vietnamese `core.manifest.icon-*` lines were mis-encoded
+  and are fixed.
+- **Language files: the backslash rule.** `\n` is a line break, `\t` a tab, `\\` a backslash. Any other character after a
+  backslash loses the backslash (`root\WMI` was shown as `rootWMI`). The loader keeps this rule and now reports such a line
+  as a parse problem (`LanguageFile.FindUnknownEscape`, an error in `LangCheck` and in the loader's problem list): write
+  `root\\WMI`. A Windows path in a language file therefore needs every separator doubled.
+- **App.** `TextRow` is a box of a fixed width (280) at the right of the label, never the width of its text; a long path no longer
+  squeezes the label and the description. New neutral texts `row.system-note`, `approval.title-setting`,
+  `approval.revert-title-setting`, `approval.hint-revert-setting` (en, vi).
+- **Modules.** `xtu`, `steambypass` and `recorder` declare `"icon": "icon.svg"` with the full icon set beside `module.json`.
 
 ### 0.1 after A12 (a module reads the descriptors of other modules' metrics; no version number change)
 

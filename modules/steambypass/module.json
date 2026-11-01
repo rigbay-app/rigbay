@@ -21,5 +21,6 @@
     ],
     "services": []
   },
-  "languages": "lang"
+  "languages": "lang",
+  "icon": "icon.svg"
 }

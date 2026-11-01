@@ -154,9 +154,21 @@ internal sealed class FakeLocalisation : ILocalisation
             if (line.Length == 0 || line[0] == '#' || line[0] == '@') continue;
             int eq = line.IndexOf('=');
             if (eq < 0) continue;
-            d[line[..eq].Trim()] = line[(eq + 1)..].Trim().Replace("\\n", "\n");
+            d[line[..eq].Trim()] = Unescape(line[(eq + 1)..].Trim());
         }
         return d;
+    }
+
+    /// <summary>The host's rule for a language file: \n a line break, \t a tab, \\ a backslash; the backslash before any other character is dropped.</summary>
+    private static string Unescape(string s)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '\\' && i + 1 < s.Length) { char c = s[++i]; sb.Append(c == 'n' ? '\n' : c == 't' ? '\t' : c); }
+            else sb.Append(s[i]);
+        }
+        return sb.ToString();
     }
 
     public string T(string key) =>

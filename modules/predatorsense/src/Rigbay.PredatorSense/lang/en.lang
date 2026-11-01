@@ -8,7 +8,7 @@ module.predatorsense.description = Temperatures and fan speeds of an Acer Predat
 
 # Probe: why this machine is not supported
 module.predatorsense.probe.no-service = The Acer PredatorSense service (PSSvc) is not installed on this machine.
-module.predatorsense.probe.no-wmi = The firmware does not offer the Acer gaming interface (root\WMI, AcerGamingFunction).
+module.predatorsense.probe.no-wmi = The firmware does not offer the Acer gaming interface (root\\WMI, AcerGamingFunction).
 module.predatorsense.probe.check-failed = Could not check this machine: {0}
 
 # Page groups

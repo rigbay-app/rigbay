@@ -15,7 +15,7 @@ public sealed partial class SteamBypassModule
             new ToggleRow("row.bypass.header", _bypass)
             {
                 DescriptionKey = "row.bypass.description",
-                HardwareEffect = new HardwareEffect("effect.bypass") { RevertDescriptionKey = "effect.bypass-revert" },
+                HardwareEffect = new HardwareEffect("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" },
             },
             new InfoRow(Severity.Warning, "info.port80.header") { DescriptionKey = "info.port80.description", IsOpen = _port80Warning },
             new InfoRow(Severity.Info, "info.steam-restart.header") { DescriptionKey = "info.steam-restart.description", IsOpen = _steamRestartHint },
@@ -42,7 +42,7 @@ public sealed partial class SteamBypassModule
             new ToggleRow("row.auto-on.header", _autoOn)
             {
                 DescriptionKey = "row.auto-on.description",
-                HardwareEffect = new HardwareEffect("effect.auto-on"),
+                HardwareEffect = new HardwareEffect("effect.auto-on") { Kind = EffectKind.SystemSetting },
             },
         };
 
