@@ -13,6 +13,7 @@ module.recorder.state.recording-line = Recording {0}
 
 # The module's own metric
 module.recorder.metric.rows = Rows recorded
+module.recorder.metric.rows.description = Rows the running recording has written to its file. Not available while nothing is recording.
 
 # Page groups
 module.recorder.group.recording = Recording
@@ -31,15 +32,13 @@ module.recorder.start.ok = Recording to {0}
 # Status
 module.recorder.row.state.header = State
 module.recorder.row.rows.header = Rows written
-module.recorder.row.rows.description = One row per period
 module.recorder.row.size.header = File size
 module.recorder.row.elapsed.header = Elapsed
 module.recorder.row.file.header = File
-module.recorder.row.file.description = The file being written, or the last one
 module.recorder.row.message.header = Last message
 module.recorder.row.message.description = Why the last recording ended, or why one could not start
 module.recorder.status.elapsed-of = {0} of {1}
-module.recorder.status.picked = {0} of {1} metrics selected
+module.recorder.status.picked = {0} of {1}
 
 # Options
 module.recorder.row.period.header = Time between rows
@@ -60,11 +59,11 @@ module.recorder.duration.60 = 1 hour
 module.recorder.duration.120 = 2 hours
 module.recorder.duration.240 = 4 hours
 module.recorder.row.folder.header = Folder
-module.recorder.row.folder.description = Where recordings are saved. Leave empty for the default.
-module.recorder.row.folder.placeholder = Documents\Rigbay\logs
-module.recorder.error.folder-absolute = Enter a full path such as D:\Logs, or leave it empty.
+# A backslash is written \\ in a language file (a single one is dropped, so D:\Logs would show as D:Logs)
+module.recorder.row.folder.placeholder = Documents\\Rigbay\\logs (default)
+module.recorder.error.folder-absolute = Enter a full path such as D:\\Logs, or leave it empty.
 module.recorder.row.open-folder.header = Open folder
-module.recorder.row.open-folder.description = Shows the recordings in File Explorer.
+module.recorder.row.open-folder.description = Shows the recordings in File Explorer. Leave the folder empty to use Documents\\Rigbay\\logs.
 module.recorder.row.open-folder.button = Open
 module.recorder.row.hotkey.header = Start and stop shortcut
 module.recorder.row.hotkey.description = Off until you set one. Starts a recording with the settings above, or stops the running one.
@@ -72,12 +71,14 @@ module.recorder.row.hotkey.description = Off until you set one. Starts a recordi
 # Metric picker
 module.recorder.row.no-metrics.header = No metrics yet
 module.recorder.row.no-metrics.description = No module is publishing readings. Turn on a module that reads sensors, then open this page again.
-module.recorder.row.picked.header = Selected
+module.recorder.row.picked.header = Selected metrics
 module.recorder.row.picked.description = The set is fixed when a recording starts. Metrics a module publishes later are listed in the .meta.json, not in the file.
-module.recorder.row.pick-all.header = Select all
-module.recorder.row.pick-all.button = Select all
-module.recorder.row.pick-none.header = Clear selection
-module.recorder.row.pick-none.button = Clear
+module.recorder.row.pick-all.header = Record everything
+module.recorder.row.pick-all.description = Switches on every metric below.
+module.recorder.row.pick-all.button = All
+module.recorder.row.pick-none.header = Start from nothing
+module.recorder.row.pick-none.description = Switches off every metric below, so you can pick just a few.
+module.recorder.row.pick-none.button = None
 
 # History
 module.recorder.row.history-empty.header = No recordings yet

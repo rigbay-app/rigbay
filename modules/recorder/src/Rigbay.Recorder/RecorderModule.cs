@@ -82,7 +82,7 @@ public sealed partial class RecorderModule : IModule
         _folder.Value = _settings.Folder;
         _lastNotice = null;
 
-        host.Metrics.Describe(new MetricDescriptor(RowsMetric, "metric.rows", MetricUnit.Count, "0"));
+        host.Metrics.Describe(new MetricDescriptor(RowsMetric, "metric.rows", MetricUnit.Count, "0") { DescriptionKey = "metric.rows.description" });
 
         _engine = new RecorderEngine(host.Metrics, host.Log, _services);
         _engine.Changed += OnEngineChanged;

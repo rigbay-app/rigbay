@@ -339,7 +339,17 @@ internal sealed class RecorderEngine
             detail = ex.Message;
             _log.Error("Writing the recording failed; it was stopped", ex);
         }
-        Finish(s, reason, detail);
+
+        try
+        {
+            Finish(s, reason, detail);
+        }
+        catch (Exception ex)
+        {
+            // Finish guards each step itself; this is the last line, so that nothing can leave the engine "recording" for ever.
+            _log.Error("Closing the recording failed", ex);
+            lock (_gate) { if (ReferenceEquals(_current, s)) Volatile.Write(ref _current, null); }
+        }
     }
 
     private void WriteRow(Session s, DateTimeOffset slot)

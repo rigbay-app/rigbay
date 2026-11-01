@@ -12,10 +12,11 @@
     "admin": false,
     "network": [],
     "registry": [
-      "HKLM\HARDWARE\DESCRIPTION\System\BIOS (read, machine make and model for the .meta.json)",
-      "HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0 (read, processor name for the .meta.json)"
+      "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS (read, machine make and model for the .meta.json)",
+      "HKLM\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0 (read, processor name for the .meta.json)"
     ],
     "services": []
   },
-  "languages": "lang"
+  "languages": "lang",
+  "icon": "icon.svg"
 }

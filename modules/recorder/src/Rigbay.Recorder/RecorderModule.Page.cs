@@ -35,16 +35,15 @@ public sealed partial class RecorderModule
                 Enabled = _recording,
             },
             new ValueRow("row.state.header", _stateText),
-            new ValueRow("row.rows.header", _rowsText) { DescriptionKey = "row.rows.description" },
+            new ValueRow("row.rows.header", _rowsText),
             new ValueRow("row.size.header", _sizeText),
             new ValueRow("row.elapsed.header", _elapsedText),
-            new ValueRow("row.file.header", _fileText) { DescriptionKey = "row.file.description" },
+            new ValueRow("row.file.header", _fileText),
             new ValueRow("row.message.header", _messageText) { DescriptionKey = "row.message.description" },
             new ChoiceRow("row.period.header", periodOptions, _period) { DescriptionKey = "row.period.description", Enabled = _idle },
             new ChoiceRow("row.duration.header", durationOptions, _duration) { DescriptionKey = "row.duration.description", Enabled = _idle },
             new TextRow("row.folder.header", _folder)
             {
-                DescriptionKey = "row.folder.description",
                 PlaceholderKey = "row.folder.placeholder",
                 MaxLength = 240,
                 // A path is typed one character at a time: nothing is used (or created) until the user says Apply.
@@ -65,7 +64,9 @@ public sealed partial class RecorderModule
                 new RowGroup("group.metrics", MetricRows(offered)),
                 new RowGroup("group.history", HistoryRows()),
             },
-            Summary = new PageSummary(_stateLine, new[] { RowsMetric }),
+            // The bay says "Recording 00:12:31" or "Idle". recorder.rows is on the bus for whoever wants a counter, but a reading that
+            // says "Not available" next to "Idle" would look like an error.
+            Summary = new PageSummary(_stateLine),
         };
     }
 
@@ -207,8 +208,8 @@ public sealed partial class RecorderModule
         }
 
         rows.Add(new ValueRow("row.picked.header", _pickedText) { DescriptionKey = "row.picked.description" });
-        rows.Add(new ButtonRow("row.pick-all.header", "row.pick-all.button", _ => Task.FromResult(SetAllPicks(true))) { Enabled = _idle });
-        rows.Add(new ButtonRow("row.pick-none.header", "row.pick-none.button", _ => Task.FromResult(SetAllPicks(false))) { Enabled = _idle });
+        rows.Add(new ButtonRow("row.pick-all.header", "row.pick-all.button", _ => Task.FromResult(SetAllPicks(true))) { DescriptionKey = "row.pick-all.description", Enabled = _idle });
+        rows.Add(new ButtonRow("row.pick-none.header", "row.pick-none.button", _ => Task.FromResult(SetAllPicks(false))) { DescriptionKey = "row.pick-none.description", Enabled = _idle });
         foreach (var group in offered.GroupBy(o => o.Source))
         {
             var toggles = group.Select(o => (Row)new ToggleRow(Text.Literal(o.Label), _picks[o.Id.Value])

@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Rigbay.Recorder\Rigbay.Recorder.csproj" />
-    <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
+    <None Include="..\..\module.json;..\..\icon*.svg" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
     <None Include="..\..\src\Rigbay.Recorder\lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
   </ItemGroup>
 

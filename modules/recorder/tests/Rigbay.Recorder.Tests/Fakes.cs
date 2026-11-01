@@ -54,12 +54,11 @@ internal sealed class FakeDisk : IDiskSpace
 {
     public long? Free = 10L * 1024 * 1024 * 1024;
     public readonly List<string> Asked = new();
-    public Func<long?>? Next;
 
     public long? FreeBytes(string folder)
     {
         lock (Asked) Asked.Add(folder);
-        return Next is { } next ? next() : Free;
+        return Free;
     }
 }
 
@@ -219,9 +218,25 @@ internal sealed class FakeLocalisation : ILocalisation
             if (line.Length == 0 || line[0] == '#' || line[0] == '@') continue;
             int eq = line.IndexOf('=');
             if (eq < 0) continue;
-            d[line[..eq].Trim()] = line[(eq + 1)..].Trim().Replace("\\n", "\n");
+            d[line[..eq].Trim()] = Unescape(line[(eq + 1)..].Trim());
         }
         return d;
+    }
+
+    /// <summary>The host's rule (LanguageFile.Unescape): <c>\n</c> is a line break, <c>\t</c> a tab, and <c>\X</c> is just X, so a backslash is written <c>\\</c>.</summary>
+    public static string Unescape(string s)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '\\' && i + 1 < s.Length)
+            {
+                char c = s[++i];
+                sb.Append(c == 'n' ? '\n' : c == 't' ? '\t' : c);
+            }
+            else sb.Append(s[i]);
+        }
+        return sb.ToString();
     }
 
     public bool Has(string key) => _english.ContainsKey(Prefix + key);
@@ -298,6 +313,8 @@ internal sealed class FakeCommands : ICommandRegistry
     }
 
     public Task<CommandResult> Run(string verb, params string[] args) => Verbs[verb].Handler(new CommandContext(args, CancellationToken.None));
+
+    public CommandResult RunSync(string verb, params string[] args) => Run(verb, args).GetAwaiter().GetResult();
 }
 
 internal sealed class FakeToast : IToastService
