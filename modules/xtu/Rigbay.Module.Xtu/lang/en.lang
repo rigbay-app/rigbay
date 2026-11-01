@@ -130,6 +130,7 @@ module.xtu.msg.busy = Another change is still running.
 module.xtu.msg.failed = Couldn't apply. {0}
 module.xtu.msg.not-found = Profile "{0}" not found.
 module.xtu.msg.auto-missing = Profile "{0}" for {1} no longer exists.
+module.xtu.msg.none-yet = No change made yet.
 module.xtu.msg.created = Created {0}
 module.xtu.msg.deleted = Deleted {0}
 module.xtu.msg.list-changed = The profile list changed. Turn this module off and on to see it in the lists.
@@ -154,7 +155,7 @@ module.xtu.err.unavailable = Can't reach XTU. {0}
 module.xtu.err.refused = XTU refused the connection. Is the XTU service running?
 module.xtu.err.notconnected = Not connected to XTU.
 module.xtu.err.id-not-allowed = Control {0} is not one this module may use.
-module.xtu.err.write-forbidden = Writes are switched off in this session ({0}=1).
+module.xtu.err.write-forbidden = Writes are switched off in this session ({0}).
 module.xtu.err.locked = {0} is locked in XTU.
 module.xtu.err.unsupported = {0} = {1} W isn't a value XTU accepts.
 module.xtu.err.rejected = XTU rejected the values ({0}).

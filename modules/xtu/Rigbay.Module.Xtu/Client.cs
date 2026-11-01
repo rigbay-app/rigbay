@@ -63,22 +63,46 @@ internal interface IXtuClient : IDisposable
 }
 
 /// <summary>
-/// A latch against writes: while the environment variable <c>RIGBAY_XTU_NO_WRITE</c> is 1 or true, no write call is made at
-/// all. It exists so a verification run on a real machine can be made structurally read-only.
+/// A latch against writes. While the environment variable <c>RIGBAY_XTU_NO_WRITE</c> is 1 or true, or a file
+/// <c>no-write.flag</c> exists in the module's data folder, no write call is made at all: the apply fails before it asks
+/// anyone, and the Intel port refuses its three write-path methods. It exists so a verification run on a real machine can be
+/// made structurally read-only (an elevated process does not inherit the caller's environment, hence the file).
 /// </summary>
-internal static class WriteLatch
+internal sealed class WriteLatch
 {
     public const string Variable = "RIGBAY_XTU_NO_WRITE";
+    public const string FileName = "no-write.flag";
 
-    public static bool IsOn(Func<string, string?>? env = null)
+    private readonly string? _dataDir;
+    private readonly Func<string, string?> _env;
+
+    public WriteLatch(string? dataDir = null, Func<string, string?>? env = null)
     {
-        var v = (env ?? Environment.GetEnvironmentVariable)(Variable);
-        return string.Equals(v, "1", StringComparison.Ordinal) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+        _dataDir = dataDir;
+        _env = env ?? Environment.GetEnvironmentVariable;
     }
 
-    public static void ThrowIfOn(Func<string, string?>? env = null)
+    /// <summary>A latch that is never on (tests that are not about the latch).</summary>
+    public static WriteLatch Off => new(null, _ => null);
+
+    /// <summary>Why writes are off ("RIGBAY_XTU_NO_WRITE=1" or "no-write.flag"), or null when they are allowed.</summary>
+    public string? Reason
     {
-        if (IsOn(env)) throw new XtuException("err.write-forbidden", Variable);
+        get
+        {
+            var v = _env(Variable);
+            if (string.Equals(v, "1", StringComparison.Ordinal) || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase))
+                return Variable + "=" + v;
+            if (_dataDir is not null && File.Exists(Path.Combine(_dataDir, FileName))) return FileName;
+            return null;
+        }
+    }
+
+    public bool IsOn => Reason is not null;
+
+    public void ThrowIfOn()
+    {
+        if (Reason is { } reason) throw new XtuException("err.write-forbidden", reason);
     }
 }
 
@@ -86,15 +110,15 @@ internal sealed class XtuClient : IXtuClient
 {
     private readonly IXtuTuningPort _tuning;
     private readonly IXtuMonitorPort _monitor;
-    private readonly Func<string, string?>? _env;
+    private readonly WriteLatch _latch;
     private readonly object _tuningGate = new();
     private readonly object _monitorGate = new();
 
-    public XtuClient(IXtuTuningPort tuning, IXtuMonitorPort monitor, Func<string, string?>? env = null)
+    public XtuClient(IXtuTuningPort tuning, IXtuMonitorPort monitor, WriteLatch? latch = null)
     {
         _tuning = tuning;
         _monitor = monitor;
-        _env = env;
+        _latch = latch ?? WriteLatch.Off;
     }
 
     public XtuState ReadState()
@@ -141,7 +165,7 @@ internal sealed class XtuClient : IXtuClient
     /// </summary>
     public ApplyOutcome Apply(XtuProfile profile)
     {
-        WriteLatch.ThrowIfOn(_env);
+        _latch.ThrowIfOn();
         Rules.Validate(profile);
 
         lock (_tuningGate)

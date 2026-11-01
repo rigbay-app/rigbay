@@ -51,15 +51,15 @@ internal sealed class ApplyService
     private readonly IXtuClient _client;
     private readonly IHardwareApproval _approval;
     private readonly ILog _log;
-    private readonly Func<string, string?>? _env;
+    private readonly WriteLatch _latch;
     private int _busy;
 
-    public ApplyService(IXtuClient client, IHardwareApproval approval, ILog log, Func<string, string?>? env = null)
+    public ApplyService(IXtuClient client, IHardwareApproval approval, ILog log, WriteLatch? latch = null)
     {
         _client = client;
         _approval = approval;
         _log = log;
-        _env = env;
+        _latch = latch ?? WriteLatch.Off;
     }
 
     public bool IsBusy => Volatile.Read(ref _busy) != 0;
@@ -103,7 +103,7 @@ internal sealed class ApplyService
         XtuState before;
         try
         {
-            WriteLatch.ThrowIfOn(_env);
+            _latch.ThrowIfOn();
             before = await Task.Run(_client.ReadState, CancellationToken.None).ConfigureAwait(false);
         }
         catch (XtuException ex)

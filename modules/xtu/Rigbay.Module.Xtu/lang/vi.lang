@@ -116,6 +116,7 @@ module.xtu.msg.busy = Một thay đổi khác vẫn đang chạy.
 module.xtu.msg.failed = Không áp dụng được. {0}
 module.xtu.msg.not-found = Không thấy profile "{0}".
 module.xtu.msg.auto-missing = Profile "{0}" cho {1} không còn.
+module.xtu.msg.none-yet = Chưa đổi gì.
 module.xtu.msg.created = Đã tạo {0}
 module.xtu.msg.deleted = Đã xoá {0}
 module.xtu.msg.list-changed = Danh sách profile đã đổi. Hãy tắt rồi bật lại module này để thấy trong các danh sách.
@@ -137,7 +138,7 @@ module.xtu.err.unavailable = Không kết nối được XTU. {0}
 module.xtu.err.refused = XTU từ chối kết nối. Dịch vụ XTU có đang chạy không?
 module.xtu.err.notconnected = Chưa kết nối với XTU.
 module.xtu.err.id-not-allowed = Mục điều khiển {0} không nằm trong những mục module này được dùng.
-module.xtu.err.write-forbidden = Phiên này đã khoá việc ghi ({0}=1).
+module.xtu.err.write-forbidden = Phiên này đã khoá việc ghi ({0}).
 module.xtu.err.locked = {0} đang bị khoá trong XTU.
 module.xtu.err.unsupported = {0} = {1} W không phải giá trị XTU chấp nhận.
 module.xtu.err.rejected = XTU từ chối các giá trị ({0}).

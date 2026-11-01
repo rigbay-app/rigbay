@@ -35,8 +35,9 @@ public sealed class XtuModule : IModule
     private static XtuRuntime CreateRuntime(IHostServices host)
     {
         var sys = new WindowsSystemProbe();
-        var client = new XtuClient(new Intel.IntelTuningPort(), new Intel.IntelMonitorPort());
+        var latch = new WriteLatch(host.DataDirectory);
+        var client = new XtuClient(new Intel.IntelTuningPort(latch), new Intel.IntelMonitorPort(), latch);
         var power = new WindowsPowerEnvironment(sys, ex => host.Log.Error("power event failed", ex));
-        return new XtuRuntime(host, client, sys, XtuPaths.Default(), power);
+        return new XtuRuntime(host, client, sys, XtuPaths.Default(), power, latch);
     }
 }

@@ -12,7 +12,7 @@ public class ClientSequenceTests
     private static (XtuClient client, FakeTuningPort tuning) Make(FakeTuningPort? tuning = null)
     {
         tuning ??= new FakeTuningPort();
-        return (new XtuClient(tuning, new FakeMonitorPort(), _ => null), tuning);
+        return (new XtuClient(tuning, new FakeMonitorPort(), WriteLatch.Off), tuning);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class ClientSequenceTests
     public void The_write_latch_stops_an_apply_before_any_service_call(string value)
     {
         var tuning = new FakeTuningPort();
-        var client = new XtuClient(tuning, new FakeMonitorPort(), name => name == WriteLatch.Variable ? value : null);
+        var client = new XtuClient(tuning, new FakeMonitorPort(), new WriteLatch(null, name => name == WriteLatch.Variable ? value : null));
 
         var ex = Assert.Throws<XtuException>(() => client.Apply(Target()));
 
@@ -192,7 +192,7 @@ public class ClientSequenceTests
     public void The_latch_does_not_affect_reads()
     {
         var tuning = new FakeTuningPort();
-        var client = new XtuClient(tuning, new FakeMonitorPort(), name => name == WriteLatch.Variable ? "1" : null);
+        var client = new XtuClient(tuning, new FakeMonitorPort(), new WriteLatch(null, name => name == WriteLatch.Variable ? "1" : null));
 
         var state = client.ReadState();
 
@@ -230,7 +230,7 @@ public class ClientSequenceTests
     public void Monitor_read_failure_resets_the_monitor_channel()
     {
         var monitor = new FakeMonitorPort { Throw = new IOException("gone") };
-        var client = new XtuClient(new FakeTuningPort(), monitor, _ => null);
+        var client = new XtuClient(new FakeTuningPort(), monitor, WriteLatch.Off);
 
         Assert.Equal("err.unavailable", Assert.Throws<XtuException>(() => client.ReadMonitor(out _)).Key);
         Assert.Equal(1, monitor.Resets);
@@ -245,7 +245,7 @@ public class ApplyServiceTests
     {
         var client = new FakeClient();
         var approval = new FakeApproval { Answer = answer };
-        return (new ApplyService(client, approval, new FakeLog(), _ => null), client, approval);
+        return (new ApplyService(client, approval, new FakeLog(), WriteLatch.Off), client, approval);
     }
 
     [Theory]
@@ -339,7 +339,7 @@ public class ApplyServiceTests
     {
         var client = new FakeClient();
         var approval = new FakeApproval();
-        var svc = new ApplyService(client, approval, new FakeLog(), n => n == WriteLatch.Variable ? "1" : null);
+        var svc = new ApplyService(client, approval, new FakeLog(), new WriteLatch(null, n => n == WriteLatch.Variable ? "1" : null));
         var result = await svc.ApplyAsync(Target(), ApplyOrigin.Hotkey);
         Assert.Equal(ApplyStatus.Failed, result.Status);
         Assert.Equal("err.write-forbidden", result.Error!.Key);
@@ -363,7 +363,7 @@ public class ApplyServiceTests
         var gate = new TaskCompletionSource<bool>();
         var client = new FakeClient();
         var approval = new BlockingApproval(gate.Task);
-        var svc = new ApplyService(client, approval, new FakeLog(), _ => null);
+        var svc = new ApplyService(client, approval, new FakeLog(), WriteLatch.Off);
 
         var first = svc.ApplyAsync(Target(), ApplyOrigin.Hotkey);
         var second = await svc.ApplyAsync(Target(), ApplyOrigin.Hotkey);
@@ -389,5 +389,42 @@ public class ApplyServiceTests
         private readonly Task<bool> _answer;
         public BlockingApproval(Task<bool> answer) => _answer = answer;
         public Task<bool> ConfirmAsync(HardwareEffect effect, LocalisedText? detail = null, CancellationToken cancellationToken = default) => _answer;
+    }
+}
+
+public class WriteLatchTests
+{
+    [Fact]
+    public void A_flag_file_in_the_data_folder_switches_writes_off()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "xtu-latch-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        var latch = new WriteLatch(dir, _ => null);
+        Assert.False(latch.IsOn);
+
+        File.WriteAllText(Path.Combine(dir, WriteLatch.FileName), "");
+        Assert.True(latch.IsOn);
+        Assert.Equal(WriteLatch.FileName, latch.Reason);
+        Assert.Equal("err.write-forbidden", Assert.Throws<XtuException>(latch.ThrowIfOn).Key);
+    }
+
+    [Fact]
+    public async Task With_the_flag_file_a_hotkey_is_refused_before_anyone_is_asked_and_nothing_reaches_the_service()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "xtu-latch-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, WriteLatch.FileName), "");
+        var latch = new WriteLatch(dir, _ => null);
+
+        var tuning = new FakeTuningPort();
+        var client = new XtuClient(tuning, new FakeMonitorPort(), latch);
+        var approval = new FakeApproval();
+        var svc = new ApplyService(client, approval, new FakeLog(), latch);
+
+        var result = await svc.ApplyAsync(new XtuProfile("Quiet", 35, 40, true, 28, ProfileKind.Custom), ApplyOrigin.Hotkey);
+
+        Assert.Equal(ApplyStatus.Failed, result.Status);
+        Assert.Empty(approval.Asked);
+        Assert.Empty(tuning.Calls);
     }
 }

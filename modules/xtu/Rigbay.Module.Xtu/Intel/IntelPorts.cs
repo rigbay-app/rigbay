@@ -46,6 +46,9 @@ internal sealed class IntelTuningPort : IXtuTuningPort
 {
     private ChannelFactory<IronCity.Core.IXtuTuning>? _factory;
     private IronCity.Core.IXtuTuning? _channel;
+    private readonly WriteLatch _latch;
+
+    public IntelTuningPort(WriteLatch latch) => _latch = latch;
 
     public bool IsOpen => _channel != null;
 
@@ -94,13 +97,13 @@ internal sealed class IntelTuningPort : IXtuTuningPort
 
     public void Discard()
     {
-        WriteLatch.ThrowIfOn();
+        _latch.ThrowIfOn();
         Ch.DiscardChanges(IronCity.Common.SdkClientToken.Default, out _);
     }
 
     public PortResult Propose(IReadOnlyList<Proposal> proposals)
     {
-        WriteLatch.ThrowIfOn();
+        _latch.ThrowIfOn();
         foreach (var p in proposals)
             if (!XtuIds.IsAllowed(p.Id)) throw new XtuException("err.id-not-allowed", p.Id);
 
@@ -114,7 +117,7 @@ internal sealed class IntelTuningPort : IXtuTuningPort
 
     public PortResult ApplyPending()
     {
-        WriteLatch.ThrowIfOn();
+        _latch.ThrowIfOn();
         var result = Ch.ApplyChanges(false, 1, IronCity.Common.SdkClientToken.Default);
         return new PortResult(result.GeneralCode == IronCity.Common.TuningErrorCode.Success, Describe(result));
     }

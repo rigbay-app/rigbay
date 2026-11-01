@@ -14,6 +14,7 @@ internal sealed partial class XtuRuntime : IDisposable
     private readonly ISystemProbe _sys;
     private readonly XtuPaths _paths;
     private readonly IPowerEnvironment _power;
+    private readonly WriteLatch _latch;
     private readonly ApplyService _apply;
     private readonly MonitorSampler _sampler;
     private readonly AutoSwitcher _auto = new();
@@ -30,14 +31,15 @@ internal sealed partial class XtuRuntime : IDisposable
     private Thread? _monitorThread;
     private int _statusBusy;
 
-    public XtuRuntime(IHostServices host, IXtuClient client, ISystemProbe sys, XtuPaths paths, IPowerEnvironment power)
+    public XtuRuntime(IHostServices host, IXtuClient client, ISystemProbe sys, XtuPaths paths, IPowerEnvironment power, WriteLatch? latch = null)
     {
         _host = host;
         _client = client;
         _sys = sys;
         _paths = paths;
         _power = power;
-        _apply = new ApplyService(client, host.Approval, host.Log);
+        _latch = latch ?? WriteLatch.Off;
+        _apply = new ApplyService(client, host.Approval, host.Log, _latch);
         _sampler = new MonitorSampler(client, host.Metrics);
         _apply.Completed += OnApplyCompleted;
         InitObservables();
@@ -57,6 +59,7 @@ internal sealed partial class XtuRuntime : IDisposable
     /// <summary>Reads settings and the first state, registers commands, hotkeys and tray items. Starts no timer (see <see cref="StartTimers"/>).</summary>
     public void Start()
     {
+        _host.Log.Info(_latch.Reason is { } why ? $"writes are switched OFF ({why}); this session only reads XTU" : "writes are allowed (each change is confirmed first)");
         _settings = _host.Settings.Load<XtuSettings>();
         _sampler.PerCore = _settings.PublishPerCore;
         _suppressAuto = true;    // loading the saved values must not look like the user changing them
@@ -67,6 +70,7 @@ internal sealed partial class XtuRuntime : IDisposable
         }
         finally { _suppressAuto = false; }
 
+        SetMessage(LocalisedText.Of("msg.none-yet"));
         LoadProfiles();
         Refresh();
         LoadAutoChoices();
