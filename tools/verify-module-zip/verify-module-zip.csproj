@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Checks a module release zip with the host's own installer classes (Rigbay.Core.Install) and the real module loader, in scratch
+    folders under the temp directory. Used by tools\package-module.ps1 and by docs\RELEASING.md. It is not part of Rigbay.sln and
+    never touches %ProgramData%\Rigbay or the user's settings.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>VerifyModuleZip</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Core\Rigbay.Core.csproj" />
+  </ItemGroup>
+
+</Project>
