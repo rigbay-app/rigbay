@@ -74,6 +74,14 @@ static class SelfTest
         Expect("demo-lighting", ModuleLifecycle.Unsupported);
         Expect("demo-future", ModuleLifecycle.Incompatible);
         Expect("demo-bad-manifest", ModuleLifecycle.Invalid);
+        {
+            var bad = core.Find("demo-bad-manifest")!;
+            var shortText = bad.ShortReasonText();
+            var lines = bad.IssueLines();
+            R("invalid manifest: short one-line reason, localised, with the detail kept apart",
+                shortText.Length is > 0 and < 60 && !shortText.Contains(';') && lines.Count >= 2 && lines.All(l => !l.Contains("core.manifest.")),
+                $"short='{shortText}'; {lines.Count} issue lines, first='{lines.FirstOrDefault()}'");
+        }
 
         var fan = core.Find("demo-fan")!;
         bool enabled = await Task.Run(() => fan.Enable());
@@ -246,6 +254,13 @@ static class SelfTest
         await Cmd("unknown verb", new[] { "demo-fan", "nope" }, 2);
         await Cmd("unknown module", new[] { "nope", "x" }, 2);
         await Cmd("module not running", new[] { "demo-lighting", "x" }, 2);
+        await Cmd("rigbay version (core verb, same text headless and forwarded)", new[] { "version" }, 0, "API");
+        await Cmd("rigbay list: id state version enabled|disabled [reason]", new[] { "list" }, 0, "demo-fan  ");
+        {
+            var listed = (await core.ExecuteCommandAsync(new[] { "list" })).Output;
+            R("command: list has the version and enabled|disabled columns",
+                listed.Split('\n').Any(l => l.StartsWith("demo-future") && (l.Contains("  enabled") || l.Contains("  disabled"))) && listed.Contains("demo-fan  "), listed.ReplaceLineEndings(" | "));
+        }
         await Cmd("hardware verb refused without approval", new[] { "demo-fan", "max" }, 1);
         var piped = await InstanceServer.SendAsync(new[] { "cmd", "demo-fan", "status" });
         R("command: forwarded to the running instance over the pipe", piped is { Exit: 0 } && piped.Value.Output.Contains("mode="), $"{piped?.Exit} '{piped?.Output}'");

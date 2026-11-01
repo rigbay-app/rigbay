@@ -14,13 +14,13 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (63 checks), prints the report. Exit code 0 when all pass. |
+| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (67 checks), prints the report. Exit code 0 when all pass. |
 | `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\make-icon.ps1` | Draws `src\Rigbay.App\Assets\rigbay.ico` (three bays, the last one filled). Run once; the file is committed. |
 
-`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes A2's 198 tests.
+`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the 223 Core tests.
 Demo modules (`tools\demo-modules`) are test fixtures, not product: "Fan studio" talks to a pretend device kept in memory and
 shows the whole confirm, apply, read-back, revert flow; the others are unsupported, incompatible, invalid and failing
 modules, plus three that misbehave on purpose (self-test only).
@@ -106,10 +106,10 @@ the spike saw once. Cause not found, so the script has no self-contained switch.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, 100 % DPI)
 
-Evidence is in `tools\shots\`: `selftest.txt` (63 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
+Evidence is in `tools\shots\`: `selftest.txt` (67 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
 the PNGs (each one was looked at).
 
-- Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 198 passed.
+- Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 223 passed (2026-11-01, after A4 and A5).
 - Self-test, elevated (`IsUserAnAdmin=True`, runtime from `C:\Program Files\WindowsApps\Microsoft.WindowsAppRuntime.1.8_8000.994.2142.0`):
   shell up, module states (off, unsupported, incompatible, invalid, faulted), dashboard rows and readings, level 1 page (12 rows into
   10 cards and an expander), level 2 control, search, the hardware flow (declined, approved, read-back that differs from what was typed,
@@ -132,20 +132,22 @@ measured as numbers (judged by eye on the PNGs); screen readers and keyboard-onl
 screenshot; a machine without the Windows App Runtime; more than 8 modules; a module built against another Windows App SDK
 line; Windows 10.
 
-## Contract gaps found while building (reported to the coordinator)
+## Contract gaps found while building (all closed by A4, adapted in A5)
 
-1. `ValueEditor.ApplyAsync` and `RowEditors.InvokeButtonAsync` call the approval prompt with no detail, so the dialog cannot show
-   the exact value. The app passes it in a `AsyncLocal` (`ApprovalPrompt.WithDetail`). Suggested: an optional `Func<T, string>`
-   formatter or a `detail` argument on `ApplyAsync`.
-2. `ValueEditor<T>` subscribes to the module's observable and has no `Dispose`; every editor made for a page stays subscribed.
-   The app keeps one editor per row instance to bound this. Suggested: `IDisposable`, or a cache inside `RowEditors.For`.
-3. `LocalisedText` has an implicit conversion from `string`, so `cond ? LocalisedText.Of("k") : null` becomes a `LocalisedText` with
-   a null key instead of "no value". In a `Validate` that reported every edit as invalid with the text `module.<id>.`. The sample
-   module casts around it. Suggested: treat a null or empty key as "no error" in the editors, or drop the implicit conversion.
-4. The core clears `ModuleEntry.Page` on disable; the UI wants the rows greyed out (UI-DIRECTION section 4). The app caches the last
-   page itself (`PageCache`). Suggested: keep it on the entry.
-5. `HotkeyGesture` accepts `F12`, which Windows reserves for debuggers: `RegisterHotKey` always refuses it. The app flags such
-   a binding; the contract could say so.
-6. Manifest problems are English text from the core inside a localised sentence (seen in the Vietnamese screenshot).
-7. `Rigbay.App.exe version` is answered by the app only when headless; `ExecuteCommandAsync` does not know it, so against a running
-   instance it is "no module named version" (exit 2). `<module> help` also exits 2 with the verb list, as the usage rule says.
+A3 reported seven gaps in the Core and worked around them. A4 changed the Core (`docs/ABSTRACTIONS.md` section 17); A5 deleted the workarounds:
+
+| Gap | A3 workaround | Now |
+| --- | --- | --- |
+| Approval dialog had no exact value | `AsyncLocal` `ApprovalPrompt.WithDetail` | `ValueEditor.ApplyAsync(detail)` / `SubmitAsync(value, detail)` and `RowEditors.InvokeButtonAsync(..., detail)`; the core hands it to `RigbayHost.RequestApprovalTextAsync`. |
+| Editors never disposed | one editor per row in a `ConditionalWeakTable` | `RowEditors.For` caches one per row instance and the entry disposes them. The table that remains only keeps each row's last status text. |
+| `string` converted to `LocalisedText` | casts in the sample | no implicit conversion; `LocalisedText.Of`. The fan-studio demo module is adapted. |
+| Page dropped on disable | `PageCache` | `ModuleEntry.LastPage` (dashboard, module page, search). |
+| `F12` accepted as a hotkey | flag in the UI | rejected by `HotkeyGesture`; nothing to flag. |
+| Manifest problems in English inside a localised sentence | none | `ManifestIssue` is a key plus arguments; `ResolveReason` localises. The dashboard shows "4 problems in module.json" (one line), the module page shows the explanation and one localised line per problem, the Modules page lists the same lines. |
+| `version` unknown to a running instance | headless-only branch in `Cli` | `ExecuteCommandAsync` answers `version` and `list` (`id State version enabled|disabled [reason]`), headless and forwarded alike. |
+
+Dashboard rows are one line: name, then state and a short reason (`ShortReasonText`, trimmed with an ellipsis, full text as the
+tooltip). Long reasons (a failed module's exception text) belong on the module page.
+
+Still open: `<module> help` exits 2 with the verb list (the usage rule); `rigbay list` prints a failed manifest's full English-or-
+localised summary on one line (a Core choice; the short form is only in the UI).

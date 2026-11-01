@@ -23,7 +23,7 @@ function Call([string[]]$a, [string]$name, [int]$wantExit, [string]$wantText = '
 
 '--- headless (no running instance): the exe loads the modules, runs the verb, stops them'
 Call @('list') 'list' 0 'demo-fan'
-Call @('version') 'version' 0 'host API'
+Call @('version') 'version' 0 'Host API'
 Call @('demo-fan', 'status') 'demo-fan status' 0 'mode=auto'
 Call @('demo-fan', 'help') 'demo-fan help (lists the verbs, exit 2 as the contract says for usage)' 2 'demo-fan status'
 Call @('demo-fan', 'max') 'demo-fan max (nobody can approve, so it is refused)' 1 'Not confirmed'

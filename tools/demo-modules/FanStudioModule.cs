@@ -73,7 +73,7 @@ public sealed class FanStudioModule : IModule
                         Unit = MetricUnit.Watt,
                         Apply = ApplyMode.ApplyRevert,
                         HardwareEffect = new HardwareEffect("effect.pl1"),
-                        Validate = w => w % 5 != 0 ? (LocalisedText?)LocalisedText.Of("pl1.step") : null,   // the cast matters: without it `null` becomes a LocalisedText with a null key
+                        Validate = w => w % 5 != 0 ? LocalisedText.Of("pl1.step") : null,
                     },
                     new ButtonRow("row.boost.header", "row.boost.button", BoostAsync)
                     {
@@ -166,7 +166,7 @@ public sealed class FanStudioModule : IModule
     {
         _boost = true;
         _lastWrite.Value = "boost on";
-        _host?.Toast.Show(new ToastMessage("toast.title", "toast.boost", ToastKind.Info));
+        _host?.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.boost"), ToastKind.Info));
         return Task.FromResult(ActionResult.Ok(LocalisedText.Of("boost.on")));
     }
 

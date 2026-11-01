@@ -96,22 +96,27 @@ static class EntryExtensions
     public static bool CanToggle(this ModuleEntry e) => e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
 }
 
-/// <summary>
-/// The last page model each module returned. The core drops a module's page when the module is turned off; the app keeps it so
-/// the page can show the rows greyed out (and search can still find them) instead of an empty screen.
-/// </summary>
-static class PageCache
+
+static class ReasonExtensions
 {
-    static readonly Dictionary<string, PageModel> Map = new();
-
-    public static void Remember(ModuleEntry e)
+    /// <summary>
+    /// A reason that fits one line (dashboard row, modules list). An invalid manifest becomes "N problems in module.json" (the
+    /// list itself is on the module page, see <see cref="IssueLines"/>); any other reason is the full text on one line, which
+    /// the row trims with an ellipsis and shows in full as its tooltip.
+    /// </summary>
+    public static string ShortReasonText(this ModuleEntry e)
     {
-        if (e.Page is { } p) lock (Map) Map[e.Id] = p;
+        if (e.Bay.Reason is not { } r) return "";
+        var issues = r.Args.OfType<IReadOnlyList<ManifestIssue>>().FirstOrDefault();
+        if (issues != null)
+        {
+            int n = issues.Count(i => i.IsError);
+            return n == 1 ? Host.T("reason.invalid-one") : Host.F("reason.invalid-many", n);
+        }
+        return e.ResolveReason(r).ReplaceLineEndings(" ");
     }
 
-    public static PageModel? Get(ModuleEntry e)
-    {
-        if (e.Page is { } p) return p;
-        lock (Map) return Map.TryGetValue(e.Id, out var cached) ? cached : null;
-    }
+    /// <summary>The manifest problems of a module, one localised line each ("entry.type: must be ..."), warnings included.</summary>
+    public static IReadOnlyList<string> IssueLines(this ModuleEntry e) =>
+        e.Issues.Select(i => (i.IsError ? "" : Host.T("fact.warning-prefix") + " ") + i.LocaliseLine(Host.Core.Languages)).ToList();
 }

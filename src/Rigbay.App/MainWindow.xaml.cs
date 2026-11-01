@@ -232,7 +232,6 @@ public sealed partial class MainWindow : Window
     void OnEntryChanged()
     {
         if (!_uiBuilt) return;
-        foreach (var m in Host.Core.Modules) PageCache.Remember(m);
         BuildNav();
         RebuildSearchIndex();
         UpdateStatus();
@@ -381,7 +380,7 @@ public sealed partial class MainWindow : Window
         {
             list.Add(new SearchItem(e.DisplayName, e.DisplayName, e));
             if (e.DisplayDescription.Length > 0) list.Add(new SearchItem(e.DisplayDescription, e.DisplayName, e));
-            var cachedPage = PageCache.Get(e);
+            var cachedPage = e.LastPage;
             if (cachedPage == null) continue;
             foreach (var row in cachedPage.EnumerateRows())
             {

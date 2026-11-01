@@ -13,7 +13,6 @@ sealed class ApprovalPrompt : IApprovalPrompt
 {
     static readonly SemaphoreSlim OneAtATime = new(1, 1);
     static ContentDialog? _current;
-    static readonly AsyncLocal<string?> PendingDetail = new();
 
     /// <summary>Self-test and screenshots answer without a dialog (null = ask the user for real).</summary>
     public static bool? TestAnswer { get; set; }
@@ -21,21 +20,9 @@ sealed class ApprovalPrompt : IApprovalPrompt
     public static string? LastQuestion { get; private set; }
     public static bool IsOpen => _current != null;
 
-    /// <summary>
-    /// The core asks with the effect text only; the row renderer states the exact change ("Mode: Auto -> Max") here, for the
-    /// duration of one edit, and the dialog shows it. (Contract gap reported: the editors could pass the detail themselves.)
-    /// </summary>
-    public static IDisposable WithDetail(string detail)
-    {
-        PendingDetail.Value = detail;
-        return new Reset();
-    }
-
-    sealed class Reset : IDisposable { public void Dispose() => PendingDetail.Value = null; }
-
     public async Task<bool> ConfirmAsync(ApprovalRequest request, CancellationToken ct)
     {
-        var detail = request.Detail ?? PendingDetail.Value;
+        var detail = request.Detail;
         LastQuestion = request.EffectText + (detail != null ? " | " + detail : "");
         Asked++;
         AppLog.For(request.ModuleId).Info("approval asked: " + LastQuestion);
