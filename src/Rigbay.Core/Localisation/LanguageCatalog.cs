@@ -74,6 +74,7 @@ public sealed class LanguageCatalog
 
     public string T(string key)
     {
+        if (Text.IsLiteral(key)) return Text.Unwrap(key);
         lock (_gate)
         {
             if (_current.Text.TryGetValue(key, out var v)) return v;
@@ -85,6 +86,7 @@ public sealed class LanguageCatalog
     /// <summary>True when the key has a text in the current language or in English.</summary>
     public bool TryGet(string key, out string text)
     {
+        if (Text.IsLiteral(key)) { text = Text.Unwrap(key); return true; }
         lock (_gate)
         {
             if (_current.Text.TryGetValue(key, out text!)) return true;
@@ -94,6 +96,13 @@ public sealed class LanguageCatalog
 
     public string F(string key, params object[] args)
     {
+        if (Text.IsLiteral(key))
+        {
+            var template = Text.Unwrap(key);
+            if (args.Length == 0) return template;
+            try { return string.Format(CultureInfo.InvariantCulture, template, args); }
+            catch (FormatException) { return template; }
+        }
         string text, englishText;
         lock (_gate)
         {
@@ -187,13 +196,13 @@ public sealed class ModuleLocalisation : ILocalisation
 
     public string Language => _catalog.CurrentCode;
 
-    public string T(string key) => _catalog.T(_prefix + key);
+    public string T(string key) => Text.IsLiteral(key) ? Text.Unwrap(key) : _catalog.T(_prefix + key);
 
-    public string F(string key, params object[] args) => _catalog.F(_prefix + key, args);
+    public string F(string key, params object[] args) => _catalog.F(Text.IsLiteral(key) ? key : _prefix + key, args);
 
     public string Resolve(LocalisedText text) => text.IsEmpty ? "" : text.Args is { Length: > 0 } ? F(text.Key, text.Args) : T(text.Key);
 
-    public bool TryGet(string key, out string text) => _catalog.TryGet(_prefix + key, out text);
+    public bool TryGet(string key, out string text) => _catalog.TryGet(Text.IsLiteral(key) ? key : _prefix + key, out text);
 
     public event Action? LanguageChanged
     {

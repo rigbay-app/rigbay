@@ -136,3 +136,28 @@ public enum BayState
     /// <summary>An install, update or removal waits for a host restart.</summary>
     RestartRequired,
 }
+
+/// <summary>
+/// Literal text in a place that normally takes a language key (<c>LabelKey</c>, <c>TextKey</c>, <c>NameKey</c>,
+/// <c>HeaderKey</c>, ...). A key that starts with <c>=</c> is shown as written, without the <c>=</c>; it is never
+/// looked up in a language file and never translated. Use it only for user data (profile names, device names), not
+/// for UI wording, which must stay a key so it can be translated. Build one with <see cref="Literal"/>; never type the
+/// <c>=</c> by hand.
+/// </summary>
+public static class Text
+{
+    /// <summary>The marker character at the start of a literal.</summary>
+    public const char Marker = '=';
+
+    /// <summary>Makes <paramref name="text"/> usable where a key is expected. A null text gives an empty literal.</summary>
+    /// <param name="text">The text to show as it is.</param>
+    public static string Literal(string? text) => Marker + (text ?? "");
+
+    /// <summary>True when <paramref name="key"/> is a literal made by <see cref="Literal"/>.</summary>
+    /// <param name="key">A key or literal; null is not a literal.</param>
+    public static bool IsLiteral(string? key) => key is { Length: > 0 } && key[0] == Marker;
+
+    /// <summary>The text of a literal without the marker; a non-literal is returned unchanged.</summary>
+    /// <param name="key">A key or literal.</param>
+    public static string Unwrap(string key) => IsLiteral(key) ? key[1..] : key;
+}

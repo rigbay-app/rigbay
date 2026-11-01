@@ -838,7 +838,7 @@ public class EditorTests
         var rows = m.Page!.EnumerateRows();
         rows.OfType<ToggleRow>().First().Value.Value = true;
 
-        var result = await RowEditors.InvokeButtonAsync(m, rows.OfType<ButtonRow>().Single());
+        var result = await RowEditors.InvokeButtonAsync(m, rows.OfType<ButtonRow>().Single(b => b.HeaderKey == "row.reset.header"));
 
         Assert.True(result.Succeeded);
         Assert.False(rows.OfType<ToggleRow>().First().Value.Value);

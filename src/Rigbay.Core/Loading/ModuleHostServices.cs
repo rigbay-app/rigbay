@@ -47,6 +47,8 @@ internal sealed class ModuleHostServices : IHostServices
     public IMetricsBus Metrics { get; }
     public IHardwareApproval Approval { get; }
 
+    public void RequestPageRefresh() => _entry.RequestPageRefresh();
+
     public void RunOnUi(Action action)
     {
         var guarded = _entry.Guard("RunOnUi", action);
