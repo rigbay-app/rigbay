@@ -245,6 +245,11 @@ internal sealed class FakeHost : IHostServices
     public IMetricsBus Metrics => MetricsBus;
     public IHardwareApproval Approval => ApprovalService;
     public void RunOnUi(Action action) => action();
+
+    /// <summary>Counts refresh requests (added when the contract gained RequestPageRefresh, task A8).</summary>
+    public int PageRefreshRequests;
+
+    public void RequestPageRefresh() => PageRefreshRequests++;
 }
 
 internal static class Wait
