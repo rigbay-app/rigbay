@@ -1,0 +1,25 @@
+{
+  "manifestVersion": 1,
+  "id": "steam-bypass",
+  "name": "Steam access",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Restores access to Steam on networks that block it, through a local proxy, DNS over HTTPS and a PAC file.",
+  "entry": { "assembly": "Rigbay.SteamBypass.dll", "type": "Rigbay.SteamBypass.SteamBypassModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "network",
+  "requires": {
+    "admin": false,
+    "network": [
+      "listens on 127.0.0.1:18081 (local proxy and PAC file, loopback only)",
+      "listens on 127.0.0.1:80 (Steam's game downloader, loopback only)",
+      "DNS over HTTPS to 1.1.1.1, 8.8.8.8, cloudflare-dns.com and dns.google, for Steam host names only",
+      "outgoing connections to the real Steam servers"
+    ],
+    "registry": [
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\AutoConfigURL (the proxy script address of the current user: set while the bypass is on, the previous value put back when it is off)"
+    ],
+    "services": []
+  },
+  "languages": "lang"
+}

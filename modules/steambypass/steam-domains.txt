@@ -1,0 +1,18 @@
+# Domains routed through the bypass proxy (a domain also covers its subdomains).
+# One per line, lower case, '#' starts a comment. Only these host names are resolved over DNS-over-HTTPS
+# and only these are accepted by the proxy on 127.0.0.1:18081.
+steampowered.com
+steamcommunity.com
+steamstatic.com
+steamcontent.com
+steamusercontent.com
+steamserver.net
+steamgames.com
+steam-chat.com
+steamcdn-a.akamaihd.net
+steamcommunity-a.akamaihd.net
+steamuserimages-a.akamaihd.net
+steamvideo-a.akamaihd.net
+steampipe.akamaized.net
+valvesoftware.com
+steamdeck.com
