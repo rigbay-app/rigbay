@@ -26,7 +26,7 @@ other CPUs and GPUs, other features) without forking the app.
 | `src/Rigbay.LangCheck` | Checks language files (`key = text`). |
 | `samples/Rigbay.SampleModule` | A minimal module, the template for module authors. |
 | `tests/` | Core tests (`dotnet test`). |
-| `modules/` | Modules in development. `predatorsense` builds with `Rigbay.sln`; `xtu` has its own solution (`modules/xtu/Rigbay.Xtu.slnx`) because it compiles against Intel XTU DLLs that must be installed on the build machine. |
+| `modules/` | Modules in development (`predatorsense`, `xtu`). Each builds with `Rigbay.sln` and is also published as its own repository in the organisation. |
 | `docs/` | Design notes, the module contract (`ABSTRACTIONS.md`), the UI direction, the app guide, spike reports. |
 | `tools/` | App build, run and screenshot scripts, demo modules. |
 | `spike/` | The UI-framework and XTU runtime spikes (kept as evidence). |
