@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The XTU profiles module (design A of spike C1): in process, .NET 10, talking to the XTU service through Intel's own
+    contract assemblies, which are referenced IN PLACE from the Intel install folder and never copied or committed.
+    Building needs XTU installed on the build machine (see docs/xtu/BUILD.md). Self-contained on purpose: the only
+    project reference is Rigbay.Abstractions, so the folder can move to its own repository (module-xtu) unchanged.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RootNamespace>Rigbay.Module.Xtu</RootNamespace>
+    <AssemblyName>Rigbay.Module.Xtu</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- NU1902/NU1903 name System.Security.Cryptography.Xml, a transitive package of System.ServiceModel.Primitives that is only
+         used for message signing. The named-pipe client never loads it, and its runtime assets are excluded below, so the
+         module does not ship it. They stay visible as warnings. -->
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <XtuDir Condition="'$(XtuDir)' == ''">$(ProgramFiles)\Intel\Intel(R) Extreme Tuning Utility\Drivers</XtuDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <PackageReference Include="System.ServiceModel.Primitives" Version="10.0.652802" />
+    <PackageReference Include="System.ServiceModel.NetNamedPipe" Version="10.0.652802" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.0" />
+    <!-- Transitive packages the named-pipe client does not need at run time (spike C1, A.1): compile assets only, not copied. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <!-- Intel's contract assemblies: compile references only (Private=false), loaded at run time from the Intel folder
+       through the host's probePaths rule (module.json). -->
+  <ItemGroup>
+    <Reference Include="XtuInterface"><HintPath>$(XtuDir)\XtuInterface.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="XtuCommon"><HintPath>$(XtuDir)\XtuCommon.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+    <InternalsVisibleTo Include="Rigbay.Module.Xtu.Tests" />
+  </ItemGroup>
+
+</Project>

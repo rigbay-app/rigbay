@@ -1,0 +1,171 @@
+# XTU profiles module: English (the reference; every key must exist here).
+# Keys in code are short (probe.no-service); in this file they carry the module prefix.
+
+@code = en
+@name = English
+
+# --- module name and description (override the manifest text)
+module.xtu.name = XTU profiles
+module.xtu.description = Switch Intel XTU power-limit profiles (PL1, PL2, time window) and read CPU temperature and power.
+
+# --- probe: why the module is not available on a machine
+module.xtu.probe.not-intel = This CPU is not an Intel CPU ({0}). XTU profiles need an Intel processor.
+module.xtu.probe.no-service = Intel Extreme Tuning Utility is not installed (the service {0} was not found).
+module.xtu.probe.no-dlls = XTU's contract files were not found in {0}.
+module.xtu.probe.service-stopped = The XTU service {0} is not running. Start it, then restart Rigbay.
+
+# --- page: groups
+module.xtu.group.now = Power limits now
+module.xtu.group.readings = Readings
+module.xtu.group.auto = Switch by power source
+module.xtu.group.custom = Your profiles
+module.xtu.group.hotkeys = Hotkeys
+module.xtu.group.about = XTU
+
+# --- page: power limits now
+module.xtu.row.unreachable.header = XTU can't be read
+module.xtu.row.unreachable.description = Is the XTU service running? Limits cannot be changed until it answers; readings pause.
+module.xtu.row.faststart.header = Windows Fast Startup is on
+module.xtu.row.faststart.description = "Shut down" then skips the XTU service restart, so power limits return to the BIOS values. Restart, or turn Fast Startup off.
+module.xtu.row.active.header = Active profile
+module.xtu.row.active.description = The saved profile whose limits equal what XTU reports now.
+module.xtu.row.limits.header = Limits in force
+module.xtu.row.limits.description = Read from the CPU through XTU, about every 5 seconds.
+module.xtu.row.profile.header = Profile
+module.xtu.row.profile.description = Pick a profile to apply its limits. You see the exact values and confirm first.
+module.xtu.row.status.header = Last action
+module.xtu.row.reload.header = Profiles from XTU
+module.xtu.row.reload.description = Read XTU's saved profiles again after changing them in XTU.
+module.xtu.row.reload.button = Reload
+module.xtu.choice.custom-values = Custom values (no saved profile matches)
+module.xtu.effect.apply-profile = Changes the CPU power limits (PL1, PL2 and the time window) in Intel XTU. Higher limits mean more heat and fan noise; the values are checked against safe ranges first.
+
+# --- page: readings
+module.xtu.row.temp.header = CPU temperature
+module.xtu.row.power.header = CPU package power
+module.xtu.row.usage.header = CPU usage
+module.xtu.row.clock.header = CPU clock (fastest core)
+module.xtu.row.pl1.header = PL1 limit
+module.xtu.row.pl2.header = PL2 limit
+module.xtu.row.throttle.header = Throttling
+module.xtu.row.throttle.description = 0 to 100, as XTU reports it. Above 0 means the CPU is holding back.
+module.xtu.row.throttle-thermal.header = Thermal
+module.xtu.row.throttle-power.header = Power limit
+module.xtu.row.throttle-current.header = Current limit
+module.xtu.row.throttle-vr.header = Voltage regulator
+
+# --- page: switch by power source
+module.xtu.row.auto.header = Switch automatically
+module.xtu.row.auto.description = Applies a profile when you plug in or unplug, and again after waking from sleep.
+module.xtu.effect.auto-switch = Lets Rigbay change the CPU power limits by itself whenever the power source changes, without asking each time.
+module.xtu.row.ac.header = When plugged in
+module.xtu.row.ac.description = The profile to use on AC power.
+module.xtu.row.battery.header = On battery
+module.xtu.row.battery.description = The profile to use on battery.
+module.xtu.effect.auto-choice = Changes which CPU power limits Rigbay applies by itself for this power source. If it is the one in use now, they are applied at once.
+module.xtu.choice.keep-current = Keep the current profile
+module.xtu.row.power-now.header = Power source now
+
+# --- page: your profiles
+module.xtu.row.new.header = New profile
+module.xtu.row.new.description = Saved in Rigbay, not in XTU. Applying a profile is what changes the CPU.
+module.xtu.row.new-name.header = Name
+module.xtu.row.new-name.description = 1 to 40 characters. Not the name of another profile.
+module.xtu.new.placeholder = For example Quiet 35 W
+module.xtu.row.edit-pl1.header = PL1 (sustained)
+module.xtu.row.edit-pl1.description = Power the CPU may use for long loads. 15 to 120 W.
+module.xtu.row.edit-pl2.header = PL2 (burst)
+module.xtu.row.edit-pl2.description = Short-burst power. From PL1 up to 150 W.
+module.xtu.row.edit-pl2enable.header = PL2 enabled
+module.xtu.row.edit-pl2enable.description = Turn off to hold the CPU at PL1.
+module.xtu.row.edit-window.header = Time window
+module.xtu.row.edit-window.description = How long a burst may last. 1 to 128 seconds.
+module.xtu.row.create.header = Create profile
+module.xtu.row.create.description = Adds it to the lists on this page.
+module.xtu.row.create.button = Create
+module.xtu.row.custom.description = Made in Rigbay. Change a value, then Apply.
+module.xtu.row.delete.header = Delete profile
+module.xtu.row.delete.description = Removes it from Rigbay. XTU's own profiles can only be deleted in XTU.
+module.xtu.row.delete.button = Delete
+module.xtu.row.no-custom.header = No profiles of your own yet
+module.xtu.row.no-custom.description = Create one above to keep limits XTU doesn't have.
+
+# --- page: hotkeys
+module.xtu.row.hotkeys.header = Profile hotkeys
+module.xtu.row.hotkeys.description = Ctrl or Alt plus a key. Combinations XTU already uses are refused.
+module.xtu.row.hotkey.description = Apply this profile (you confirm first)
+
+# --- page: XTU facts
+module.xtu.row.version.header = XTU version
+module.xtu.row.restore.header = Restore after restart
+module.xtu.row.restore.description = Whether XTU puts your limits back when Windows restarts.
+module.xtu.row.percore.header = Publish per-core readings
+module.xtu.row.percore.description = Adds temperature, clock, voltage and usage for each core to the metrics (32 more readings), for the recorder.
+module.xtu.link.docs = XTU profiles on GitHub
+
+# --- dashboard line
+module.xtu.state.active = Profile {0}
+module.xtu.state.custom = Custom limits
+module.xtu.state.unreachable = XTU not answering
+
+# --- values
+module.xtu.value.unknown = Unknown
+module.xtu.value.custom-values = Custom values
+module.xtu.value.yes = Yes
+module.xtu.value.no = No
+module.xtu.value.on-ac = Plugged in
+module.xtu.value.on-battery = On battery
+
+# --- approval text (hotkey, tray and command; the page rows are confirmed by the host)
+module.xtu.approve.detail = {0}: PL1 {1} W, PL2 {2} W, window {3} s. Now: {4}.
+module.xtu.approve.detail-pl2-off = {0}: PL1 {1} W, PL2 off, window {3} s. Now: {4}.
+
+# --- messages
+module.xtu.msg.applied = Applied: PL1 {0} W · PL2 {1} W · {2} s
+module.xtu.msg.applied-named = Applied {0}: PL1 {1} W · PL2 {2} W · {3} s
+module.xtu.msg.already = Already in use
+module.xtu.msg.already-named = {0} was already in use
+module.xtu.msg.declined = Not applied: you declined.
+module.xtu.msg.busy = Another change is still running.
+module.xtu.msg.failed = Couldn't apply. {0}
+module.xtu.msg.not-found = Profile "{0}" not found.
+module.xtu.msg.auto-missing = Profile "{0}" for {1} no longer exists.
+module.xtu.msg.created = Created {0}
+module.xtu.msg.deleted = Deleted {0}
+module.xtu.msg.list-changed = The profile list changed. Turn this module off and on to see it in the lists.
+module.xtu.reason.ac = Plugged in
+module.xtu.reason.battery = On battery
+module.xtu.toast.title = XTU profiles
+module.xtu.toast.title-failed = XTU profiles: no change
+module.xtu.toast.applied = Applied {0}
+
+# --- command line
+module.xtu.cmd.status = Show the service state, the active limits and the profiles.
+module.xtu.cmd.list = List the profiles and mark the active one.
+module.xtu.cmd.apply = Apply a profile by name (asks for confirmation).
+module.xtu.cmd.apply-usage = Usage: rigbay xtu apply <profile name>
+
+# --- hotkeys
+module.xtu.hotkey.needs-modifier = {0} was not accepted: a profile hotkey needs Ctrl or Alt.
+module.xtu.hotkey.xtu-combo = {0} was not accepted: XTU also listens for it and would switch at the same time. Pick another, or turn off Hotkey-Profile Pairing in XTU.
+
+# --- errors while talking to XTU
+module.xtu.err.unavailable = Can't reach XTU. {0}
+module.xtu.err.refused = XTU refused the connection. Is the XTU service running?
+module.xtu.err.notconnected = Not connected to XTU.
+module.xtu.err.id-not-allowed = Control {0} is not one this module may use.
+module.xtu.err.write-forbidden = Writes are switched off in this session ({0}=1).
+module.xtu.err.locked = {0} is locked in XTU.
+module.xtu.err.unsupported = {0} = {1} W isn't a value XTU accepts.
+module.xtu.err.rejected = XTU rejected the values ({0}).
+module.xtu.err.rejected-reboot = XTU rejected the values ({0}). A restart would be needed.
+module.xtu.err.applyfail = XTU couldn't apply them ({0}).
+
+# --- validation
+module.xtu.val.pl1 = PL1 must be {0}–{1} W.
+module.xtu.val.pl2 = PL2 must be between PL1 and {0} W.
+module.xtu.val.window = Time window must be {0}–{1} s.
+module.xtu.val.name-empty = Give it a name.
+module.xtu.val.name-long = The name can be at most {0} characters.
+module.xtu.val.name-chars = The name can't start with @, have spaces at the ends, or contain tabs or line breaks.
+module.xtu.val.name-taken = A profile called "{0}" already exists.

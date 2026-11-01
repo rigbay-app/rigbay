@@ -1,0 +1,153 @@
+# Module XTU profiles: Tiếng Việt. Thiếu khóa nào thì hiện bản tiếng Anh.
+
+@code = vi
+@name = Tiếng Việt
+
+module.xtu.name = Profile XTU
+module.xtu.description = Đổi profile giới hạn công suất Intel XTU (PL1, PL2, time window) và đọc nhiệt độ, công suất CPU.
+
+module.xtu.probe.not-intel = CPU này không phải của Intel ({0}). Profile XTU cần CPU Intel.
+module.xtu.probe.no-service = Chưa cài Intel Extreme Tuning Utility (không thấy dịch vụ {0}).
+module.xtu.probe.no-dlls = Không thấy các file hợp đồng của XTU trong {0}.
+module.xtu.probe.service-stopped = Dịch vụ XTU {0} đang không chạy. Hãy bật nó rồi khởi động lại Rigbay.
+
+module.xtu.group.now = Giới hạn công suất hiện tại
+module.xtu.group.readings = Số đo
+module.xtu.group.auto = Đổi theo nguồn điện
+module.xtu.group.custom = Profile của bạn
+module.xtu.group.hotkeys = Phím tắt
+module.xtu.group.about = XTU
+
+module.xtu.row.unreachable.header = Không đọc được XTU
+module.xtu.row.unreachable.description = Dịch vụ XTU có đang chạy không? Chưa đổi được giới hạn khi XTU chưa trả lời; số đo tạm dừng.
+module.xtu.row.faststart.header = Windows Fast Startup đang bật
+module.xtu.row.faststart.description = "Shut down" khi đó bỏ qua việc khởi động lại dịch vụ XTU nên giới hạn công suất quay về mặc định của BIOS. Hãy dùng Restart, hoặc tắt Fast Startup.
+module.xtu.row.active.header = Profile đang dùng
+module.xtu.row.active.description = Profile đã lưu có giới hạn bằng với giá trị XTU báo hiện giờ.
+module.xtu.row.limits.header = Giới hạn đang có hiệu lực
+module.xtu.row.limits.description = Đọc từ CPU qua XTU, khoảng 5 giây một lần.
+module.xtu.row.profile.header = Profile
+module.xtu.row.profile.description = Chọn một profile để áp dụng giới hạn của nó. Bạn xem đúng các giá trị và xác nhận trước.
+module.xtu.row.status.header = Việc vừa làm
+module.xtu.row.reload.header = Profile từ XTU
+module.xtu.row.reload.description = Đọc lại các profile đã lưu của XTU sau khi bạn sửa trong XTU.
+module.xtu.row.reload.button = Đọc lại
+module.xtu.choice.custom-values = Giá trị tuỳ chỉnh (không khớp profile nào)
+module.xtu.effect.apply-profile = Đổi giới hạn công suất CPU (PL1, PL2 và time window) trong Intel XTU. Giới hạn cao hơn nghĩa là nóng và ồn hơn; các giá trị được kiểm tra theo khoảng an toàn trước.
+
+module.xtu.row.temp.header = Nhiệt độ CPU
+module.xtu.row.power.header = Công suất CPU (package)
+module.xtu.row.usage.header = Mức dùng CPU
+module.xtu.row.clock.header = Xung CPU (nhân nhanh nhất)
+module.xtu.row.pl1.header = Giới hạn PL1
+module.xtu.row.pl2.header = Giới hạn PL2
+module.xtu.row.throttle.header = Throttling
+module.xtu.row.throttle.description = Từ 0 đến 100, theo XTU báo. Lớn hơn 0 nghĩa là CPU đang bị hãm.
+module.xtu.row.throttle-thermal.header = Nhiệt
+module.xtu.row.throttle-power.header = Giới hạn công suất
+module.xtu.row.throttle-current.header = Giới hạn dòng
+module.xtu.row.throttle-vr.header = Mạch điều áp (VR)
+
+module.xtu.row.auto.header = Tự động đổi
+module.xtu.row.auto.description = Áp dụng một profile khi cắm hoặc rút sạc, và áp dụng lại sau khi máy thức dậy từ chế độ ngủ.
+module.xtu.effect.auto-switch = Cho phép Rigbay tự đổi giới hạn công suất CPU mỗi khi nguồn điện thay đổi, không hỏi lại từng lần.
+module.xtu.row.ac.header = Khi cắm sạc
+module.xtu.row.ac.description = Profile dùng khi có điện lưới.
+module.xtu.row.battery.header = Khi dùng pin
+module.xtu.row.battery.description = Profile dùng khi chạy pin.
+module.xtu.effect.auto-choice = Đổi profile mà Rigbay tự áp dụng cho nguồn điện này. Nếu đó là nguồn đang dùng, nó được áp dụng ngay.
+module.xtu.choice.keep-current = Giữ profile hiện tại
+module.xtu.row.power-now.header = Nguồn điện hiện giờ
+
+module.xtu.row.new.header = Profile mới
+module.xtu.row.new.description = Lưu trong Rigbay, không phải trong XTU. Chỉ khi áp dụng profile thì CPU mới đổi.
+module.xtu.row.new-name.header = Tên
+module.xtu.row.new-name.description = 1 đến 40 ký tự. Không trùng tên profile khác.
+module.xtu.new.placeholder = Ví dụ Êm 35 W
+module.xtu.row.edit-pl1.header = PL1 (duy trì)
+module.xtu.row.edit-pl1.description = Công suất CPU được dùng khi tải lâu. 15 đến 120 W.
+module.xtu.row.edit-pl2.header = PL2 (tăng tốc ngắn)
+module.xtu.row.edit-pl2.description = Công suất cho đợt tăng tốc ngắn. Từ PL1 đến 150 W.
+module.xtu.row.edit-pl2enable.header = Bật PL2
+module.xtu.row.edit-pl2enable.description = Tắt để giữ CPU ở mức PL1.
+module.xtu.row.edit-window.header = Time window
+module.xtu.row.edit-window.description = Một đợt tăng tốc được kéo dài bao lâu. 1 đến 128 giây.
+module.xtu.row.create.header = Tạo profile
+module.xtu.row.create.description = Thêm nó vào các danh sách trên trang này.
+module.xtu.row.create.button = Tạo
+module.xtu.row.custom.description = Tạo trong Rigbay. Đổi một giá trị rồi bấm Apply.
+module.xtu.row.delete.header = Xoá profile
+module.xtu.row.delete.description = Xoá khỏi Rigbay. Profile của XTU chỉ xoá được trong XTU.
+module.xtu.row.delete.button = Xoá
+module.xtu.row.no-custom.header = Chưa có profile của bạn
+module.xtu.row.no-custom.description = Tạo một cái ở trên để giữ các giới hạn mà XTU không có.
+
+module.xtu.row.hotkeys.header = Phím tắt cho profile
+module.xtu.row.hotkeys.description = Ctrl hoặc Alt cùng một phím. Tổ hợp XTU đã dùng sẽ bị từ chối.
+module.xtu.row.hotkey.description = Áp dụng profile này (bạn xác nhận trước)
+
+module.xtu.row.version.header = Phiên bản XTU
+module.xtu.row.restore.header = Khôi phục sau khi khởi động lại
+module.xtu.row.restore.description = XTU có đặt lại giới hạn của bạn khi Windows khởi động lại không.
+module.xtu.row.percore.header = Đưa số đo từng nhân lên bus
+module.xtu.row.percore.description = Thêm nhiệt độ, xung, điện áp và mức dùng của từng nhân (thêm 32 số đo), cho module ghi log.
+module.xtu.link.docs = Profile XTU trên GitHub
+
+module.xtu.state.active = Profile {0}
+module.xtu.state.custom = Giới hạn tuỳ chỉnh
+module.xtu.state.unreachable = XTU không trả lời
+
+module.xtu.value.unknown = Chưa rõ
+module.xtu.value.custom-values = Giá trị tuỳ chỉnh
+module.xtu.value.yes = Có
+module.xtu.value.no = Không
+module.xtu.value.on-ac = Đang cắm sạc
+module.xtu.value.on-battery = Đang dùng pin
+
+module.xtu.approve.detail = {0}: PL1 {1} W, PL2 {2} W, window {3} s. Hiện giờ: {4}.
+module.xtu.approve.detail-pl2-off = {0}: PL1 {1} W, tắt PL2, window {3} s. Hiện giờ: {4}.
+
+module.xtu.msg.applied = Đã áp dụng: PL1 {0} W · PL2 {1} W · {2} s
+module.xtu.msg.applied-named = Đã áp dụng {0}: PL1 {1} W · PL2 {2} W · {3} s
+module.xtu.msg.already = Đang dùng sẵn
+module.xtu.msg.already-named = {0} đang dùng sẵn
+module.xtu.msg.declined = Chưa áp dụng: bạn đã từ chối.
+module.xtu.msg.busy = Một thay đổi khác vẫn đang chạy.
+module.xtu.msg.failed = Không áp dụng được. {0}
+module.xtu.msg.not-found = Không thấy profile "{0}".
+module.xtu.msg.auto-missing = Profile "{0}" cho {1} không còn.
+module.xtu.msg.created = Đã tạo {0}
+module.xtu.msg.deleted = Đã xoá {0}
+module.xtu.msg.list-changed = Danh sách profile đã đổi. Hãy tắt rồi bật lại module này để thấy trong các danh sách.
+module.xtu.reason.ac = Cắm sạc
+module.xtu.reason.battery = Dùng pin
+module.xtu.toast.title = Profile XTU
+module.xtu.toast.title-failed = Profile XTU: chưa đổi
+module.xtu.toast.applied = Đã áp dụng {0}
+
+module.xtu.cmd.status = Hiện trạng dịch vụ, giới hạn đang dùng và các profile.
+module.xtu.cmd.list = Liệt kê profile và đánh dấu cái đang dùng.
+module.xtu.cmd.apply = Áp dụng profile theo tên (có hỏi xác nhận).
+module.xtu.cmd.apply-usage = Cách dùng: rigbay xtu apply <tên profile>
+
+module.xtu.hotkey.needs-modifier = Không nhận {0}: phím tắt cho profile cần có Ctrl hoặc Alt.
+module.xtu.hotkey.xtu-combo = Không nhận {0}: XTU cũng bắt tổ hợp này và sẽ đổi cùng lúc. Chọn tổ hợp khác, hoặc tắt Hotkey-Profile Pairing trong XTU.
+
+module.xtu.err.unavailable = Không kết nối được XTU. {0}
+module.xtu.err.refused = XTU từ chối kết nối. Dịch vụ XTU có đang chạy không?
+module.xtu.err.notconnected = Chưa kết nối với XTU.
+module.xtu.err.id-not-allowed = Mục điều khiển {0} không nằm trong những mục module này được dùng.
+module.xtu.err.write-forbidden = Phiên này đã khoá việc ghi ({0}=1).
+module.xtu.err.locked = {0} đang bị khoá trong XTU.
+module.xtu.err.unsupported = {0} = {1} W không phải giá trị XTU chấp nhận.
+module.xtu.err.rejected = XTU từ chối các giá trị ({0}).
+module.xtu.err.rejected-reboot = XTU từ chối các giá trị ({0}). Cần khởi động lại.
+module.xtu.err.applyfail = XTU không áp dụng được ({0}).
+
+module.xtu.val.pl1 = PL1 phải từ {0} đến {1} W.
+module.xtu.val.pl2 = PL2 phải từ PL1 đến {0} W.
+module.xtu.val.window = Time window phải từ {0} đến {1} s.
+module.xtu.val.name-empty = Hãy đặt tên.
+module.xtu.val.name-long = Tên dài tối đa {0} ký tự.
+module.xtu.val.name-chars = Tên không được bắt đầu bằng @, có khoảng trắng ở hai đầu, hay chứa tab, xuống dòng.
+module.xtu.val.name-taken = Đã có profile tên "{0}".
