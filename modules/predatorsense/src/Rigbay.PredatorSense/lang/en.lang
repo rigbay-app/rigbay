@@ -1,0 +1,94 @@
+# PredatorSense module: English (the reference). Every key starts with module.predatorsense.
+@code = en
+@name = English
+
+# Probe: why this machine is not supported
+module.predatorsense.probe.no-service = The Acer PredatorSense service (PSSvc) is not installed on this machine.
+module.predatorsense.probe.no-wmi = The firmware does not offer the Acer gaming interface (root\WMI, AcerGamingFunction).
+module.predatorsense.probe.check-failed = Could not check this machine: {0}
+
+# Page groups
+module.predatorsense.group.readings = Readings
+module.predatorsense.group.cooling = Cooling
+module.predatorsense.group.settings = Settings
+
+# Readings
+module.predatorsense.sensor.cpu-temp = CPU temperature
+module.predatorsense.sensor.gpu-temp = GPU temperature
+module.predatorsense.sensor.system-temp = System temperature
+module.predatorsense.sensor.cpu-fan = CPU fan
+module.predatorsense.sensor.gpu-fan1 = GPU fan 1
+module.predatorsense.sensor.gpu-fan2 = GPU fan 2
+module.predatorsense.row.cpu-temp.description = The Acer firmware sensor. It can read about 10 °C above the Windows thermal zone: they are different sensors.
+module.predatorsense.row.unavailable.header = Readings are not available
+module.predatorsense.row.unavailable.description = The sensors could not be read 5 times in a row, so the numbers below may be old and fan changes are off. Rigbay keeps trying.
+module.predatorsense.row.model.header = Machine
+module.predatorsense.row.model.description = As the firmware reports it
+module.predatorsense.model.unknown = Unknown
+
+# Cooling
+module.predatorsense.row.fan-mode.header = Fan mode
+module.predatorsense.row.fan-mode.description = Maximum runs all fans at full speed and is loud.
+module.predatorsense.fan.auto = Auto
+module.predatorsense.fan.max = Maximum
+module.predatorsense.effect.fan-mode = Maximum runs all fans at full speed and is loud. Auto hands the fans back to the laptop's firmware.
+module.predatorsense.row.last-set.header = Last set by Rigbay
+module.predatorsense.row.last-set.description = The laptop cannot report its fan mode, and PredatorSense may change it without telling Rigbay.
+module.predatorsense.last.none = Nothing yet
+module.predatorsense.last.value = {0} at {1}
+module.predatorsense.last.unconfirmed = {0} at {1}, not confirmed
+module.predatorsense.row.check.header = Speed check
+module.predatorsense.row.check.description = Fan speed read for 10 s after a change. A reading, not proof of the mode.
+module.predatorsense.check.none = No change made yet
+module.predatorsense.check.watching = Accepted. Watching fan speed...
+module.predatorsense.check.rose = {0} sped up: {1} to {2} rpm
+module.predatorsense.check.not-rose = No fan sped up within 10 s
+module.predatorsense.check.fell = {0} slowed down: {1} to {2} rpm
+module.predatorsense.check.not-fell = Fans are still fast after 10 s
+module.predatorsense.check.steady = Speeds unchanged, as expected
+module.predatorsense.check.moved = {0} changed: {1} to {2} rpm
+module.predatorsense.check.unchecked = Accepted. Speeds could not be read
+module.predatorsense.check.refused-readings = Not changed: the sensors cannot be read
+module.predatorsense.check.refused-busy = Not changed: another change is running
+module.predatorsense.check.refused-guard = Not changed: that value is not allowed
+module.predatorsense.check.status-refused = Refused by the laptop (status {0})
+module.predatorsense.check.no-answer = The laptop did not answer in time
+
+# Settings
+module.predatorsense.row.poll.header = Read the sensors every
+module.predatorsense.row.poll.description = While the readings are being watched. One read takes about 11 ms.
+module.predatorsense.row.restore.header = Restore Auto when Rigbay stops
+module.predatorsense.row.restore.description = If Rigbay set Maximum, put the fans back to Auto when the module is turned off or Rigbay closes.
+module.predatorsense.row.hotkey.header = Fan shortcut
+module.predatorsense.row.hotkey.description = Switches between Maximum and Auto, after you confirm. Not set by default.
+module.predatorsense.hotkey.toggle-fan = Switch fans between Maximum and Auto
+
+# Dashboard state line
+module.predatorsense.state.starting = Reading sensors
+module.predatorsense.state.live = Sensors live
+module.predatorsense.state.auto = Fans Auto, set by Rigbay
+module.predatorsense.state.max = Fans Maximum, set by Rigbay
+module.predatorsense.state.max-unconfirmed = Fans Maximum, not confirmed
+module.predatorsense.state.unavailable = Readings not available
+
+# Confirmation text
+module.predatorsense.detail.change = Fan mode: {0} -> {1}
+module.predatorsense.detail.set = Set fan mode to {0}
+
+# Verbs
+module.predatorsense.cmd.status = Print the temperatures and fan speeds
+module.predatorsense.cmd.fan = Set the fan mode: auto or max (asks for confirmation)
+module.predatorsense.cmd.fan-usage = Usage: rigbay predatorsense fan auto|max
+module.predatorsense.cmd.not-running = PredatorSense is not running.
+module.predatorsense.cmd.no-readings = Not changed: the sensors cannot be read.
+module.predatorsense.cmd.not-confirmed = Not confirmed. Nothing was changed.
+module.predatorsense.cmd.fan-done = Fan mode set to {0}. {1}
+module.predatorsense.status.model = Machine: {0}
+module.predatorsense.status.line = {0}: {1}
+module.predatorsense.status.not-available = not available
+module.predatorsense.status.fan-mode = Fan mode, last set by Rigbay: {0}
+
+# Notifications
+module.predatorsense.toast.fan-title = Fan mode
+module.predatorsense.toast.fan-set = Fans set to {0}.
+module.predatorsense.toast.fan-failed = Not changed. {0}

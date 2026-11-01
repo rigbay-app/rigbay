@@ -1,0 +1,94 @@
+# Module PredatorSense: Tiếng Việt. Mọi khóa bắt đầu bằng module.predatorsense.
+@code = vi
+@name = Tiếng Việt
+
+# Probe: vì sao máy này không được hỗ trợ
+module.predatorsense.probe.no-service = Máy này chưa cài dịch vụ Acer PredatorSense (PSSvc).
+module.predatorsense.probe.no-wmi = Firmware không cung cấp giao diện Acer gaming (root\WMI, AcerGamingFunction).
+module.predatorsense.probe.check-failed = Không kiểm tra được máy này: {0}
+
+# Nhóm trên trang
+module.predatorsense.group.readings = Số đo
+module.predatorsense.group.cooling = Làm mát
+module.predatorsense.group.settings = Cài đặt
+
+# Số đo
+module.predatorsense.sensor.cpu-temp = Nhiệt độ CPU
+module.predatorsense.sensor.gpu-temp = Nhiệt độ GPU
+module.predatorsense.sensor.system-temp = Nhiệt độ hệ thống
+module.predatorsense.sensor.cpu-fan = Quạt CPU
+module.predatorsense.sensor.gpu-fan1 = Quạt GPU 1
+module.predatorsense.sensor.gpu-fan2 = Quạt GPU 2
+module.predatorsense.row.cpu-temp.description = Cảm biến trong firmware Acer. Có thể cao hơn vùng nhiệt của Windows khoảng 10 °C: đó là hai cảm biến khác nhau.
+module.predatorsense.row.unavailable.header = Không đọc được số đo
+module.predatorsense.row.unavailable.description = Không đọc được cảm biến 5 lần liên tiếp, nên các số bên dưới có thể đã cũ và việc đổi chế độ quạt đang tắt. Rigbay vẫn tiếp tục thử.
+module.predatorsense.row.model.header = Máy
+module.predatorsense.row.model.description = Theo báo cáo của firmware
+module.predatorsense.model.unknown = Không rõ
+
+# Làm mát
+module.predatorsense.row.fan-mode.header = Chế độ quạt
+module.predatorsense.row.fan-mode.description = Tối đa chạy mọi quạt hết tốc độ và rất ồn.
+module.predatorsense.fan.auto = Tự động
+module.predatorsense.fan.max = Tối đa
+module.predatorsense.effect.fan-mode = Tối đa chạy mọi quạt hết tốc độ và rất ồn. Tự động trả quạt về cho firmware của laptop.
+module.predatorsense.row.last-set.header = Rigbay đặt lần cuối
+module.predatorsense.row.last-set.description = Laptop không báo lại được chế độ quạt, và PredatorSense có thể đổi mà không báo cho Rigbay.
+module.predatorsense.last.none = Chưa đặt
+module.predatorsense.last.value = {0} lúc {1}
+module.predatorsense.last.unconfirmed = {0} lúc {1}, chưa xác nhận
+module.predatorsense.row.check.header = Kiểm tra tốc độ
+module.predatorsense.row.check.description = Tốc độ quạt đọc trong 10 giây sau khi đổi. Chỉ là số đo, không chứng minh được chế độ.
+module.predatorsense.check.none = Chưa đổi gì
+module.predatorsense.check.watching = Đã nhận. Đang theo dõi tốc độ quạt...
+module.predatorsense.check.rose = {0} tăng tốc: {1} lên {2} vòng/phút
+module.predatorsense.check.not-rose = Không quạt nào tăng tốc trong 10 giây
+module.predatorsense.check.fell = {0} chậm lại: {1} xuống {2} vòng/phút
+module.predatorsense.check.not-fell = Quạt vẫn quay nhanh sau 10 giây
+module.predatorsense.check.steady = Tốc độ không đổi, đúng như dự kiến
+module.predatorsense.check.moved = {0} thay đổi: {1} thành {2} vòng/phút
+module.predatorsense.check.unchecked = Đã nhận. Không đọc được tốc độ
+module.predatorsense.check.refused-readings = Chưa đổi: không đọc được cảm biến
+module.predatorsense.check.refused-busy = Chưa đổi: đang có một thay đổi khác
+module.predatorsense.check.refused-guard = Chưa đổi: giá trị này không được phép
+module.predatorsense.check.status-refused = Laptop từ chối (trạng thái {0})
+module.predatorsense.check.no-answer = Laptop không trả lời kịp
+
+# Cài đặt
+module.predatorsense.row.poll.header = Đọc cảm biến mỗi
+module.predatorsense.row.poll.description = Khi số đo đang được xem. Một lần đọc mất khoảng 11 ms.
+module.predatorsense.row.restore.header = Trả về Tự động khi Rigbay dừng
+module.predatorsense.row.restore.description = Nếu Rigbay đã đặt Tối đa, trả quạt về Tự động khi tắt module hoặc đóng Rigbay.
+module.predatorsense.row.hotkey.header = Phím tắt quạt
+module.predatorsense.row.hotkey.description = Chuyển giữa Tối đa và Tự động, sau khi bạn xác nhận. Mặc định chưa đặt.
+module.predatorsense.hotkey.toggle-fan = Chuyển quạt giữa Tối đa và Tự động
+
+# Dòng trạng thái ở bảng điều khiển
+module.predatorsense.state.starting = Đang đọc cảm biến
+module.predatorsense.state.live = Cảm biến hoạt động
+module.predatorsense.state.auto = Quạt Tự động, do Rigbay đặt
+module.predatorsense.state.max = Quạt Tối đa, do Rigbay đặt
+module.predatorsense.state.max-unconfirmed = Quạt Tối đa, chưa xác nhận
+module.predatorsense.state.unavailable = Không đọc được số đo
+
+# Nội dung xác nhận
+module.predatorsense.detail.change = Chế độ quạt: {0} -> {1}
+module.predatorsense.detail.set = Đặt chế độ quạt thành {0}
+
+# Lệnh
+module.predatorsense.cmd.status = In nhiệt độ và tốc độ quạt
+module.predatorsense.cmd.fan = Đặt chế độ quạt: auto hoặc max (có hỏi xác nhận)
+module.predatorsense.cmd.fan-usage = Cách dùng: rigbay predatorsense fan auto|max
+module.predatorsense.cmd.not-running = PredatorSense đang không chạy.
+module.predatorsense.cmd.no-readings = Chưa đổi: không đọc được cảm biến.
+module.predatorsense.cmd.not-confirmed = Chưa được xác nhận. Không có gì thay đổi.
+module.predatorsense.cmd.fan-done = Đã đặt chế độ quạt thành {0}. {1}
+module.predatorsense.status.model = Máy: {0}
+module.predatorsense.status.line = {0}: {1}
+module.predatorsense.status.not-available = không có
+module.predatorsense.status.fan-mode = Chế độ quạt, Rigbay đặt lần cuối: {0}
+
+# Thông báo
+module.predatorsense.toast.fan-title = Chế độ quạt
+module.predatorsense.toast.fan-set = Đã đặt quạt thành {0}.
+module.predatorsense.toast.fan-failed = Chưa đổi. {0}

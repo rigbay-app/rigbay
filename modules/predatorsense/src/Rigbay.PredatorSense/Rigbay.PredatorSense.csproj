@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The PredatorSense module for Rigbay. In the host repository it references Rigbay.Abstractions by project; in its own
+    repository replace that ProjectReference by
+      <PackageReference Include="Rigbay.Abstractions" Version="0.1.*" ExcludeAssets="runtime" />
+    Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.PredatorSense</RootNamespace>
+    <AssemblyName>Rigbay.PredatorSense</AssemblyName>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute"><_Parameter1>windows</_Parameter1></AssemblyAttribute>
+    <InternalsVisibleTo Include="Rigbay.PredatorSense.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <!-- Not part of the host (the host's default context does not have it); the loader rule finds it in this folder. -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+  </ItemGroup>
+
+</Project>
