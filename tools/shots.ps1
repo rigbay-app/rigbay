@@ -1,6 +1,7 @@
 # Renders the app window itself (PrintWindow on its own HWND, never the screen) into tools\shots\*.png, in the states
 # the task lists: dashboard, empty, failed, unsupported, module page on and off, Vietnamese, in dark and light.
-param([string]$Out = (Join-Path $PSScriptRoot 'shots'))
+[CmdletBinding(PositionalBinding=$false)]
+param([string]$Out = (Join-Path $PSScriptRoot 'shots'), [Parameter(ValueFromRemainingArguments)][string[]]$Names)
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force $Out | Out-Null
 $fan = 'enable:demo-fan;wait:1800'
@@ -9,6 +10,9 @@ $jobs = @(
     @{ n = 'dashboard-light';       a = '--theme', 'light', '--script', $fan },
     @{ n = 'empty-dark';            a = '--theme', 'dark',  '--modules', (Join-Path $PSScriptRoot 'out\modules-empty') },
     @{ n = 'empty-light';           a = '--theme', 'light', '--modules', (Join-Path $PSScriptRoot 'out\modules-empty') },
+    @{ n = 'invalid-dark';          a = '--theme', 'dark',  '--script', 'page:demo-bad-manifest' },
+    @{ n = 'invalid-light';         a = '--theme', 'light', '--script', 'page:demo-bad-manifest' },
+    @{ n = 'invalid-vi-dark';       a = '--theme', 'dark',  '--lang', 'vi', '--script', 'page:demo-bad-manifest' },
     @{ n = 'failed-dark';           a = '--theme', 'dark',  '--script', 'enable:demo-broken;page:demo-broken' },
     @{ n = 'failed-light';          a = '--theme', 'light', '--script', 'enable:demo-broken;page:demo-broken' },
     @{ n = 'unsupported-dark';      a = '--theme', 'dark',  '--script', 'page:demo-lighting' },
@@ -33,7 +37,8 @@ $jobs = @(
     @{ n = 'module-on-tall-dark';   a = '--theme', 'dark',  '--size', '1240x1500', '--script', "$fan;page:demo-fan" },
     @{ n = 'narrow-dark';           a = '--theme', 'dark',  '--size', '860x700', '--script', "$fan;page:demo-fan" }
 )
-if ($args.Count -gt 0) { $jobs = $jobs | Where-Object { $args -contains $_.n } }
+$only = @($Names)
+if ($only.Count -gt 0) { $jobs = $jobs | Where-Object { $only -contains $_.n } }
 foreach ($j in $jobs) {
     $png = Join-Path $Out ($j.n + '.png')
     Remove-Item $png -ErrorAction SilentlyContinue

@@ -24,3 +24,44 @@ core.command.unknown-module = Không có module '{0}'
 core.command.not-running = Module '{0}' chưa chạy
 core.command.unknown-verb = Module '{0}' không có lệnh '{1}'
 core.command.failed = Module '{0}' bị lỗi: {1}
+
+core.value.on = Bật
+core.value.off = Tắt
+core.value.unbound = Chưa đặt
+
+core.manifest.issue = {0}: {1}
+core.manifest.file-missing = không có tệp
+core.manifest.file-too-large = tệp lớn hơn {0} KiB
+core.manifest.file-unreadable = không đọc được tệp: {0}
+core.manifest.not-json = không phải JSON hợp lệ: {0}
+core.manifest.not-object = cấp trên cùng phải là một đối tượng
+core.manifest.unknown-field = trường không biết (bỏ qua)
+core.manifest.required-integer = bắt buộc, một số nguyên
+core.manifest.newer-format = {0} là định dạng manifest mới hơn bản host này đọc được (1)
+core.manifest.must-be-one = phải là 1
+core.manifest.id-pattern = dùng chữ thường, chữ số và dấu gạch ngang đơn
+core.manifest.id-reserved = '{0}' là tên dành riêng
+core.manifest.id-folder = phải trùng tên thư mục '{0}'
+core.manifest.semver = phải là phiên bản ngữ nghĩa như 1.2.3
+core.manifest.entry-required = bắt buộc, một đối tượng có 'assembly' và 'type'
+core.manifest.assembly-no-folder = phải là tên tệp, không có thư mục
+core.manifest.assembly-dll = phải kết thúc bằng .dll
+core.manifest.assembly-abstractions = không được là Rigbay.Abstractions.dll
+core.manifest.assembly-missing = '{0}' không nằm trong thư mục module
+core.manifest.type-name = phải là tên kiểu đầy đủ như My.Module.MainModule
+core.manifest.host-api-invalid = '{0}' không phải khoảng phiên bản như '>=0.1 <1.0'
+core.manifest.group-values = phải là một trong power, cooling, network, display, monitoring, other
+core.manifest.languages-name = phải là tên thư mục
+core.manifest.languages-relative = phải là thư mục tương đối nằm trong thư mục module
+core.manifest.homepage-url = phải là địa chỉ http hoặc https
+core.manifest.must-be-object = phải là một đối tượng
+core.manifest.must-be-bool = phải là true hoặc false
+core.manifest.must-be-string-array = phải là mảng chuỗi
+core.manifest.string-entries = mỗi phần tử phải là chuỗi dài 1 đến 200 ký tự
+core.manifest.required-string = bắt buộc, một chuỗi
+core.manifest.length-range = phải dài từ {0} đến {1} ký tự
+
+core.command.version-host = Rigbay {0}
+core.command.version-abstractions = Rigbay.Abstractions {0}
+core.command.version-api = API host {0}
+core.command.no-modules = Chưa cài module nào

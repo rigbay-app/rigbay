@@ -52,6 +52,8 @@ public sealed class ModuleEntry
     private ModuleReason? _reason;
     private Exception? _fault;
     private PageModel? _page;
+    private PageModel? _lastPage;
+    private readonly Dictionary<Row, IDisposable> _editors = new(ReferenceEqualityComparer.Instance);
 
     internal ModuleEntry(RigbayHost host, string folder)
     {
@@ -77,6 +79,13 @@ public sealed class ModuleEntry
     public ModuleReason? Reason { get { lock (_gate) return _reason; } }
     public Exception? Fault { get { lock (_gate) return _fault; } }
     public PageModel? Page { get { lock (_gate) return _page; } }
+
+    /// <summary>
+    /// The last page the module built, kept after <see cref="Disable"/>, a stop or a fault, so the host can show the rows
+    /// disabled while the module is off. Null until the module has been enabled once. Editors for its rows are not kept
+    /// alive: they are disposed when the module stops (see <see cref="RowEditors"/>).
+    /// </summary>
+    public PageModel? LastPage { get { lock (_gate) return _lastPage; } }
     /// <summary>True once a load context for the module exists, that is, once any module code could have run. False for invalid or incompatible modules.</summary>
     public bool HasLoadedCode => _context is not null;
 
@@ -119,7 +128,7 @@ public sealed class ModuleEntry
 
     /// <summary>The reason as text in the current language.</summary>
     public string ResolveReason(ModuleReason reason) =>
-        reason.ModuleId is null ? Host.Languages.F(reason.Key, reason.Args) : (reason.Args.Length > 0 ? Localisation.F(reason.Key, reason.Args) : Localisation.T(reason.Key));
+        reason.ModuleId is null ? Host.Languages.F(reason.Key, reason.Args.Select(a => a is IReadOnlyList<ManifestIssue> issues ? ManifestIssues.Summary(issues, Host.Languages) : a).ToArray()) : (reason.Args.Length > 0 ? Localisation.F(reason.Key, reason.Args) : Localisation.T(reason.Key));
 
     public void SetPending(PendingChange change, string? version = null)
     {
@@ -138,7 +147,7 @@ public sealed class ModuleEntry
 
         if (result.Manifest is not { } m)
         {
-            SetState(ModuleLifecycle.Invalid, ModuleReason.Host("core.reason.manifest-invalid", result.ErrorSummary));
+            SetState(ModuleLifecycle.Invalid, ModuleReason.Host("core.reason.manifest-invalid", result.Issues));
             Log.Error("manifest invalid: " + result.ErrorSummary);
             return;
         }
@@ -219,6 +228,7 @@ public sealed class ModuleEntry
             _stop = new CancellationTokenSource();
         }
 
+        DisposeEditors(); // left over from the previous page (made for LastPage while the module was off)
         _initialized = true;
         if (!RunGuarded("Initialize", () => _instance!.Initialize(_services!), Host.Options.InitializeTimeout)) return false;
         lock (_gate)
@@ -238,7 +248,7 @@ public sealed class ModuleEntry
                 return false;
             }
         }
-        lock (_gate) _page = page;
+        lock (_gate) { _page = page; if (page is not null) _lastPage = page; }
 
         Log.Info("enabled");
         if (persist) Host.SetEnabled(Id, true);
@@ -372,6 +382,26 @@ public sealed class ModuleEntry
         IDisposable[] subs;
         lock (_gate) { subs = _subscriptions.ToArray(); _subscriptions.Clear(); }
         foreach (var s in subs) { try { s.Dispose(); } catch (Exception) { } }
+        DisposeEditors();
+    }
+
+    /// <summary>One editor per row instance: returns the cached one or creates it. Disposed when the module stops or faults.</summary>
+    internal TEditor GetOrCreateEditor<TEditor>(Row row, Func<TEditor> create) where TEditor : class, IDisposable
+    {
+        lock (_gate)
+        {
+            if (_editors.TryGetValue(row, out var existing) && existing is TEditor typed) return typed;
+            var made = create();
+            _editors[row] = made;
+            return made;
+        }
+    }
+
+    private void DisposeEditors()
+    {
+        IDisposable[] editors;
+        lock (_gate) { editors = _editors.Values.ToArray(); _editors.Clear(); }
+        foreach (var e in editors) { try { e.Dispose(); } catch (Exception) { } }
     }
 
     internal void TrackSubscription(IDisposable subscription)

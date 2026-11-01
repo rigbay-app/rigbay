@@ -1,22 +1,23 @@
-SELFTEST PASS elevated: IsUserAnAdmin=True user=MINHDEVTREE\minhh pid=25780
+SELFTEST PASS elevated: IsUserAnAdmin=True user=MINHDEVTREE\minhh pid=32092
 SELFTEST PASS runtime: Windows App SDK runtime 8000.994.2142.0; Microsoft.ui.xaml.dll from C:\Program Files\WindowsApps\Microsoft.WindowsAppRuntime.1.8_8000.994.2142.0_x64__8wekyb3d8bbwe\Microsoft.UI.Xaml.dll
 SELFTEST PASS dpi and theme: window dpi=96 rasterizationScale=1 ActualTheme=Dark
 SELFTEST PASS shell: navigation built: 17 items: Dashboard, Power, Battery guard (demo), Cooling, Fan studio (demo), Network, Future module (demo), Display, Keyboard lighting (demo), Other, demo-bad-manifest, Throws in a button (test), Throws on edit (test), Throws on the UI thread (test), Modules, Settings, Log
-SELFTEST PASS shell: status line: Rigbay 0.1.0  �  API 0.1  �  Windows App SDK 8000.994.2142.0 (WinUI 3.0.0.0)  �  .NET 10.0.14  �  Administrator
+SELFTEST PASS shell: status line: Rigbay 0.1.0  ·  API 0.1  ·  Windows App SDK 8000.994.2142.0 (WinUI 3.0.0.0)  ·  .NET 10.0.14  ·  Administrator
 SELFTEST PASS shell: modules listed: modules: demo-bad-manifest=Invalid, demo-broken=Off, demo-fan=Off, demo-future=Incompatible, demo-lighting=Unsupported, demo-throw-button=Off, demo-throw-edit=Off, demo-throw-ui=Off
 SELFTEST PASS module demo-fan is Off: state=Off bay=Off reason=''
 SELFTEST PASS module demo-lighting is Unsupported: state=Unsupported bay=Unsupported reason='No supported keyboard backlight controller was found'
 SELFTEST PASS module demo-future is Incompatible: state=Incompatible bay=Unsupported reason='Needs host API >=1.0 <2.0, this host is API 0.1'
 SELFTEST PASS module demo-bad-manifest is Invalid: state=Invalid bay=Failed reason='The module manifest is not valid: id: use lowercase letters, digits and single dashes; name: must be 1 to 60 characters; version: must be a semantic version like 1.2.3; group: must be one of power, cooling, network, display, monitoring, other'
+SELFTEST PASS invalid manifest: short one-line reason, localised, with the detail kept apart: short='4 problems in module.json'; 4 issue lines, first='id: use lowercase letters, digits and single dashes'
 SELFTEST PASS module demo-fan enables: state=Running page groups=3
 SELFTEST PASS dashboard: one bay row per module: 8 rows for 8 modules
 SELFTEST PASS dashboard: live readings: cpu.temp=60 Celsius from demo-fan
 SELFTEST PASS module page: rows rendered (level 1): 12 rows -> 10 SettingsCard, 1 SettingsExpander in the tree (enable row included)
 SELFTEST PASS module page: custom control (level 2): Polyline from the module's CreateCustomControl found in the tree
 SELFTEST PASS module page: enable row first: first switch IsOn=True
-SELFTEST PASS search: row headers and descriptions: 36 entries; 'fan mode' -> Fan mode  �  Fan studio (demo)
-SELFTEST PASS flow: declined hardware change leaves the module alone: value=auto; asked=1x; question='Sets the fan mode of the pretend device. Maximum is loud. | Fan mode: Auto  Maximum'; status='Cancelled. Nothing changed'
-SELFTEST PASS flow: the question shows the exact change: Sets the fan mode of the pretend device. Maximum is loud. | Fan mode: Auto  Maximum
+SELFTEST PASS search: row headers and descriptions: 36 entries; 'fan mode' -> Fan mode  ·  Fan studio (demo)
+SELFTEST PASS flow: declined hardware change leaves the module alone: value=auto; asked=1x; question='Sets the fan mode of the pretend device. Maximum is loud. | Fan mode: Auto → Maximum'; status='Cancelled. Nothing changed'
+SELFTEST PASS flow: the question shows the exact change: Sets the fan mode of the pretend device. Maximum is loud. | Fan mode: Auto → Maximum
 SELFTEST PASS flow: approved change is applied and read back: value=max; status='Applied. Now Maximum'; revert offered=True
 SELFTEST PASS flow: revert restores the previous value: value=auto; status='Reverted to Auto'
 SELFTEST PASS flow: apply-or-revert keeps a draft: value still 45 before Apply
@@ -42,11 +43,14 @@ SELFTEST PASS command: rigbay demo-fan status: exit=0 (want 0) output='mode=auto
 SELFTEST PASS command: unknown verb: exit=2 (want 2) output='Module 'demo-fan' has no verb 'nope' | demo-fan max  Switch the fans to maximum (asks first) | demo-fan status  Print fan mode, power limit and boost'
 SELFTEST PASS command: unknown module: exit=2 (want 2) output='No module named 'nope''
 SELFTEST PASS command: module not running: exit=2 (want 2) output='Module 'demo-lighting' is not running'
+SELFTEST PASS command: rigbay version (core verb, same text headless and forwarded): exit=0 (want 0) output='Rigbay 0.1.0 | Rigbay.Abstractions 0.1.0 | Host API 0.1'
+SELFTEST PASS command: rigbay list: id state version enabled|disabled [reason]: exit=0 (want 0) output='demo-bad-manifest  Failed  -  disabled  The module manifest is not valid: id: use lowercase letters, digits and single dashes; name: must be 1 to 60 characters; version: must be a semantic version like 1.2.3; group: must be one of power, cooling, network, display, monitoring, other | demo-broken  Off  0.1.0  disabled | demo-fan  Ready  0.2.0  enabled | demo-future  Unsupported  2.0.0  disabled  Needs host API >=1.0 <2.0, this host is API 0.1 | demo-lighting  Unsupported  0.1.0  disabled  No supported keyboard backlight controller was found | demo-throw-button  Off  0.1.0  disabled | demo-throw-edit  Off  0.1.0  disabled | demo-throw-ui  Off  0.1.0  disabled'
+SELFTEST PASS command: list has the version and enabled|disabled columns: demo-bad-manifest  Failed  -  disabled  The module manifest is not valid: id: use lowercase letters, digits and single dashes; name: must be 1 to 60 characters; version: must be a semantic version like 1.2.3; group: must be one of power, cooling, network, display, monitoring, other | demo-broken  Off  0.1.0  disabled | demo-fan  Ready  0.2.0  enabled | demo-future  Unsupported  2.0.0  disabled  Needs host API >=1.0 <2.0, this host is API 0.1 | demo-lighting  Unsupported  0.1.0  disabled  No supported keyboard backlight controller was found | demo-throw-button  Off  0.1.0  disabled | demo-throw-edit  Off  0.1.0  disabled | demo-throw-ui  Off  0.1.0  disabled
 SELFTEST PASS command: hardware verb refused without approval: exit=1 (want 1) output='Not confirmed. Nothing changed.'
 SELFTEST PASS command: forwarded to the running instance over the pipe: 0 'mode=auto pl1=45W boost=False'
-SELFTEST PASS language: host strings switch without restart: Dashboard item reads 'B?ng di?u khi?n'
-SELFTEST PASS language: module keys switch too: 'Ch? d? qu?t'; search 'qu?t' -> 6 hits
-SELFTEST PASS language: an open module page is redrawn: group headers: L�m m�t, Hi?u nang, S? do
+SELFTEST PASS language: host strings switch without restart: Dashboard item reads 'Bảng điều khiển'
+SELFTEST PASS language: module keys switch too: 'Chế độ quạt'; search 'quạt' -> 6 hits
+SELFTEST PASS language: an open module page is redrawn: group headers: Làm mát, Hiệu năng, Số đo
 SELFTEST PASS language: back to English
 SELFTEST PASS fault: a module that throws in Initialize becomes Failed: state=Faulted bay=Failed reason='The module failed in Initialize: InvalidOperationException: Demo: the battery controller did not answer.'
 SELFTEST PASS fault: the culprit is found from the exception's stack: ModuleOf(fault) -> demo-broken
@@ -60,6 +64,5 @@ SELFTEST PASS fault: a throwing UI update marks its module faulted: state=Faulte
 SELFTEST PASS fault: the process and the UI thread are still alive: dispatcher round trip after all of the above
 SELFTEST PASS fault: the dashboard shows failed bays: 6 failed bays among 8 rows
 SELFTEST PASS single instance: the second start exits and shows the first: second exited=True code=0; show requests 0->1
-SELFTEST PASS log page shows the host log: 18078 characters; has SELFTEST lines and the fault lines
-SELFTEST DONE pass=63 fail=0
-exit code of the app: 0; failed checks: 0
+SELFTEST PASS log page shows the host log: 20110 characters; has SELFTEST lines and the fault lines
+SELFTEST DONE pass=67 fail=0

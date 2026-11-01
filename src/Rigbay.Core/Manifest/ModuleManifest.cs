@@ -33,9 +33,26 @@ public sealed record ModuleManifest(
     string LanguagesFolder,
     string? Homepage);
 
-/// <summary>A problem found in a manifest. <see cref="Path"/> is the JSON path (<c>entry.type</c>).</summary>
-public sealed record ManifestIssue(string Path, string Message, bool IsError = true)
+/// <summary>
+/// A problem found in a manifest. <see cref="Path"/> is the JSON path (<c>entry.type</c>); the text is a host language key
+/// (<c>core.manifest.*</c>) with arguments, so the host can show it in the user's language
+/// (<see cref="Localise(LanguageCatalog)"/>). <see cref="Message"/> is the English text, for logs and tests.
+/// </summary>
+/// <param name="Path">JSON path of the field.</param>
+/// <param name="Key">Host language key of the problem text.</param>
+/// <param name="Args">Values for <c>{0}</c>, <c>{1}</c> in the text.</param>
+/// <param name="IsError">False for a warning (the manifest is still usable).</param>
+public sealed record ManifestIssue(string Path, string Key, object[]? Args = null, bool IsError = true)
 {
+    /// <summary>The problem in English (from Core's own language file).</summary>
+    public string Message => CoreEnglish.Format(Key, Args);
+
+    /// <summary>The problem in the current language of <paramref name="languages"/>, without the path.</summary>
+    public string Localise(LanguageCatalog languages) => languages.F(Key, Args ?? Array.Empty<object>());
+
+    /// <summary>The path and the problem in the current language: <c>entry.type: must be a full type name ...</c>.</summary>
+    public string LocaliseLine(LanguageCatalog languages) => languages.F("core.manifest.issue", Path, Localise(languages));
+
     public override string ToString() => $"{Path}: {Message}";
 }
 
@@ -44,7 +61,39 @@ public sealed record ManifestResult(ModuleManifest? Manifest, IReadOnlyList<Mani
 {
     public bool IsValid => Manifest is not null;
 
+    /// <summary>All errors in English, joined by "; " (logs, tests).</summary>
     public string ErrorSummary => string.Join("; ", Issues.Where(i => i.IsError).Select(i => i.ToString()));
+
+    /// <summary>All errors in the current language, joined by "; ".</summary>
+    public string LocaliseErrors(LanguageCatalog languages) => ManifestIssues.Summary(Issues, languages);
+}
+
+/// <summary>Helpers for lists of <see cref="ManifestIssue"/>.</summary>
+public static class ManifestIssues
+{
+    /// <summary>The errors among <paramref name="issues"/> in the current language, joined by "; ".</summary>
+    public static string Summary(IEnumerable<ManifestIssue> issues, LanguageCatalog languages) =>
+        string.Join("; ", issues.Where(i => i.IsError).Select(i => i.LocaliseLine(languages)));
+}
+
+/// <summary>Core's own English texts, for the places that need text without a catalog (logs, <see cref="ManifestIssue.Message"/>).</summary>
+internal static class CoreEnglish
+{
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> Texts = new(() =>
+    {
+        var assembly = typeof(CoreEnglish).Assembly;
+        using var stream = assembly.GetManifestResourceStream("Rigbay.Core.lang.en.lang");
+        if (stream is null) return new Dictionary<string, string>();
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+        return LanguageFile.Parse(reader, "en.lang").Text;
+    });
+
+    public static string Format(string key, object[]? args)
+    {
+        if (!Texts.Value.TryGetValue(key, out var text)) return key;
+        try { return string.Format(System.Globalization.CultureInfo.InvariantCulture, text, args ?? Array.Empty<object>()); }
+        catch (FormatException) { return text; }
+    }
 }
 
 /// <summary>Reads and validates <c>module.json</c>. Reports all problems at once and never throws for bad input.</summary>
@@ -76,13 +125,13 @@ public static class ManifestReader
         try
         {
             var info = new FileInfo(path);
-            if (!info.Exists) return Fail("module.json", "the file does not exist");
-            if (info.Length > MaxBytes) return Fail("module.json", $"the file is larger than {MaxBytes / 1024} KiB");
+            if (!info.Exists) return Fail("module.json", "core.manifest.file-missing");
+            if (info.Length > MaxBytes) return Fail("module.json", "core.manifest.file-too-large", MaxBytes / 1024);
             json = File.ReadAllText(path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return Fail("module.json", "cannot read the file: " + ex.Message);
+            return Fail("module.json", "core.manifest.file-unreadable", ex.Message);
         }
 
         var result = Parse(json, Path.GetFileName(Path.TrimEndingDirectorySeparator(folder)));
@@ -90,7 +139,7 @@ public static class ManifestReader
         {
             var issues = result.Issues.ToList();
             if (!File.Exists(Path.Combine(folder, m.EntryAssembly)))
-                issues.Add(new ManifestIssue("entry.assembly", $"'{m.EntryAssembly}' is not in the module folder"));
+                issues.Add(Issue("entry.assembly", "core.manifest.assembly-missing", m.EntryAssembly));
             if (issues.Any(i => i.IsError)) return new ManifestResult(null, issues);
             return new ManifestResult(m, issues);
         }
@@ -108,63 +157,63 @@ public static class ManifestReader
         }
         catch (JsonException ex)
         {
-            return Fail("module.json", "not valid JSON: " + ex.Message);
+            return Fail("module.json", "core.manifest.not-json", ex.Message);
         }
 
         using (doc)
         {
             var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return Fail("module.json", "the top level must be an object");
+            if (root.ValueKind != JsonValueKind.Object) return Fail("module.json", "core.manifest.not-object");
 
             foreach (var p in root.EnumerateObject())
-                if (!KnownTop.Contains(p.Name)) issues.Add(new ManifestIssue(p.Name, "unknown field (ignored)", IsError: false));
+                if (!KnownTop.Contains(p.Name)) issues.Add(new ManifestIssue(p.Name, "core.manifest.unknown-field", IsError: false));
 
             int version = 0;
             if (!root.TryGetProperty("manifestVersion", out var mv) || mv.ValueKind != JsonValueKind.Number || !mv.TryGetInt32(out version))
-                issues.Add(new ManifestIssue("manifestVersion", "required, an integer"));
+                issues.Add(Issue("manifestVersion", "core.manifest.required-integer"));
             else if (version > 1)
-                issues.Add(new ManifestIssue("manifestVersion", $"{version} is a newer manifest format than this host reads (1)"));
+                issues.Add(Issue("manifestVersion", "core.manifest.newer-format", version));
             else if (version < 1)
-                issues.Add(new ManifestIssue("manifestVersion", "must be 1"));
+                issues.Add(Issue("manifestVersion", "core.manifest.must-be-one"));
 
             var id = Text(root, "id", issues, 2, 40);
             if (id is not null)
             {
-                if (!IdPattern.IsMatch(id)) issues.Add(new ManifestIssue("id", "use lowercase letters, digits and single dashes"));
-                else if (Reserved.Contains(id)) issues.Add(new ManifestIssue("id", $"'{id}' is reserved"));
+                if (!IdPattern.IsMatch(id)) issues.Add(Issue("id", "core.manifest.id-pattern"));
+                else if (Reserved.Contains(id)) issues.Add(Issue("id", "core.manifest.id-reserved", id));
                 else if (folderName is not null && !string.Equals(folderName, id, StringComparison.Ordinal))
-                    issues.Add(new ManifestIssue("id", $"must equal the folder name '{folderName}'"));
+                    issues.Add(Issue("id", "core.manifest.id-folder", folderName));
             }
 
             var name = Text(root, "name", issues, 1, 60);
             var ver = Text(root, "version", issues, 1, 64);
-            if (ver is not null && !SemVer.IsMatch(ver)) issues.Add(new ManifestIssue("version", "must be a semantic version like 1.2.3"));
+            if (ver is not null && !SemVer.IsMatch(ver)) issues.Add(Issue("version", "core.manifest.semver"));
             var author = Text(root, "author", issues, 1, 100);
             var description = Text(root, "description", issues, 1, 200);
 
             string? entryAssembly = null, entryType = null;
             if (!root.TryGetProperty("entry", out var entry) || entry.ValueKind != JsonValueKind.Object)
-                issues.Add(new ManifestIssue("entry", "required, an object with 'assembly' and 'type'"));
+                issues.Add(Issue("entry", "core.manifest.entry-required"));
             else
             {
                 entryAssembly = Text(entry, "assembly", issues, 1, 200, "entry.");
                 if (entryAssembly is not null)
                 {
                     if (entryAssembly.IndexOfAny(new[] { '/', '\\', ':' }) >= 0 || entryAssembly == "." || entryAssembly.Contains(".."))
-                        issues.Add(new ManifestIssue("entry.assembly", "must be a file name without a folder"));
+                        issues.Add(Issue("entry.assembly", "core.manifest.assembly-no-folder"));
                     else if (!entryAssembly.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-                        issues.Add(new ManifestIssue("entry.assembly", "must end with .dll"));
+                        issues.Add(Issue("entry.assembly", "core.manifest.assembly-dll"));
                     else if (entryAssembly.Equals("Rigbay.Abstractions.dll", StringComparison.OrdinalIgnoreCase))
-                        issues.Add(new ManifestIssue("entry.assembly", "cannot be Rigbay.Abstractions.dll"));
+                        issues.Add(Issue("entry.assembly", "core.manifest.assembly-abstractions"));
                 }
                 entryType = Text(entry, "type", issues, 1, 300, "entry.");
-                if (entryType is not null && !TypeName.IsMatch(entryType)) issues.Add(new ManifestIssue("entry.type", "must be a full type name like My.Module.MainModule"));
+                if (entryType is not null && !TypeName.IsMatch(entryType)) issues.Add(Issue("entry.type", "core.manifest.type-name"));
             }
 
             ApiVersionRange? range = null;
             var hostApi = Text(root, "hostApi", issues, 1, 100);
             if (hostApi is not null && !ApiVersionRange.TryParse(hostApi, out range, out var rangeError))
-                issues.Add(new ManifestIssue("hostApi", rangeError));
+                issues.Add(Issue("hostApi", "core.manifest.host-api-invalid", hostApi));
 
             ModuleGroup group = ModuleGroup.Other;
             var groupText = Text(root, "group", issues, 1, 20);
@@ -173,7 +222,7 @@ public static class ManifestReader
                 ModuleGroup? found = null;
                 foreach (var g in Enum.GetValues<ModuleGroup>())
                     if (g.ToString().ToLowerInvariant() == groupText) found = g;
-                if (found is null) issues.Add(new ManifestIssue("group", "must be one of power, cooling, network, display, monitoring, other"));
+                if (found is null) issues.Add(Issue("group", "core.manifest.group-values"));
                 else group = found.Value;
             }
 
@@ -182,12 +231,12 @@ public static class ManifestReader
             var languages = "lang";
             if (root.TryGetProperty("languages", out var lang))
             {
-                if (lang.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(lang.GetString())) issues.Add(new ManifestIssue("languages", "must be a folder name"));
+                if (lang.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(lang.GetString())) issues.Add(Issue("languages", "core.manifest.languages-name"));
                 else
                 {
                     languages = lang.GetString()!.Trim();
                     if (Path.IsPathRooted(languages) || languages.Split('/', '\\').Any(p => p == ".." || p == ".") || languages.Contains(':'))
-                        issues.Add(new ManifestIssue("languages", "must be a relative folder inside the module folder"));
+                        issues.Add(Issue("languages", "core.manifest.languages-relative"));
                 }
             }
 
@@ -195,7 +244,7 @@ public static class ManifestReader
             if (root.TryGetProperty("homepage", out var hp))
             {
                 if (hp.ValueKind != JsonValueKind.String || !Uri.TryCreate(hp.GetString(), UriKind.Absolute, out var uri) || (uri.Scheme != "http" && uri.Scheme != "https"))
-                    issues.Add(new ManifestIssue("homepage", "must be an http or https address"));
+                    issues.Add(Issue("homepage", "core.manifest.homepage-url"));
                 else homepage = hp.GetString();
             }
 
@@ -211,14 +260,14 @@ public static class ManifestReader
         if (!root.TryGetProperty("requires", out var req)) return ModuleRequires.None;
         if (req.ValueKind != JsonValueKind.Object)
         {
-            issues.Add(new ManifestIssue("requires", "must be an object"));
+            issues.Add(Issue("requires", "core.manifest.must-be-object"));
             return ModuleRequires.None;
         }
         bool admin = false;
         if (req.TryGetProperty("admin", out var a))
         {
             if (a.ValueKind is JsonValueKind.True or JsonValueKind.False) admin = a.GetBoolean();
-            else issues.Add(new ManifestIssue("requires.admin", "must be true or false"));
+            else issues.Add(Issue("requires.admin", "core.manifest.must-be-bool"));
         }
         return new ModuleRequires(admin, Strings(req, "network", issues), Strings(req, "registry", issues), Strings(req, "services", issues));
     }
@@ -228,14 +277,14 @@ public static class ManifestReader
         if (!parent.TryGetProperty(name, out var arr)) return Array.Empty<string>();
         if (arr.ValueKind != JsonValueKind.Array)
         {
-            issues.Add(new ManifestIssue("requires." + name, "must be an array of strings"));
+            issues.Add(Issue("requires." + name, "core.manifest.must-be-string-array"));
             return Array.Empty<string>();
         }
         var list = new List<string>();
         foreach (var item in arr.EnumerateArray())
         {
             var s = item.ValueKind == JsonValueKind.String ? item.GetString() : null;
-            if (string.IsNullOrWhiteSpace(s) || s.Length > 200) issues.Add(new ManifestIssue("requires." + name, "every entry must be a string of 1 to 200 characters"));
+            if (string.IsNullOrWhiteSpace(s) || s.Length > 200) issues.Add(Issue("requires." + name, "core.manifest.string-entries"));
             else list.Add(s);
         }
         return list;
@@ -245,17 +294,19 @@ public static class ManifestReader
     {
         if (!parent.TryGetProperty(name, out var el) || el.ValueKind != JsonValueKind.String)
         {
-            issues.Add(new ManifestIssue(prefix + name, "required, a string"));
+            issues.Add(Issue(prefix + name, "core.manifest.required-string"));
             return null;
         }
         var s = el.GetString()!.Trim();
         if (s.Length < min || s.Length > max)
         {
-            issues.Add(new ManifestIssue(prefix + name, $"must be {min} to {max} characters"));
+            issues.Add(Issue(prefix + name, "core.manifest.length-range", min, max));
             return null;
         }
         return s;
     }
 
-    private static ManifestResult Fail(string path, string message) => new(null, new[] { new ManifestIssue(path, message) });
+    private static ManifestIssue Issue(string path, string key, params object[] args) => new(path, key, args);
+
+    private static ManifestResult Fail(string path, string key, params object[] args) => new(null, new[] { Issue(path, key, args) });
 }

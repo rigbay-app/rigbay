@@ -17,8 +17,8 @@ namespace Rigbay.App;
 /// </summary>
 sealed class RowRenderer
 {
-    /// <summary>Per row instance: its editor and the last status line. Survives page rebuilds, so editors are not created twice for one row.</summary>
-    sealed class RowState { public object? Editor; public string Status = ""; public bool StatusError; public bool ButtonCanRevert; }
+    /// <summary>Per row instance: the last status line shown next to it, so it survives a page rebuild. Editors are cached by the core (<c>RowEditors.For</c>).</summary>
+    sealed class RowState { public string Status = ""; public bool StatusError; public bool ButtonCanRevert; }
 
     static readonly ConditionalWeakTable<Row, RowState> States = new();
 
@@ -151,14 +151,15 @@ sealed class RowRenderer
             chrome.SetStatus(state.Status, state.StatusError);
         }
 
-        async Task Run(Func<Task<EditResult>> apply, T target)
+        async Task Run(Func<string?, Task<EditResult>> apply, T target)
         {
             if (busy) return;
             busy = true;
             try
             {
-                using var detail = row.ChangesHardware ? ApprovalPrompt.WithDetail($"{L.T(row.HeaderKey)}: {fmt(read())} → {fmt(target)}") : null;
-                var result = await apply();
+                // the exact change the approval dialog shows; only rows that change hardware ask
+                string? detail = row.ChangesHardware ? $"{L.T(row.HeaderKey)}: {fmt(read())} → {fmt(target)}" : null;
+                var result = await apply(detail);
                 switch (result.Outcome)
                 {
                     case EditOutcome.Applied:
@@ -192,12 +193,12 @@ sealed class RowRenderer
         Task Edit(T value)
         {
             state.Status = ""; state.StatusError = false;
-            if (editor.Mode == ApplyMode.Immediate) return Run(() => editor.SubmitAsync(value), value);
+            if (editor.Mode == ApplyMode.Immediate) return Run(d => editor.SubmitAsync(value, d), value);
             editor.SetDraft(value);                       // raises Changed -> Sync
             return Task.CompletedTask;
         }
 
-        Task Apply() => Run(() => editor.ApplyAsync(), editor.Draft);
+        Task Apply() => Run(d => editor.ApplyAsync(d), editor.Draft);
 
         void Revert()
         {
@@ -226,11 +227,7 @@ sealed class RowRenderer
         return v => { _ = Edit(v); };
     }
 
-    ValueEditor<T> EditorFor<T>(Row row, Func<ValueEditor<T>> create, out RowState state)
-    {
-        state = States.GetValue(row, _ => new RowState());
-        return (ValueEditor<T>)(state.Editor ??= create());
-    }
+    static RowState StateOf(Row row) => States.GetValue(row, _ => new RowState());
 
     // ---------- the row kinds ----------
 
@@ -240,7 +237,7 @@ sealed class RowRenderer
         var sw = new ToggleSwitch { IsOn = t.Value.Value, OnContent = "", OffContent = "", MinWidth = 0 };
         AutomationProperties.SetName(sw, L.T(t.HeaderKey));
         var chrome = new Chrome(sw);
-        var editor = EditorFor(t, () => RowEditors.For(_e, t), out var state);
+        var editor = RowEditors.For(_e, t); var state = StateOf(t);
         var edit = Wire(t, editor, state, chrome, () => t.Value.Value, v => Host.T(v ? "value.on" : "value.off"),
             v => { if (sw.IsOn != v) { suppress = true; sw.IsOn = v; suppress = false; } });
         sw.Toggled += (_, _) => { if (!suppress) edit(sw.IsOn); };
@@ -262,7 +259,7 @@ sealed class RowRenderer
         AutomationProperties.SetName(cb, L.T(c.HeaderKey));
         var chrome = new Chrome(cb);
         string Label(string id) => c.Options.FirstOrDefault(o => o.Id == id) is { } o ? L.T(o.LabelKey) : id;
-        var editor = EditorFor(c, () => RowEditors.For(_e, c), out var state);
+        var editor = RowEditors.For(_e, c); var state = StateOf(c);
         var edit = Wire(c, editor, state, chrome, () => c.Value.Value, Label, Select);
         cb.SelectionChanged += (_, _) => { if (!suppress && cb.SelectedItem is ComboBoxItem it) edit((string)it.Tag); };
         return Card(c, chrome.Panel);
@@ -288,7 +285,7 @@ sealed class RowRenderer
             control = row;
         }
         var chrome = new Chrome(control);
-        var editor = EditorFor(n, () => RowEditors.For(_e, n), out var state);
+        var editor = RowEditors.For(_e, n); var state = StateOf(n);
         var edit = Wire(n, editor, state, chrome, () => n.Value.Value,
             v => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + (unit.Length > 0 ? " " + unit : ""),
             v => { if (nb.Value != v) { suppress = true; nb.Value = v; suppress = false; } });
@@ -302,7 +299,7 @@ sealed class RowRenderer
         var tb = new TextBox { MinWidth = 240, Text = x.Value.Value, MaxLength = x.MaxLength, PlaceholderText = x.PlaceholderKey != null ? L.T(x.PlaceholderKey) : "" };
         AutomationProperties.SetName(tb, L.T(x.HeaderKey));
         var chrome = new Chrome(tb);
-        var editor = EditorFor(x, () => RowEditors.For(_e, x), out var state);
+        var editor = RowEditors.For(_e, x); var state = StateOf(x);
         var edit = Wire(x, editor, state, chrome, () => x.Value.Value, v => v, v => { if (tb.Text != v) { suppress = true; tb.Text = v; suppress = false; } });
         tb.TextChanged += (_, _) => { if (!suppress) edit(tb.Text); };
         return Card(x, chrome.Panel);
@@ -314,7 +311,7 @@ sealed class RowRenderer
         var btn = new Button { Content = Show(s.Value.Value), MinWidth = 140 };
         AutomationProperties.SetName(btn, L.T(s.HeaderKey));
         var chrome = new Chrome(btn);
-        var editor = EditorFor(s, () => RowEditors.For(_e, s), out var state);
+        var editor = RowEditors.For(_e, s); var state = StateOf(s);
         var edit = Wire(s, editor, state, chrome, () => s.Value.Value, Show, g => btn.Content = Show(g));
         btn.Click += async (_, _) =>
         {
@@ -332,7 +329,7 @@ sealed class RowRenderer
     {
         var btn = new Button { Content = L.T(b.ButtonKey) };
         var chrome = new Chrome(btn);
-        var state = States.GetValue(b, _ => new RowState());
+        var state = StateOf(b);
         bool busy = false;
         string Message(ActionResult? r) => r?.Message is { } m && !string.IsNullOrEmpty(m.Key)
             ? (m.Key.StartsWith("core.", StringComparison.Ordinal) ? Host.Core.Languages.F(m.Key, m.Args ?? Array.Empty<object>()) : L.Resolve(m))
@@ -350,8 +347,8 @@ sealed class RowRenderer
             busy = true; btn.IsEnabled = false;
             try
             {
-                using var detail = b.ChangesHardware ? ApprovalPrompt.WithDetail($"{L.T(b.HeaderKey)}: {L.T(b.ButtonKey)}") : null;
-                var result = await RowEditors.InvokeButtonAsync(_e, b, _e.StopToken);
+                string? detail = b.ChangesHardware ? $"{L.T(b.HeaderKey)}: {L.T(b.ButtonKey)}" : null;
+                var result = await RowEditors.InvokeButtonAsync(_e, b, _e.StopToken, detail);
                 var msg = Message(result);
                 state.Status = msg.Length > 0 ? msg : Host.T(result.Succeeded ? "row.done" : "row.failed");
                 state.StatusError = !result.Succeeded && !(msg == Host.Core.Languages.T("core.approval.declined"));

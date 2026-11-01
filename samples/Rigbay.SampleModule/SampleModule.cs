@@ -96,7 +96,7 @@ public sealed class SampleModule : IModule
                         PlaceholderKey = "label.placeholder",
                         MaxLength = 20,
                         Apply = ApplyMode.ApplyRevert,
-                        Validate = text => text.Equals("reserved", StringComparison.OrdinalIgnoreCase) ? (LocalisedText?)LocalisedText.Of("label.reserved") : null,
+                        Validate = text => text.Equals("reserved", StringComparison.OrdinalIgnoreCase) ? LocalisedText.Of("label.reserved") : null,
                     },
                     new ShortcutRow("row.shortcut.header", _hotkey!.Gesture) { DescriptionKey = "row.shortcut.description" },
                 }),
@@ -144,7 +144,7 @@ public sealed class SampleModule : IModule
         _mode.Value = "normal";
         _limit.Value = 45;
         _label.Value = "";
-        _host?.Toast.Show(new ToastMessage("toast.title", "toast.body", ToastKind.Info));
+        _host?.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.body"), ToastKind.Info));
         return Task.FromResult(ActionResult.Ok());
     }
 

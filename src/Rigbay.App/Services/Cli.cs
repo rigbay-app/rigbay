@@ -62,8 +62,8 @@ static class Cli
         await Task.Run(host.Discover);
         try
         {
-            if (words[0] == "version") return (0, $"Rigbay {AppPaths.Version}, host API {HostApi.Current}");
-            if (words[0] is not ("list" or "help" or "--help" or "-h"))
+            // version, list and help are answered by the core (ExecuteCommandAsync), headless or forwarded alike
+            if (words[0] is not ("list" or "version" or "help" or "--help" or "-h"))
             {
                 var target = host.Find(words[0]);
                 if (target != null && host.IsEnabledByUser(target.Id) && target.Lifecycle == ModuleLifecycle.Off) await Task.Run(() => target.Enable());

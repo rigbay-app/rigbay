@@ -54,6 +54,7 @@ static class DashboardPage
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
         text.Children.Add(Ui.Text(e.DisplayName, trim: true));
         var state = Ui.Text("", "RbSecondaryCaption", trim: true);
+        state.TextWrapping = TextWrapping.NoWrap; state.MaxLines = 1;
         text.Children.Add(state);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
@@ -64,10 +65,11 @@ static class DashboardPage
             string detail = e.Lifecycle switch
             {
                 ModuleLifecycle.Running => e.Page?.Summary?.StateLine is { } line ? e.Localisation.Resolve(line.Value) : "",
-                _ => e.ReasonText(),
+                _ => e.ShortReasonText(),
             };
             state.Text = detail.Length > 0 ? $"{word}  ·  {detail}" : word;
-            ToolTipService.SetToolTip(state, state.Text);
+            var full = e.Lifecycle == ModuleLifecycle.Running ? detail : e.ReasonText();
+            ToolTipService.SetToolTip(state, full.Length > 0 ? $"{word}  ·  {full}" : null);
         }
         ShowState();
         if (e.Lifecycle == ModuleLifecycle.Running && e.Page?.Summary?.StateLine is { } sl)
@@ -121,7 +123,7 @@ static class ModulePage
         var page = new StackPanel();
 
         var right = new List<UIElement>();
-        foreach (var link in PageCache.Get(e)?.Links ?? Array.Empty<PageLink>())
+        foreach (var link in e.LastPage?.Links ?? Array.Empty<PageLink>())
             if (Uri.TryCreate(link.Url, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https")
                 right.Add(new HyperlinkButton { Content = e.Localisation.T(link.TextKey), NavigateUri = uri });
         if (right.Count == 0 && e.Manifest?.Homepage is { } home && Uri.TryCreate(home, UriKind.Absolute, out var hu))
@@ -138,7 +140,22 @@ static class ModulePage
             case ModuleLifecycle.Invalid:
             {
                 var log = Ui.LinkButton(Host.T("page.view-log"), () => Host.Window.Navigate("log"));
-                page.Children.Add(Ui.StateBlock(BayState.Failed, Host.T(e.Lifecycle == ModuleLifecycle.Invalid ? "page.invalid-title" : "page.failed-title"), e.ReasonText(), log));
+                if (e.Lifecycle == ModuleLifecycle.Invalid)
+                {
+                    // short summary up top, then every manifest problem on its own line, in the user's language
+                    page.Children.Add(Ui.StateBlock(BayState.Failed, Host.T("page.invalid-title"), e.ShortReasonText() + "\n" + Host.T("page.invalid-hint"), log));
+                    page.Children.Add(new TextBlock { Text = Host.T("page.invalid-problems"), Style = Ui.Style("RbGroupHeader") });
+                    var list = new StackPanel { Spacing = 6, MaxWidth = 620, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(1, 0, 0, 0) };
+                    foreach (var line in e.IssueLines())
+                    {
+                        var t = Ui.Text(line, wrap: true);
+                        t.IsTextSelectionEnabled = true;
+                        list.Children.Add(t);
+                    }
+                    page.Children.Add(list);
+                }
+                else
+                    page.Children.Add(Ui.StateBlock(BayState.Failed, Host.T("page.failed-title"), e.ReasonText(), log));
                 break;
             }
             case ModuleLifecycle.Incompatible:
@@ -146,7 +163,7 @@ static class ModulePage
                 page.Children.Add(Ui.StateBlock(BayState.Unsupported, Host.T(e.Lifecycle == ModuleLifecycle.Incompatible ? "page.incompatible-title" : "page.unsupported-title"), e.ReasonText()));
                 break;
             default:
-                var shown = PageCache.Get(e);
+                var shown = e.LastPage;
                 if (shown == null)
                 {
                     page.Children.Add(Ui.Text(Host.T(e.Lifecycle == ModuleLifecycle.Running ? "page.no-page" : "page.off-hint"), "RbSecondaryText", wrap: true).With(t => t.Margin = new Thickness(1, 14, 0, 0)));
@@ -282,7 +299,7 @@ static class ModulesPage
             finally { sw.IsEnabled = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running; }
         };
         var word = Ui.StateWord(e.Bay.State);
-        var reason = e.ReasonText();
+        var reason = e.ShortReasonText();
         var expander = new SettingsExpander
         {
             Header = header,
@@ -306,7 +323,7 @@ static class ModulesPage
         Fact(Host.T("fact.network"), m == null ? "" : string.Join("\n", m.Requires.Network));
         Fact(Host.T("fact.registry"), m == null ? "" : string.Join("\n", m.Requires.Registry));
         Fact(Host.T("fact.services"), m == null ? "" : string.Join("\n", m.Requires.Services));
-        Fact(Host.T("fact.problems"), string.Join("\n", e.Issues));
+        Fact(Host.T("fact.problems"), string.Join("\n", e.IssueLines()));
         Fact(Host.T("fact.folder"), e.Folder);
         if (m?.Homepage is { } home && Uri.TryCreate(home, UriKind.Absolute, out var uri))
             expander.Items.Add(new SettingsCard { Header = Host.T("fact.homepage"), Content = new HyperlinkButton { Content = home, NavigateUri = uri } });

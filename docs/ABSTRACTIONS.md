@@ -7,7 +7,7 @@ file and the code disagree, fix the one that is wrong and say so in the commit m
 Contents: 1 Principles, 2 Module package and manifest, 3 Lifecycle, 4 Host services, 5 Page model,
 6 Metrics bus, 7 Localisation, 8 Settings, 9 Commands, hotkeys, tray, toast, 10 Fault boundary and loading,
 11 API version, 12 Rules for module authors, 13 How to write a module, 14 Reasons behind the choices,
-15 What is not in v0.1, 16 Using Rigbay.Core.
+15 What is not in v0.1, 16 Using Rigbay.Core, 17 Changelog.
 
 ## 1. Principles
 
@@ -243,6 +243,17 @@ of this replaces the module's own checks: refuse dangerous values inside the mod
   choice that changes hardware is applied after confirmation and also gets Revert. `Rigbay.Core` implements this as
   `ValueEditor<T>`; the UI only binds to it.
 
+The confirmation shows the exact change: `ApprovalRequest.Detail` is the new value as text (a toggle "On" or "Off", a
+choice its label, a number, the text itself, a shortcut such as `Ctrl+F5` or "Not set"). The caller can pass its own
+text, for example "Fan mode: Auto -> Maximum": `editor.ApplyAsync(detail)`, `editor.SubmitAsync(value, detail)`,
+`RowEditors.InvokeButtonAsync(entry, row, ct, detail)` (a button shows its label when it gets none), or set
+`editor.DetailFormatter`.
+
+**No text.** A `LocalisedText` whose key is null or empty (including `default`) is "no text" (`IsEmpty`): `Validate`
+returning it means no error, the host resolves it to an empty string and shows no detail for it. There is no implicit
+conversion from `string` any more, so `cond ? LocalisedText.Of("k") : null` is a `LocalisedText?` that is null when
+the condition is false.
+
 ### 5.5 Custom controls (level 2)
 
 `CustomRow(controlId)` makes the host call `IModule.CreateCustomControl(host, controlId)`. The result is an `object`
@@ -344,16 +355,25 @@ key itself (a typo in code is visible on screen).
 `CommandResult.Usage(text)`. Exit codes: **0** ok, **1** failed (the handler said so, or threw: then the module is
 also faulted), **2** not found or bad usage (unknown module, module not running, unknown verb, `Usage`). Output is
 text on standard output; failures write to standard error. Verbs are `[a-z][a-z0-9-]*`. `Rigbay.Core` parses and
-dispatches; carrying the command line to the running host process belongs to the app.
+dispatches; carrying the command line to the running host process belongs to the app. Two verbs belong to
+the host itself, so `list` and `version` cannot be module ids: `rigbay list` prints one line per installed module
+(`id`, bay state, manifest version or `-`, `enabled`/`disabled` as the user chose, and the reason when there is one) and
+`rigbay version` prints the host version, the Rigbay.Abstractions version and the host API version, one per line
+(`RigbayHost.ExecuteCommandAsync` answers both; `VersionText()` and `ListModules()` are public too).
 
 **Hotkeys.** `host.Hotkeys.Register(new HotkeyRegistration("toggle-turbo", "hotkey.toggle-turbo", defaultGesture, () => ...))`
 returns an `IHotkeyBinding` with `Gesture` (observable, user-changeable, nullable = unbound) and `HasConflict`
 (true while another module or the host holds the same gesture). A `HotkeyGesture` is modifiers (`Ctrl`, `Alt`,
-`Shift`, `Win`) plus a key name (`A`..`Z`, `0`..`9`, `F1`..`F24`, `Space`, `Enter`, `Tab`, `Esc`, `Backspace`,
+`Shift`, `Win`) plus a key name (`A`..`Z`, `0`..`9`, `F1`..`F24` (not `F12`, see below), `Space`, `Enter`, `Tab`, `Esc`, `Backspace`,
 `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right`, `Num0`..`Num9`), written
 `Ctrl+Alt+F5`. The registry is data only: it stores the gestures, detects conflicts and persists the user's
 rebinding in `%LOCALAPPDATA%\Rigbay\hotkeys.json`. Registering with the OS (and ignoring conflicting gestures
 rather than registering them) belongs to the UI host.
+
+**F12 is not a hotkey.** Windows reserves `F12` for debuggers, so `RegisterHotKey` always refuses it, with any
+modifiers. `HotkeyGesture.TryParse` returns false for it, `Parse` throws `FormatException`, the constructor throws
+`ArgumentException`, and a stored binding such as `Ctrl+F12` is ignored (the default is used).
+`HotkeyGesture.ReservedReason(key)` returns the explanation for a UI that wants to show it, or null.
 
 **Tray.** `host.Tray.Add(new TrayItem("toggle", "tray.toggle", () => ...))`: `Id`, `TextKey`, a callback, and
 observable `Visible`, `Enabled`, `Checked` (with `Checkable`) and an optional `Icon` (a glyph name or path). Data only; the app draws the menu, grouped by module.
@@ -517,8 +537,8 @@ await Task.Run(() => { host.Discover(); host.StartEnabled(); });
 | Object | What the app uses it for |
 | --- | --- |
 | `RigbayHost.Modules`, `Find(id)` | The list of `ModuleEntry`: one per folder, valid or not. `ModulesDiscovered`, `ModuleFaulted` events. |
-| `ModuleEntry` | `Id`, `DisplayName`, `DisplayDescription` (manifest text, overridden by `module.<id>.name` / `.description`), `Manifest` (group, requires, version), `Lifecycle`, `Bay` (a `BayStatus`: `BayState` plus `ModuleReason`), `ResolveReason(reason)`, `Page`, `Fault`, `Enable()`, `Disable()`, `SetPending(...)` (installer sets update or restart), `Changed` event, `CreateCustomControl(id)`, `Invoke`/`InvokeAsync` (any other call into the module goes through these). `Enable()` and `Disable()` block for up to the time limits: call them off the UI thread. |
-| `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `Revert`, `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. |
+| `ModuleEntry` | `Id`, `DisplayName`, `DisplayDescription` (manifest text, overridden by `module.<id>.name` / `.description`), `Manifest` (group, requires, version), `Lifecycle`, `Bay` (a `BayStatus`: `BayState` plus `ModuleReason`), `ResolveReason(reason)`, `Page` (null while the module is off), `LastPage` (the last page built, kept after a stop or fault, so the UI can show the rows disabled), `Issues` (manifest problems as keys: `issue.Localise(host.Languages)`), `Fault`, `Enable()`, `Disable()`, `SetPending(...)` (installer sets update or restart), `Changed` event, `CreateCustomControl(id)`, `Invoke`/`InvokeAsync` (any other call into the module goes through these). `Enable()` and `Disable()` block for up to the time limits: call them off the UI thread. |
+| `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `Revert`, `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. `For` returns one editor per row instance (the same object each time); `ValueEditor<T>` is `IDisposable` and the entry disposes its editors when the module stops or faults and before it is enabled again, so the UI need not. |
 | `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects. |
 | `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. |
 | `host.Hotkeys` (`HotkeyRegistry`) | `Entries`, `Conflicts`, `ReserveHost(name, gesture)`, `Press(gesture)` (call it from the window's hotkey message), `Changed`. Entry `Gesture` and `HasConflict` are observable. |
@@ -544,3 +564,42 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 
 **Package.** `dotnet pack src/Rigbay.Abstractions -c Release` makes `Rigbay.Abstractions.0.1.0.nupkg` (assembly plus XML
 docs). Nothing is published from this repository by the build.
+
+## 17. Changelog
+
+### 0.1 after A4 (fixes for the gaps the app shell found; no version number change)
+
+Additive:
+
+- `ValueEditor<T>.ApplyAsync(string? detail, ct)`, `SubmitAsync(T, string? detail, ct)`, `DetailFormatter`;
+  `RowEditors.InvokeButtonAsync(entry, row, ct, detail)` (new last parameter). Without a detail the approval dialog
+  gets the new value as text (`ApprovalRequest.Detail` is no longer null for value rows).
+- `ValueEditor<T>` implements `IDisposable`. `RowEditors.For(...)` caches one editor per row instance, disposed by
+  the `ModuleEntry` on stop, fault and enable.
+- `ModuleEntry.LastPage`.
+- `LocalisedText.IsEmpty`; a null or empty key means "no text" everywhere in Core.
+- `HotkeyGesture.ReservedReason(key)`.
+- `ManifestIssue.Key`, `ManifestIssue.Args`, `ManifestIssue.Localise(catalog)`, `LocaliseLine(catalog)`,
+  `ManifestResult.LocaliseErrors(catalog)`, `ManifestIssues.Summary(...)`. New host keys `core.manifest.*`,
+  `core.value.*`, `core.command.version-*`, `core.command.no-modules` in `en.lang` and `vi.lang` (LangCheck strict is clean).
+- `RigbayHost.RequestApprovalTextAsync` (approval with a detail that is already text), `VersionText()`, `ListModules()`.
+- `ExecuteCommandAsync` answers `version`; `list` now prints more per module (see section 9).
+
+Breaking:
+
+1. **`LocalisedText` has no implicit conversion from `string` any more.** Write `LocalisedText.Of("key")`. A
+   `ToastMessage("a", "b", ...)` call must become `new ToastMessage(LocalisedText.Of("a"), LocalisedText.Of("b"), ...)`.
+   The sample module is changed accordingly.
+2. **`ManifestIssue` is now `(Path, Key, Args, IsError)`** instead of `(Path, Message, IsError)`. `Message` is still
+   there as a read-only property (English), so code that only reads issues keeps working; code that constructs
+   issues, or that put `ManifestIssue.ToString()` / `ManifestResult.ErrorSummary` into a localised sentence, should
+   use `Localise` / `LocaliseErrors`.
+3. **`ModuleReason` for an invalid manifest** now carries the issue list as its argument (not a joined English
+   string). `ModuleEntry.ResolveReason` localises it; code that reads `Reason.Args[0]` as a string must handle an
+   `IReadOnlyList<ManifestIssue>`.
+4. **`HotkeyGesture` rejects `F12`** (`TryParse` false, `Parse`/constructor throw). A module that registered `F12` as
+   its default now fails at that line; a stored `F12` binding is ignored.
+5. **`rigbay list` output changed** from `id  State` to `id  State  version  enabled|disabled  [reason]`. The first
+   two columns are the same.
+6. `RowEditors.For` returns the same editor for the same row instance (before: a new one each call). An app that kept
+   its own cache can drop it; one that relied on getting a fresh editor must create the row again or call `Discard()`.

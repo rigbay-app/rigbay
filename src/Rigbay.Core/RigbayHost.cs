@@ -179,7 +179,11 @@ public sealed class RigbayHost : IDisposable
     }
 
     /// <summary>Asks the user to confirm a hardware write; false when nobody can be asked.</summary>
-    public async Task<bool> RequestApprovalAsync(ModuleEntry entry, HardwareEffect effect, LocalisedText? detail, CancellationToken cancellationToken)
+    public Task<bool> RequestApprovalAsync(ModuleEntry entry, HardwareEffect effect, LocalisedText? detail, CancellationToken cancellationToken) =>
+        RequestApprovalTextAsync(entry, effect, detail is { IsEmpty: false } d ? entry.Localisation.Resolve(d) : null, cancellationToken);
+
+    /// <summary>Like <see cref="RequestApprovalAsync"/> with a detail that is already text in the current language (it becomes <see cref="ApprovalRequest.Detail"/>).</summary>
+    public async Task<bool> RequestApprovalTextAsync(ModuleEntry entry, HardwareEffect effect, string? detailText, CancellationToken cancellationToken)
     {
         var prompt = ApprovalPrompt;
         if (prompt is null)
@@ -188,7 +192,7 @@ public sealed class RigbayHost : IDisposable
             return false;
         }
         var request = new ApprovalRequest(entry.Id, entry.DisplayName, entry.Localisation.T(effect.DescriptionKey),
-            detail is { } d ? entry.Localisation.Resolve(d) : null, effect.Revertible);
+            string.IsNullOrEmpty(detailText) ? null : detailText, effect.Revertible);
         try { return await prompt.ConfirmAsync(request, cancellationToken).ConfigureAwait(false); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -206,6 +210,7 @@ public sealed class RigbayHost : IDisposable
         if (args.Count == 0) return new(CommandOutcome.UsageOrNotFound, Languages.T("core.command.usage") + Environment.NewLine + ListModules());
         if (args[0] is "help" or "--help" or "-h") return new(CommandOutcome.Ok, Languages.T("core.command.usage") + Environment.NewLine + ListModules());
         if (args[0] == "list") return new(CommandOutcome.Ok, ListModules());
+        if (args[0] == "version") return new(CommandOutcome.Ok, VersionText());
 
         var module = Find(args[0]);
         if (module is null) return new(CommandOutcome.UsageOrNotFound, Languages.F("core.command.unknown-module", args[0]));
@@ -217,10 +222,24 @@ public sealed class RigbayHost : IDisposable
         return await CommandRegistry.RunAsync(entry, args.Skip(2).ToArray(), cancellationToken).ConfigureAwait(false);
     }
 
-    private string ListModules()
+    /// <summary>The host version, the Rigbay.Abstractions version and the host API version, one per line (the <c>version</c> verb).</summary>
+    public string VersionText() => string.Join(Environment.NewLine,
+        Languages.F("core.command.version-host", Options.HostVersion),
+        Languages.F("core.command.version-abstractions", typeof(IModule).Assembly.GetName().Version?.ToString(3) ?? "?"),
+        Languages.F("core.command.version-api", HostApi.Current));
+
+    /// <summary>One line per installed module: id, bay state, version, whether the user enabled it, and the reason when there is one (the <c>list</c> verb).</summary>
+    public string ListModules()
     {
+        var modules = Modules;
+        if (modules.Count == 0) return Languages.T("core.command.no-modules");
         var sb = new StringBuilder();
-        foreach (var m in Modules) sb.AppendLine($"{m.Id}  {m.Bay.State}");
+        foreach (var m in modules)
+        {
+            sb.Append($"{m.Id}  {m.Bay.State}  {m.Manifest?.Version ?? "-"}  {(IsEnabledByUser(m.Id) ? "enabled" : "disabled")}");
+            if (m.Reason is { } reason) sb.Append("  ").Append(m.ResolveReason(reason).ReplaceLineEndings(" "));
+            sb.AppendLine();
+        }
         return sb.ToString().TrimEnd();
     }
 
