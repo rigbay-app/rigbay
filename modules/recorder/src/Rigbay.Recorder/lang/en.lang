@@ -76,7 +76,7 @@ module.recorder.row.picked.description = The set is fixed when a recording start
 module.recorder.row.pick-all.header = Record everything
 module.recorder.row.pick-all.description = Switches on every metric below.
 module.recorder.row.pick-all.button = All
-module.recorder.row.pick-none.header = Start from nothing
+module.recorder.row.pick-none.header = Clear the selection
 module.recorder.row.pick-none.description = Switches off every metric below, so you can pick just a few.
 module.recorder.row.pick-none.button = None
 

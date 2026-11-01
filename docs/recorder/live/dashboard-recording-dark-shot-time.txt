@@ -1,1 +1,1 @@
-﻿2026-11-01 22:31:37.328 INFO  host           shot (PrintWindow of the window) 1240x1620 dpi=96 printWindow=True -> D:\Documents\Projects\rigbay\.claude\worktrees\feat-module-recorder\docs\recorder\live\dashboard-recording-dark.png
+﻿2026-11-01 22:38:48.892 INFO  host           shot (PrintWindow of the window) 1240x1620 dpi=96 printWindow=True -> D:\Documents\Projects\rigbay\.claude\worktrees\feat-module-recorder\docs\recorder\live\dashboard-recording-dark.png

@@ -76,7 +76,7 @@ module.recorder.row.picked.description = Tập số đo được chốt khi bắ
 module.recorder.row.pick-all.header = Ghi tất cả
 module.recorder.row.pick-all.description = Bật mọi số đo bên dưới.
 module.recorder.row.pick-all.button = Tất cả
-module.recorder.row.pick-none.header = Bắt đầu từ số không
+module.recorder.row.pick-none.header = Bỏ chọn tất cả
 module.recorder.row.pick-none.description = Tắt mọi số đo bên dưới để bạn chọn vài số đo.
 module.recorder.row.pick-none.button = Không
 

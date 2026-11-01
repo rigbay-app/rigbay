@@ -4,33 +4,33 @@ recorder  Ready  0.1.0  enabled
 --- status before
 exit=0
 Not recording.
-Folder: C:\Users\minhh\Documents\Rigbay\logs
---- start (exit 0) at 22:23:43.735
+Folder: C:\Users\USER\Documents\Rigbay\logs
+--- start (exit 0) at 22:36:51.339
 exit=0
-Recording to C:\Users\minhh\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-23-42.csv
+Recording to C:\Users\USER\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-36-50.csv
 One row every 1 s, no time limit. Stop with: rigbay recorder stop
---- predatorsense status at 22:23:54.828 (exit 0)
+--- predatorsense status at 22:37:01.416 (exit 0)
 exit=0
 Machine: Acer Predator PT516-51s
-CPU temperature: 77 °C
+CPU temperature: 65 °C
 System temperature: 46 °C
-GPU temperature: 56 °C
-CPU fan: 3896 rpm
-GPU fan 1: 4347 rpm
-GPU fan 2: 4340 rpm
+GPU temperature: 54 °C
+CPU fan: 2884 rpm
+GPU fan 1: 3125 rpm
+GPU fan 2: 3004 rpm
 Fan mode, last set by Rigbay: Nothing yet
 --- recorder status while recording
 exit=0
-Recording to C:\Users\minhh\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-23-42.csv
-13 rows, 833 B, elapsed 00:00:12, one row every 1 s, 6 metrics
-Folder: C:\Users\minhh\Documents\Rigbay\logs
---- stop (exit 0) at 22:24:04.988
+Recording to C:\Users\USER\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-36-50.csv
+12 rows, 775 B, elapsed 00:00:11, one row every 1 s, 6 metrics
+Folder: C:\Users\USER\Documents\Rigbay\logs
+--- stop (exit 0) at 22:37:10.577
 exit=0
-Stopped. C:\Users\minhh\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-23-42.csv
-22 rows, 1.3 KB.
+Stopped. C:\Users\USER\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-36-50.csv
+20 rows, 1.2 KB.
 --- status after
 exit=0
 Not recording.
-Last recording: C:\Users\minhh\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-23-42.csv
-22 rows, 1.3 KB. Stopped. rigbay-log-2026-11-01_22-23-42.csv was saved with 22 rows.
-Folder: C:\Users\minhh\Documents\Rigbay\logs
+Last recording: C:\Users\USER\Documents\Rigbay\logs\rigbay-log-2026-11-01_22-36-50.csv
+20 rows, 1.2 KB. Stopped. rigbay-log-2026-11-01_22-36-50.csv was saved with 20 rows.
+Folder: C:\Users\USER\Documents\Rigbay\logs
