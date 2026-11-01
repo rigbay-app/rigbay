@@ -1,0 +1,135 @@
+{
+  "valid-empty.json": {
+    "valid": true,
+    "mention": null
+  },
+  "valid-one.json": {
+    "valid": true,
+    "mention": null
+  },
+  "valid-two-releases-prerelease.json": {
+    "valid": true,
+    "mention": null
+  },
+  "valid-two-modules.json": {
+    "valid": true,
+    "mention": null
+  },
+  "invalid-not-json.json": {
+    "valid": false,
+    "mention": "JSON"
+  },
+  "invalid-top-level-array.json": {
+    "valid": false,
+    "mention": "top level"
+  },
+  "invalid-schema-version.json": {
+    "valid": false,
+    "mention": "schemaVersion"
+  },
+  "invalid-no-modules.json": {
+    "valid": false,
+    "mention": "modules"
+  },
+  "invalid-id-uppercase.json": {
+    "valid": false,
+    "mention": "id"
+  },
+  "invalid-id-reserved.json": {
+    "valid": false,
+    "mention": "reserved"
+  },
+  "invalid-duplicate-ids.json": {
+    "valid": false,
+    "mention": "more than once"
+  },
+  "invalid-repo-gitlab.json": {
+    "valid": false,
+    "mention": "repo"
+  },
+  "invalid-repo-extra-path.json": {
+    "valid": false,
+    "mention": "repo"
+  },
+  "invalid-zip-http.json": {
+    "valid": false,
+    "mention": "zip"
+  },
+  "invalid-zip-other-repo.json": {
+    "valid": false,
+    "mention": "zip"
+  },
+  "invalid-zip-other-host.json": {
+    "valid": false,
+    "mention": "zip"
+  },
+  "invalid-zip-not-a-release.json": {
+    "valid": false,
+    "mention": "zip"
+  },
+  "invalid-zip-query.json": {
+    "valid": false,
+    "mention": "zip"
+  },
+  "invalid-sha-uppercase.json": {
+    "valid": false,
+    "mention": "sha256"
+  },
+  "invalid-sha-short.json": {
+    "valid": false,
+    "mention": "sha256"
+  },
+  "invalid-size-zero.json": {
+    "valid": false,
+    "mention": "size"
+  },
+  "invalid-size-too-big.json": {
+    "valid": false,
+    "mention": "size"
+  },
+  "invalid-version-two-parts.json": {
+    "valid": false,
+    "mention": "version"
+  },
+  "invalid-versions-descending.json": {
+    "valid": false,
+    "mention": "ascending"
+  },
+  "invalid-versions-duplicate.json": {
+    "valid": false,
+    "mention": "ascending"
+  },
+  "invalid-hostapi.json": {
+    "valid": false,
+    "mention": "hostApi"
+  },
+  "invalid-released.json": {
+    "valid": false,
+    "mention": "released"
+  },
+  "invalid-declares-missing.json": {
+    "valid": false,
+    "mention": "declares"
+  },
+  "invalid-declares-admin-string.json": {
+    "valid": false,
+    "mention": "admin"
+  },
+  "invalid-no-versions.json": {
+    "valid": false,
+    "mention": "versions"
+  },
+  "invalid-icon-http.json": {
+    "valid": false,
+    "mention": "icon"
+  },
+  "invalid-name-empty.json": {
+    "valid": false,
+    "mention": "name"
+  },
+  "ci-only-unknown-field.json": {
+    "valid": false,
+    "mention": "unknown field",
+    "hostAccepts": true
+  }
+}

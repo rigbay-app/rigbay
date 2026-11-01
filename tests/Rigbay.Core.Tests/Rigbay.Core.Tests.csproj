@@ -19,6 +19,11 @@
     <ProjectReference Include="..\Rigbay.FaultyModule\Rigbay.FaultyModule.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- a copy of scripts/fixtures of the registry repository (rigbay-app/registry): the host and the CI validator must agree on each file -->
+    <Content Include="registry-fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <Target Name="CopyTestModules" AfterTargets="Build">
     <ItemGroup>
       <SampleModuleFiles Include="$(MSBuildThisFileDirectory)..\..\samples\Rigbay.SampleModule\bin\$(Configuration)\net8.0\**\*" />

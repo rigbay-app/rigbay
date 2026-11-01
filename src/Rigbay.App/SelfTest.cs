@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using Rigbay.Abstractions;
 using Rigbay.App.Services;
 using Rigbay.Core;
+using Rigbay.Core.Install;
 
 namespace Rigbay.App;
 
@@ -137,6 +138,9 @@ static class SelfTest
         // ---------------------------------------------------------------- fault boundary
         await RefreshChecks(w);
         await FaultChecks(w);
+
+        // ---------------------------------------------------------------- install, update and remove
+        await InstallChecks(w);
 
         // ---------------------------------------------------------------- single instance
         await SingleInstanceCheck(w);
@@ -600,6 +604,141 @@ static class SelfTest
         await Settle(400);
         R("single instance: the second start exits and shows the first", exited && second.ExitCode == 0 && w.ShowRequests > requests, $"second exited={exited} code={(exited ? second.ExitCode : -1)}; show requests {requests}->{w.ShowRequests}");
         if (!exited) { try { second.Kill(); } catch { } }
+    }
+
+    // ================================================================ install, update, remove (R1)
+
+    static string NameOf(Button b) => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(b);
+
+    static Button? FindButton(MainWindow w, string automationName) =>
+        Find<Button>(w.PageContent).FirstOrDefault(b => NameOf(b) == automationName);
+
+    /// <summary>Presses a button the way assistive technology does (the control's own click path), not by calling the handler's code.</summary>
+    static bool Press(Button b)
+    {
+        var peer = Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(b);
+        if (peer?.GetPattern(Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Invoke) is not Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider invoke) return false;
+        invoke.Invoke();
+        return true;
+    }
+
+    static async Task<bool> WaitFor(Func<bool> condition, int timeoutMs = 20000)
+    {
+        for (int waited = 0; waited < timeoutMs; waited += 100)
+        {
+            if (condition()) return true;
+            await Task.Delay(100);
+        }
+        return condition();
+    }
+
+    /// <summary>
+    /// Runs only with <c>--registry</c> (tools\selftest.ps1 builds a scratch modules folder and a local registry and passes it): the real Modules page, real
+    /// controls pressed through automation, the real downloader on a <c>file:</c> source, and the real admin-only permissions on the scratch folders
+    /// (this process is elevated). The restart itself is not done here (tools\restart-test.ps1 does it with two real processes).
+    /// </summary>
+    static async Task InstallChecks(MainWindow w)
+    {
+        if (!InstallServices.LocalRegistry) { R("install: skipped, no --registry (tools\\selftest.ps1 passes one)", true); return; }
+        var m = InstallServices.Manager;
+        var core = Host.Core;
+        var paths = InstallServices.Paths;
+        var security = new AdminFolderSecurity();
+        const string Installable = "demo-extra", InstallableName = "Extra lighting (demo)";
+
+        // the list: from the local registry, with every honest state
+        await m.CheckAsync();
+        var rows = m.AvailableRows().ToDictionary(r => r.Module.Id);
+        R("install: the registry was read", m.Snapshot.Status == RegistryStatus.Fresh && rows.Count >= 5, $"status={m.Snapshot.Status} modules={string.Join(",", rows.Keys)}");
+        R("install: states per module", rows[Installable].State == AvailableState.Installable && rows["demo-devices"].State == AvailableState.Installed && rows["demo-next"].State == AvailableState.Incompatible,
+            $"{Installable}={rows[Installable].State} demo-devices={rows["demo-devices"].State} demo-next={rows["demo-next"].State}");
+        var fan = core.Find("demo-fan")!;
+        R("install: update available on an installed module", fan.Pending == PendingChange.UpdateAvailable && fan.PendingVersion is { } pv && pv != fan.VersionText(), $"demo-fan {fan.VersionText()} -> {fan.PendingVersion}");
+
+        w.Navigate("modules");
+        await Settle(700);
+        var installButton = FindButton(w, "Install " + InstallableName);
+        var buttonNames = string.Join(" | ", Find<Button>(w.PageContent).Select(NameOf).Where(n => n.Length > 0));
+        R("install page: Install button for an installable module, none for installed or incompatible ones",
+            installButton != null && FindButton(w, "Install Device list (demo)") == null && FindButton(w, "Install Keyboard lighting (next API)") == null, $"buttons: {buttonNames}");
+
+        // --- cancel: press Install on the module with the bad hash, then Cancel while it downloads (the scratch source is slow on purpose)
+        var tampered = FindButton(w, "Install Keyboard lighting (bad hash)");
+        bool pressed = tampered != null && Press(tampered);
+        bool downloading = await WaitFor(() => m.Operation is { Id: "demo-tampered", Phase: InstallPhase.Downloading });
+        await Settle(250);
+        var bar = Find<ProgressBar>(w.PageContent).FirstOrDefault();
+        var cancel = FindButton(w, "Cancel Keyboard lighting (bad hash)");
+        R("install page: progress and a Cancel button while downloading", pressed && downloading && bar != null && cancel != null, $"pressed={pressed} downloading={downloading} progress bar={bar != null} cancel button={cancel != null}");
+        if (cancel != null) Press(cancel);
+        bool stopped = await WaitFor(() => m.Operation is null);
+        int leftovers = Directory.GetFileSystemEntries(paths.Downloads).Length + Directory.GetFileSystemEntries(paths.Staging).Length + Directory.GetFileSystemEntries(paths.Ready).Length;
+        R("install: cancel leaves nothing behind", stopped && m.FailureOf("demo-tampered") is null && m.PendingOps.Count == 0 && leftovers == 0, $"stopped={stopped} failure={m.FailureOf("demo-tampered")?.Code} pending={m.PendingOps.Count} leftover entries={leftovers}");
+
+        // --- wrong hash: the failure is said in the row, nothing is installed
+        await Settle(500);
+        tampered = FindButton(w, "Install Keyboard lighting (bad hash)");
+        if (tampered != null) Press(tampered);
+        bool failed = await WaitFor(() => m.FailureOf("demo-tampered") != null);
+        await Settle(800);
+        var failure = m.FailureOf("demo-tampered");
+        var pageTexts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
+        R("install: a download that does not match its SHA-256 is refused and said so",
+            failed && failure!.Code == InstallErrorCode.HashMismatch && pageTexts.Any(t => t.Contains("SHA-256")) && m.PendingOps.Count == 0 && !Directory.Exists(Path.Combine(AppPaths.ModulesRoot, "demo-tampered")),
+            $"code={failure?.Code} detail='{failure?.Detail}' row text shown={pageTexts.Any(t => t.Contains("SHA-256"))}");
+
+        // --- the real install: press Install, the module is staged, the modules folder is untouched, the page says restart required
+        await Settle(300);
+        installButton = FindButton(w, "Install " + InstallableName);
+        pressed = installButton != null && Press(installButton);
+        bool queued = await WaitFor(() => m.Operation is null && m.PendingOps.Any(p => p.Id == Installable));
+        await Settle(900);
+        var op = m.PendingOps.FirstOrDefault(p => p.Id == Installable);
+        R("install: Install downloads, verifies and queues for the restart",
+            pressed && queued && op is { Op: PendingKinds.Install } && File.Exists(Path.Combine(paths.ReadyFolder(Installable), "module.json")) && !Directory.Exists(Path.Combine(AppPaths.ModulesRoot, Installable)),
+            $"pressed={pressed} queued={queued} op={op?.Op} {op?.Version} ready exists={Directory.Exists(paths.ReadyFolder(Installable))} in modules folder={Directory.Exists(Path.Combine(AppPaths.ModulesRoot, Installable))}");
+        var infoBars = Find<InfoBar>(w.PageContent).ToList();
+        bool badge = w.NavItems().Any(i => Equals(i.Tag, "modules") && i.InfoBadge != null);
+        R("install page: 'Restart required' with a Restart now button, and a dot on Modules in the pane",
+            infoBars.Any(b => b.Title == Host.T("modules.restart-title") && b.ActionButton is Button { IsEnabled: true }) && badge, $"info bars: {string.Join(" | ", infoBars.Select(b => b.Title))}; pane badge={badge}");
+        R("install page: the queued module reads 'Appears after the restart'", Find<TextBlock>(w.PageContent).Any(t => t.Text == Host.T("modules.queued-install")), "");
+
+        // --- update of a module that is running: queued; applying it now (nothing restarted) must not touch its files
+        var fanFolder = fan.Folder;
+        var fanBefore = FileOps.TreeHash(fanFolder);
+        bool updated = await m.UpdateAsync("demo-fan");
+        R("install: update of an installed module is queued, its files untouched",
+            updated && m.PendingOps.Any(p => p.Id == "demo-fan" && p.Op == PendingKinds.Update) && FileOps.TreeHash(fanFolder) == fanBefore && fan.Pending == PendingChange.RestartRequired,
+            $"updated={updated} pending={fan.Pending} tree unchanged={FileOps.TreeHash(fanFolder) == fanBefore}");
+
+        // --- what the next start does, run now in this process: demo-extra is put in place; demo-fan is running (its DLL is loaded), so its swap is refused and kept
+        var report = await Task.Run(() => PendingRunner.Run(paths, security, AppPaths.DataRoot, line => AppLog.Info("install (self-test): " + line)));
+        var extra = report.Outcomes.FirstOrDefault(o => o.Id == Installable);
+        var fanOutcome = report.Outcomes.FirstOrDefault(o => o.Id == "demo-fan");
+        var placed = ManifestReader.ReadFolder(Path.Combine(AppPaths.ModulesRoot, Installable)).Manifest;
+        R("install: the start-up swap puts the new module in place", extra is { Applied: true } && placed?.Id == Installable, $"extra applied={extra?.Applied} message={extra?.Message}; placed manifest={placed?.Id} {placed?.Version}");
+        R("install: a module whose files are loaded is never overwritten (kept for the next start)",
+            fanOutcome is { Applied: false, WillRetry: true } && FileOps.TreeHash(fanFolder) == fanBefore && m.PendingOps.Any(p => p.Id == "demo-fan"),
+            $"outcome applied={fanOutcome?.Applied} retry={fanOutcome?.WillRetry} message={fanOutcome?.Message}; folder unchanged={FileOps.TreeHash(fanFolder) == fanBefore}");
+        bool undone = await m.UndoAsync("demo-fan");
+        R("install: undo takes a queued change back", undone && !m.PendingOps.Any(p => p.Id == "demo-fan") && !Directory.Exists(paths.ReadyFolder("demo-fan")) && fan.Pending != PendingChange.RestartRequired, $"undone={undone} pending={fan.Pending}");
+
+        // --- the real permissions on the scratch folders, read back from the disk
+        string? modulesAudit = AdminFolderSecurity.Audit(paths.ModulesRoot), installAudit = AdminFolderSecurity.Audit(paths.Root);
+        string? moduleWriters = AdminFolderSecurity.FindWriters(Path.Combine(AppPaths.ModulesRoot, Installable));
+        R("install: the modules folder, the install folder and the installed module are writable only by Administrators and SYSTEM",
+            modulesAudit is null && installAudit is null && moduleWriters is null, $"modules: {modulesAudit ?? "ok"}; install: {installAudit ?? "ok"}; installed module: {moduleWriters ?? "ok"}");
+
+        // --- removal
+        var devices = core.Find("demo-devices")!;
+        bool removed = await m.RemoveAsync("demo-devices");
+        R("install: remove is queued and the module keeps its files until the restart",
+            removed && m.PendingOps.Any(p => p.Id == "demo-devices" && p.Op == PendingKinds.Remove) && Directory.Exists(devices.Folder) && devices.Pending == PendingChange.RestartRequired,
+            $"removed={removed} pending={devices.Pending} folder exists={Directory.Exists(devices.Folder)}");
+        await m.UndoAsync("demo-devices");
+
+        w.Navigate("dashboard");
+        await Settle(300);
     }
 
     // ================================================================ visual tree helpers

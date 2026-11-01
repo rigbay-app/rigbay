@@ -8,7 +8,9 @@ namespace Rigbay.App;
 static class AppPaths
 {
     public static string? DataRoot { get; private set; }
-    public static string ModulesRoot { get; private set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Rigbay", "modules");
+    public static readonly string DefaultModulesRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Rigbay", "modules");
+    public static string ModulesRoot { get; private set; } = DefaultModulesRoot;
+    public static bool IsDefaultModulesRoot => string.Equals(Path.TrimEndingDirectorySeparator(ModulesRoot), Path.TrimEndingDirectorySeparator(DefaultModulesRoot), StringComparison.OrdinalIgnoreCase);
     public static string HostLangDir => Path.Combine(AppContext.BaseDirectory, "lang");
 
     public static void Init(string? dataRoot, string? modulesRoot)
@@ -57,6 +59,11 @@ sealed class AppSettings
     public string Theme { get; set; } = "system";
     public string LogLevel { get; set; } = "info";
     public List<string> Acknowledged { get; set; } = new();
+    /// <summary>Ask the registry for module updates once a day. Off by default: no request leaves the PC unless the user asks.</summary>
+    public bool CheckDaily { get; set; }
+    public DateTimeOffset? LastModuleCheck { get; set; }
+    /// <summary>The first start with no modules opens the Modules page once.</summary>
+    public bool FirstRunDone { get; set; }
 }
 
 static class AppState

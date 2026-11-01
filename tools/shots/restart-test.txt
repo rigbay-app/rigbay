@@ -1,0 +1,16 @@
+﻿process 1 started: pid 8612
+process 2 started: pid 25572; process 1 (pid 8612) still running: False
+--- log lines about the restart
+2026-11-01 23:08:07.012 INFO  host           Rigbay host 0.1.0, API 0.1, modules in <worktree>\tools\out\restart-test\modules
+2026-11-01 23:08:07.015 INFO  host           started with: --data <worktree>\tools\out\restart-test\data --modules <worktree>\tools\out\restart-test\modules --registry <worktree>\tools\out\restart-test\registry\registry.json --script page:modules;check;install:demo-lighting;wait:600;restart;wait:60000
+2026-11-01 23:08:07.412 INFO  host           discovered 4 module(s): demo-broken=Off, demo-devices=Off, demo-fan=Off, demo-future=Incompatible
+2026-11-01 23:08:08.327 INFO  host           script: install:demo-lighting
+2026-11-01 23:08:09.775 INFO  host           restarting: the new process waits for this one to end
+2026-11-01 23:08:09.775 INFO  host           quitting
+2026-11-01 23:08:09.782 INFO  host           window closed
+2026-11-01 23:08:10.186 INFO  host           Rigbay host 0.1.0, API 0.1, modules in <worktree>\tools\out\restart-test\modules
+2026-11-01 23:08:10.188 INFO  host           started with: --data <worktree>\tools\out\restart-test\data --modules <worktree>\tools\out\restart-test\modules --registry <worktree>\tools\out\restart-test\registry\registry.json --wait-pid 8612
+2026-11-01 23:08:10.200 INFO  host           install: install demo-lighting: applied (- -> 0.1.0)
+2026-11-01 23:08:10.372 INFO  host           discovered 5 module(s): demo-broken=Off, demo-devices=Off, demo-fan=Off, demo-future=Incompatible, demo-lighting=Unsupported
+demo-lighting found by the loader of process 2: True
+process 2 stopped

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "example",
+      "name": "Example module",
+      "description": "A module that exists only in the test fixtures.",
+      "repo": "https://github.com/rigbay-app/module-example",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "hostApi": ">=0.1 <0.2",
+          "zip": "https://github.com/rigbay-app/module-example/releases/download/v1.0.0/example-1.0.0.zip",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 123456,
+          "released": "2026-11-01"
+        }
+      ]
+    }
+  ]
+}

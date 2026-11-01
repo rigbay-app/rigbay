@@ -14,14 +14,18 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (113 checks), prints the report. Exit code 0 when all pass. |
+| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (129 checks, 16 of them install checks on a scratch copy of the demo modules and a local registry), prints the report. Exit code 0 when all pass. |
 | `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\sync-brand-assets.ps1 [-Check]` | Copies the brand files the app carries from `assets\brand` (list: `src\Rigbay.App\Assets\brand-files.txt`); `-Check` only compares and fails on a difference (`build.ps1` runs it). |
 | `tools\tray-mock.ps1` | Draws `tools\shots\tray-mock.png`: the tray icons by taskbar theme and size, and the menu model (a mock, not the real taskbar). |
+| `tools\make-local-registry.ps1`, `serve-registry.ps1` | A scratch modules folder and a local registry built from the demo modules (an update, an installed one, an installable one, a wrong hash, another host API); a loopback HTTP server for it. For rendering and testing install; never the real modules folder (`docs/INSTALL.md` section 8). |
+| `tools\shots-install.ps1` | The Modules page in every install state, dark and light, English and Vietnamese, into `tools\shots\install-*.png`. |
+| `tools\install-http-test.ps1`, `tools\restart-test.ps1` | Install over real HTTP on loopback with the start-up swap, offline with a cache and `icacls` of the real folders; "Restart now" with two real elevated processes. |
+| `tools\remove-elevated.ps1` | Deletes the admin-only scratch folders those scripts leave under `tools\out` (an elevated PowerShell; refuses anything else). |
 
-`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the Core tests (343 now).
+`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the Core tests (600 now, after R1).
 Demo modules (`tools\demo-modules`) are test fixtures, not product: "Fan studio" talks to a pretend device kept in memory and
 shows the whole confirm, apply, read-back, revert flow; the others are unsupported, incompatible, invalid and failing
 modules, plus three that misbehave on purpose (self-test only).
@@ -36,7 +40,8 @@ modules, plus three that misbehave on purpose (self-test only).
 | Hotkey rebinding | `%LOCALAPPDATA%\Rigbay\hotkeys.json` |
 | Module settings and data | `%LOCALAPPDATA%\Rigbay\modules\<id>\` |
 | User language files (add a language or override keys) | `%LOCALAPPDATA%\Rigbay\lang\*.lang` |
-| Modules | `%ProgramData%\Rigbay\modules\<id>\` (default; creating it with an admin-only ACL is the installer's job, not done here) |
+| Modules | `%ProgramData%\Rigbay\modules\<id>\` (default). Since R1 the installer creates it, and `%ProgramData%\Rigbay` and the install folder, with an ACL that lets only Administrators and SYSTEM write (`docs/INSTALL.md` section 3); nothing is created until the first install or registry check. |
+| Install work folder | `%ProgramData%\Rigbay\modules.install\` (next to the modules folder, never inside it): downloads, staging, `ready`, `previous`, the registry cache, `pending.json`, `last-run.json`. Admin-only. |
 | Host language files | `lang\en.lang`, `lang\vi.lang` (embedded in the exe and copied next to it for `--langcheck`) |
 
 `--data <dir>` and `--modules <dir>` move the first set and the modules folder; the scripts use them.
@@ -61,6 +66,9 @@ stops it. A hardware change asked for in a headless run is refused (no window to
 
 Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;revert:<row header key>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
 `--shot <png>`, `--size WxH`, `--accent <RRGGBB>`, `--shot-scale <1.5|2>`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
+Install (R1): `--registry <file|url>` (a local registry; ignored unless `--data` and `--modules` name scratch folders and the modules folder is not the real
+one), `--slow-download <ms>`, `--first-run`, `--wait-pid <pid>` (set by Restart now), and the script steps `check`, `install:<id>`, `install-bg:<id>`,
+`update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`, `restart` (`docs/INSTALL.md` section 8).
 
 ## What it does
 
@@ -77,9 +85,20 @@ Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `
   show the exact change ("Fan mode: Auto → Maximum") in a confirmation, then show the value the module reports afterwards and a
   Revert. A custom control (level 2) is created inside the module's boundary and type-checked.
 - **Modules.** Every module with state, switch and the manifest's facts (admin, network, registry, services, "Reads files outside its folder" (one line per `probePaths` entry, also in the turn-on dialog), host API, folder,
-  problems). Install, update and remove are not built; the page says so.
-- **Settings.** Language (switches at once, module strings too), theme (system, light, dark), start with Windows, log level, open
-  the log folder, and the hotkeys of all modules with conflicts marked.
+  problems). Since R1 the page also installs, updates, removes and rolls back (next bullet).
+- **Modules: install, update, remove (R1).** Two lists. **Installed**: a flat row per module (state bar, icon tile, name and version, state and reason),
+  the switch, **Update to X** when the registry has a newer release that fits this host, **Undo** while a change waits, and in the details the manifest's
+  facts, **Go back to X** (a module that failed after an update) and **Remove** (with a confirmation). **Available**: the registry's modules, each with its
+  description, version, size and a one-line summary of what it declares ("Needs administrator · Network (1) · Registry (2)"); the details have the full
+  declarations, host API, release date, SHA-256, the source repository link and "Works on this PC: not known until it is installed". Honest states in
+  the row: installable, installed (with the version), waiting for a restart, needs another host API, failed with the reason. While one runs: a progress bar
+  with the phase and "16 KB / 23.9 KB" and a Cancel button. A registry line says whether the list is fresh, saved on this PC, **offline** (showing the
+  list saved on that date), unreachable, or not valid. **Restart required** is an amber bar with **Restart now** and a dot on Modules in the pane. The page
+  redraws itself when something changes, with scroll, open rows and focus kept; progress ticks only move the bar. The first start with no module at all
+  opens this page once, with "Get the module list". Short copy, no cards, language keys `modules.*` and `decl.*` in en and vi, errors `core.install.*` in Core.
+  How it works, what it protects and what not: `docs/INSTALL.md`; the list and its rules: `docs/REGISTRY.md`.
+- **Settings.** Language (switches at once, module strings too), theme (system, light, dark), start with Windows, log level, **check for module updates
+  every day (off by default; asks github.com once a day, sends no identifier)**, open the log folder, and the hotkeys of all modules with conflicts marked.
 - **Search.** A runtime index of module names and descriptions and every row's header and description, in the current language.
 - **Tray, hotkeys, toast.** Tray menu: Open, one submenu per module that registered items, Quit. Hotkeys: `RegisterHotKey` on the
   window, only for gestures nobody else claims; a gesture the OS refuses is flagged. Toasts through `AppNotificationManager`.
@@ -239,3 +258,19 @@ is a mock from the brand PNGs); a real change of the taskbar theme or of high co
 not touched); a real change of the Windows accent while the app runs; real 150 % and 200 % scaling (the `--shot-scale` renders simulate it, the window was never on a scaled monitor); Explorer
 thumbnails and the Start menu entry; the SVG-to-PNG fallback inside the app (only the Core choice is tested); a symbolic link inside a module folder (rejected by code, not tested because creating one
 needs a privilege).
+
+## R1: install, update and remove from the Modules page (task R1)
+
+The Modules page now installs, updates, removes and rolls back modules from the registry `rigbay-app/registry`, with a SHA-256 check before anything is
+unpacked, admin-only folders, a swap at the next start and a kept previous version. Design, flow, crash recovery, threat model and the full verification are in
+`docs/INSTALL.md`; the registry file and its rules are in `docs/REGISTRY.md`.
+
+Verified 2026-11-01 (this machine, Windows 11 10.0.26300, 100 % DPI): `dotnet build Rigbay.sln --no-incremental` 0 warnings 0 errors; `dotnet test`: Core 600
+(257 new), PredatorSense 102, XTU 190, all passed; `tools\selftest.ps1` 129 of 129 PASS (elevated; 16 install checks through the real page controls and the real
+DACL of scratch folders); `tools\cli-test.ps1` 0 failed, `--langcheck` 209 of 209 keys in en and vi; real HTTP on loopback with a 304 and an offline
+fallback, and "Restart now" with two real elevated processes (`tools\install-http-test.ps1`, `tools\restart-test.ps1`). PNGs looked at (dark and light, en and vi):
+`install-modules-*`, `install-http-*`, `install-settings-install-dark`.
+
+Not verified: a real download from GitHub; the real `%ProgramData%\Rigbay` folder (scratch folders with the same code were); a UAC prompt on Restart now;
+150 % and 200 % scale and high contrast on the new page; a screen reader; Windows 10; the registry workflow's pull-request step; a full disk; an
+antivirus holding a file during the swap. The list is in `docs/INSTALL.md` section 10.
