@@ -169,6 +169,14 @@ internal sealed class FakeBus : IMetricsBus
 
     public int Subscribers { get { lock (_gate) return _subs.Count; } }
 
+    // ---- the catalogue of task A12 -----------------------------------------------------------------------------------------
+    public readonly Dictionary<string, MetricInfo> Infos = new();
+    public MetricInfo? GetMetricInfo(MetricId id) { lock (_gate) return Infos.TryGetValue(id.Value, out var i) ? i : null; }
+    public IReadOnlyList<MetricInfo> GetAllMetricInfo() { lock (_gate) return Infos.Values.ToList(); }
+    public event Action? CatalogChanged;
+    public long CatalogVersion { get; private set; }
+    public void RaiseCatalogChanged() { CatalogVersion++; CatalogChanged?.Invoke(); }
+
     private sealed class Sub(FakeBus bus, MetricId? filter, Action<MetricSample> handler) : IDisposable
     {
         public MetricId? Filter { get; } = filter;

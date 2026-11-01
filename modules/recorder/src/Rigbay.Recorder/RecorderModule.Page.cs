@@ -251,7 +251,7 @@ public sealed partial class RecorderModule
     }
 
     /// <summary>The metric set the page was built from no longer matches the bus (a module started publishing): rebuild it when the page opens.</summary>
-    private void OnPageVisibleChanged()
+    private void RefreshPageIfStale()
     {
         var host = _host;
         if (host is null || !host.PageVisible.Value) return;

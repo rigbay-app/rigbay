@@ -8,7 +8,7 @@ namespace Rigbay.Recorder.Recording;
 internal sealed record MetricText(string Label, string Description);
 
 /// <summary>
-/// Where the labels come from. The host's bus will answer this (task A12, <c>GetMetricInfo</c>); until it does the recorder uses
+/// Where the labels come from. The host's bus answers this (<c>IMetricsBus.GetMetricInfo</c>, task A12), see <see cref="BusCatalog"/>. A host that does not, uses
 /// <see cref="BareCatalog"/>: the label is the id, and unit and source come from the samples themselves.
 /// </summary>
 internal interface IMetricCatalog
@@ -21,4 +21,18 @@ internal interface IMetricCatalog
 internal sealed class BareCatalog : IMetricCatalog
 {
     public MetricText? Describe(MetricId id) => null;
+}
+
+/// <summary>
+/// The host's answer: <see cref="IMetricsBus.GetMetricInfo"/> resolves the label and the description through the module that owns the
+/// metric, in the current language. A host that does not have the member (a test double) answers null for everything and the
+/// recorder falls back to the id.
+/// </summary>
+internal sealed class BusCatalog(IMetricsBus bus) : IMetricCatalog
+{
+    public MetricText? Describe(MetricId id)
+    {
+        var info = bus.GetMetricInfo(id);
+        return info is null ? null : new MetricText(info.Label, info.Description);
+    }
 }

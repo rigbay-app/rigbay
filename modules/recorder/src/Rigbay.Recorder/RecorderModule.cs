@@ -74,6 +74,7 @@ public sealed partial class RecorderModule : IModule
             ToolVersion = typeof(RecorderModule).Assembly.GetName().Version?.ToString(3) ?? "0.1.0",
             HostVersion = host.HostVersion.ToString(),
             Versions = new SiblingModuleVersions(host.ModuleDirectory),
+            Catalog = () => new BusCatalog(host.Metrics),
         };
 
         _period.Value = _settings.PeriodSeconds.ToString(CultureInfo.InvariantCulture);
@@ -90,8 +91,9 @@ public sealed partial class RecorderModule : IModule
         _period.Changed += OnPeriodChanged;
         _duration.Changed += OnDurationChanged;
         _folder.Changed += OnFolderChanged;
-        host.Localisation.LanguageChanged += RefreshTexts;
-        host.PageVisible.Changed += OnPageVisibleChanged;
+        host.Localisation.LanguageChanged += OnLanguageChanged;
+        host.PageVisible.Changed += RefreshPageIfStale;
+        host.Metrics.CatalogChanged += RefreshPageIfStale;   // a metric appeared (or the language changed, see OnLanguageChanged)
 
         RegisterCommands(host);
         RegisterShortcuts(host);
@@ -118,8 +120,9 @@ public sealed partial class RecorderModule : IModule
         _folder.Changed -= OnFolderChanged;
         if (host is not null)
         {
-            host.Localisation.LanguageChanged -= RefreshTexts;
-            host.PageVisible.Changed -= OnPageVisibleChanged;
+            host.Localisation.LanguageChanged -= OnLanguageChanged;
+            host.PageVisible.Changed -= RefreshPageIfStale;
+            host.Metrics.CatalogChanged -= RefreshPageIfStale;
             try { host.Metrics.Withdraw(RowsMetric); } catch (Exception ex) { host.Log.Warn("Withdrawing recorder.rows failed", ex); }
         }
         _engine = null;
@@ -230,6 +233,16 @@ public sealed partial class RecorderModule : IModule
             StopReason.ModuleStopped => LocalisedText.Of("ended.module-stopped", name, s.Rows),
             _ => LocalisedText.Of("ended.user", name, s.Rows),
         };
+    }
+
+    /// <summary>
+    /// The user switched language. The texts of the status rows follow at once; the metric picker shows the labels the owners gave,
+    /// which the page resolved when it was built, so it is rebuilt.
+    /// </summary>
+    private void OnLanguageChanged()
+    {
+        RefreshTexts();
+        _host?.RequestPageRefresh();
     }
 
     // ------------------------------------------------------------------ status texts
