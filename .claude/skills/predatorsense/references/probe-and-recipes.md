@@ -11,7 +11,16 @@ Exit code: 0 supported (service and `AcerGamingFunction` both present), 1 not su
 Default run calls no WMI method, opens no pipe, writes nothing. Run it from an elevated shell to also get the ACPI thermal zones.
 
 The one firmware read behind a flag: `--allow-call --sysinfo-index N` (N 1..17, one per run, elevated). Do not run it without an
-answered gate for that index.
+answered gate for that index. Only index 1 was ever approved and run (`0x0101`, raw `0x4900`, value 73). Run it elevated like this and
+read the file afterwards (an elevated process cannot be stopped from a normal shell, so let it exit by itself):
+
+```powershell
+$o = "$PWD\tools\predatorsense-probe\bin\out.txt"
+Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-Command',"& '$PWD\tools\predatorsense-probe\bin\predatorsense-probe.exe' --allow-call --sysinfo-index 1 *> '$o'"
+Get-Content $o
+```
+
+Any other WMI method (Cool Booster read, backlight read, ...) needs the probe extended for that exact call and its own approval first.
 
 ## Reading what PredatorSense has recorded
 

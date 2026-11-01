@@ -1,6 +1,8 @@
 # Approval request: one firmware read, `GetGamingSysInfo`
 
-Status: waiting for the owner. Nothing in this file has been run.
+Status: **approved by the owner (gate `g-sysinfo-0101`) for exactly one call, input `0x0101`; done once in task B2.** Result: status 0, raw
+`0x4900`, value 73 (see `FINDINGS.md` 11.1). Everything below the first-approval table is still only a request: the table for later is
+**not approved**, and each further index or method needs its own gate (candidates: `GATE-b2-reads.md`).
 
 ## The call
 
