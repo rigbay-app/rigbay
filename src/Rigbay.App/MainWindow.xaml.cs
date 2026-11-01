@@ -70,7 +70,12 @@ public sealed partial class MainWindow : Window
 
         Root.Loaded += OnLoaded;
         Root.ActualThemeChanged += (_, _) => ApplyTitleBarColors();
-        TitleBar.SizeChanged += (_, _) => RightInsetColumn.Width = new GridLength(AppWindow.TitleBar.RightInset / Math.Max(1, Root.XamlRoot?.RasterizationScale ?? 1) + 8);
+        // The brand column is as wide as the pane (280) only while the pane is open; below 1000 px the pane is icons, so the search box gets the room.
+        TitleBar.SizeChanged += (_, _) =>
+        {
+            RightInsetColumn.Width = new GridLength(AppWindow.TitleBar.RightInset / Math.Max(1, Root.XamlRoot?.RasterizationScale ?? 1) + 8);
+            LeftColumn.Width = new GridLength(TitleBar.ActualWidth >= 1000 ? 280 : 130);
+        };
         AppWindow.Closing += OnAppWindowClosing;
         Closed += (_, _) => AppLog.Info("window closed");
 
@@ -94,6 +99,7 @@ public sealed partial class MainWindow : Window
             core.ToastSink = Host.Toast;
             core.ModulesDiscovered += () => Ui.Post(null, WatchEntries);
             core.ModuleFaulted += OnModuleFaulted;
+            core.PageRefreshed += e => Ui.Post(null, () => OnPageRefreshed(e), "page refresh");
             core.Languages.LanguageChanged += () => Ui.Post(null, ApplyLanguage);
 
             await Task.Run(core.Discover);
@@ -132,7 +138,7 @@ public sealed partial class MainWindow : Window
                 OnShow = () => Ui.Post(null, ShowFromTray),
                 OnCommand = async words =>
                 {
-                    var r = await Host.Core.ExecuteCommandAsync(words);
+                    var r = await AppCommands.ExecuteAsync(Host.Core, words);
                     return (r.ExitCode, r.Output);
                 },
             };
@@ -237,6 +243,29 @@ public sealed partial class MainWindow : Window
         UpdateStatus();
         // Rebuild the page when it shows something this change may affect.
         ShowCurrent();
+    }
+
+    /// <summary>
+    /// A module asked for a new page (its list changed). The open page is rebuilt in place: same scroll offset, focus given back
+    /// to the matching control, nothing painted in between (the swap and the scroll restore happen in one layout pass).
+    /// The search index is rebuilt from the new rows.
+    /// </summary>
+    void OnPageRefreshed(ModuleEntry e)
+    {
+        if (!_uiBuilt) return;
+        RebuildSearchIndex();
+        if (!ReferenceEquals(_current, e)) return;
+        double offset = PageScroll.VerticalOffset;
+        var focus = FocusKey.TakePending() ?? FocusKey.Capture(Content?.XamlRoot, PageHost);   // a button that disables itself while it works has already lost focus
+        if (focus == null) AppLog.Info("page refresh: nothing had focus");
+        var open = SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => x.IsExpanded && x.Header is string).Select(x => (string)x.Header).ToHashSet();
+        ShowCurrent();
+        PageScroll.UpdateLayout();
+        foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) if (x.Header is string h && open.Contains(h)) x.IsExpanded = true;   // an open list stays open
+        PageScroll.UpdateLayout();
+        PageScroll.ChangeView(null, Math.Min(offset, PageScroll.ScrollableHeight), null, disableAnimation: true);
+        focus?.Restore(PageHost);
+        AppLog.Info($"page of {e.Id} refreshed");
     }
 
     void OnModuleFaulted(ModuleEntry e)
@@ -426,6 +455,7 @@ public sealed partial class MainWindow : Window
     }
 
     void UpdateStatus() => StatusText.Text = StatusLine();
+    internal double PageScrollOffset => PageScroll.VerticalOffset;
 
     // ---------------------------------------------------------------- script steps (tests and screenshots)
 
@@ -468,6 +498,10 @@ public sealed partial class MainWindow : Window
                     _ = driver.Edit(eq < 0 ? null : ParseRowValue(driver.Row, arg[(eq + 1)..]));
                     break;
                 }
+                case "turn-on": { var e = Host.Core.Find(arg); if (e != null) _ = ModulePage.ToggleAsync(e, true); break; }   // turn-on:id, like the switch; not awaited, so the "requires" dialog can stay open for a screenshot
+                case "expand": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => Equals(x.Tag, arg))) x.IsExpanded = true; break;   // expand:<module id> on the Modules page
+                case "expand-all": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) x.IsExpanded = true; break;   // every expander on the open page
+                case "scroll": if (double.TryParse(arg, out var px)) { PageScroll.UpdateLayout(); PageScroll.ChangeView(null, px, null, true); } break;   // scroll:<px> (large number = bottom)
                 case "wait": if (int.TryParse(arg, out var ms)) await Task.Delay(ms); break;
             }
             await Task.Delay(250);

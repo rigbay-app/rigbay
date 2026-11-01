@@ -62,6 +62,7 @@ page.invalid-hint = module.json có lỗi. Mô-đun chưa được tải và kh�
 page.invalid-problems = Cần sửa
 reason.invalid-one = 1 lỗi trong module.json
 reason.invalid-many = {0} lỗi trong module.json
+reason.cli-more = {0} (+{1} lỗi nữa, xem nhật ký)
 page.failed-title = Mô-đun này bị lỗi
 page.incompatible-title = Được build cho phiên bản host khác
 page.unsupported-title = Máy này không được hỗ trợ

@@ -2,6 +2,7 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Dispatching;
 
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -147,5 +148,66 @@ sealed class PageScope : IDisposable
         Disposed = true;
         foreach (var u in _undo) { try { u(); } catch { } }
         _undo.Clear();
+    }
+}
+
+/// <summary>Identifies the focused control by what it is, not where it is, so focus can be given back after a page rebuild.</summary>
+sealed class FocusKey
+{
+    readonly string _type, _name;
+    readonly int _ordinal;
+    FocusKey(string type, string name, int ordinal) { _type = type; _name = name; _ordinal = ordinal; }
+
+    static FocusKey? _pending;
+    static long _pendingAt;
+
+    /// <summary>Remembers the focused control now (a button calls this just before it disables itself); the next page refresh uses it.</summary>
+    public static void RememberForRefresh(XamlRoot? root, DependencyObject pageHost)
+    {
+        _pending = Capture(root, pageHost);
+        _pendingAt = Environment.TickCount64;
+    }
+
+    /// <summary>The control remembered by <see cref="RememberForRefresh"/> if that was less than 10 s ago; clears it.</summary>
+    public static FocusKey? TakePending()
+    {
+        var p = Environment.TickCount64 - _pendingAt < 10_000 ? _pending : null;
+        _pending = null;
+        return p;
+    }
+
+    static string NameOf(DependencyObject d) =>
+        AutomationProperties.GetName(d) is { Length: > 0 } n ? n : d is ContentControl { Content: string s } ? s : "";
+
+    static IEnumerable<Control> Controls(DependencyObject root)
+    {
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var c = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (c is Control { IsTabStop: true } ctl) yield return ctl;
+            foreach (var d in Controls(c)) yield return d;
+        }
+    }
+
+    public static FocusKey? Capture(XamlRoot? root, DependencyObject pageHost)
+    {
+        if (root == null || Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(root) is not Control focused || focused.FocusState == FocusState.Unfocused) return null;
+        var type = focused.GetType().Name; var name = NameOf(focused);
+        if (name.Length == 0) return null;
+        // the same type and name can repeat (two "Apply" buttons): count the ones before it on the page
+        int ordinal = 0; bool found = false;
+        foreach (var c in Controls(pageHost)) { if (ReferenceEquals(c, focused)) { found = true; break; } if (c.GetType().Name == type && NameOf(c) == name) ordinal++; }
+        return found ? new FocusKey(type, name, ordinal) : null;
+    }
+
+    public void Restore(DependencyObject pageHost)
+    {
+        int seen = 0;
+        foreach (var c in Controls(pageHost))
+        {
+            if (c.GetType().Name != _type || NameOf(c) != _name) continue;
+            if (seen++ == _ordinal) { c.Focus(FocusState.Programmatic); return; }
+        }
     }
 }

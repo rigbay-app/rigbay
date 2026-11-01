@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 1,
+  "id": "demo-devices",
+  "name": "Device list (demo)",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "A list that gains and loses items. Demo of page refresh and literal text; it also declares two folders it reads from.",
+  "entry": { "assembly": "Rigbay.DemoModules.dll", "type": "Rigbay.DemoModules.DevicesModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "monitoring",
+  "requires": { "admin": false },
+  "probePaths": ["%ProgramFiles%\\Demo Vendor\\Contracts", "C:\\ProgramData\\Demo Vendor\\Bridge"],
+  "languages": "lang"
+}
