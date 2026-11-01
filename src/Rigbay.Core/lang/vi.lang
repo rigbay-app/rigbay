@@ -82,3 +82,35 @@ core.command.no-modules = Chưa cài module nào
 
 # Hiện cùng các khai báo của module (trang Modules, hộp thoại bật) khi module có probePaths.
 core.requires.outside-files = Đọc tệp ngoài thư mục của nó
+
+# Cài, cập nhật và gỡ module (R1). Mỗi dòng là một lý do mà danh sách module hoặc việc cài có thể đưa ra.
+core.install.error.offline = Máy đang không có mạng.
+core.install.error.registry-unreachable = Không kết nối được tới danh sách module.
+core.install.error.registry-invalid = Danh sách module không hợp lệ nên không dùng gì từ nó.
+core.install.error.not-in-registry = Module này không có trong danh sách mà Rigbay đang giữ.
+core.install.error.no-version = Danh sách không có bản phát hành nào của module này.
+core.install.error.incompatible-host-api = Không có bản nào của module này chạy được với phiên bản Rigbay này.
+core.install.error.already-installed = Đã cài rồi.
+core.install.error.not-installed = Module này chưa được cài.
+core.install.error.already-pending = Một thay đổi cho module này đang chờ khởi động lại.
+core.install.error.busy = Đang có thay đổi khác chạy. Hãy đợi hoặc hủy nó.
+core.install.error.url-not-allowed = Địa chỉ tải về không phải loại Rigbay chấp nhận.
+core.install.error.download-failed = Tải về thất bại.
+core.install.error.too-large = Tệp tải về lớn hơn mức Rigbay cho phép.
+core.install.error.incomplete = Tải về chưa xong.
+core.install.error.size-mismatch = Tệp tải về không đúng kích thước danh sách đã nêu.
+core.install.error.hash-mismatch = Tệp tải về không khớp SHA-256 trong danh sách. Tệp đã bị xóa và chưa cài gì.
+core.install.error.bad-zip = Tệp không phải zip hợp lệ.
+core.install.error.unsafe-zip = Trong zip có đường dẫn có thể ghi ra ngoài thư mục của nó nên bị từ chối.
+core.install.error.manifest-mismatch = Module trong zip không phải module mà danh sách mô tả.
+core.install.error.declares-wider = Module đòi nhiều hơn những gì danh sách nêu.
+core.install.error.folder-security = Không đặt được thư mục modules thành chỉ dành cho quản trị viên.
+core.install.error.apply-failed = Không hoàn tất được thay đổi.
+core.install.error.nothing-to-roll-back = Không còn giữ phiên bản cũ nào.
+core.install.error.cancelled = Đã hủy.
+core.install.phase.preparing = Đang chuẩn bị
+core.install.phase.downloading = Đang tải về
+core.install.phase.verifying = Đang kiểm tra SHA-256
+core.install.phase.unpacking = Đang giải nén
+core.install.phase.checking = Đang kiểm tra module
+core.install.phase.finishing = Đang hoàn tất

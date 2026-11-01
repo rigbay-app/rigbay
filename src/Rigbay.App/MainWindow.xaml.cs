@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -50,8 +51,11 @@ public sealed partial class MainWindow : Window
         var core = new RigbayHost(AppPaths.HostOptions());
         Host.Core = core;
         AppLog.Attach(core);
+        AppLog.Info("started with: " + string.Join(" ", opt.Raw));
         core.Languages.LoadEmbedded(typeof(MainWindow).Assembly, "Rigbay.App.lang.");   // the app's own strings join the core's
         AppState.Load(core);
+        InstallServices.Create(core);
+        InstallServices.FlushStartupLog();
         if (opt.Lang != null) core.Languages.SetLanguage(opt.Lang);
 
         InitializeComponent();
@@ -105,9 +109,12 @@ public sealed partial class MainWindow : Window
             core.Languages.LanguageChanged += () => Ui.Post(null, ApplyLanguage);
 
             await Task.Run(core.Discover);
+            OpenModulesOnFirstRun(core);
             WatchEntries();
             SetupHosts();
             await Task.Run(core.StartEnabled);
+            await Task.Run(() => InstallServices.AfterStart(core));
+            WatchInstall();
 
             if (!_opt.Tray || _opt.Shot != null || _opt.SelfTest || _opt.Script != null) Activate();
             if (_opt.Shot != null || _opt.SelfTest || _opt.Script != null || _opt.Page != null)
@@ -306,17 +313,96 @@ public sealed partial class MainWindow : Window
         if (!_uiBuilt) return;
         RebuildSearchIndex();
         if (!ReferenceEquals(_current, e)) return;
+        RebuildKeepingView();
+        AppLog.Info($"page of {e.Id} refreshed");
+    }
+
+    /// <summary>Rebuilds the open page with the view kept: scroll offset, open expanders (by header text or tag) and the focused control.</summary>
+    void RebuildKeepingView()
+    {
         double offset = PageScroll.VerticalOffset;
         var focus = FocusKey.TakePending() ?? FocusKey.Capture(Content?.XamlRoot, PageHost);   // a button that disables itself while it works has already lost focus
         if (focus == null) AppLog.Info("page refresh: nothing had focus");
-        var open = SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => x.IsExpanded && x.Header is string).Select(x => (string)x.Header).ToHashSet();
+        static string? KeyOf(CommunityToolkit.WinUI.Controls.SettingsExpander x) => x.Header as string ?? x.Tag as string;
+        var open = SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => x.IsExpanded && KeyOf(x) != null).Select(x => KeyOf(x)!).ToHashSet();
         ShowCurrent();
         PageScroll.UpdateLayout();
-        foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) if (x.Header is string h && open.Contains(h)) x.IsExpanded = true;   // an open list stays open
+        foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) if (KeyOf(x) is { } k && open.Contains(k)) x.IsExpanded = true;   // an open list stays open
         PageScroll.UpdateLayout();
         PageScroll.ChangeView(null, Math.Min(offset, PageScroll.ScrollableHeight), null, disableAnimation: true);
         focus?.Restore(PageHost);
-        AppLog.Info($"page of {e.Id} refreshed");
+    }
+
+    /// <summary>The Modules page redraws itself when its data changed (install finished, list fetched): same view, new rows.</summary>
+    internal void RefreshPageKeepingView()
+    {
+        if (_uiBuilt) RebuildKeepingView();
+    }
+
+    // ---------------------------------------------------------------- install: first run, restart, badge, daily check
+
+    /// <summary>The first start with no module at all opens the Modules page once, where the list can be fetched. Test switches keep the dashboard.</summary>
+    void OpenModulesOnFirstRun(RigbayHost core)
+    {
+        bool testRun = _opt.Shot != null || _opt.SelfTest || _opt.Script != null || _opt.Page != null || _opt.ExitAfterMs > 0;
+        if (AppState.Settings.FirstRunDone && !_opt.FirstRun) return;
+        if (core.Modules.Count > 0 && !_opt.FirstRun) { AppState.Settings.FirstRunDone = true; AppState.Save(); return; }
+        if (testRun && !_opt.FirstRun) return;
+        AppState.Settings.FirstRunDone = !_opt.FirstRun;
+        AppState.Save();
+        _current = "modules";
+        AppLog.Info("first start without modules: opening the Modules page");
+    }
+
+    DispatcherQueueTimer? _dailyTimer;
+
+    /// <summary>Follows the install manager (badge on Modules) and, only when the user switched it on, asks the registry once a day.</summary>
+    void WatchInstall()
+    {
+        InstallServices.Manager.Changed += () => Ui.Post(null, UpdateModulesBadge, "modules badge");
+        UpdateModulesBadge();
+        _dailyTimer = DispatcherQueue.CreateTimer();
+        _dailyTimer.Interval = TimeSpan.FromHours(1);
+        _dailyTimer.Tick += (_, _) => RunDailyCheckIfDue();
+        _dailyTimer.Start();
+        RunDailyCheckIfDue();
+    }
+
+    void RunDailyCheckIfDue()
+    {
+        if (!InstallServices.DailyCheckDue(DateTimeOffset.UtcNow)) return;
+        AppLog.Info("daily module check");
+        _ = InstallServices.CheckNowAsync();
+    }
+
+    /// <summary>A dot on "Modules" in the pane while a change waits for a restart.</summary>
+    void UpdateModulesBadge()
+    {
+        if (!_uiBuilt) return;
+        var item = AllNavItems().FirstOrDefault(i => Equals(i.Tag, "modules"));
+        if (item == null) return;
+        bool restart = InstallServices.Manager.RestartRequired;
+        if (restart && item.InfoBadge == null) item.InfoBadge = new InfoBadge { Style = (Style)Application.Current.Resources["AttentionDotInfoBadgeStyle"] };
+        else if (!restart && item.InfoBadge != null) item.InfoBadge = null;
+    }
+
+    /// <summary>"Restart now": starts the successor (it waits for this process to end), then quits the way Quit does. On failure the page says why and the app keeps running.</summary>
+    internal async Task RestartAsync()
+    {
+        InstallServices.Manager.CancelOperation();   // a download in progress ends with the process; its partial file is cleaned at the next start
+        try
+        {
+            Relaunch.StartSuccessor(_opt.Raw);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("restart failed", ex);
+            ModulesPage.RestartError = ex.Message;
+            RefreshPageKeepingView();
+            return;
+        }
+        AppLog.Info("restarting: the new process waits for this one to end");
+        await QuitAsync();
     }
 
     void OnModuleFaulted(ModuleEntry e)
@@ -604,6 +690,15 @@ public sealed partial class MainWindow : Window
                 case "expand": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => Equals(x.Tag, arg))) x.IsExpanded = true; break;   // expand:<module id> on the Modules page
                 case "expand-all": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) x.IsExpanded = true; break;   // every expander on the open page
                 case "scroll": if (double.TryParse(arg, out var px)) { PageScroll.UpdateLayout(); PageScroll.ChangeView(null, px, null, true); } break;   // scroll:<px> (large number = bottom)
+                case "check": await InstallServices.CheckNowAsync(); break;   // the Check for updates button
+                case "install": await InstallServices.Manager.InstallAsync(arg); break;
+                case "install-bg": _ = InstallServices.Manager.InstallAsync(arg); break;   // not awaited, so a screenshot can show the progress
+                case "update": await InstallServices.Manager.UpdateAsync(arg); break;
+                case "remove": await InstallServices.Manager.RemoveAsync(arg); break;
+                case "rollback": await InstallServices.Manager.RollbackAsync(arg); break;
+                case "undo": await InstallServices.Manager.UndoAsync(arg); break;
+                case "cancel-install": InstallServices.Manager.CancelOperation(); break;
+                case "restart": await RestartAsync(); break;   // Restart now (tools/restart-test.ps1)
                 case "wait": if (int.TryParse(arg, out var ms)) await Task.Delay(ms); break;
             }
             await Task.Delay(250);

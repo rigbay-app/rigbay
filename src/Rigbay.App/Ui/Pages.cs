@@ -274,94 +274,6 @@ static class RequiresDialog
     }
 }
 
-/// <summary>Installed modules with state, an enable switch, and the facts each manifest declares. Install, update and remove are not built yet; the page says so.</summary>
-static class ModulesPage
-{
-    public static UIElement Build(PageScope scope)
-    {
-        var page = new StackPanel { Spacing = 2 };
-        var folder = Ui.LinkButton(Host.T("modules.open-folder"), () => OpenFolder(AppPaths.ModulesRoot));
-        page.Children.Add(Ui.PageHeader(Host.T("nav.modules"), AppPaths.ModulesRoot, folder));
-        page.Children.Add(new InfoBar
-        {
-            IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
-            Title = Host.T("modules.placeholder-title"), Message = Host.T("modules.placeholder-body"), Margin = new Thickness(0, 0, 0, 14),
-        });
-        var entries = Host.Core.Modules;
-        if (entries.Count == 0)
-        {
-            page.Children.Add(Ui.StateBlock(BayState.Off, Host.T("dash.empty-title"), Host.F("dash.empty-body", AppPaths.ModulesRoot)));
-            return page;
-        }
-        foreach (var e in entries) page.Children.Add(Item(e));
-        return page;
-    }
-
-    static UIElement Item(ModuleEntry e)
-    {
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        header.Children.Add(Ui.Bay(e.Bay.State, 28));
-        header.Children.Add(ModuleIconUi.Tile(e, 32));
-        header.Children.Add(Ui.Text(e.DisplayName + (e.VersionText().Length > 0 ? "  v" + e.VersionText() : "")));
-
-        bool canToggle = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
-        var sw = new ToggleSwitch { IsOn = e.Lifecycle == ModuleLifecycle.Running, OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = canToggle };
-        AutomationProperties.SetName(sw, Host.F("module.enable", e.DisplayName));
-        bool suppress = false;
-        sw.Toggled += async (_, _) =>
-        {
-            if (suppress) return;
-            sw.IsEnabled = false;
-            try { bool now = await ModulePage.ToggleAsync(e, sw.IsOn); if (now != sw.IsOn) { suppress = true; sw.IsOn = now; suppress = false; } }
-            catch (Exception ex) { AppLog.Error("enable switch failed", ex); }
-            finally { sw.IsEnabled = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running; }
-        };
-        var word = Ui.StateWord(e.Bay.State);
-        var reason = e.ShortReasonText();
-        var expander = new SettingsExpander
-        {
-            Header = header,
-            Description = reason.Length > 0 ? $"{word}  ·  {reason}" : $"{word}  ·  {e.DisplayDescription}",
-            Content = sw, Tag = e.Id,
-        };
-        void Fact(string label, string value)
-        {
-            if (value.Length == 0) return;
-            var tb = Ui.Text(value, trim: false, wrap: true);
-            tb.MaxWidth = 420; tb.IsTextSelectionEnabled = true; tb.TextAlignment = TextAlignment.Right;
-            expander.Items.Add(new SettingsCard { Header = label, Content = tb });
-        }
-        var m = e.Manifest;
-        Fact(Host.T("fact.id"), e.Id);
-        Fact(Host.T("fact.author"), e.AuthorText());
-        Fact(Host.T("fact.description"), e.DisplayDescription);
-        Fact(Host.T("fact.group"), m != null ? Host.T("group." + e.GroupKey()) : "");
-        Fact(Host.T("fact.host-api"), m?.HostApi.Text ?? "");
-        Fact(Host.T("fact.admin"), m == null ? "" : Host.T(m.Requires.Admin ? "value.yes" : "value.no"));
-        Fact(Host.T("fact.network"), m == null ? "" : string.Join("\n", m.Requires.Network));
-        Fact(Host.T("fact.registry"), m == null ? "" : string.Join("\n", m.Requires.Registry));
-        Fact(Host.T("fact.services"), m == null ? "" : string.Join("\n", m.Requires.Services));
-        foreach (var path in m?.DeclaredProbePaths ?? Array.Empty<string>()) Fact(Host.T(ModuleManifest.OutsideFilesLabelKey), path);
-        Fact(Host.T("fact.problems"), string.Join("\n", e.IssueLines()));
-        Fact(Host.T("fact.folder"), e.Folder);
-        if (m?.Homepage is { } home && Uri.TryCreate(home, UriKind.Absolute, out var uri))
-            expander.Items.Add(new SettingsCard { Header = Host.T("fact.homepage"), Content = new HyperlinkButton { Content = home, NavigateUri = uri } });
-        if (e.Page != null || e.Lifecycle != ModuleLifecycle.Invalid)
-            expander.Items.Add(new SettingsCard { Header = Host.T("modules.open-page"), IsClickEnabled = true }.With(c => c.Click += (_, _) => Host.Window.Navigate(e)));
-        return expander;
-    }
-
-    public static void OpenFolder(string path)
-    {
-        try
-        {
-            Directory.CreateDirectory(path);
-            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + path + "\"") { UseShellExecute = true });
-        }
-        catch (Exception ex) { AppLog.Warn("could not open " + path, ex); }
-    }
-}
-
 /// <summary>Language, theme, start with Windows, log level, open the log folder, and the hotkeys of all modules.</summary>
 static class SettingsPage
 {
@@ -437,6 +349,17 @@ static class SettingsPage
             AppState.Save();
         };
         general.Children.Add(new SettingsCard { Header = Host.T("settings.log-level"), Description = Host.T("settings.log-level-desc"), Content = level });
+
+        // daily check of the module list (off by default: nothing leaves the PC unless the user asks)
+        var daily = new ToggleSwitch { IsOn = AppState.Settings.CheckDaily, OnContent = "", OffContent = "", MinWidth = 0 };
+        AutomationProperties.SetName(daily, Host.T("settings.module-check"));
+        daily.Toggled += (_, _) =>
+        {
+            AppState.Settings.CheckDaily = daily.IsOn;
+            AppState.Save();
+            if (daily.IsOn && InstallServices.DailyCheckDue(DateTimeOffset.UtcNow)) _ = InstallServices.CheckNowAsync();
+        };
+        general.Children.Add(new SettingsCard { Header = Host.T("settings.module-check"), Description = Host.T("settings.module-check-desc"), Content = daily });
 
         // log folder
         general.Children.Add(new SettingsCard { Header = Host.T("settings.log-folder"), Description = Host.Core.Paths.LogDirectory, Content = Ui.LinkButton(Host.T("settings.open"), () => ModulesPage.OpenFolder(Host.Core.Paths.LogDirectory)) });

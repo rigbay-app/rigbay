@@ -8,14 +8,22 @@ sealed class Options
 {
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase)
     {
-        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale",
+        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--registry", "--wait-pid", "--slow-download",
     };
 
     public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut, Accent;
     public int ExitAfterMs;
+    /// <summary>Test switch: a local registry file or URL. Honoured only with scratch --data and --modules (docs/INSTALL.md).</summary>
+    public string? Registry;
+    /// <summary>Set by "Restart now": the new process waits for this process id to end before it starts.</summary>
+    public int WaitPid;
+    /// <summary>Test switch (with --registry): milliseconds to wait before each 16 KB read of a local file, so progress and cancel can be seen.</summary>
+    public int SlowDownloadMs;
     /// <summary>Test switch: render the screenshot at this display scale (1.5, 2) with a RenderTargetBitmap of the window's own content; icons are then picked for that scale.</summary>
     public double ShotScale = 1;
     public bool Tray, SelfTest, AllowMulti, LangCheck, Help;
+    /// <summary>Test switch: behave as on the first start without modules (opens the Modules page).</summary>
+    public bool FirstRun;
     public List<string> Positional { get; } = new();
     public string[] Raw { get; private set; } = Array.Empty<string>();
 
@@ -49,11 +57,15 @@ sealed class Options
                 case "--size": o.Size = Next(); break;
                 case "--shot-scale": double.TryParse(Next(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out o.ShotScale); break;
                 case "--accent": o.Accent = Next(); break;   // test switch: pretend the Windows accent is this #RRGGBB (title bar mark)
+                case "--registry": o.Registry = Next(); break;
+                case "--wait-pid": int.TryParse(Next(), out o.WaitPid); break;
+                case "--slow-download": int.TryParse(Next(), out o.SlowDownloadMs); break;
                 case "--selftest-out": o.SelfTestOut = Next(); break;
                 case "--exit-after": int.TryParse(Next(), out o.ExitAfterMs); break;
                 case "--tray": o.Tray = true; break;
                 case "--selftest": o.SelfTest = true; break;
                 case "--allow-multi": o.AllowMulti = true; break;
+                case "--first-run": o.FirstRun = true; break;
                 case "--langcheck": o.LangCheck = true; break;
                 case "--help": case "-h": o.Help = true; break;
                 default:

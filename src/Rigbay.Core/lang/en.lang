@@ -83,3 +83,35 @@ core.command.no-modules = No modules are installed
 
 # Shown with a module's declared facts (Modules page, turn-on dialog) when it lists probePaths.
 core.requires.outside-files = Reads files outside its folder
+
+# Install, update and remove (R1). One line per reason the registry or an install can give.
+core.install.error.offline = You are offline.
+core.install.error.registry-unreachable = The module list could not be reached.
+core.install.error.registry-invalid = The module list is not valid, so nothing from it was used.
+core.install.error.not-in-registry = This module is not in the list Rigbay has.
+core.install.error.no-version = The list has no release of this module.
+core.install.error.incompatible-host-api = No release of this module works with this version of Rigbay.
+core.install.error.already-installed = Already installed.
+core.install.error.not-installed = This module is not installed.
+core.install.error.already-pending = A change to this module is already waiting for a restart.
+core.install.error.busy = Another change is running. Wait for it or cancel it.
+core.install.error.url-not-allowed = The download address is not one Rigbay accepts.
+core.install.error.download-failed = The download failed.
+core.install.error.too-large = The download is larger than Rigbay allows.
+core.install.error.incomplete = The download did not finish.
+core.install.error.size-mismatch = The download is not the size the list promised.
+core.install.error.hash-mismatch = The download does not match its SHA-256 in the list. It was deleted and nothing was installed.
+core.install.error.bad-zip = The file is not a valid zip.
+core.install.error.unsafe-zip = The zip holds a path that could write outside its folder, so it was refused.
+core.install.error.manifest-mismatch = The module inside the zip is not the one the list describes.
+core.install.error.declares-wider = The module asks for more than the list says.
+core.install.error.folder-security = The modules folder could not be made administrator-only.
+core.install.error.apply-failed = The change could not be completed.
+core.install.error.nothing-to-roll-back = No earlier version is kept.
+core.install.error.cancelled = Cancelled.
+core.install.phase.preparing = Preparing
+core.install.phase.downloading = Downloading
+core.install.phase.verifying = Checking the SHA-256
+core.install.phase.unpacking = Unpacking
+core.install.phase.checking = Checking the module
+core.install.phase.finishing = Finishing

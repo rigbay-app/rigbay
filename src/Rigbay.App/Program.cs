@@ -28,6 +28,9 @@ public static class Program
         }
         if (opt.IsVerb) return Cli.RunVerb(opt);
 
+        InstallServices.Configure(opt);
+        if (opt.WaitPid > 0) Relaunch.WaitForPredecessor(opt.WaitPid);
+
         if (!opt.AllowMulti)
         {
             _single = new Mutex(true, MutexName, out bool first);
@@ -39,6 +42,8 @@ public static class Program
                 return 0;
             }
         }
+
+        InstallServices.ApplyPendingAtStart();   // before any XAML or module code: nothing is loaded, so folders can be renamed
 
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Microsoft.UI.Xaml.Application.Start(p =>

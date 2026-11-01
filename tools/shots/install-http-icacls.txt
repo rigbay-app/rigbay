@@ -1,0 +1,20 @@
+﻿== <worktree>\tools\out\install-http\modules
+<worktree>\tools\out\install-http\modules NT AUTHORITY\SYSTEM:(OI)(CI)(F)
+                                                                                                  BUILTIN\Administrators:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+== <worktree>\tools\out\install-http\modules.install
+<worktree>\tools\out\install-http\modules.install NT AUTHORITY\SYSTEM:(OI)(CI)(F)
+                                                                                                          BUILTIN\Administrators:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+== <worktree>\tools\out\install-http\modules\demo-lighting
+<worktree>\tools\out\install-http\modules\demo-lighting NT AUTHORITY\SYSTEM:(I)(OI)(CI)(F)
+                                                                                                                BUILTIN\Administrators:(I)(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+== <worktree>\tools\out\install-http\modules.install\registry
+<worktree>\tools\out\install-http\modules.install\registry NT AUTHORITY\SYSTEM:(I)(OI)(CI)(F)
+                                                                                                                   BUILTIN\Administrators:(I)(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
