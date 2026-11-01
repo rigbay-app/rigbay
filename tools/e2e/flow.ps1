@@ -143,7 +143,7 @@ try {
     Check 'the modules folder is still untouched (recorder is parked in ready\)' ((-not (Test-Path (Join-Path $mods 'recorder'))) -and (Test-Path (Join-Path $inst 'ready\recorder\module.json'))) ('modules: ' + ((Names $mods) -join ','))
     Check 'downloads\ and staging\ are empty after the install' (((Names (Join-Path $inst 'downloads')).Count -eq 0) -and ((Names (Join-Path $inst 'staging')).Count -eq 0))
     $accounts = & icacls $mods
-    Check 'ACL of the scratch modules folder: Administrators and SYSTEM only' (($accounts -match 'BUILTIN\\Administrators') -and ($accounts -match 'NT AUTHORITY\\SYSTEM') -and -not ($accounts -match 'Users|Everyone|minhh|Authenticated')) ((($accounts | Where-Object { $_ -match '\(' }) -join ' ') -replace '\s+', ' ')
+    Check 'ACL of the scratch modules folder: Administrators and SYSTEM only' (($accounts -match 'BUILTIN\\Administrators') -and ($accounts -match 'NT AUTHORITY\\SYSTEM') -and -not ($accounts -match ('Users|Everyone|' + [regex]::Escape($env:USERNAME) + '|Authenticated'))) ((($accounts | Where-Object { $_ -match '\(' }) -join ' ') -replace '\s+', ' ')
 
     [void](Click-Button $w 'Undo the change to Recorder')
     Start-Sleep -Seconds 2
