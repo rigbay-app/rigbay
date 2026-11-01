@@ -1,4 +1,8 @@
 using Rigbay.Abstractions;
+using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
+using System.Text.Json;
+using Rigbay.SystemDep;
 using Rigbay.TestDependency;
 
 namespace Rigbay.FaultyModule;
@@ -7,7 +11,7 @@ namespace Rigbay.FaultyModule;
 /// Misbehaves in the way named in <c>behavior.txt</c> next to this DLL (the test writes it before the host loads the
 /// module): ctor-throws, probe-throws, probe-null, probe-unsupported, probe-hangs, init-throws, init-hangs,
 /// page-throws, bad-page, toggle-throws, button-throws, hotkey-throws, command-throws, metric-handler-throws,
-/// uses-dependency, none.
+/// uses-dependency, uses-system-dependency (a System.* assembly the host lacks), json-context (which context holds System.Text.Json), none.
 /// </summary>
 public sealed class FaultyModule : IModule
 {
@@ -84,8 +88,16 @@ public sealed class FaultyModule : IModule
         };
         if (_behavior == "uses-dependency")
             rows.Add(new ValueRow("row.dep", new ObservableValue<string>(Greeter.Hello())));
+        if (_behavior == "uses-system-dependency") rows.Add(new ValueRow("row.sysdep", new ObservableValue<string>(SystemDepText())));
+        if (_behavior == "json-context") rows.Add(new ValueRow("row.json", new ObservableValue<string>(JsonContextName())));
         return new PageModel { Groups = new[] { new RowGroup("group.main", rows) } };
     }
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string SystemDepText() => OnlyHere.Hello();
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string JsonContextName() => AssemblyLoadContext.GetLoadContext(typeof(JsonSerializer).Assembly)!.Name ?? "";
+
 
     public void Shutdown()
     {

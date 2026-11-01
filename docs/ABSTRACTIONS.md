@@ -58,6 +58,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
     "registry": ["HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"],
     "services": []
   },
+  "probePaths": ["%ProgramFiles%\\Vendor\\Contracts"],
   "languages": "lang",
   "homepage": "https://github.com/rigbay-app/module-steam-access"
 }
@@ -78,6 +79,7 @@ Do not put `Rigbay.Abstractions.dll` in the folder. If it is there, the host ign
 | `requires` | no | Informational list of what the module uses: `admin` (bool), `network`, `registry`, `services` (arrays of short strings). Shown to the user before the first enable. It is a declaration, not a sandbox, and the host does not enforce it. |
 | `languages` | no | Folder with `*.lang` files, relative to the module folder. Default `lang`. |
 | `homepage` | no | `http` or `https` URL. |
+| `probePaths` | no | Up to 8 extra folders the module reads assemblies from, for files that stay where another product installed them and are never copied (for example `C:\Program Files\Intel\...`). Each is an absolute local path (drive letter; no `..`, no network share, no wildcards), and may use `%NAME%` environment variables, which must exist on the machine. Folders are used only by the loader rule in section 10 (last resort, after the host and the module folder). They are listed in the facts of the Modules page and the turn-on dialog as "Reads files outside its folder" (host key `core.requires.outside-files`; the app shows `ModuleManifest.DeclaredProbePaths` under that label). A declaration, not a sandbox. |
 
 Unknown fields are ignored (a warning is logged) so a newer manifest still loads on an older host. The host
 validates every field and reports all problems at once; a module with an invalid manifest is listed as
@@ -394,9 +396,21 @@ implementation. Titles and bodies are `LocalisedText` (a module-relative key plu
 - **What the boundary cannot do:** stop an infinite loop on a module's own thread, a stack overflow, an
   access violation in native code, or an unhandled exception on a thread the module started itself (that kills the
   process like any .NET program). Catch exceptions on your own threads.
-- **Loading.** One `AssemblyLoadContext` per module. `Rigbay.Abstractions` always comes from the host's default
-  context. The module's other dependencies are resolved from its own folder (via its `deps.json` when there is one,
-  or by file name), including native libraries. Framework assemblies come from the host's runtime.
+- **Loading.** One `AssemblyLoadContext` per module, never unloaded. For every assembly the module asks for, the
+  first of these that has it wins, and the winner is logged at debug level (`name version: host copy | module copy |
+  probe path copy`):
+  1. **The host's default context**, if it has the assembly (already loaded, or loadable there at a version that
+     satisfies the request): the shared framework, `Rigbay.Abstractions`, WinUI/WinRT, anything the app ships. The
+     module's own copy is ignored, so a type has one identity on both sides.
+  2. **The module folder**: through the module's `deps.json` when there is one, else `<name>.dll` next to the entry
+     assembly (native libraries the same way).
+  3. **The `probePaths`** from `module.json`, in the order declared: `<name>.dll` in each folder.
+  4. Nothing has it: `FileNotFoundException`, and the module faults when the code that needed it runs.
+
+  So a module may ship a `System.*` package the host does not contain (`System.Management`,
+  `System.ServiceModel.*`), and a module that ships its own copy of something the host has still gets the
+  host's copy. `Rigbay.Abstractions` never comes from a module or a probe path. A module no longer needs its own
+  `AssemblyLoadContext.Resolving` hook.
 - **Logging.** One file, `%LOCALAPPDATA%\Rigbay\logs\rigbay.log`, `rigbay.1.log`, `rigbay.2.log`; at 1 MiB the
   file is rotated, three files are kept. Line format `2026-11-01 17:40:12.345 INFO  steam-access  message`. The
   host keeps the last 500 entries in memory for the Log page. Do not log secrets.
@@ -566,6 +580,30 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after A6 (loader rule for `System.*` assemblies, `probePaths`; no version number change)
+
+Additive, except the loader rule which relaxes a restriction:
+
+- **Loader rule** (`ModuleLoadContext`, exact order, first match wins, winner logged at debug level):
+  1. the host's default context has the assembly (loaded, or loadable there at a version that satisfies the request): the
+     host's copy, the module's is ignored (framework, `Rigbay.Abstractions`, WinUI/WinRT, whatever the app ships);
+  2. the module folder (its `deps.json`, else `<name>.dll` beside the entry assembly);
+  3. the module's `probePaths`, in the declared order (`<name>.dll`);
+  4. otherwise `FileNotFoundException`.
+  Before, every name starting with `System.`, `Microsoft.Win32.`, `Microsoft.NETCore.`, `Microsoft.WinUI`, `Microsoft.UI.`,
+  `Microsoft.Windows.`, `WinRT.` or `WindowsBase` went to the host unconditionally, so a module could not ship
+  `System.Management` or `System.ServiceModel.*`. Now such a name goes to the host only if the host has it. Behaviour change
+  to know: an assembly of any name that the app's own folder ships now beats the module's copy even if the host had not
+  loaded it yet (before: only if already loaded). A module that relied on its `AssemblyLoadContext.Resolving` hook
+  (the XTU spike) can drop it.
+- `module.json` field `probePaths` (section 2.1): up to 8 absolute local paths, `%ENV%` expanded and validated
+  (`ManifestReader.TryExpandProbePath`; errors `core.manifest.probe-path-invalid`, `core.manifest.probe-paths-count`).
+- `ModuleManifest.ProbePaths` (constructor parameter, last, optional), `DeclaredProbePaths`, `ResolvedProbePaths`,
+  `ReadsOutsideItsFolder`, `ModuleManifest.OutsideFilesLabelKey` (`core.requires.outside-files`, "Reads files outside its
+  folder", in `en.lang` and `vi.lang`, LangCheck strict clean). The Modules page and turn-on dialog should list
+  `DeclaredProbePaths` under that label (App change, not done here).
+- `ModuleLoadContext(moduleId, entryAssemblyPath, probePaths = null, log = null)`.
 
 ### 0.1 after A4 (fixes for the gaps the app shell found; no version number change)
 

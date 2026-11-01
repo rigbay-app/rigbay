@@ -166,7 +166,7 @@ public sealed class ModuleEntry
         try
         {
             var entryPath = Path.Combine(Folder, m.EntryAssembly);
-            var context = _context = new ModuleLoadContext(m.Id, entryPath);
+            var context = _context = new ModuleLoadContext(m.Id, entryPath, m.ResolvedProbePaths, Log);
             var assembly = context.LoadEntry(entryPath);
 
             var wanted = assembly.GetReferencedAssemblies().FirstOrDefault(a => a.Name == "Rigbay.Abstractions");
