@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Pinned in one place. Override with -p:WinAppSdkVersion=2.6.4 to try the 2.x line. -->
+    <WinAppSdkVersion Condition="'$(WinAppSdkVersion)' == ''">1.8.260921001</WinAppSdkVersion>
+    <SpikeOut>$(MSBuildThisFileDirectory)out\</SpikeOut>
+  </PropertyGroup>
+</Project>

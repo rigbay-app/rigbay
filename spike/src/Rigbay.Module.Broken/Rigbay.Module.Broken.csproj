@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Only references Abstractions: proves a module without any WinUI dependency loads and fails cleanly. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Rigbay.Module.Broken</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rigbay.Abstractions\Rigbay.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
