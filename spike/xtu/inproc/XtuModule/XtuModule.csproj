@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Design A: the XTU module as a .NET 10 class library. It references Intel's net48 assemblies IN PLACE
+       (Private=false: never copied next to the module) and a WCF client for modern .NET. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <OutputPath>..\..\out\inproc\module\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <XtuDir>C:\Program Files\Intel\Intel(R) Extreme Tuning Utility\Drivers</XtuDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\shared\WireProbe.cs" Link="WireProbe.cs" />
+    <PackageReference Include="System.ServiceModel.Primitives" Version="10.0.652802" />
+    <PackageReference Include="System.ServiceModel.NetNamedPipe" Version="10.0.652802" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="XtuInterface"><HintPath>$(XtuDir)\XtuInterface.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="XtuCommon"><HintPath>$(XtuDir)\XtuCommon.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

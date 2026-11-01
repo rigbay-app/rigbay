@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Design B test harness: plays the part of a Rigbay module in the .NET 10 host. It starts the net48 helper
+       (spike/xtu/out/XtuHelper.exe) and talks JSON lines over stdin/stdout. No Intel file is referenced here. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>XtuHarness</AssemblyName>
+    <RootNamespace>XtuHarness</RootNamespace>
+    <OutputPath>..\out\harness\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+</Project>
