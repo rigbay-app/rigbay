@@ -1,0 +1,4 @@
+@code = en
+@name = English
+
+module.demo-lighting.probe.no-device = No supported keyboard backlight controller was found

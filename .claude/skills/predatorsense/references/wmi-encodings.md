@@ -51,7 +51,7 @@ addressed (CPU `0x01`, sys1 `0x02`, sys2 `0x04`, GPU1 `0x08`, GPU2 `0x10`). `hi`
 
 | This machine (mask `0x19`) | Value |
 | --- | --- |
-| all Auto | `0x01410019` |
+| all Auto | `0x01410019` (run once in B4: UInt64 input, status 0, fans unchanged) |
 | all Max | `0x02820019` |
 | CPU custom / CPU auto (single fan) | `0x30001` / `0x10001` |
 | GPU1 custom / auto | `0xC00008` / `0x400008` |
