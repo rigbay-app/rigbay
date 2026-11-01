@@ -1,4 +1,4 @@
-SELFTEST PASS elevated: IsUserAnAdmin=True user=MINHDEVTREE\minhh pid=32092
+SELFTEST PASS elevated: IsUserAnAdmin=True user=<machine>-<user> pid=32092
 SELFTEST PASS runtime: Windows App SDK runtime 8000.994.2142.0; Microsoft.ui.xaml.dll from C:\Program Files\WindowsApps\Microsoft.WindowsAppRuntime.1.8_8000.994.2142.0_x64__8wekyb3d8bbwe\Microsoft.UI.Xaml.dll
 SELFTEST PASS dpi and theme: window dpi=96 rasterizationScale=1 ActualTheme=Dark
 SELFTEST PASS shell: navigation built: 17 items: Dashboard, Power, Battery guard (demo), Cooling, Fan studio (demo), Network, Future module (demo), Display, Keyboard lighting (demo), Other, demo-bad-manifest, Throws in a button (test), Throws on edit (test), Throws on the UI thread (test), Modules, Settings, Log

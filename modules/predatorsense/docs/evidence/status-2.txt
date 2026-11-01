@@ -1,0 +1,9 @@
+exit=0
+Machine: Acer Predator PT516-51s
+CPU temperature: 82 °C
+System temperature: 44 °C
+GPU temperature: 56 °C
+CPU fan: 3529 rpm
+GPU fan 1: 4109 rpm
+GPU fan 2: 3906 rpm
+Fan mode, last set by Rigbay: Nothing yet

@@ -101,6 +101,9 @@ public sealed class RigbayHost : IDisposable
     /// <summary>Raised when any module faulted (after it was disabled and cleaned up).</summary>
     public event Action<ModuleEntry>? ModuleFaulted;
 
+    /// <summary>Raised after a module's page was rebuilt because the module called <c>RequestPageRefresh</c>; the page is <see cref="ModuleEntry.Page"/>.</summary>
+    public event Action<ModuleEntry>? PageRefreshed;
+
     /// <summary>Raised after <see cref="Discover"/> filled <see cref="Modules"/>.</summary>
     public event Action? ModulesDiscovered;
 
@@ -171,6 +174,11 @@ public sealed class RigbayHost : IDisposable
     {
         try { lock (_gate) _stateStore.Save(_state); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _hostLog.Warn("could not save host state: " + ex.Message); }
+    }
+
+    internal void RaisePageRefreshed(ModuleEntry entry)
+    {
+        try { PageRefreshed?.Invoke(entry); } catch (Exception ex) { _hostLog.Warn("a PageRefreshed handler threw: " + ex.Message); }
     }
 
     internal void RaiseFaulted(ModuleEntry entry)

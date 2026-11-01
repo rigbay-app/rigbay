@@ -56,6 +56,15 @@ public interface IHostServices
     /// </summary>
     /// <param name="action">The work.</param>
     void RunOnUi(Action action);
+
+    /// <summary>
+    /// Asks the host to call <see cref="IModule.GetPageModel"/> again and replace the module's page, for example after a
+    /// list the page shows has changed (a profile was created or deleted). Safe to call from any thread, returns
+    /// immediately, calls made while a rebuild is pending or running are coalesced into one more rebuild, and it does
+    /// nothing while the module is not running. Without a call, the page is built once when the module is enabled.
+    /// A fault in <c>GetPageModel</c> during a refresh disables the module like any other fault.
+    /// </summary>
+    void RequestPageRefresh();
 }
 
 /// <summary>

@@ -11,13 +11,15 @@ namespace Rigbay.FaultyModule;
 /// Misbehaves in the way named in <c>behavior.txt</c> next to this DLL (the test writes it before the host loads the
 /// module): ctor-throws, probe-throws, probe-null, probe-unsupported, probe-hangs, init-throws, init-hangs,
 /// page-throws, bad-page, toggle-throws, button-throws, hotkey-throws, command-throws, metric-handler-throws,
-/// uses-dependency, uses-system-dependency (a System.* assembly the host lacks), json-context (which context holds System.Text.Json), none.
+/// refresh (button asks for a new page), refresh-throws (second GetPageModel throws), refresh-slow (second and later builds take 300 ms), uses-dependency, uses-system-dependency (a System.* assembly the host lacks), json-context (which context holds System.Text.Json), none.
 /// </summary>
 public sealed class FaultyModule : IModule
 {
     private static readonly string Folder = Path.GetDirectoryName(typeof(FaultyModule).Assembly.Location)!;
     private readonly string _behavior;
     private readonly ObservableValue<bool> _toggle = new(false);
+    private IHostServices? _host;
+    private int _pageCalls;
 
     public FaultyModule()
     {
@@ -40,6 +42,7 @@ public sealed class FaultyModule : IModule
 
     public void Initialize(IHostServices host)
     {
+        _host = host;
         switch (_behavior)
         {
             case "init-throws": throw new InvalidOperationException("initialize blew up");
@@ -67,6 +70,9 @@ public sealed class FaultyModule : IModule
 
     public PageModel? GetPageModel(IHostServices host)
     {
+        int call = Interlocked.Increment(ref _pageCalls);
+        if (_behavior == "refresh-throws" && call > 1) throw new InvalidOperationException("refresh blew up");
+        if (_behavior == "refresh-slow" && call > 1) Thread.Sleep(300);
         switch (_behavior)
         {
             case "page-throws": throw new InvalidOperationException("page blew up");
@@ -83,9 +89,11 @@ public sealed class FaultyModule : IModule
             new ButtonRow("row.button", "row.button.label", _ =>
             {
                 if (_behavior == "button-throws") throw new InvalidOperationException("button blew up");
+                if (_behavior.StartsWith("refresh")) _host!.RequestPageRefresh();
                 return Task.FromResult(ActionResult.Ok());
             }),
         };
+        rows.Add(new InfoRow(Severity.Info, Text.Literal($"build {call}")));
         if (_behavior == "uses-dependency")
             rows.Add(new ValueRow("row.dep", new ObservableValue<string>(Greeter.Hello())));
         if (_behavior == "uses-system-dependency") rows.Add(new ValueRow("row.sysdep", new ObservableValue<string>(SystemDepText())));

@@ -53,6 +53,7 @@ public sealed class ModuleEntry
     private Exception? _fault;
     private PageModel? _page;
     private PageModel? _lastPage;
+    private int _refreshState; // 0 idle, 1 rebuilding, 2 rebuilding and asked again
     private readonly Dictionary<Row, IDisposable> _editors = new(ReferenceEqualityComparer.Instance);
 
     internal ModuleEntry(RigbayHost host, string folder)
@@ -97,6 +98,9 @@ public sealed class ModuleEntry
 
     /// <summary>Raised after the lifecycle, page, reason or pending change changed (on the thread that changed it).</summary>
     public event Action<ModuleEntry>? Changed;
+
+    /// <summary>Raised (on a worker thread) after the module's page was rebuilt on its request; <see cref="Page"/> and <see cref="LastPage"/> are the new page. <see cref="Changed"/> is not raised for it.</summary>
+    public event Action<ModuleEntry>? PageRefreshed;
 
     /// <summary>The manifest name, or the language file's <c>module.&lt;id&gt;.name</c> when there is one.</summary>
     public string DisplayName => Localisation.TryGet("name", out var t) ? t : Manifest?.Name ?? Id;
@@ -254,6 +258,60 @@ public sealed class ModuleEntry
         if (persist) Host.SetEnabled(Id, true);
         RaiseChanged();
         return true;
+    }
+
+    // ---------------------------------------------------------------- page refresh
+
+    /// <summary>The module asked for a new page. Coalesced; a no-op unless the module is running. Safe from any thread.</summary>
+    internal void RequestPageRefresh()
+    {
+        bool start = false;
+        lock (_gate)
+        {
+            if (_lifecycle != ModuleLifecycle.Running) return;
+            if (_refreshState == 0) { _refreshState = 1; start = true; }
+            else _refreshState = 2;
+        }
+        if (start) _ = Task.Run(RefreshLoop);
+    }
+
+    private void RefreshLoop()
+    {
+        while (true)
+        {
+            try { RefreshPageOnce(); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { Log.Warn("page refresh failed: " + ex.Message); }
+            lock (_gate)
+            {
+                if (_refreshState == 2 && _lifecycle == ModuleLifecycle.Running) { _refreshState = 1; continue; }
+                _refreshState = 0;
+                return;
+            }
+        }
+    }
+
+    private void RefreshPageOnce()
+    {
+        PageModel? page = null;
+        if (!Invoke("GetPageModel", () => page = _instance!.GetPageModel(_services!))) return;
+        if (page is not null)
+        {
+            var problems = PageValidator.Validate(page);
+            if (problems.Count > 0)
+            {
+                FaultNow("GetPageModel", new InvalidOperationException(string.Join("; ", problems)), badPage: true);
+                return;
+            }
+        }
+        lock (_gate)
+        {
+            if (_lifecycle != ModuleLifecycle.Running) return; // stopped or faulted while the page was being built
+            _page = page;
+            if (page is not null) _lastPage = page;
+        }
+        DisposeEditors(); // they belonged to the old rows
+        try { PageRefreshed?.Invoke(this); } catch (Exception ex) { Log.Warn("a PageRefreshed handler threw: " + ex.Message); }
+        Host.RaisePageRefreshed(this);
     }
 
     /// <summary>Calls Shutdown and removes the module's registrations. The module goes to Off and stays off at the next start.</summary>

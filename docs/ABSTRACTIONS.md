@@ -160,6 +160,7 @@ Passed to `Initialize`; one instance per module (so the host knows who is callin
 | `Metrics` | `IMetricsBus`: publish readings, subscribe to others'. | 6 |
 | `Approval` | `IHardwareApproval`: ask the user to confirm a hardware write the module starts itself (rows marked `HardwareEffect` are confirmed by the host without this). | 5.4 |
 | `RunOnUi(Action)` | **Mandatory way to reach the UI thread.** Runs the action there inside the fault boundary. A module never uses a dispatcher of its own. | 5.3 |
+| `RequestPageRefresh()` | Asks the host to call `GetPageModel` again and replace the page (a list that changed). Any thread, coalesced, no-op while the module is off. | 7.1, 13 |
 | `HostVersion` | Version of the host application (informational; compatibility is `HostApi.Current`). | 11 |
 
 No member of any service takes or returns a UI framework or Windows type. Where a UI concept is needed it is plain
@@ -330,6 +331,31 @@ key itself (a typo in code is visible on screen).
 - `ILocalisation.F` falls back to the English text when a translation has a broken placeholder, so a bad
   translation never crashes a page.
 
+### 7.1 Literal text and page refresh
+
+**Literal text.** Every place that takes a language key (`ChoiceOption.LabelKey`, `TrayItem.TextKey`,
+`HotkeyRegistration.NameKey`, `Row.HeaderKey`, `LocalisedText`, `T`, `F`, ...) also accepts a literal: a string that
+starts with `=` is shown without the `=`, never searched in a language file and never translated. Make one with
+`Text.Literal(name)` (`Text.IsLiteral(key)` tests for one); do not type the `=` by hand. With `F` the rest is the
+format template (`F("=Fan {0}", 2)`); with no arguments it is not formatted. `ModuleLocalisation` does not add the
+`module.<id>.` prefix to a literal. The module is responsible for using it only for user data (profile names, device
+names), not for UI wording, which must stay a key so it can be translated. LangCheck ignores `=...` string literals
+in the source (they are not keys and do not make a key "used"). Anything in the host that resolves text with
+`entry.Localisation` (including the search index built from `EnumerateRows()`) therefore sees the literal text.
+
+```csharp
+new ChoiceOption(profile.Id, Text.Literal(profile.Name))
+```
+
+**Page refresh.** The page is built once, when the module is enabled. A module whose page shows a list that changes
+(a profile was created or deleted) calls `host.RequestPageRefresh()` after changing it. The host calls `GetPageModel`
+again off the UI thread, validates the page, replaces `ModuleEntry.Page` and `LastPage`, disposes the row editors of
+the old rows, and raises `ModuleEntry.PageRefreshed` and `RigbayHost.PageRefreshed` (the app subscribes once and
+rebuilds that module's page). Requests made while a rebuild is pending or running are coalesced into one more rebuild;
+the call is safe from any thread and does nothing while the module is not running. A throwing or invalid
+`GetPageModel` during a refresh faults the module like any other fault (`ModuleFaulted`).
+`ModuleEntry.Changed` is not raised for a refresh.
+
 ## 8. Settings
 
 `ISettingsStore` keeps one JSON file per module at `%LOCALAPPDATA%\Rigbay\modules\<id>\settings.json`:
@@ -484,6 +510,9 @@ A complete working module is `samples/Rigbay.SampleModule`; copy it.
        public void Shutdown() { }
    }
    ```
+   Names that come from data, not from you (profiles, devices), go through `Text.Literal(name)` where a key is expected,
+   and when that list changes you call `host.RequestPageRefresh()` so the host rebuilds the page (section 7.1; the sample
+   module's "Devices" expander and "Add a device" button show both).
 4. **Language file** `lang\en.lang` with `module.<id>.group.main = ...` and so on; add `vi.lang` if you can.
 5. **Check.** `dotnet run --project src/Rigbay.LangCheck -- <your lang folder> --module <id> --source <your source folder>`.
 6. **Try.** Build; copy the output folder to `<modules root>\<id>\`; start the host. Read `rigbay.log` first when
@@ -580,6 +609,23 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after A8 (literal text and page refresh; no version number change)
+
+Additive:
+
+- `Rigbay.Abstractions.Text`: `Literal(string?)`, `IsLiteral(string?)`, `Unwrap(string)`, `Marker`. A key starting with `=`
+  is literal text. `LanguageCatalog.T/F/TryGet` and `ModuleLocalisation.T/F/TryGet/Resolve` return it without the `=`
+  (no lookup, no module prefix); `F` formats the rest as the template when arguments are given. LangCheck ignores `=...`
+  string literals in scanned source. Section 7.1.
+- `IHostServices.RequestPageRefresh()`; `ModuleEntry.PageRefreshed` and `RigbayHost.PageRefreshed`
+  (`Action<ModuleEntry>`, raised on a worker thread). Coalesced, no-op when the module is off, old row editors disposed,
+  a faulting `GetPageModel` faults the module. Section 7.1.
+- The sample module shows one literal (device names) and one refresh (an "Add a device" button).
+- Source-breaking only for a class that implements `IHostServices` itself (only Core does).
+- For the App (task A7): subscribe to `RigbayHost.PageRefreshed` once and rebuild that module's page from
+  `entry.Page`; the search index comes from `EnumerateRows()` resolved with `entry.Localisation`, which already returns
+  literal text.
 
 ### 0.1 after A6 (loader rule for `System.*` assemblies, `probePaths`; no version number change)
 

@@ -1,0 +1,23 @@
+2026-11-01T13:22:03.741Z local=20:22:03.741 event=START key=W4a call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) mode=UNDO after W4b (max window 14043 ms; reason: window over)
+2026-11-01T13:22:03.741Z local=20:22:03.741 event=WRITE_ATTEMPT key=W4a call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) input=0x01410019 timeout_ms=15000
+2026-11-01T13:22:03.755Z local=20:22:03.755 event=WRITE_RESULT key=W4a call=AcerGamingFunction.SetGamingFanBehavior(0x01410019) input=0x01410019 raw=0x0 status=0 elapsed_ms=13
+2026-11-01T13:22:03.758Z local=20:22:03.758 event=READ phase=undo+0.0s call=GetGamingSysInfo(0x201) index=2 raw=0x15B300 status=0 value=5555
+2026-11-01T13:22:03.763Z local=20:22:03.763 event=READ phase=undo+0.0s call=GetGamingSysInfo(0x601) index=6 raw=0x16FA00 status=0 value=5882
+2026-11-01T13:22:03.767Z local=20:22:03.767 event=READ phase=undo+0.0s call=GetGamingSysInfo(0x901) index=9 raw=0x170C00 status=0 value=5900
+2026-11-01T13:22:03.770Z local=20:22:03.770 event=READ phase=undo+0.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3800 status=0 value=56
+2026-11-01T13:22:03.774Z local=20:22:03.774 event=READ phase=undo+0.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3100 status=0 value=49
+2026-11-01T13:22:03.774Z local=20:22:03.774 event=PASS phase=undo+0.0s values: 2=5555 6=5882 9=5900 1=56 10=49
+2026-11-01T13:22:05.766Z local=20:22:05.766 event=READ phase=undo+2.0s call=GetGamingSysInfo(0x201) index=2 raw=0xA5E00 status=0 value=2654
+2026-11-01T13:22:05.769Z local=20:22:05.769 event=READ phase=undo+2.0s call=GetGamingSysInfo(0x601) index=6 raw=0xA4700 status=0 value=2631
+2026-11-01T13:22:05.771Z local=20:22:05.771 event=READ phase=undo+2.0s call=GetGamingSysInfo(0x901) index=9 raw=0xAC500 status=0 value=2757
+2026-11-01T13:22:05.771Z local=20:22:05.771 event=READ phase=undo+2.0s call=GetGamingSysInfo(0x101) index=1 raw=0x3B00 status=0 value=59
+2026-11-01T13:22:05.771Z local=20:22:05.771 event=READ phase=undo+2.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3100 status=0 value=49
+2026-11-01T13:22:05.771Z local=20:22:05.771 event=PASS phase=undo+2.0s values: 2=2654 6=2631 9=2757 1=59 10=49
+2026-11-01T13:22:07.765Z local=20:22:07.765 event=READ phase=undo+4.0s call=GetGamingSysInfo(0x201) index=2 raw=0xB4400 status=0 value=2884
+2026-11-01T13:22:07.773Z local=20:22:07.773 event=READ phase=undo+4.0s call=GetGamingSysInfo(0x601) index=6 raw=0xB2900 status=0 value=2857
+2026-11-01T13:22:07.778Z local=20:22:07.778 event=READ phase=undo+4.0s call=GetGamingSysInfo(0x901) index=9 raw=0xB7100 status=0 value=2929
+2026-11-01T13:22:07.781Z local=20:22:07.781 event=READ phase=undo+4.0s call=GetGamingSysInfo(0x101) index=1 raw=0x4600 status=0 value=70
+2026-11-01T13:22:07.785Z local=20:22:07.785 event=READ phase=undo+4.0s call=GetGamingSysInfo(0xA01) index=10 raw=0x3100 status=0 value=49
+2026-11-01T13:22:07.785Z local=20:22:07.785 event=PASS phase=undo+4.0s values: 2=2884 6=2857 9=2929 1=70 10=49
+2026-11-01T13:22:07.846Z local=20:22:07.846 event=NVIDIA_SMI tag=after exit=0 out="49.34, [N/A], 15.91 W, 13 %, 210 MHz, P8"
+2026-11-01T13:22:07.851Z local=20:22:07.851 event=DONE mode=EXECUTE exit=0 risen=True abort=none max_window_ms=14043 undo_status=0 back_in_baseline=True back_after_ms=4029 peak2=5555 peak6=5882 peak9=5900 final2=2884 final6=2857 final9=2929
