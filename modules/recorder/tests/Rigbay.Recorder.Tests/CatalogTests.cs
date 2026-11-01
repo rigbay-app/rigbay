@@ -107,7 +107,9 @@ public class CatalogTests
         finally { module.Shutdown(); }
 
         var csv = folder.Csvs.Single();
-        Assert.Equal(3, Files.Lines(csv).Length);   // header + the rows at 0 s and 1 s (the slot at 2 s is past the end at 1.2 s)
+        // header + the rows at 0 s and 1 s (the slot at 2 s is past the end at 1.2 s). On a slow machine the first row can start more than a period
+        // late; the schedule then moves its slot to the present (by design, no catch-up burst) and only one row fits before the end. Both are right.
+        Assert.InRange(Files.Lines(csv).Length, 2, 3);
         var meta = JsonDocument.Parse(Files.ReadBytes(Path.ChangeExtension(csv, null) + ".meta.json")).RootElement;
         Assert.Equal("duration", meta.GetProperty("stop_reason").GetString());
         Assert.False(string.IsNullOrWhiteSpace(meta.GetProperty("machine").GetProperty("os").GetString()));
