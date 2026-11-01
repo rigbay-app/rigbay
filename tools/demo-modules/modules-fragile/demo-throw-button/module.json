@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 1,
+  "id": "demo-throw-button",
+  "name": "Throws in a button (test)",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Self-test module: misbehaves on purpose.",
+  "entry": { "assembly": "Rigbay.DemoModules.dll", "type": "Rigbay.DemoModules.ThrowOnButtonModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "other"
+}

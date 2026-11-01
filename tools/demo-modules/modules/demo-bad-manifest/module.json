@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 1,
+  "id": "Demo_Bad",
+  "name": "",
+  "version": "one",
+  "author": "Rigbay contributors",
+  "description": "This manifest is wrong on purpose.",
+  "entry": { "assembly": "Missing.dll", "type": "Nothing.Here" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "toys"
+}
