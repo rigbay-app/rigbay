@@ -17,6 +17,7 @@ public sealed class FanStudioModule : IModule
     private readonly ObservableValue<string> _mode = new("auto");
     private readonly ObservableValue<double> _pl1 = new(45);
     private readonly ObservableValue<double> _ramp = new(2);
+    private readonly ObservableValue<string> _light = new("off");
     private readonly ObservableValue<string> _profile = new("Quiet nights");
     private readonly ObservableValue<string> _lastWrite = new("none yet");
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.line", "", 45));
@@ -25,7 +26,12 @@ public sealed class FanStudioModule : IModule
     private IHotkeyBinding? _hotkey;
     private Timer? _timer;
     private bool _boost;
+    private bool _beacon;
+    private bool _pumpWithdrawn;
+    private bool _pageVisible = true;
     private int _tick;
+
+    private static readonly MetricId PumpMetric = new("demo-fan.pump");
 
     public ProbeResult Probe() => ProbeResult.Yes();
 
@@ -34,11 +40,23 @@ public sealed class FanStudioModule : IModule
         _host = host;
         _mode.Changed += OnModeChanged;
         _pl1.Changed += OnLimitChanged;
+        _light.Changed += OnLightChanged;
         host.Localisation.LanguageChanged += UpdateState;
+        _pageVisible = host.PageVisible.Value;
+        host.PageVisible.Changed += OnPageVisibleChanged;
+        host.Metrics.Describe(new MetricDescriptor(PumpMetric, "metric.pump", MetricUnit.Percent, "0"));
 
         _hotkey = host.Hotkeys.Register(new HotkeyRegistration("max-fans", "hotkey.max", HotkeyGesture.Parse("Ctrl+Alt+F9"), () => _ = AskMaxFans()));
         host.Tray.Add(new TrayItem("max", "tray.max", () => _ = AskMaxFans()));
-        host.Commands.Register("status", "cmd.status", _ => CommandResult.Ok($"mode={_mode.Value} pl1={_pl1.Value:0}W boost={_boost}"));
+        host.Commands.Register("status", "cmd.status", _ => CommandResult.Ok($"mode={_mode.Value} pl1={_pl1.Value:0}W boost={_boost} light={_light.Value} beacon={_beacon} page-visible={_pageVisible} pump={(_pumpWithdrawn ? "withdrawn" : "published")}"));
+        // "sensor off" takes the pump reading back (withdraw), "sensor on" publishes it again: the page and the dashboard show "Not available" in between.
+        host.Commands.Register("sensor", "cmd.sensor", ctx =>
+        {
+            if (ctx.Args.Count != 1 || ctx.Args[0] is not ("on" or "off")) return CommandResult.Usage(host.Localisation.T("cmd.sensor"));
+            _pumpWithdrawn = ctx.Args[0] == "off";
+            if (_pumpWithdrawn) host.Metrics.Withdraw(PumpMetric); else PublishPump(host);
+            return CommandResult.Ok("pump " + (_pumpWithdrawn ? "withdrawn" : "published"));
+        });
         host.Commands.Register("max", "cmd.max", async ctx =>
             await host.Approval.ConfirmAsync(new HardwareEffect("effect.fan-max"), LocalisedText.Of("detail.max"), ctx.CancellationToken)
                 ? Apply("max") : CommandResult.Failed(host.Localisation.T("cmd.refused")));
@@ -57,7 +75,7 @@ public sealed class FanStudioModule : IModule
             {
                 new RowGroup("group.cooling", new Row[]
                 {
-                    new ChoiceRow("row.mode.header", modes, _mode) { DescriptionKey = "row.mode.description", HardwareEffect = new HardwareEffect("effect.fan") },
+                    new ChoiceRow("row.mode.header", modes, _mode) { DescriptionKey = "row.mode.description", HardwareEffect = new HardwareEffect("effect.fan") { RevertDescriptionKey = "effect.fan-revert" } },
                     new CustomRow("curve", "row.curve.header") { DescriptionKey = "row.curve.description" },
                     new ExpanderRow("row.advanced.header", new Row[]
                     {
@@ -78,8 +96,21 @@ public sealed class FanStudioModule : IModule
                     new ButtonRow("row.boost.header", "row.boost.button", BoostAsync)
                     {
                         DescriptionKey = "row.boost.description",
-                        HardwareEffect = new HardwareEffect("effect.boost"),
+                        HardwareEffect = new HardwareEffect("effect.boost") { RevertDescriptionKey = "effect.boost-revert" },
                         RevertAsync = UnboostAsync,
+                        RevertButtonKey = "row.boost.revert",
+                    },
+                    // a harmless pair: the revert (also a change) is not asked about again, the status line still says what was written
+                    new ChoiceRow("row.light.header", new[] { new ChoiceOption("off", "light.off"), new ChoiceOption("blue", "light.blue"), new ChoiceOption("red", "light.red") }, _light)
+                    {
+                        DescriptionKey = "row.light.description",
+                        HardwareEffect = new HardwareEffect("effect.light") { SafeRevert = true },
+                    },
+                    new ButtonRow("row.beacon.header", "row.beacon.button", BeaconAsync)
+                    {
+                        DescriptionKey = "row.beacon.description",
+                        HardwareEffect = new HardwareEffect("effect.beacon") { SafeRevert = true },
+                        RevertAsync = UnbeaconAsync,
                     },
                     new ShortcutRow("row.hotkey.header", _hotkey!.Gesture) { DescriptionKey = "row.hotkey.description" },
                     new InfoRow(Severity.Warning, "row.info.header") { DescriptionKey = "row.info.description" },
@@ -88,11 +119,12 @@ public sealed class FanStudioModule : IModule
                 {
                     new ReadingRow("row.temp.header", WellKnownMetrics.CpuTemp) { Decimals = 0 },
                     new ReadingRow("row.fan.header", WellKnownMetrics.CpuFan) { Decimals = 0 },
+                    new ReadingRow("row.pump.header", PumpMetric) { Decimals = 0 },
                     new ValueRow("row.last.header", _lastWrite) { DescriptionKey = "row.last.description" },
                 }),
             },
             Links = new[] { new PageLink("link.docs", "https://github.com/rigbay-app/rigbay") },
-            Summary = new PageSummary(_stateLine, new[] { WellKnownMetrics.CpuTemp, WellKnownMetrics.CpuFan }),
+            Summary = new PageSummary(_stateLine, new[] { WellKnownMetrics.CpuTemp, PumpMetric }),
         };
     }
 
@@ -118,6 +150,8 @@ public sealed class FanStudioModule : IModule
         _timer = null;
         _mode.Changed -= OnModeChanged;
         _pl1.Changed -= OnLimitChanged;
+        _light.Changed -= OnLightChanged;
+        if (_host is not null) _host.PageVisible.Changed -= OnPageVisibleChanged;
         if (_host is not null) _host.Localisation.LanguageChanged -= UpdateState;
     }
 
@@ -141,6 +175,34 @@ public sealed class FanStudioModule : IModule
         _lastWrite.Value = $"PL1 = {_pl1.Value:0} W";
         _host?.Log.Info("fake device: PL1 = " + _pl1.Value.ToString("0") + " W");
         UpdateState();
+    }
+
+    private void OnLightChanged()
+    {
+        _lastWrite.Value = $"status light = {_light.Value}";
+        _host?.Log.Info("fake device: status light = " + _light.Value);
+    }
+
+    private void OnPageVisibleChanged()
+    {
+        _pageVisible = _host?.PageVisible.Value ?? true;
+        _host?.Log.Info("page visible = " + _pageVisible);
+    }
+
+    private static void PublishPump(IHostServices host) => host.Metrics.Publish(PumpMetric, 40, MetricUnit.Percent);
+
+    private Task<ActionResult> BeaconAsync(CancellationToken ct)
+    {
+        _beacon = true;
+        _lastWrite.Value = "beacon on";
+        return Task.FromResult(ActionResult.Ok(LocalisedText.Of("beacon.on")));
+    }
+
+    private Task<ActionResult> UnbeaconAsync(CancellationToken ct)
+    {
+        _beacon = false;
+        _lastWrite.Value = "beacon off";
+        return Task.FromResult(ActionResult.Ok(LocalisedText.Of("beacon.off")));
     }
 
     private CommandResult Apply(string mode)
@@ -196,6 +258,7 @@ public sealed class FanStudioModule : IModule
             double rpm = _mode.Value switch { "max" => 5200 + 60 * Math.Sin(n / 3.0), "custom" => 3600 + 80 * Math.Sin(n / 3.0), _ => 2400 + (temp - 55) * 60 + 40 * Math.Sin(n / 4.0) };
             host.Metrics.Publish(WellKnownMetrics.CpuTemp, Math.Round(temp), MetricUnit.Celsius);
             host.Metrics.Publish(WellKnownMetrics.CpuFan, Math.Round(rpm / 10) * 10, MetricUnit.Rpm);
+            if (!_pumpWithdrawn) host.Metrics.Publish(PumpMetric, Math.Round(40 + 10 * Math.Sin(n / 6.0)), MetricUnit.Percent);
         }
         catch (Exception ex) { _host?.Log.Error("tick failed", ex); }   // an exception on our own timer thread would end the process
     }

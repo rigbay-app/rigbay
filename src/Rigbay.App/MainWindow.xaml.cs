@@ -77,6 +77,7 @@ public sealed partial class MainWindow : Window
             LeftColumn.Width = new GridLength(TitleBar.ActualWidth >= 1000 ? 280 : 130);
         };
         AppWindow.Closing += OnAppWindowClosing;
+        AppWindow.Changed += (_, a) => { if (a.DidVisibilityChange || a.DidPresenterChange) UpdatePageVisibility(); };
         Closed += (_, _) => AppLog.Info("window closed");
 
         Native.Subclass(Hwnd, WindowProc);
@@ -163,12 +164,35 @@ public sealed partial class MainWindow : Window
         return (false, 0);
     }
 
+    // ---------------------------------------------------------------- page visibility (poll rate of the module)
+
+    ModuleEntry? _shownEntry;
+    /// <summary>The module whose page the app has told "visible" (null when no module page is on screen).</summary>
+    internal ModuleEntry? ShownEntry => _shownEntry;
+
+    bool WindowShown => AppWindow.IsVisible && (AppWindow.Presenter as OverlappedPresenter)?.State != OverlappedPresenterState.Minimized;
+
+    /// <summary>
+    /// Tells the modules whether their page is on screen: true for the module page that is open while the window is shown,
+    /// false for the one that was left, and false for all when the window is hidden to the tray or minimised. UI thread only.
+    /// </summary>
+    internal void UpdatePageVisibility()
+    {
+        var target = _uiBuilt && WindowShown ? _current as ModuleEntry : null;
+        if (ReferenceEquals(target, _shownEntry)) return;
+        var old = _shownEntry;
+        _shownEntry = target;
+        try { old?.SetPageVisible(false); } catch (Exception ex) { AppLog.Error("SetPageVisible(false) failed", ex); }
+        try { target?.SetPageVisible(true); } catch (Exception ex) { AppLog.Error("SetPageVisible(true) failed", ex); }
+    }
+
     // ---------------------------------------------------------------- show, hide, quit
 
     internal void ShowFromTray()
     {
         ShowRequests++;
         AppWindow.Show();
+        UpdatePageVisibility();
         Activate();
         Native.SetForegroundWindow(Hwnd);
     }
@@ -180,6 +204,7 @@ public sealed partial class MainWindow : Window
         {
             args.Cancel = true;     // the close button hides to the tray, as in xtu-profile-switcher; Quit is in the tray menu
             AppWindow.Hide();
+            UpdatePageVisibility();
             AppLog.Info("window hidden to the tray");
         }
         else
@@ -390,6 +415,7 @@ public sealed partial class MainWindow : Window
             content = Ui.StateBlock(BayState.Failed, Host.T("page.build-failed"), ex.GetType().Name + ": " + ex.Message);
         }
         PageHost.Content = content;
+        UpdatePageVisibility();
     }
 
     // ---------------------------------------------------------------- search
@@ -482,7 +508,8 @@ public sealed partial class MainWindow : Window
                     break;
                 case "lang": Host.Core.Languages.SetLanguage(arg); break;
                 case "theme": ApplyTheme(arg); break;
-                case "approve": ApprovalPrompt.TestAnswer = arg == "true"; break;
+                case "approve": ApprovalPrompt.TestAnswer = arg == "true" ? true : arg == "ask" ? null : false; break;   // approve:ask = show the real dialog again
+                case "cmd": _ = Host.Core.ExecuteCommandAsync(arg.Split(' ', StringSplitOptions.RemoveEmptyEntries)); break;   // cmd:<module> <verb> [args], like the command line
                 case "startup":   // startup:on | startup:off  (the same code the Settings switch runs)
                 {
                     var (ok, msg) = await Task.Run(() => arg == "on" ? StartupTask.Create() : StartupTask.Delete());
@@ -496,6 +523,13 @@ public sealed partial class MainWindow : Window
                     var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == (eq < 0 ? arg : arg[..eq]));
                     if (driver == null) { AppLog.Warn("script: no row '" + arg + "' on this page"); break; }
                     _ = driver.Edit(eq < 0 ? null : ParseRowValue(driver.Row, arg[(eq + 1)..]));
+                    break;
+                }
+                case "revert":   // revert:<row header key> on the open module page: what the Revert link does; not awaited, so the revert dialog can stay open for a screenshot
+                {
+                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == arg);
+                    if (driver == null) { AppLog.Warn("script: no row '" + arg + "' on this page"); break; }
+                    _ = driver.Revert();
                     break;
                 }
                 case "turn-on": { var e = Host.Core.Find(arg); if (e != null) _ = ModulePage.ToggleAsync(e, true); break; }   // turn-on:id, like the switch; not awaited, so the "requires" dialog can stay open for a screenshot

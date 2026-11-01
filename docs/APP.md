@@ -14,13 +14,13 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (78 checks), prints the report. Exit code 0 when all pass. |
+| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (93 checks), prints the report. Exit code 0 when all pass. |
 | `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\make-icon.ps1` | Draws `src\Rigbay.App\Assets\rigbay.ico` (three bays, the last one filled). Run once; the file is committed. |
 
-`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the 240 Core tests.
+`dotnet build Rigbay.sln` also builds the app (0 warnings, 0 errors) and `dotnet test Rigbay.sln` still passes the Core tests (285).
 Demo modules (`tools\demo-modules`) are test fixtures, not product: "Fan studio" talks to a pretend device kept in memory and
 shows the whole confirm, apply, read-back, revert flow; the others are unsupported, incompatible, invalid and failing
 modules, plus three that misbehave on purpose (self-test only).
@@ -58,7 +58,7 @@ from PowerShell, which does not wait for GUI programs, or when the elevated proc
 A headless run loads the modules, turns on only the one the verb needs (and only if the user had enabled it), runs the verb and
 stops it. A hardware change asked for in a headless run is refused (no window to ask in).
 
-Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
+Test and screenshot switches: `--theme dark|light|system`, `--lang`, `--page`, `--script "enable:id;disable:id;page:id;lang:vi;theme:dark;edit:<row header key>=<value>;revert:<row header key>;approve:true|false;cancel-dialog;startup:on|off;turn-on:id;expand:id;expand-all;scroll:px;wait:ms"`,
 `--shot <png>`, `--size WxH`, `--selftest --selftest-out <file>`, `--exit-after <ms>`, `--allow-multi`.
 
 ## What it does
@@ -114,7 +114,7 @@ the spike saw once. Cause not found, so the script has no self-contained switch.
 
 ## Verification (2026-11-01, this machine, Windows 11 10.0.26300, 100 % DPI)
 
-Evidence is in `tools\shots\`: `selftest.txt` (78 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
+Evidence is in `tools\shots\`: `selftest.txt` (93 checks, all PASS), `cli-test.txt`, `schtask-report.txt`, `dotnet-build.txt`, and
 the PNGs (each one was looked at).
 
 - Clean `dotnet build Rigbay.sln` (Release, `--no-incremental`): 0 warnings, 0 errors; Debug the same. `dotnet test`: 240 passed (2026-11-01, after A7).
@@ -162,3 +162,37 @@ Still open: `<module> help` exits 2 with the verb list (the usage rule).
 Since A7: the bare `list` verb is answered by the app (`AppCommands.List`), same columns as the core's, but the reason of an invalid
 manifest is its first problem plus "(+N more in the log)"; the full text is in the log (written when the manifest is read) and on the
 module page. Other verbs are still the core's.
+
+## A9 follow-ups (task A10)
+
+The A9 changes in the Core (`docs/ABSTRACTIONS.md`, "0.1 after A9") needed these App changes; each one is covered by self-test checks.
+
+- **Revert is asked.** The Revert link of a value row calls `ValueEditor.RevertAsync(StopToken)` (never the synchronous `Revert()`, which
+  now refuses hardware rows) and a button row calls `RowEditors.RevertButtonAsync`. The status line shows `EditResult.Message`
+  ("Reverted: Fan mode is now Auto (was Maximum)"); a declined revert writes nothing, keeps the Revert link and says so. A button's
+  Revert link uses `ButtonRow.RevertButtonKey` as its label. `HardwareEffect.SafeRevert` rows ask nothing and the status line names
+  what was written.
+- **Approval dialog.** `ApprovalRequest.IsRevert` gives it its own title ("Change your hardware back?"), button ("Revert") and hint; the
+  bold line is the exact "Fan mode: Maximum → Auto" the Core builds. Keys `approval.revert-title`, `approval.revert-apply`,
+  `approval.hint-revert` (en, vi).
+- **Page visibility.** `MainWindow.UpdatePageVisibility` calls `entry.SetPageVisible(true)` for the module page that is open while the
+  window is shown, `false` for the one that was left, and `false` when the window is hidden to the tray or minimised (it runs on
+  navigation, `AppWindow.Changed`, show and hide). `MainWindow.ShownEntry` is what the self-test reads.
+- **Readings.** `ReadingRow` and the dashboard bay both format through `ReadingFormat`: a number with its unit, or "Not available"
+  (`core.reading.unavailable`, secondary colour) when there is no sample or `MetricSample.IsAvailable` is false. The live subscription
+  handles the withdraw notice and the value that comes back. The bay takes its readings from `entry.GetSummaryReadings()` (label from the
+  module's descriptor, else the host's `metric.<id>` text, else the raw id); the descriptor's `FormatHint` gives the decimals (none = 0).
+- **Demo module.** Fan studio gained a `Status light` (hardware choice, `SafeRevert`), a `Beacon` button (`SafeRevert`), a revert
+  description and label on the existing rows, a `Pump flow` metric with a descriptor ("Pump") that the command `demo-fan sensor off|on`
+  withdraws and publishes again, and `page-visible=` in `demo-fan status`.
+- **Test switches.** `revert:<row header key>` (what the Revert link does), `approve:ask` (show the real dialog again after
+  `approve:true`), `cmd:<module> <verb> [args]`. `tools\shots.ps1` has revert, unavailable and dashboard-unavailable shots (dark and light).
+
+Verified 2026-11-01: `dotnet build Rigbay.sln --no-incremental` 0 warnings 0 errors, `dotnet test` 285 + 89 passed, `tools\selftest.ps1`
+93 of 93 PASS (elevated; run three times, one earlier run had a single failure of the `SendInput` hotkey check, 0 hits, that did not
+come back), PNGs looked at: `revert-dark/light/vi-dark/button-dark`, `unavailable-dark/light`, `dashboard-dark/light`,
+`dashboard-unavailable-dark/light`.
+
+Not verified: a real mouse click on Revert (the self-test drives the same code the link calls, the dialog was seen only in a PNG);
+window minimised by the user (only hide-to-tray was exercised; the minimise check reads `OverlappedPresenter.State`); the
+`SafeRevert` status line in a PNG (checked as text in the self-test); high contrast and 150 % / 200 % DPI.
