@@ -81,9 +81,11 @@ try {
     & (Join-Path $src 'tools\sync-brand-assets.ps1') -Check
     if ($LASTEXITCODE -ne 0) { Fail 'the app copies of the brand files differ from assets\brand' }
     $pub = Join-Path $work 'publish'
-    # ContinuousIntegrationBuild maps source paths to /_/ so no absolute build path ends up in the binaries
+    # ContinuousIntegrationBuild maps source paths to /_/. DebugType=none: the generated XAML code (App.g.cs, MainWindow.g.cs) carries
+    # #line directives with the absolute clone path, which would end up in the pdb, and the pdb's id and checksum are written into the
+    # dll, so two builds from two folders would differ by those bytes. The zip ships no pdb anyway.
     Run 'dotnet' @('publish', (Join-Path $src 'src\Rigbay.App\Rigbay.App.csproj'), '-c', 'Release', '-r', 'win-x64', '--self-contained', 'false',
-        '-p:WindowsAppSDKSelfContained=false', '-p:ContinuousIntegrationBuild=true', '-o', $pub, '-v', 'q', '--nologo')
+        '-p:WindowsAppSDKSelfContained=false', '-p:ContinuousIntegrationBuild=true', '-p:DebugType=none', '-p:DebugSymbols=false', '-o', $pub, '-v', 'q', '--nologo')
 
     # ------------------------------------------------------------------------------------------------------------ layout
     Step 'Layout'
