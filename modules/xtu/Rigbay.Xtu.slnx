@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../../src/Rigbay.Abstractions/Rigbay.Abstractions.csproj" />
+  <Project Path="Rigbay.Module.Xtu.Tests/Rigbay.Module.Xtu.Tests.csproj" />
+  <Project Path="Rigbay.Module.Xtu/Rigbay.Module.Xtu.csproj" />
+</Solution>
