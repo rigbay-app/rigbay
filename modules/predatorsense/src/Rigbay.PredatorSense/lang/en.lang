@@ -2,6 +2,10 @@
 @code = en
 @name = English
 
+# Shown on the enable row (override the manifest text)
+module.predatorsense.name = PredatorSense
+module.predatorsense.description = Temperatures and fan speeds of an Acer Predator laptop, and the fan mode: Auto or Maximum.
+
 # Probe: why this machine is not supported
 module.predatorsense.probe.no-service = The Acer PredatorSense service (PSSvc) is not installed on this machine.
 module.predatorsense.probe.no-wmi = The firmware does not offer the Acer gaming interface (root\WMI, AcerGamingFunction).

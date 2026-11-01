@@ -2,6 +2,10 @@
 @code = vi
 @name = Tiếng Việt
 
+# Hiện ở dòng bật/tắt (thay chữ trong manifest)
+module.predatorsense.name = PredatorSense
+module.predatorsense.description = Nhiệt độ và tốc độ quạt của laptop Acer Predator, và chế độ quạt: Tự động hoặc Tối đa.
+
 # Probe: vì sao máy này không được hỗ trợ
 module.predatorsense.probe.no-service = Máy này chưa cài dịch vụ Acer PredatorSense (PSSvc).
 module.predatorsense.probe.no-wmi = Firmware không cung cấp giao diện Acer gaming (root\WMI, AcerGamingFunction).
