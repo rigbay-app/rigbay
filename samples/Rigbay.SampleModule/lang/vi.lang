@@ -52,6 +52,7 @@ module.sample.row.adddevice.description = Thêm một thiết bị vào danh sá
 module.sample.row.adddevice.button = Thêm
 
 module.sample.metric.ticks = Số nhịp
+module.sample.metric.ticks.description = Số lần bộ hẹn giờ của module mẫu đã chạy
 module.sample.row.profile.header = Hồ sơ quạt
 module.sample.row.profile.description = Hồ sơ quạt giả; áp dụng rồi hoàn tác: host hỏi cả hai lần
 module.sample.profile.auto = Tự động
