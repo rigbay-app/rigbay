@@ -22,7 +22,7 @@ public sealed partial class PredatorSenseModule
         _modelText.Value = string.IsNullOrWhiteSpace(_modelName) ? loc.T("model.unknown") : _modelName!;
         _choiceEnabled.Value = fan.CanWrite(FanMode.Max) || fan.MaxIsSet;
         _lastSetText.Value = LastSetText(loc, fan.Last);
-        _checkText.Value = _watching ? loc.T("check.watching") : _result is null ? loc.T("check.none") : CheckText(loc, _result);
+        _checkText.Value = _watching ? loc.T("check.watching") : _noPrevious ? loc.T("check.no-previous") : _result is null ? loc.T("check.none") : CheckText(loc, _result);
         _stateLine.Value = StateLine(poller.State, fan.Last);
     }
 

@@ -6,6 +6,12 @@ namespace Rigbay.PredatorSense;
 
 public sealed partial class PredatorSenseModule
 {
+    /// <summary>
+    /// Id of the fan-mode drop-down's first option while Rigbay has set nothing in this run. A state, not a value: choosing it
+    /// writes nothing, and the page is rebuilt without it after the first set.
+    /// </summary>
+    internal const string ChoiceNotSet = "notset";
+
     /// <summary>Id of the fan-mode drop-down option for <see cref="FanMode.Auto"/>.</summary>
     internal const string ChoiceAuto = "auto";
 
@@ -30,11 +36,14 @@ public sealed partial class PredatorSenseModule
         if (present.Contains(Sensor.GpuFan2)) readings.Add(Reading(Sensor.GpuFan2, "sensor.gpu-fan2", null));
         readings.Add(new ValueRow("row.model.header", _modelText) { DescriptionKey = "row.model.description" });
 
-        var options = new[]
-        {
-            new ChoiceOption(ChoiceAuto, "fan.auto"),
-            new ChoiceOption(ChoiceMax, "fan.max"),
-        };
+        // The firmware cannot say which mode it is in, so until Rigbay has set one the control must not show one: it starts on
+        // "Not set". A ChoiceRow has no placeholder text, so the option goes away after the first set, when the page is rebuilt.
+        bool notSet = _fan?.Last is null;
+        _pageOffersNotSet = notSet;
+        var options = new List<ChoiceOption>();
+        if (notSet) options.Add(new ChoiceOption(ChoiceNotSet, "fan.not-set"));
+        options.Add(new ChoiceOption(ChoiceAuto, "fan.auto"));
+        options.Add(new ChoiceOption(ChoiceMax, "fan.max"));
 
         var cooling = new List<Row>
         {
