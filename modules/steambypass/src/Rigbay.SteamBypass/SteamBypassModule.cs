@@ -169,8 +169,16 @@ public sealed partial class SteamBypassModule : IModule
 
     private void StartSwitchWorker()
     {
-        if (Interlocked.CompareExchange(ref _switching, 1, 0) == 0) _ = Task.Run(SwitchWorker);
+        if (Interlocked.CompareExchange(ref _switching, 1, 0) != 0) return;
+        Interlocked.Increment(ref _workersStarted);
+        _ = Task.Run(SwitchWorker);
     }
+
+    private int _workersStarted;
+    private int _workersFinished;
+
+    /// <summary>True when every switch worker that was started has also finished its last step (texts refreshed, metrics published or withdrawn). Tests only.</summary>
+    internal bool SwitchWorkersIdleForTests => Volatile.Read(ref _workersFinished) == Volatile.Read(ref _workersStarted);
 
     private void SwitchWorker()
     {
@@ -199,8 +207,12 @@ public sealed partial class SteamBypassModule : IModule
         finally
         {
             Interlocked.Exchange(ref _switching, 0);
-            RefreshTexts();
-            PublishMetrics();
+            try
+            {
+                RefreshTexts();
+                PublishMetrics();
+            }
+            finally { Interlocked.Increment(ref _workersFinished); }
         }
     }
 

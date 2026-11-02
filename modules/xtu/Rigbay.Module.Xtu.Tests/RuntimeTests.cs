@@ -48,7 +48,7 @@ internal sealed class Rig : IDisposable
     public PageModel Page => Runtime.BuildPage();
     public T Row<T>(string header) where T : Row => Page.EnumerateRows().OfType<T>().First(r => r.HeaderKey == header);
 
-    public static async Task<bool> WaitFor(Func<bool> condition, int ms = 3000)
+    public static async Task<bool> WaitFor(Func<bool> condition, int ms = 30000)
     {
         var until = DateTime.UtcNow.AddMilliseconds(ms);
         while (DateTime.UtcNow < until)

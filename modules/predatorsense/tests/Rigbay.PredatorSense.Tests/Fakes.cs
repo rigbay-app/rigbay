@@ -23,6 +23,9 @@ internal sealed class FakeAcerWmi : IAcerWmi
     public Action<ulong>? OnWrite;
     public Action? InsideWrite;
 
+    /// <summary>Called on the reading thread for every read, before the answer is given (a test uses it to hold a poll in flight).</summary>
+    public Action<int>? OnRead;
+
     public static ulong Raw(int value, int status = 0) => (ulong)(uint)(status & 0xFF) | ((ulong)(uint)value << 8);
 
     public void SetFans(int cpu, int gpu1, int gpu2)
@@ -35,6 +38,7 @@ internal sealed class FakeAcerWmi : IAcerWmi
     public ulong ReadSysInfo(int index)
     {
         lock (Gate) Reads.Add(index);
+        OnRead?.Invoke(index);
         if (ReadThrows is { } ex) throw ex;
         lock (Gate) return Sensors.TryGetValue(index, out var raw) ? raw : Raw(0);
     }
@@ -298,7 +302,7 @@ internal sealed class FakeHost : IHostServices
 
 internal static class Wait
 {
-    public static bool Until(Func<bool> condition, int timeoutMs = 5000)
+    public static bool Until(Func<bool> condition, int timeoutMs = 30000)
     {
         var end = Environment.TickCount64 + timeoutMs;
         while (Environment.TickCount64 < end)

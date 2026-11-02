@@ -202,7 +202,7 @@ public class ModuleSwitchTests
     {
         using var rig = new ModuleRig();
         rig.Switch.Value.Value = false;
-        Thread.Sleep(50);
+        rig.WaitUntilSwitchWorkersAreDone();   // no change, so no worker was started; if one was, wait for it and then look
         Assert.Equal(0, rig.Proxy.Writes);
         Assert.Empty(rig.Listeners.Requested);
     }
@@ -551,7 +551,7 @@ public class ModuleSettingsTests
     public void Without_auto_on_nothing_is_changed_at_start()
     {
         using var rig = new ModuleRig();
-        Thread.Sleep(100);
+        rig.WaitUntilSwitchWorkersAreDone();   // nothing was asked for, so there is nothing to wait for; a stray worker would be waited for
         Assert.False(rig.IsOn);
         Assert.Equal(0, rig.Proxy.Writes);
         Assert.False(rig.AutoOn.Value.Value);

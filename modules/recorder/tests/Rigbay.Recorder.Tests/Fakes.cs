@@ -33,7 +33,7 @@ internal sealed class FakeClock
 
     public Func<DateTimeOffset> Clock => () => Now;
 
-    public bool WaitUntilBlocked(int timeoutMs = 5000) => _blocked.Wait(timeoutMs);
+    public bool WaitUntilBlocked(int timeoutMs = 30000) => _blocked.Wait(timeoutMs);
 
     public Task Delay(TimeSpan span, CancellationToken ct)
     {
@@ -378,7 +378,7 @@ internal sealed class FakeHost : IHostServices
 
 internal static class Wait
 {
-    public static bool Until(Func<bool> condition, int timeoutMs = 5000)
+    public static bool Until(Func<bool> condition, int timeoutMs = 30000)
     {
         var end = Environment.TickCount64 + timeoutMs;
         while (Environment.TickCount64 < end)

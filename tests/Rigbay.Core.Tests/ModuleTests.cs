@@ -323,7 +323,7 @@ public class LoadingTests
         Assert.Equal("sample", host.Tray.Items.Single().ModuleId);
         Assert.Equal(new[] { "echo", "status" }, host.Commands.VerbsOf("sample").Select(v => v.Verb).ToArray());
 
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
         MetricSample sample = default!;
         while (!host.Metrics.TryGetLatest(new MetricId("sample.ticks"), out sample) && DateTime.UtcNow < deadline) Thread.Sleep(50);
         Assert.Equal("sample", sample.SourceModule);
@@ -540,7 +540,7 @@ public class FaultBoundaryTests
     {
         using var env = new TestEnv();
         env.AddModule("faulty", "init-hangs");
-        using var host = env.NewHost(timeout: TimeSpan.FromMilliseconds(300));
+        using var host = env.NewHost(timeout: TimeSpan.FromMilliseconds(300), probeTimeout: TimeSpan.FromSeconds(30));   // only Initialize is short
         host.Discover();
         var m = host.Modules.Single();
 

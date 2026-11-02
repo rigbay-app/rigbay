@@ -118,17 +118,38 @@ public class PollerTests
     }
 
     [Fact]
-    public void Scheduler_polls_repeatedly_and_stops()
+    public async Task Scheduler_polls_repeatedly_and_stops()
     {
         var (poller, wmi, _) = Make();
+        int polled = 0;
+        var threePolls = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        poller.Polled += _ => { if (Interlocked.Increment(ref polled) >= 3) threePolls.TrySetResult(); };
         using var scheduler = new PollScheduler(poller, TimeSpan.FromMilliseconds(20), TimeSpan.FromSeconds(10), _ => { });
         scheduler.Start(TimeSpan.Zero);
-        Assert.True(Wait.Until(() => wmi.Reads.Count >= 18));   // at least three polls
+        await threePolls.Task.WaitAsync(TimeSpan.FromSeconds(30));   // times out (and fails) when three polls do not happen
+
+        // Stop while a poll is in flight, and know that it is: hold the next poll inside its first read. Stop must let that poll
+        // finish (documented) and must not start another one. No sleep decides whether the in-flight poll is over: its Polled event does.
+        using var inFlight = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        int hold = 1;
+        wmi.OnRead = _ =>
+        {
+            if (Interlocked.CompareExchange(ref hold, 0, 1) != 1) return;
+            inFlight.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        };
+        Assert.True(inFlight.Wait(TimeSpan.FromSeconds(30)), "no poll was running");
+        int polledWhenStopped = Volatile.Read(ref polled);   // the held poll has not ended, so this cannot change until it is released
         scheduler.Stop();
-        Thread.Sleep(80);
-        int after = wmi.Reads.Count;
-        Thread.Sleep(120);
-        Assert.Equal(after, wmi.Reads.Count);
+        release.Set();
+        Assert.True(Wait.Until(() => Volatile.Read(ref polled) == polledWhenStopped + 1, 30000), "the poll that was running did not finish");
+
+        // A poll that started after Stop would read again. This wait can only miss a bug, it cannot fail a correct scheduler.
+        int reads = wmi.Reads.Count;
+        await Task.Delay(150);
+        Assert.Equal(reads, wmi.Reads.Count);
+        Assert.Equal(polledWhenStopped + 1, Volatile.Read(ref polled));
     }
 
     [Fact]
@@ -407,22 +428,27 @@ public class PollerWithdrawTests
     }
 
     [Fact]
-    public void Scheduler_PollSoon_reads_now_even_with_the_slow_interval_and_does_nothing_when_stopped()
+    public async Task Scheduler_PollSoon_reads_now_even_with_the_slow_interval_and_does_nothing_when_stopped()
     {
         var (poller, wmi, _) = Make();
+        int polled = 0;
+        var onePoll = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        poller.Polled += _ => { Interlocked.Increment(ref polled); onePoll.TrySetResult(); };
         using var scheduler = new PollScheduler(poller, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30), _ => { });
         scheduler.Watched = false;
-        scheduler.PollSoon();   // not started
-        Thread.Sleep(50);
+        scheduler.PollSoon();   // not started: there is no timer, so this is a plain no-op and nothing can be pending
         Assert.Empty(wmi.Reads);
 
-        scheduler.Start(TimeSpan.FromSeconds(30));
+        scheduler.Start(TimeSpan.FromSeconds(30));   // the first poll is 30 s away, so a poll that happens is the one PollSoon asked for
         scheduler.PollSoon();
-        Assert.True(Wait.Until(() => wmi.Reads.Count >= 6, 3000));
+        await onePoll.Task.WaitAsync(TimeSpan.FromSeconds(30));   // times out (and fails) when PollSoon does not poll
+        Assert.Equal(6, wmi.Reads.Count);   // exactly one poll: six sensors
         scheduler.Stop();
-        scheduler.PollSoon();
-        int after = wmi.Reads.Count;
-        Thread.Sleep(80);
-        Assert.Equal(after, wmi.Reads.Count);
+        scheduler.PollSoon();   // stopped: does nothing
+
+        // A poll started now would read again. This wait can only miss a bug, it cannot fail a correct scheduler.
+        await Task.Delay(150);
+        Assert.Equal(6, wmi.Reads.Count);
+        Assert.Equal(1, Volatile.Read(ref polled));
     }
 }

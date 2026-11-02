@@ -102,7 +102,7 @@ public class CatalogTests
             var request = module.RequestFromSettings() with { Duration = TimeSpan.FromSeconds(1.2) };
             host.MetricsBus.PublishFrom("alpha", "a.x", 3.25, MetricUnit.Percent, at: DateTimeOffset.Now);
             Assert.True(module.StartRecording(request).Started);
-            Assert.True(Wait.Until(() => !module.Engine!.IsRecording, 8000));
+            Assert.True(Wait.Until(() => !module.Engine!.IsRecording, 30000));
         }
         finally { module.Shutdown(); }
 

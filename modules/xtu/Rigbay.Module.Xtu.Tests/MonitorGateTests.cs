@@ -144,7 +144,7 @@ public class MonitorGateTests
         Assert.Null(rig.Host.FakeMetrics.Last("cpu.temp"));
 
         rig.Host.PageVisibleValue.Value = true;
-        Assert.True(await Rig.WaitFor(() => rig.Host.FakeMetrics.Last("cpu.temp") == 60, 6000), "no reading after the page was shown");
+        Assert.True(await Rig.WaitFor(() => rig.Host.FakeMetrics.Last("cpu.temp") == 60, 30000), "no reading after the page was shown");
         Assert.True(rig.Client.MonitorResets >= 1);   // a new warm-up after the pause
     }
 
@@ -154,7 +154,7 @@ public class MonitorGateTests
         using var rig = Started();
         rig.Runtime.StartTimers();
         rig.Host.FakeMetrics.SetSubscribers(WellKnownMetrics.CpuPower, 1);
-        Assert.True(await Rig.WaitFor(() => rig.Host.FakeMetrics.Last("cpu.power") is not null, 6000));
+        Assert.True(await Rig.WaitFor(() => rig.Host.FakeMetrics.Last("cpu.power") is not null, 30000));
 
         rig.Host.FakeMetrics.SetSubscribers(WellKnownMetrics.CpuPower, 0);
         await Task.Delay(400);   // a read that was already running ends

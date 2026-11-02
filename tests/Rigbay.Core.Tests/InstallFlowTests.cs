@@ -767,7 +767,7 @@ public class ModuleManagerTests : IDisposable
 
     private static async Task WaitFor(Func<bool> condition)
     {
-        for (int i = 0; i < 100 && !condition(); i++) await Task.Delay(50);
+        for (int i = 0; i < 600 && !condition(); i++) await Task.Delay(50);   // up to 30 s: it returns as soon as the condition holds
         Assert.True(condition(), "timed out waiting");
     }
 }

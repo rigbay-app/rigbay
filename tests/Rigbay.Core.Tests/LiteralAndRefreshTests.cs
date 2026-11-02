@@ -79,7 +79,7 @@ public class PageRefreshTests
 
     private static async Task<bool> WaitFor(Func<bool> condition)
     {
-        for (int i = 0; i < 200 && !condition(); i++) await Task.Delay(25);
+        for (int i = 0; i < 1200 && !condition(); i++) await Task.Delay(25);   // up to 30 s: it returns as soon as the condition holds
         return condition();
     }
 

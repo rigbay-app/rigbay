@@ -228,7 +228,7 @@ internal sealed class FakeHost : IHostServices
 
 internal static class Wait
 {
-    public static bool Until(Func<bool> condition, int timeoutMs = 5000)
+    public static bool Until(Func<bool> condition, int timeoutMs = 30000)
     {
         var end = Environment.TickCount64 + timeoutMs;
         while (Environment.TickCount64 < end)

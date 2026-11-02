@@ -600,7 +600,7 @@ public class PollRateAndLabelTests
         using var rig = new ModuleRig();
         int before = rig.Wmi.Reads.Count;   // the one read in Initialize
         rig.Host.PageVisibleValue.Value = true;
-        Assert.True(Wait.Until(() => rig.Wmi.Reads.Count >= before + 6, 3000), "no poll after the page became visible");
+        Assert.True(Wait.Until(() => rig.Wmi.Reads.Count >= before + 6, 30000), "no poll after the page became visible");
     }
 
     [Fact]

@@ -90,7 +90,9 @@ public class ProxyEngineTests
                 return c;
             };
             Engine = new ProxyEngine(DomainSet.Default(), Dialer, listeners ?? new LoopbackListenerFactory(),
-                options ?? new ProxyOptions { ProxyPort = 0, DownloadPort = 0, TlsSplitDelay = TimeSpan.FromMilliseconds(150), HeadTimeout = TimeSpan.FromMilliseconds(600) },
+                // HeadTimeout is generous on purpose: it is a deadline for the client to finish its request head, and a test client that is
+                // starved of CPU (a loaded CI runner) can be late by seconds. The one test of the timeout itself passes its own short value.
+                options ?? new ProxyOptions { ProxyPort = 0, DownloadPort = 0, TlsSplitDelay = TimeSpan.FromMilliseconds(150), HeadTimeout = TimeSpan.FromSeconds(30) },
                 log: m => { lock (Logged) Logged.Add(m); });
             Engine.Start();
         }
@@ -118,7 +120,7 @@ public class ProxyEngineTests
 
     private static async Task Send(TcpClient c, string text) => await c.GetStream().WriteAsync(Encoding.Latin1.GetBytes(text));
 
-    private static async Task<string> ReadUntil(TcpClient c, string marker, int timeoutMs = 5000)
+    private static async Task<string> ReadUntil(TcpClient c, string marker, int timeoutMs = 30000)
     {
         using var cts = new CancellationTokenSource(timeoutMs);
         var sb = new StringBuilder();
@@ -584,7 +586,7 @@ public class ProxyEngineTests
                 await ReadAllText(c, 2000);   // the proxy answers or closes; it must not hang
             }
         }
-        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 8000), "connections were left open");
+        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 30000), "connections were left open");
         await AssertStillServing(rig);
         Assert.DoesNotContain(rig.Dialer.Calls, c => !c.Host.EndsWith("steamcontent.com") && !c.Host.EndsWith("steampowered.com"));
     }
@@ -613,18 +615,19 @@ public class ProxyEngineTests
                 await ReadAllText(c, 1500);
             }
         }
-        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 10000), "connections were left open");
+        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 30000), "connections were left open");
         await AssertStillServing(rig);
     }
 
     [Fact]
     public async Task Many_connections_that_say_nothing_are_closed_by_the_head_timeout()
     {
-        using var rig = new Rig();
+        using var rig = new Rig(new ProxyOptions { ProxyPort = 0, DownloadPort = 0, HeadTimeout = TimeSpan.FromMilliseconds(600) });
         var clients = new List<TcpClient>();
         for (int i = 0; i < 30; i++) clients.Add(await rig.ConnectProxy());
-        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 30));
-        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 5000));   // HeadTimeout is 600 ms in this rig
+        // Total only goes up, so it cannot be missed (Active == 30 can: the first ones may time out before the last one is accepted).
+        Assert.True(Wait.Until(() => rig.Engine.Counters.Total == 30, 30000));
+        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 30000));   // every silent connection is closed by the 600 ms head timeout
         clients.ForEach(c => c.Dispose());
         await AssertStillServing(rig);
     }
@@ -652,6 +655,6 @@ public class ProxyEngineTests
         await Task.Delay(100);
         c.Client.LingerState = new LingerOption(true, 0);   // reset instead of a clean close
         c.Dispose();
-        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 8000));
+        Assert.True(Wait.Until(() => rig.Engine.Counters.Active == 0, 30000));
     }
 }

@@ -69,7 +69,12 @@ internal sealed class ModuleRig : IDisposable
         Switch.Value.Value = on;
         Assert.True(Wait.Until(() => on ? IsOn || Module.LastFailureForTests is not null : !IsOn), "the switch did not take effect");
         Assert.True(Wait.Until(() => Switch.Value.Value == (on ? IsOn : false)));
+        // The Windows setting changes in the middle of the worker; the texts and the metrics come after it. Wait for the end, not the middle.
+        WaitUntilSwitchWorkersAreDone();
     }
+
+    public void WaitUntilSwitchWorkersAreDone() =>
+        Assert.True(Wait.Until(() => Module.SwitchWorkersIdleForTests, 30000), "the switch worker did not finish");
 
     public void Stop()
     {

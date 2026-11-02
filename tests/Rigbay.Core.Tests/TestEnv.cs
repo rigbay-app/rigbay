@@ -35,12 +35,15 @@ public sealed class TestEnv : IDisposable
         return target;
     }
 
-    public RigbayHost NewHost(TimeSpan? timeout = null, long logMaxBytes = 1024 * 1024) => new(new RigbayHostOptions
+    /// <param name="timeout">Probe, Initialize and Shutdown timeout. <paramref name="probeTimeout"/> overrides the Probe one (it also guards loading and
+    /// constructing the module): a test of a hanging Initialize needs a short Initialize timeout and a generous load time, because a starved
+    /// machine can take longer than a short timeout just to create the module.</param>
+    public RigbayHost NewHost(TimeSpan? timeout = null, long logMaxBytes = 1024 * 1024, TimeSpan? probeTimeout = null) => new(new RigbayHostOptions
     {
         ModulesRoot = ModulesRoot,
         DataRoot = DataRoot,
         FolderSecurity = new Rigbay.Core.Install.NoFolderSecurity(),
-        ProbeTimeout = timeout ?? TimeSpan.FromSeconds(10),
+        ProbeTimeout = probeTimeout ?? timeout ?? TimeSpan.FromSeconds(10),
         InitializeTimeout = timeout ?? TimeSpan.FromSeconds(10),
         ShutdownTimeout = timeout ?? TimeSpan.FromSeconds(5),
         LogLevel = LogLevel.Debug,

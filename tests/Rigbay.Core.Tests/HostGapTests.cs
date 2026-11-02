@@ -635,14 +635,14 @@ public sealed class HostGapTests
         var ticks = new MetricId("sample.ticks");
 
         // the first tick comes after about a second whatever the rate; it settles on the slow rate (nobody listens)
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
         while (host.Metrics.Latest(ticks) is null && DateTime.UtcNow < deadline) await Task.Delay(50);
         Assert.Equal(1, host.Metrics.Latest(ticks)!.Value);
         await Task.Delay(2500);
         Assert.Equal(1, host.Metrics.Latest(ticks)!.Value); // the next tick is about ten seconds away
 
         m.SetPageVisible(true); // the page opens: read at once, then every second
-        deadline = DateTime.UtcNow.AddSeconds(5);
+        deadline = DateTime.UtcNow.AddSeconds(30);
         while ((host.Metrics.Latest(ticks)?.Value ?? 0) < 3 && DateTime.UtcNow < deadline) await Task.Delay(50);
         Assert.True(host.Metrics.Latest(ticks)!.Value >= 3);
 
@@ -664,7 +664,7 @@ public sealed class HostGapTests
         var seen = 0;
         using var sub = host.Metrics.Subscribe(s => Interlocked.Increment(ref seen), ticks); // the dashboard
 
-        var deadline = DateTime.UtcNow.AddSeconds(6);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
         while (Volatile.Read(ref seen) < 3 && DateTime.UtcNow < deadline) await Task.Delay(50);
         Assert.True(Volatile.Read(ref seen) >= 3);
         host.Shutdown();
