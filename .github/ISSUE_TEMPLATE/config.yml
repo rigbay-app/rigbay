@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/rigbay-app/rigbay/security/advisories/new
+    about: Report a vulnerability privately. Do not open a public issue for it (see SECURITY.md).
+  - name: How to write a module
+    url: https://github.com/rigbay-app/rigbay/blob/main/docs/ABSTRACTIONS.md#13-how-to-write-a-module
+    about: The module contract and a walk-through, before you ask for or write a module.

@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Rigbay or one of its modules does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks. A security problem goes to a private advisory instead (see SECURITY.md). Logs are in `%LOCALAPPDATA%\Rigbay\logs\rigbay.log`; trim them before pasting.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open Modules ... 2. Press ... 3. See ..."
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows build
+      description: "Run `winver`, for example: Windows 11 24H2, build 26100.2314"
+    validations:
+      required: true
+  - type: input
+    id: rigbay
+    attributes:
+      label: Rigbay version
+      description: Shown on the Settings page, or the zip you installed
+      placeholder: 0.1.1
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Module and module version
+      description: "Leave empty if no module is involved. Example: predatorsense 0.1.0"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: The relevant lines of `%LOCALAPPDATA%\Rigbay\logs\rigbay.log` (or the Log page). Remove anything private.
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you already tried
+      description: Restart, turn the module off and on, reinstall, another version.
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you send
+      options:
+        - label: I did not paste secrets, tokens, passwords, or private paths and names that I do not want public.
+          required: true
