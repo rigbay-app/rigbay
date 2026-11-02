@@ -540,7 +540,9 @@ read `HostApi.Current` and adapt.
 
 ## 13. How to write a module
 
-A complete working module is `samples/Rigbay.SampleModule`; copy it.
+A complete working module is `samples/Rigbay.SampleModule`; copy it. For a module of your own in its own repository, the step-by-step path (template
+repository, rename, test in the app, release, registry) is [WRITING-A-MODULE.md](WRITING-A-MODULE.md); inside this repository `tools/new-module.ps1` makes
+`modules/<id>` from the sample.
 
 1. **Project.** A class library for `net8.0`:
 
