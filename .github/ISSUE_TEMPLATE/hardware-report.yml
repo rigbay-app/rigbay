@@ -1,0 +1,73 @@
+name: Hardware report
+description: A module worked, or did not, on your machine
+labels: [hardware-report]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are how a module goes from "tried on one machine" to "known to work". Please say what you saw, not what you assume. If the module changed hardware, say how you confirmed it (a decoded read-back, a sensor, a fan you could hear) or that you could not.
+  - type: input
+    id: machine
+    attributes:
+      label: Machine
+      description: Make, model, CPU, GPU, BIOS version if you know it
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows build
+      description: "Run `winver`, for example: Windows 11 24H2, build 26100.2314"
+    validations:
+      required: true
+  - type: input
+    id: rigbay
+    attributes:
+      label: Rigbay version
+      placeholder: 0.1.1
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Module and module version
+      placeholder: predatorsense 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result
+      options:
+        - Works (reads and, if it writes, confirmed)
+        - Reads work, a write was not confirmed
+        - Module says my machine is unsupported
+        - Does not work or shows wrong values
+        - Something changed that I did not ask for
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did and saw
+      description: Which page, which button, which numbers. For a change on the hardware, the value before, the value after, and how you checked.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: The relevant lines of `%LOCALAPPDATA%\Rigbay\logs\rigbay.log` (the Log page shows the same file). Remove anything private.
+      render: text
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+      description: Other modes, other values, restart, the vendor app side by side.
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you send
+      options:
+        - label: I did not paste secrets, tokens, passwords, or private paths and names that I do not want public.
+          required: true

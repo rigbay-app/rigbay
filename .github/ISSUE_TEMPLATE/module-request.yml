@@ -1,0 +1,53 @@
+name: Module request
+description: Ask for a module for your machine, or offer to write one
+labels: [module-request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A module is a separate repository. Writing one: docs/ABSTRACTIONS.md, section 13. Say honestly what you can check on your own machine: nobody can verify hardware they do not have.
+  - type: textarea
+    id: want
+    attributes:
+      label: What should the module do?
+      description: Read-only (sensors, logging) or does it change something (fan, power, a setting)? Changes need the approval flow.
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Your machine
+      description: Make and model, CPU, GPU. Not tied to one brand is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: existing
+    attributes:
+      label: Existing software that does this today
+      description: Name, vendor, and how it controls the hardware if you know (service, WMI class, driver). Do not attach vendor files.
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who writes it?
+      options:
+        - I want it, someone else may write it
+        - I will write it and want advice
+        - I wrote it and want it listed in the registry
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows build
+      description: "Run `winver`"
+  - type: input
+    id: rigbay
+    attributes:
+      label: Rigbay version
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Before you send
+      options:
+        - label: I did not paste secrets, tokens, passwords, or private paths and names that I do not want public.
+          required: true
