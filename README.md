@@ -75,7 +75,9 @@ dotnet test Rigbay.sln
 ```
 
 See [docs/APP.md](docs/APP.md) for running, screenshots and where logs and settings live, and
-[docs/ABSTRACTIONS.md](docs/ABSTRACTIONS.md) for writing a module.
+[docs/ABSTRACTIONS.md](docs/ABSTRACTIONS.md) for the module contract. To write your own module, start with the tutorial
+[docs/WRITING-A-MODULE.md](docs/WRITING-A-MODULE.md) and the template repository
+[rigbay-app/module-template](https://github.com/rigbay-app/module-template).
 
 ## Safety
 
