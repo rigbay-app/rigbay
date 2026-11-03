@@ -7,8 +7,9 @@ repo; names, ids and numbers below are facts, the wording is ours. Nothing in th
 Sections 1 to 10 are the B1 reading (no WMI method called then). **Task B2 (section 11) made exactly one WMI method
 call: `GetGamingSysInfo(0x0101)`, the owner-approved CPU temperature read.** **Task B3 (section 12) ran the owner-approved
 follow-up reads: sysinfo indexes 2 to 17 and `AcerGenericMethod.GetFunction(0x207)`; it still wrote nothing.** **Task B4
-(section 13) ran the first and only hardware write: `SetGamingFanBehavior(0x01410019)`, all fans Auto, status 0.** Where
-section 11, 12 or 13 corrects an earlier statement, the later section wins (the "nothing wrote" sentences above describe B1 to B3).
+(section 13) ran the first hardware write: `SetGamingFanBehavior(0x01410019)`, all fans Auto, status 0; B5 (section 14) added all Max for 14 s and the Auto undo.**
+**Task B7 (section 15) is static only (nothing was called) and decodes the operation mode in `PSSvc.exe`.** Where
+section 11, 12, 13, 14 or 15 corrects an earlier statement, the later section wins (the "nothing wrote" sentences above describe B1 to B3).
 
 ## How sure each statement is
 
@@ -148,10 +149,11 @@ Input `2` on the same method returns whether "battery boost" is on (UI reads the
 
 **Performance mode ("operation mode": Quiet 0, Default 1, Render 2, Edit 3, Extreme 4, Turbo 5)**
 
-UI → pipe command 53 with the mode number; also tells the admin agent (command 34) to change the lighting
-accent. What the service then writes to firmware I could not recover without disassembling the native code: **not
-decoded**. B2 confirmed the UI has **no read** of the operation mode from firmware (section 11.3). The current value is cached at `HKLM\...\PredatorSense\Overclock\CurrentOperationMode` (here 4 = Extreme, O).
-`Feature.ini` on this machine enables Quiet, Normal, Extreme, Turbo (O). Mapping of the 4 labels to the 6 numbers: **G**.
+UI → pipe command 53 with the mode number. **Decoded in B7 (section 15):** the service calls `SetGamingMiscSetting` with `(mode << 8) | 0x0B`, then a
+GPU step (NvAPI offsets plus `SetGamingMiscSetting` `(level << 8) | 0x05`); the admin-agent lighting command is only for machine types 9 and 10, not for this machine.
+B2 confirmed the UI has **no read** of the operation mode from firmware (section 11.3); the service has one (`GetGamingMiscSetting` input `0x0B`, section 15.5). The current value is cached at
+`HKLM\...\PredatorSense\Overclock\CurrentOperationMode` (4 = Extreme in B1 to B5, **1 = Default on 2026-11-03**, O).
+`Feature.ini` on this machine enables Quiet, Normal, Extreme, Turbo (O). Mapping of the 4 labels to the 6 numbers: Normal = Default (1); the mapping is in 15.1 (C).
 
 **CPU and GPU overclock level (`SetGamingMiscSetting`, W)**
 
@@ -226,7 +228,8 @@ if so, any logged-in user may connect and the caller check above is the real gat
   on this machine: `FanControl\CurrentFanMode=0`, `Overclock\CurrentOperationMode=4`, `Overclock\MaxQ_Mode=2`. These
   are the app's records, **not live firmware state**, and can be stale.
 - The service handles power and session events (suspend, resume, logon, lock; C from log text), most likely to
-  re-apply settings. That it re-applies, and which: **G**.
+  re-apply settings. That it re-applies, and which: **G**. *(B7, section 15.3: wrong for the service, whose event handlers only write log lines (C).
+  The re-applying for the operation mode is done by `PSAdminAgent.exe` on power-source change, low-battery change and resume.)*
 - Whether the firmware keeps fan or mode settings across reboot or sleep by itself: not tested (**G**). Do not rely on
   it; a module should re-apply or re-read after resume.
 - Profiles and hotkey assignments live as XML/ini files under `C:\ProgramData\oem\PredatorSense\ProfilePool` (O, not read).
@@ -302,7 +305,7 @@ The probe implements 1 to 4.
 ## 9. Not verified
 
 - Any live firmware value other than the one CPU temperature in 11.1 (that single value, input `0x0101`, once).
-- Native service code: what exactly it sends to WMI for operation mode (get and set), the fan table, lighting; any rate limits.
+- Native service code: ~~what exactly it sends to WMI for operation mode~~ (done in B7, section 15, with my own decoder and no vetted disassembler); the fan table and lighting handlers are still not read; any rate limits.
 - Any firmware **read** of fan behaviour, fan speed, fan table, operation mode or lighting colour: the UI has none (11.2 to 11.4), so their input encodings cannot be traced.
 - The fan-table payload, and the exact conditions of the per-fan custom-speed sequence.
 - Meaning of the `GetGamingLEDBehavior(1)` bits (11.5).
@@ -323,7 +326,7 @@ Suggested order: read gates R1 and R2 in `GATE-b2-reads.md` first; then W1, veri
 | --- | --- | --- | --- | --- | --- | --- |
 | W1 | `AcerGenericMethod.SetFunction` (id 1) | `0x10007` (Cool Booster on) | fans boost to a higher speed | low to medium: louder, more wear if left on | `SetFunction(0x7)` | encoding C; meaning "Cool Booster" from the name only. **Read `GetFunction(0x207)` first (R2).** Verify with R1/R2 after. |
 | W2 | `AcerGamingFunction.SetGamingMiscSetting` (id 22) | `0x2005` (MaxQ mode 2, level 0) | GPU power profile for MaxQ | medium: GPU performance/power change | write the previous value; **the current value has no traceable read** | encoding C; effect G. Do not run. |
-| W3 | operation mode | n/a | performance profile | medium | previous mode | **No direct WMI route known.** The UI uses service command 53 only, and the pipe is off limits (section 4). The service's WMI mapping is not decoded. No value proposed. |
+| W3 | operation mode | see `WRITE-PROPOSALS.md` W3 (B7) | performance profile | medium to high | the previous mode value | **Superseded by B7 (section 15):** the service's WMI call is `SetGamingMiscSetting((mode << 8) \| 0x0B)`. Not run. The pipe stays off limits (section 4). |
 | W4 | `SetGamingFanBehavior` (id 14) | Auto `0x01410019`; Max `0x02820019` (this machine: 1 CPU fan, 0 system, 2 GPU fans) | Auto: firmware control (the recorded state). Max: all three fans full | Max: loud, no overheating risk in itself; a wrong mask addresses the wrong fan | Auto value above | encoding C (11.2). No firmware read of the current mode exists; registry says Auto (stale-prone). Verify with `GetGamingSysInfo` fan speed/rate (needs its own gates). Higher risk than W1; ask after W1. |
 | W5 | `SetGamingFanSpeed` (id 16) with `SetGamingFanBehavior` custom | `fanId \| (percent << 8)` after a custom-mode write | fixed fan speed | highest: a low percentage under load overheats | Auto value (W4) | encoding partly decoded (11.2); call sequence not fully traced. **No value proposed.** |
 | W6 | `SetGamingFanTable` (id 18) | n/a | | highest | | payload **not decoded**; this model's UI does not use it. No value proposed. |
@@ -417,9 +420,8 @@ read and a traced write.
   WMI input/output lines (unlike the fan table and LED calls), and the capability test is tied to an SMBIOS type 172 table
   (`stSMBiosType172.pfunNum1[i]` in the string table). How they reach the firmware is **not decoded**; that needs
   disassembling `PSSvc.exe`, which B2 did not do.
-- A Rigbay module cannot use command 53 (the pipe checks the caller, section 4). **No direct WMI route for the operation
-  mode is known.** If it exists it is probably a combination of other calls (the UI's mode handler also writes OC level and
-  LED behaviour, see 11.5), but that is **G**.
+- A Rigbay module cannot use command 53 (the pipe checks the caller, section 4). *(B7 update: the direct WMI route is now decoded, section 15.1: the service calls
+  `SetGamingMiscSetting((mode << 8) | 0x0B)` and then does a GPU step. The guess in this bullet about "a combination of other calls" was only partly right: the main call is a new selector, `0x0B`.)*
 
 ### 11.4 UI variant and lighting route for this machine
 
@@ -663,3 +665,158 @@ The undo also runs when the Max write itself errors or times out (state unknown)
   survives sleep or reboot; behaviour under load; Cool Booster (W1), MaxQ (W2), custom speeds. After the undo the fans were at 2857 to 2929 at +4 s, in the Auto range but 200 to 300 above the pre-write
   baseline (CPU 70 C then); whether Auto fully settled was not watched longer than that.
 - The first read after a write (about 16 ms later) still shows the old RPM; a check must wait at least a second or two (2 s worked).
+
+## 15. B7: the operation mode, decoded by static analysis (2026-11-03)
+
+**Static only.** Nothing was called: no pipe connection, no WMI method, no PredatorSense action, no debugger or hook, no Acer DLL loaded into a process of
+mine, no process started. What was read: the installed binaries as bytes, and state that Acer's software had already written (registry, ini files, PnP id).
+Nothing Acer-made or decompiled is in the repo; below are names, ids, numbers and my own sentences.
+
+### 15.0 Method, and the limit of it (read this first)
+
+- **No native engine is installed.** `rea doctor` reports Hopper, Ghidra and IDA missing, there is no Java and no disassembler library. I did not install
+  anything. Gate `g-c7f2ea3a5fd8` asks for a portable Ghidra 12.1.x plus a portable JDK 21 (or Hopper); **it was still unanswered when this section was written.**
+- So the native part was read with **my own small tools** (Python 3.13 standard library only, kept outside the repo): a PE reader (sections, imports, the
+  `.pdata` function table), a string finder with cross-references (RIP-relative `lea`), and a decoder for the x86-64 subset MSVC emits, used to list the
+  instructions of single functions with strings, imports and callees named. The managed UI was read with a metadata-only IL lister (also mine; it parses bytes and
+  runs nothing).
+- **Self-check of the decoder:** 1364 of the 1373 functions of `PSSvc.exe` decode to exactly their `.pdata` end with no unknown opcode (1537 of 1544 for
+  `PSAdminAgent.exe`). The few that do not contain AVX (VEX) code or data; none is on a path below. That makes the instruction streams I quote consistent, but
+  the decoder is not a vetted product. **A statement tagged C here means "I read that instruction sequence"; a Ghidra pass would be the independent check.**
+- Function addresses below are RVAs inside `PSSvc.exe` (image base `0x140000000`) unless it says `PSAdminAgent`.
+
+### 15.1 What the service does for command 53 (this machine) (C)
+
+The pipe session loop (RVA `0xCB30`) reads a frame, then calls `table[command id]`; the table sits in `.rdata` and entry N is the handler of command N (checked
+against the names of commands 9 to 53). Handler of 53 = RVA `0x1D260` (`kSvcCmdSetOperationMode`), of 52 = `0x1D110`, of 51 = `0x1CFC0`.
+
+`set_operation_mode(mode)`, `mode` = the 32-bit argument (an argument longer than 4 bytes leaves `mode` at 0; **there is no range check**, any value is used):
+
+| Step | What | Detail |
+| --- | --- | --- |
+| 1 | optional: admin agent, **Whisper mode** | only if `HKLM\SOFTWARE\OEM\PredatorSense\NV_WhisperMode20_Support` = 1 (here: 1). Opens `\\.\pipe\predatorsense_admin_agent_<active console session id>` and sends admin-agent command **35** (`kAdmAgtCmdSetNVWhisperMode`), one UInt32 argument = **1 if mode is 0 (Quiet), else 0**; reads the 9-byte reply, closes. Failures are logged only |
+| 2 | **WMI call 1** | `root\WMI:AcerGamingFunction.SetGamingMiscSetting` (id 22), `gmInput` UInt64 = **`(mode << 8) \| 0x0B`**, output `gmOutput` UInt32 (wrapper RVA `0x24A00`: query `SELECT * FROM AcerGamingFunction`, input VARIANT type UI8, output coerced to UI4). **30 ms `Sleep` after a successful call** |
+| 3 | level | `level` = 0 for mode 0; 1 for modes 1, 2, 3; 2 for mode 4; 3 for mode 5 (a mode above 5 gives 1). A failed WMI call 1 does **not** stop the handler: it logs "SetGamingMiscSettingBehavior is fail" and goes on |
+| 4 | `gpu_set_oc_level(level)` (RVA `0x1D7A0`) | stores `level`; returns at once ("Not support GPU overclock") if the global GPU-OC flag is 0 (registry `Overclock\GPU_OC_Support` = 1 here) |
+| 4a | NvAPI path | if the NVIDIA flag (set in `write_gpu_name`; registry `Nvdia_GPU_Support` = 1 here) is 1: `nvidiaOC_set_oclevel(level)` (RVA `0x19CD0`): `NvAPI_Initialize`, `NvAPI_EnumPhysicalGPUs`, for each GPU `NvAPI_GPU_GetPstates20` (retry loop), **100 ms `Sleep`**, compute the shift between the current clock offset and the wanted one, `NvAPI_GPU_SetPstates20`, **100 ms `Sleep`**. Wanted core and memory offsets = ini values for that level x 1000 (kHz), see 15.2. Otherwise another vendor path (RVA `0x1A9F0`) is taken |
+| 4b | gate check | `Operation_Mode_Support` is read from the registry (RVA `0x1A570`; the log says "skip oc fan table"; read-only) |
+| 4c | **WMI call 2** | only if `Feature.ini [OverclockDetial] GPUOCWMIRule` = 1 (here 1). Then, with `GPUOCWMINewRule` = 1 (here 1): `SetGamingMiscSetting` with **`(level << 8) \| 0x05`**, 30 ms `Sleep`. (With `GPUOCWMINewRule` = 0 the older rule uses the registry `Overclock\MaxQ_Mode` and the inputs `0x1005/0x1105/0x1205` (mode 1) or `0x2005/0x2105/0x2205` (mode 2); not taken here) |
+| 5 | reply | 9 bytes, argument = **0xFFFFFFFF in every case** (the slot is initialised to -1 and never written). The UI discards it. **There is no success/failure signal to the caller** |
+
+Not in this path: no CPU overclock call (`cpu_set_oc_level`, Intel SDK/XTU), no power-plan call (the service imports only `IsPwrSuspendAllowed` from
+`POWRPROF`), no registry or ini **write** (the listed functions import `RegGetValueW`, `GetPrivateProfileStringW` and no writer), no check of AC, battery,
+GPU mode or the mode value. The service has no `PowerSetActiveScheme`, and `PSAdminAgent` only reads the active scheme.
+
+**The six modes on this machine** (service view; `Feature.ini [OperationModeSupport]` offers only Quiet, Normal, Extreme, Turbo, so the UI never sends 2 or 3 here):
+
+| Mode (id) | Whisper cmd 35 arg | WMI call 1 (`SetGamingMiscSetting`) | level | NvAPI core / memory offset (this GPU, from the ini, 15.2) | WMI call 2 |
+| --- | --- | --- | --- | --- | --- |
+| Quiet (0) | 1 | `0x0B` | 0 | 0 / 0 | `0x05` |
+| Default (1) ("Normal" in the ini and on the button) | 0 | `0x10B` | 1 | 0 / 0 | `0x105` |
+| Render (2) | 0 | `0x20B` | 1 | 0 / 0 | `0x105` |
+| Edit (3) | 0 | `0x30B` | 1 | 0 / 0 | `0x105` |
+| Extreme (4) | 0 | `0x40B` | 2 | 0 / 0 | `0x205` |
+| Turbo (5) | 0 | `0x50B` | 3 | **+100 / +360** | `0x305` |
+
+Order inside the service: 1 (if enabled), WMI call 1, NvAPI, WMI call 2. Total time per command is roughly 30 + (100 + 100 + NvAPI work) + 30 ms, plus the pipe
+and WMI latency; the UI then waits 2 s before refreshing (15.2).
+
+**Selectors of `SetGamingMiscSetting`/`GetGamingMiscSetting`, as the service uses them** (low byte = selector, the next bits = value): `0x05` GPU OC level,
+`0x07` CPU OC level, `0x0B` **operation mode**, `0x02` GPU mode (UI), `0x01`/`0x101` battery-boost pair (UI). Reads: `0x07` CPU OC support by BIOS
+(`check_cpu_oc_by_bios_support`, value in bits 8 to 15), `0x09` discrete-GPU capability, `0x0A` **operation-mode capability**, `0x0B` **operation mode**.
+
+### 15.2 What the Acer UI adds around it (Clubman window, `Feature.ini` type 8) (C)
+
+`OperationMode_Button.OC_Mode_Checked` (the only caller of the UI's `set_operation_mode`; ignored while `App.initial_flag` is set):
+
+1. UI display only: shows which parts are "boosted": Edit (3) = CPU, Render (2) = GPU, Extreme (4) and Turbo (5) = both, Quiet and Default = none. This is a label of
+   the UI, not a call.
+2. Starts a thread: `set_operation_mode(mode)` -> pipe 53 with one UInt32 (result discarded), `Sleep(1000)`, `Sleep(1000)`, then refresh of the page.
+3. **Meanwhile, without waiting for the thread**: calls the main window's `Change_home_operation_mode_profile`, **writes `HKLM\...\Overclock\CurrentOperationMode` = mode** (so the
+   cache is written whether or not the service succeeded), updates the GameSync ini of the active profile if one is active, and shows/hides the NVIDIA Whisper status when
+   `NV_WhisperMode20_Support` = 1.
+4. **Turbo branch (needs all of: mode 5, `FanControl\CurrentFanMode` = 1 (Max), AC power, "battery boost" on):** sets `FanControl\User_change` = 0, sends pipe 13 `SetGamingLEDBehavior(0x10001)`
+   and pipe 32 `SetGamingMiscSetting(0x101)`, then posts message `0x8001` (wParam 11, lParam 1) to the `PSAgent` window (OSD). **Other modes:** reads pipe 14
+   `GetGamingLEDBehavior(1)`; if status is 0 and `(raw >> 8) & 3 == 1` it undoes the pair with `SetGamingLEDBehavior(1)` and `SetGamingMiscSetting(1)` and posts `0x8001` (11, 0).
+   (Variants with `0x410001`/`0x400001`, bit 14 instead of bit 8, are for machine type 3.) Meaning of the pair stays **G** (boost-related).
+5. The earlier note "also tells the admin agent (command 34) to change the lighting accent" (3.3, 11.3) is **only for machine types 9 and 10** (XC90, Evoque); type 8 skips it (C).
+
+Per-GPU offsets the service applies in 4a come from `C:\ProgramData\oem\PredatorSense\PredatorSense.ini` (Acer-written, **O**). Section named after the GPU PnP id; this
+machine's GPU is `PCI\VEN_10DE&DEV_2520&SUBSYS_15321025` (**O**, `Get-PnpDevice`) and that section exists:
+
+```
+[PCI\VEN_10DE&DEV_2520&SUBSYS_15321025]   Quiet=0  Default=0  Extreme=0  Turbo=100
+                                          RAM_Quiet=0  RAM_Default=0  RAM_Extreme=0  RAM_Turbo=360
+```
+
+The service reads the keys `Quiet`, `Default`, `Extreme`, `Turbo` (core) and `RAM_Quiet`, ... `RAM_Turbo` (memory) into level slots 0 to 3 (C, the stores of RVA `0x14540`).
+The unit is "value x 1000 = kHz" in the NvAPI call (C); what that means in MHz as GPU tools show it is **G** (core +100 MHz looks right; memory +360 is the NvAPI-side number).
+
+### 15.3 Other writers of the mode (the service is not the only one) (C unless said)
+
+Command 53 is also sent by **`PSAdminAgent.exe`** (user session, elevated, runs from the service folder). The service's caller check is a path check (15.6), and the agent's path is on its list.
+
+| Trigger | What the agent does |
+| --- | --- |
+| **Turbo key** (`Press_Turbo_key_Operating_Mode`, `Turbo_mode_switch_Operating_Mode`) | acts only if (`Operation_Mode_Support` or the GPU-OC flag is set), both lock flags are clear, the AC status check passes **and** battery boost reads on; it then sets the locks and calls the switch. Mode = 5 when the key turns Turbo on, 1 when off. **UI running:** posts window message `0x8012` (wParam = mode) to the UI, which then does its own pipe 53. **UI not running:** (if the GPU-OC flag is set) sends pipe 53 itself, writes `Overclock\CurrentOperationMode`, `ProfilePool\currentsetting.ini [OperationMode] currentoperationmode`, and then **`SetGamingFanBehavior`: `0x02AA001F` (all fans Max) when Turbo goes on, `0x0155001F` (all Auto) when it goes off** (mask `0x1F` = all five fan slots, 2-bit mode 2 or 1 per slot), writes `FanControl\CurrentFanMode` = 1/0 and the ini, and posts the OSD message to `PSAgent` |
+| **Power source change** (AC/DC/PD), **low-battery state change**, **resume / Modern Standby** (`DoOCFunction`; the resume handler and the message loop start `Reset_all_settings` (RVA `0x434A0` in the agent) as a function pointer, and it reads registry `Force_reset`, here 1; how that value gates it was not traced) | calls **`reset_Operation_Mode`** (RVA `0x50500` in the agent): reads AC status and the battery-boost flag (`GetGamingSysInfo` input 2 path). If the flag reads 0 it writes `CurrentOperationMode` = 1. **If AC and boost are on it re-sends the cached mode, otherwise it sends pipe 53 with 1 (Default).** `Reset_all_settings` also touches `CurrentCPUMode`, `CurrentGPUMode`, `CurrentFanMode` (back to Auto) and the GameSync `ActiveIndex` (value names read in the code; exact values written **G**) |
+| GameSync profile apply ("Do set GameSync Profile"), "Do restore settings" | call `reset_Operation_Mode` too |
+
+**The service itself does not react to power or session events**: `OnPowerEvent` and `OnSessionChange` (RVAs `0xA480`, `0xA5A0`) only write log lines (C). The re-applying
+that FINDINGS 5 guessed at is done by the agent, not the service. The UI on its side only greys out the buttons on DC, USB-PD, or AC without battery boost
+(`Disabled_OverClocking`: shows Default **without sending anything** and without writing the cache); on AC with boost it restores `BeforeUnpluggedOperationMode` in the UI (`Enabled_OverClocking`).
+The user-facing texts in `PSAgent.exe` say overclocking is stopped below 30 % battery and is available only with the adapter plugged in and at least 40 % battery left (strings, C);
+the comparison constants in `PSAdminAgent` were not decoded.
+
+### 15.4 What is persisted, and where (O for values, C for who writes)
+
+| Place | Written by | Value now (2026-11-03) |
+| --- | --- | --- |
+| `HKLM\SOFTWARE\OEM\PredatorSense\Overclock\CurrentOperationMode` | UI on every click; agent on Turbo key / reset | **1** (it was 4 during B1 to B5) |
+| `...\Overclock\CurrentCPUMode`, `CurrentGPUMode` | UI overclock pages, agent resets | 0, 0 |
+| `...\FanControl\CurrentFanMode`, `User_change` | UI, agent | 0, 0 |
+| `...\PredatorSense` flags the mode path reads: `Operation_Mode_Support`, `NV_WhisperMode20_Support` / `_Status`, `Nvdia_GPU_Support`, `Force_reset`; `...\Overclock`: `GPU_OC_Support`, `CPU_OC_Support`, `CPU_PL_Support`, `MaxQ_Mode` | service start-up detection (`Operation_Mode_Support` comes from an SMBIOS-based check, RVA `0x1D670`, run at start) | 1; 1 / 0; 1; 1; 1, 0, 0, 2 |
+| `C:\ProgramData\oem\PredatorSense\ProfilePool\currentsetting.ini` `[OperationMode] currentoperationmode` | agent | **1**, file last written **2026-11-02 21:11** (UTF-16) |
+| `PredatorSense.ini`, `Feature.ini`, `HW_Support.ini` | not written by a mode change; read by the service | see 15.2 and `Feature.ini` (Quiet/Normal/Extreme/Turbo = 1, `PowerLimit` = 0, `GPUOCWMIRule` = 1, `GPUOCWMINewRule` = 1) |
+
+The service writes none of them in the mode path. The cache changed from 4 to 1 between the B5 run (2026-11-01 20:22) and 2026-11-02 21:11 without anything of mine touching it. That all
+cache values now equal the reset values (mode 1, fan 0, CPU 0, GPU 0) fits the agent's reset on resume/start (**G**, not proven; I do not know who triggered it).
+
+### 15.5 How a mode can be read
+
+| Source | Exists? | Notes |
+| --- | --- | --- |
+| **Firmware: `GetGamingMiscSetting` (id 23) with input `0x0B`** | **yes in the service** (pipe 52 handler `0x1D110`), never used by the UI | C: the service sends exactly `0x0B` and returns the raw 64-bit answer to the pipe caller without parsing it (so the layout is unknown to me). By analogy with the selectors it parses itself (`0x07`: value in bits 8 to 15; the GPU-mode read in 3.3) the mode is probably in bits 8 to 15 with the status in the low byte (**G**). Never run |
+| **Firmware: `GetGamingMiscSetting` input `0x0A`** | yes (pipe 51 handler `0x1CFC0`), never used by the UI | "operation-mode capability"; layout unknown. Never run |
+| Registry `Overclock\CurrentOperationMode` | yes | the UI's and agent's record, written on click even if the service failed; **not** updated by the UI's unplug fallback; not live state |
+| `ProfilePool\currentsetting.ini` | yes | agent's record |
+| NvAPI P-state offsets | yes, but it needs NvAPI, not WMI | would show only the GPU part; 0 in every mode except Turbo here |
+| Windows power plan | no | the mode does not touch it |
+
+So a **firmware read exists** (`0x0B`), but it is untraced in the UI. Under the project rule (a call is only run if its input is traced and the owner approves) it needs its own gate; it is traced
+to the **service's own handler**, not to the UI. The risk is the usual one: the MOF flags every method read and write, but the service itself sends this input as a "get".
+
+### 15.6 Dangerous parts, and what a direct WMI call would skip
+
+- **What the firmware does for selector `0x0B` is not visible in any Acer binary** (it is the BIOS/EC). The Acer UI calls Extreme and Turbo "overclocking"; the safe assumption is higher CPU
+  and GPU power, hotter and louder. The CPU/GPU split shown by the UI (15.2 item 1) is only a label.
+- **Turbo adds an NvAPI offset: GPU core +100, memory +360** (this machine's ini), applied by the service through `SetPstates20`. A direct WMI `0x50B` does **not** do this; Acer's Turbo = WMI + NvAPI + WMI.
+- **Fan overrides**: the mode path of the service touches no fan setting. Fans change through (a) the Turbo **key** when the UI is closed (`0x02AA001F` all Max / `0x0155001F` all Auto,
+  mask `0x1F`), (b) the UI Turbo branch pair `0x10001` + `0x101` (meaning guessed), (c) the firmware itself.
+- **Power limits:** no CPU power-limit write in this path; this machine has `PowerLimit` = 0 and `CPU_PL_Support` = 0 in the Acer files. Whether the firmware changes power limits for a mode is unknown.
+- **Acer's guards are not in the WMI call**: the AC/battery rules (30 %, 40 %) live in the agent and UI (15.3); a direct `SetGamingMiscSetting` has none of them. The agent may also reset the mode to Default
+  after a power-source change or resume and so undo a Rigbay-set mode (C that it can, **G** how often).
+- **Enforced by the service, not reproducible with direct WMI:** (1) the **caller check on the pipe**, which only matters for the pipe: the check is `IsAllowedWin32App`/`IsAllowedUwpApp` (RVAs `0xC7A0`, `0xC4A0`),
+  taking the client's process id with `GetNamedPipeClientProcessId`, its image path with `QueryFullProcessImageNameW`, and comparing with the service folder + one of six file names
+  (`PredatorSense.exe`, `PSAdminAgent.exe`, `PSAgent.exe`, `PSMobile.exe`, `PSLauncher.exe`, `PSSvc.exe`) or the `WindowsApps\AcerIncorporated.PredatorSenseV30_*\Win32\PredatorSense.exe` path, or the UWP package family
+  `AcerIncorporated.PredatorSenseV30_48frkmn4z8aw4`. There is **no signature or hash check** (no `WinVerifyTrust`/crypt import). It is a path gate; Rigbay still must not use the pipe.
+  (2) NvAPI offsets and NVIDIA Whisper mode (admin agent) are not WMI. **(3) I found no firmware handshake, token or sequence number in the WMI calls themselves:** the service builds the input from the mode, calls the method and sleeps 30 ms. What the firmware accepts is untested.
+
+### 15.7 What I could not decode or verify
+
+- The firmware semantics of selectors `0x0A`/`0x0B` (reply layouts, what each mode changes in BIOS/EC), and whether Render (2), Edit (3) or a value above 5 is accepted by this firmware.
+- The SMBIOS (type 172) capability parse in RVA `0x1D670`: purpose and registry output read, parsing not decoded.
+- `PSAdminAgent`: the comparison constants for the low-battery rule, the source of its "low battery" flag (a `GetGamingSysInfo`-style read, RVA `0xA1C0` there), what `Reset_all_settings` writes exactly, the Turbo-key event decoder, and what the UI does on message `0x8012` besides the usual pipe 53.
+- Other families of profile keys in RVA `0x14540` (`Normal/Faster/Boosted/Turbo`, XTU `.xtu` files, CPU power-limit profiles): they are for other models or CPU overclock, which is not supported here; the mode handler does not reach them on this machine.
+- Nine functions of `PSSvc.exe` (AVX code): not read; none is on the paths above. The decoder is my own (15.0).
+- Whether the firmware keeps a mode across reboot, sleep or unplug. Nothing was run, so every effect statement above is about code, not about observed behaviour.

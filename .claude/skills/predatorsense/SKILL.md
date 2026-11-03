@@ -1,6 +1,6 @@
 ---
 name: predatorsense
-description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). The Rigbay module itself is `modules/predatorsense/` (task B6, rules below). DRAFT from the B1 to B6 tasks; firmware reads (sensors, one Cool Booster read) and two fan-mode writes so far (all Auto, B4; all Max for 14 s then Auto again, B5; both status 0).
+description: Working knowledge of how Acer PredatorSense V3 controls an Acer Predator laptop (Triton 500 SE, PT516-51s) - service PSSvc, its named pipe, and the root\WMI AcerGamingFunction methods - and what is verified, not verified and forbidden. Use it before writing or changing anything for a Rigbay PredatorSense module, before calling any Acer WMI method, when adding a fan, performance-mode, lighting or sensor feature, or when writing the module's probe ("is this machine supported"). The Rigbay module itself is `modules/predatorsense/` (task B6, rules below). DRAFT from the B1 to B7 tasks; firmware reads (sensors, one Cool Booster read) and two fan-mode writes so far (all Auto, B4; all Max for 14 s then Auto again, B5; both status 0). B7 decoded the operation mode (performance modes) from the code, static only: nothing about it has been run.
 ---
 
 # PredatorSense: working knowledge (draft)
@@ -47,9 +47,9 @@ Detail files (read only when needed):
 - **A name is not proof.** The MOF marks every `AcerGamingFunction` method read=true and write=true. `Get*` is a
   convention. Call only inputs traced to the Acer UI's own code, one at a time.
 - **Never call `AcerBiosConfigurationTool`** (BIOS options, password argument).
-- **Do not use the service pipe `\\.\pipe\predatorsense_service_namedpipe`.** `PSSvc` checks the caller is the genuine
-  PredatorSense app (package family or exe path under `WindowsApps\AcerIncorporated.PredatorSenseV30_*`). Talking to WMI
-  directly from the elevated host is the route. Do not impersonate the Acer app.
+- **Do not use the service pipe `\\.\pipe\predatorsense_service_namedpipe`.** `PSSvc` checks the caller's image path (B7: the service folder plus `PredatorSense.exe`, `PSAdminAgent.exe`, `PSAgent.exe`, `PSMobile.exe`,
+  `PSLauncher.exe`, `PSSvc.exe`, or the `WindowsApps\AcerIncorporated.PredatorSenseV30_*` app, or its package family); there is no signature check. Talking to WMI
+  directly from the elevated host is the route. Do not impersonate the Acer app or run from its folders.
 - **No Acer files or decompiled code in the repo.** Reference the installed files in place; write facts (names, ids,
   numbers) in our own words and our own code.
 - **Needs administrator.** WMI instance access under `root\WMI` is denied to normal users.
@@ -83,13 +83,20 @@ PredatorSense.exe (WPF) --pipe--> PSSvc.exe (native, LocalSystem) --WMI root\WMI
 - This machine's UI variant is **Clubman** (`Feature.ini [MachineType] Type=8`). Its lighting is **WMI** (`SetGamingRgbKb`,
   `SetGamingKBBacklight`, `SetGamingLEDBehavior`, `AcerGenericMethod.SetFunction`), not the USB admin-agent route.
 - **The UI never reads fan behaviour, fan speed, fan table, operation mode or lighting colour back from firmware.** It uses the
-  registry cache plus `GetGamingSysInfo`. So those `Get*` inputs are untraceable: do not call them. The traceable reads are
+  registry cache plus `GetGamingSysInfo`. So those `Get*` inputs are untraceable to the UI: do not call them. (Exception found in B7: the **service** reads the mode with `GetGamingMiscSetting(0x0B)`; it
+  still needs its own gate.) The traceable reads are
   in `references/wmi-encodings.md` (sysinfo, Cool Booster `GetFunction(0x207)`, keyboard backlight `GetFunction(0x80184)`).
 - Fan write encodings are decoded (`SetGamingFanBehavior`: fan mask low half, 2-bit mode per fan in the high half; all-Auto here
   is `0x01410019`); see the encodings file. **`SetGamingFanBehavior(0x01410019)` was run once in B4: `gmInput` is UInt64, answer raw `0x0`
   (status 0) in 11 ms, fans and temperatures unchanged for 20 s.** **`SetGamingFanBehavior(0x02820019)` (all Max) was run once in B5 for 14 s: status 0 in 13 ms, fan speeds
   (sysinfo 2, 6, 9) went from about 2600 to 2700 to 5555 / 5882 / 5900 within 2 s and stayed there; the undo `0x01410019` (status 0) brought them back to the Auto range within 2 s. So a
-  fan write has a measurable effect and the mask/mode table is right for modes 1 and 2. The first read ~16 ms after the write still shows the old RPM: wait about 2 s.** Custom values have never been run. The operation mode has no known direct WMI route.
+  fan write has a measurable effect and the mask/mode table is right for modes 1 and 2. The first read ~16 ms after the write still shows the old RPM: wait about 2 s.** Custom values have never been run.
+- **Operation mode (B7, static analysis, never run).** The UI sends service pipe command 53 with the mode (Quiet 0, Default 1, Render 2, Edit 3, Extreme 4, Turbo 5). `PSSvc.exe` then (1) optionally tells the admin agent to set NVIDIA
+  Whisper mode (command 35, on for Quiet only), (2) calls **`SetGamingMiscSetting` with `(mode << 8) | 0x0B`**, (3) does a GPU step: NvAPI offsets from `PredatorSense.ini` (this GPU: zero except Turbo core +100, memory +360) and
+  `SetGamingMiscSetting` `(level << 8) | 0x05` with level 0 / 1 / 1 / 1 / 2 / 3 for modes 0 to 5. The service itself checks no AC, battery or GPU mode, does not re-apply on resume, writes no registry. The **UI** writes the cache
+  `Overclock\CurrentOperationMode` on click (even if the service failed); **`PSAdminAgent`** resets the mode to Default (1) on power-source change, low battery and resume, and handles the Turbo key. There **is** a firmware read in the service,
+  `GetGamingMiscSetting(0x0B)` (mode) and `(0x0A)` (capability), never used by the UI, layout unknown. Details: `FINDINGS.md` section 15; test plan: `WRITE-PROPOSALS.md` W3. Rules: a direct write is only
+  `SetGamingMiscSetting(0x10B/0x0B/0x40B/0x50B)` after its own owner gate; never write Acer's registry cache; a WMI-only Turbo is not Acer's Turbo (no NvAPI part); undo is always `0x10B`.
 - **Set methods take UInt64 `gmInput`; the Get methods take UInt32** (the probe casts to `uint`). The Set answer is `gmOutput` UInt32, status = low byte, 0 = ok.
 - **Fan RPM in Auto jitters by one step (about 22 to 24 RPM) and drifts with load**; use jumps of hundreds of RPM as the signal. `nvidia-smi` fan speed is `[N/A]` here, so sysinfo 2, 6, 9 are the only fan reading.
 
@@ -103,7 +110,8 @@ PredatorSense.exe (WPF) --pipe--> PSSvc.exe (native, LocalSystem) --WMI root\WMI
 | Encodings of CoolBooster, CPU/GPU OC level, MaxQ, GPU mode, sensor index, battery boost, AC mode, fan behaviour and fan speed writes (from UI code) | What those writes do on this machine (never run), except the one below |
 | **Live write (B4):** `SetGamingFanBehavior(0x01410019)` once, elevated: status 0, 11 ms, RPM 2564 to 2586 / 2654 to 2678 / 2663 and temperatures unchanged for 20 s | That the fan mode changed or was re-asserted (no read-back); whether `PSSvc` re-applies its mode; survival across sleep or reboot; Custom, Cool Booster, MaxQ |
 | **Live write (B5):** `SetGamingFanBehavior(0x02820019)` (Max) then `(0x01410019)` (Auto), both status 0 in 13 ms; RPM 2600 to 2700 -> 5555 / 5882 / 5900 within 2 s, flat for 14 s, back in the Auto range 2 s after the undo | The mode itself (inferred from RPM only); ramp time under 2 s; RPM unit; cooling effect; what the owner heard; behaviour under load or across sleep/reboot |
-| UI variant Clubman, lighting route WMI, the UI has no read of fan/mode/colour | Operation-mode mapping in the service; fan table payload; lighting effect tables |
+| UI variant Clubman, lighting route WMI, the UI has no read of fan/mode/colour | Fan table payload; lighting effect tables |
+| **Static (B7):** service operation-mode mapping (`(mode << 8) \| 0x0B`, GPU step, delays 30/100 ms), who writes the cache, what the agent resets, the pipe caller check is an image-path check | Anything about the firmware's behaviour per mode; reply layout of `GetGamingMiscSetting(0x0A/0x0B)`; whether Render/Edit are accepted; the decoder was home-made (no Ghidra installed, gate open): an independent pass is still wanted |
 | Pipe caller check exists | Pipe ACL, behaviour of a refused connect |
 | Charge limit is absent from PredatorSense v3 here | Charge limit via firmware Misc/Profile methods (no evidence) |
 | | What resets settings (sleep, reboot, Turbo key); meaning of `GetGamingLEDBehavior(1)` bits |
@@ -139,7 +147,10 @@ has the wrapper" is not enough: `WMIGetGamingFanGroupBehavior/Speed/Table` exist
 **Decode a new call.** Find the UI helper (`CommonFunction`, `FanControlPage`, `OperationMode_Button`, `MonitorAndOCClass`,
 `WMIFunction` in `PredatorSense.exe`) with REA `inspect-managed-members` or a metadata-only IL lister (parse metadata and IL
 bytes with `System.Reflection.Metadata`; never load or run Acer code). Find who calls the `WMIFunction` wrapper first: no caller
-means no traced input. The model-to-window mapping is `App.OnStartup` on `Feature.ini [MachineType] Type`. Write the encoding into
+means no traced input. The model-to-window mapping is `App.OnStartup` on `Feature.ini [MachineType] Type`.
+**Native service code (`PSSvc.exe`, `PSAdminAgent.exe`) without a disassembler (what B7 did):** read the PE as bytes, take the function list from `.pdata`, find RIP-relative `lea` references to the service's own log
+strings (they name every handler: `treadstone::TsClientCommandProcessor::<name>`), look the handler up in the command table in `.rdata` (entry N = command N), and decode single functions with a small x86-64 decoder
+of your own. A Ghidra/Hopper pass is the better check when the owner has approved an install (open a `csm gate` first). Never run or load the Acer files. Write the encoding into
 `references/wmi-encodings.md` with its status; open a gate before any run.
 
 **Run an approved write.** Only through `tools/predatorsense-write` (build with `build.ps1`; elevated). Its allow-list is a constant in `Write.cs` with the exact
@@ -155,4 +166,4 @@ Ask with `csm gate open`. One value per approval. The filled-in candidates are i
 - For fan writes the only working check is **fan RPM** (`GetGamingSysInfo` 2, 6, 9). There is no firmware read of fan mode, operation mode, MaxQ level or colour,
   and the Cool Booster read answered `0xE1`. Say so in the proposal and keep each test to seconds, with an undo that does not need our code
   (the Acer app's Auto button).
-- The operation mode has no known direct WMI route (pipe only); do not propose a value.
+- The operation mode has a decoded WMI route since B7 (`SetGamingMiscSetting((mode << 8) | 0x0B)`), proposed in `WRITE-PROPOSALS.md` W3 as W3a to W3d with reads W3-R1/R2 first. Propose values only from that table; it is code evidence, not a run.
