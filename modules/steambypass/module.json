@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "steam-bypass",
   "name": "Steam access",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Rigbay contributors",
   "description": "Restores access to Steam on networks that block it, through a local proxy, DNS over HTTPS and a PAC file.",
   "entry": { "assembly": "Rigbay.SteamBypass.dll", "type": "Rigbay.SteamBypass.SteamBypassModule" },

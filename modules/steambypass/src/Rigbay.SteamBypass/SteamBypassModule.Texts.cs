@@ -77,15 +77,19 @@ public sealed partial class SteamBypassModule
         var probe = _probe;
         var controller = _controller;
         if (host is null || probe is null || controller is null) return new CheckRun(CheckSpec.All.Count, CheckSpec.All.Count, Array.Empty<CheckResult>());
-        lock (_checkGate)
-        {
-            if (_checksRunning) return new CheckRun(CheckSpec.All.Count, CheckSpec.All.Count, Array.Empty<CheckResult>());
-            _checksRunning = true;
-            _checkResults.Clear();
-            foreach (var spec in CheckSpec.All) _checkTexts[spec.Id].Value = host.Localisation.T("check.running");
-        }
+        // Only the run that set the flag may clear it. The try block starts before the flag is set, so a failure right after setting it
+        // cannot leave it stuck, and a run that was refused (the flag was not its own) never reaches the clearing code with a claim.
+        bool owner = false;
         try
         {
+            lock (_checkGate)
+            {
+                if (_checksRunning) return new CheckRun(CheckSpec.All.Count, CheckSpec.All.Count, Array.Empty<CheckResult>());
+                _checksRunning = true;
+                owner = true;
+                _checkResults.Clear();
+                foreach (var spec in CheckSpec.All) _checkTexts[spec.Id].Value = host.Localisation.T("check.running");
+            }
             int? proxyPort = controller.IsOn ? controller.Engine.ProxyPort : null;
             var tasks = CheckSpec.All.Select(async spec =>
             {
@@ -105,7 +109,7 @@ public sealed partial class SteamBypassModule
             host.Log.Info($"Connection check: {results.Length - failed} of {results.Length} passed ({(proxyPort is null ? "direct" : "through the bypass")})");
             return new CheckRun(results.Length, failed, results);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (owner)
         {
             lock (_checkGate)
             {
@@ -116,7 +120,7 @@ public sealed partial class SteamBypassModule
         }
         finally
         {
-            lock (_checkGate) _checksRunning = false;
+            if (owner) lock (_checkGate) _checksRunning = false;
         }
     }
 

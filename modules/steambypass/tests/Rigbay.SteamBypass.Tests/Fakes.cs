@@ -101,7 +101,13 @@ internal sealed class FakeLocalisation : ILocalisation
         return d;
     }
 
+    /// <summary>When set and true for a key, <see cref="T"/> throws for it (a text lookup that fails in the middle of an operation).</summary>
+    public volatile Func<string, bool>? ThrowFor;
+
     public string T(string key) =>
+        ThrowFor is { } fail && fail(key) ? throw new InvalidOperationException("text lookup failed for " + key) : Lookup(key);
+
+    private string Lookup(string key) =>
         _current.TryGetValue(Prefix + key, out var v) ? v : _english.TryGetValue(Prefix + key, out var e) ? e : Prefix + key;
 
     public string F(string key, params object[] args) => string.Format(CultureInfo.InvariantCulture, T(key), args);
@@ -124,10 +130,14 @@ internal sealed class FakeApproval : IHardwareApproval
     public bool Answer;
     public readonly List<(HardwareEffect Effect, LocalisedText? Detail)> Asked = new();
 
-    public Task<bool> ConfirmAsync(HardwareEffect effect, LocalisedText? detail = null, CancellationToken cancellationToken = default)
+    /// <summary>When set, the answer is given only after this task completes (the user is still looking at the dialog).</summary>
+    public volatile Task? Gate;
+
+    public async Task<bool> ConfirmAsync(HardwareEffect effect, LocalisedText? detail = null, CancellationToken cancellationToken = default)
     {
         lock (Asked) Asked.Add((effect, detail));
-        return Task.FromResult(Answer);
+        if (Gate is { } gate) await gate.ConfigureAwait(false);
+        return Answer;
     }
 }
 
@@ -173,7 +183,15 @@ internal sealed class FakeCommands : ICommandRegistry
 internal sealed class FakeToast : IToastService
 {
     public readonly List<ToastMessage> Shown = new();
-    public void Show(ToastMessage message) { lock (Shown) Shown.Add(message); }
+
+    /// <summary>When set, <see cref="Show"/> throws it (a host that fails while the module is in the middle of a change).</summary>
+    public volatile Exception? Throws;
+
+    public void Show(ToastMessage message)
+    {
+        lock (Shown) Shown.Add(message);
+        if (Throws is { } ex) throw ex;
+    }
 }
 
 internal sealed class FakeTray : ITrayService
@@ -254,10 +272,17 @@ internal sealed class MemoryProxyStore : Rigbay.SteamBypass.ISystemProxyStore
     public Exception? DeleteThrows;
     public int Notifications;
 
+    /// <summary>Runs inside every write, before it takes effect. A test blocks here to hold a switch in the middle of its work.</summary>
+    public Action<string>? BeforeWrite;
+
+    /// <summary>Runs inside every delete, before it takes effect.</summary>
+    public Action? BeforeDelete;
+
     public string? ReadPacUrl() => ReadThrows is { } ex ? throw ex : Value;
 
     public void WritePacUrl(string url)
     {
+        BeforeWrite?.Invoke(url);
         if (WriteThrows is { } ex) throw ex;
         Value = url;
         Journal.Add("write " + url);
@@ -265,6 +290,7 @@ internal sealed class MemoryProxyStore : Rigbay.SteamBypass.ISystemProxyStore
 
     public void DeletePacUrl()
     {
+        BeforeDelete?.Invoke();
         if (DeleteThrows is { } ex) throw ex;
         Value = null;
         Journal.Add("delete");
@@ -291,8 +317,12 @@ internal sealed class FakeListenerFactory : Rigbay.SteamBypass.Net.ILoopbackList
     public readonly List<string> Events = new();
     public int Disposed;
 
+    /// <summary>Runs inside every Listen call, before it does anything. A test blocks here to hold a change in the middle of its work.</summary>
+    public Action<int>? BeforeListen;
+
     public Rigbay.SteamBypass.Net.ILoopbackListener Listen(int port)
     {
+        BeforeListen?.Invoke(port);
         lock (Requested) Requested.Add(port);
         if (Taken.Contains(port))
         {
@@ -364,7 +394,7 @@ internal sealed class FakeProbe : Rigbay.SteamBypass.Check.IConnectionProbe
     public async Task<Rigbay.SteamBypass.Check.CheckResult> RunAsync(Rigbay.SteamBypass.Check.CheckSpec spec, int? proxyPort, CancellationToken ct)
     {
         lock (Calls) Calls.Add((spec.Id, proxyPort));
-        if (Gate is not null) await Gate.ConfigureAwait(false);
+        if (Gate is not null) await Gate.WaitAsync(ct).ConfigureAwait(false);
         return Failing.Contains(spec.Id)
             ? new Rigbay.SteamBypass.Check.CheckResult(spec.Id, false, Rigbay.SteamBypass.Check.CheckFailure.Reset, null, 5, "reset")
             : new Rigbay.SteamBypass.Check.CheckResult(spec.Id, true, Rigbay.SteamBypass.Check.CheckFailure.None, 200, 42, null);

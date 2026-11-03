@@ -5,8 +5,9 @@ SNI and HTTP `Host` header filtering. It runs a small proxy on `127.0.0.1`, look
 user's Windows proxy setting (`AutoConfigURL`) at a PAC file that sends only Steam addresses to it. It is the module port of the standalone app
 [steam-bypass](https://github.com/minhdevtree/steam-bypass) (same technique, same domain list format, new code).
 
-Status: **0.1.0, not released.** Built and tested; never turned on against the real network from this repository's automated checks. See
-`docs/steambypass/MODULE.md` in the Rigbay repository for the design, the evidence and what is not verified.
+Status: **0.1.1** (pre-release). Built and tested; never turned on against the real network from this repository's automated checks. 0.1.1 fixes a
+race in the switch worker (one change at a time, see [CHANGELOG.md](CHANGELOG.md)). See `docs/steambypass/MODULE.md` in the Rigbay repository for the
+design, the evidence and what is not verified.
 
 ## What it changes on your computer
 
@@ -23,7 +24,8 @@ Only while the bypass is **on**, and only after you confirm in Rigbay (the dialo
 - Page: switch **Steam bypass**, status rows (listening, open connections, errors, whether Steam uses it), the four-row **connection check**
   with **Run test**, and **Turn on when Rigbay starts**.
 - Command line: `rigbay steam-bypass status | on | off | test`. `on` and `off` ask for confirmation like any change; `status` and `test`
-  only read.
+  only read. Only one change runs at a time (the switch, a command and "turn on at start" share it): a second one that arrives meanwhile is
+  refused with "A change is already in progress" and changes nothing.
 - Restart Steam after turning the bypass on: it reads the proxy setting only when it starts.
 - Do not run it together with the standalone Steam Bypass app: they use the same ports.
 

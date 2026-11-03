@@ -23,7 +23,8 @@ the current user's registry and loopback sockets).
 | Metrics | `steam.proxy.active` (open connections) and `steam.proxy.errors` (failed connections since the module started), both `MetricUnit.Count`, with descriptors (`Steam proxy connections`, `Steam proxy errors`). Published while the bypass is on, withdrawn while it is off. Refreshed every 1 s while the page is visible or a subscriber exists, every 10 s otherwise. |
 | Verbs | `rigbay steam-bypass status` (five lines, exit 0), `on` and `off` (ask the approval service with the exact effect and "Steam bypass: Off → On"; no answer or no window means exit 1 and nothing changed; already in that state means exit 0 and no question), `test` (the four checks, exit 0 only when all pass), extra arguments exit 2. |
 | Cleanup | Shutdown (module disabled, host exit) restores the Windows value first and then stops the proxy; a process-exit hook does the same when the host ends without `Shutdown`; a crash is cleaned up at the next start (`RecoverStale`). `rigbay steam-bypass off` works with the page closed (the module runs without it). Disabling the module is the unconditional way off: it needs no approval. |
-| Languages | `lang/en.lang`, `lang/vi.lang`, 100 keys each under `module.steam-bypass.`; `Rigbay.LangCheck --strict` is clean. |
+| One change at a time | The switch, the `on` / `off` verbs and `autoOn` share one change slot (a ticket, `TryBeginChange` / `EndChange` in `SteamBypassModule`). A second request while a change runs is **refused** ("A change is already in progress": a toast for the switch, exit code 1 and no approval question for a verb) and the switch goes back to what is in progress or real. Only the holder of the ticket can release the slot. Since 0.1.1 (task S2); before, the switch worker cleared the flag even when it did not own it. |
+| Languages | `lang/en.lang`, `lang/vi.lang`, 103 keys each under `module.steam-bypass.`; `Rigbay.LangCheck --strict` is clean. |
 
 ## Layers
 
@@ -84,8 +85,8 @@ test scans the test sources for it).
 ## Evidence (2026-11-01, this machine, Windows 11, elevated host, bypass never turned on)
 
 - `dotnet build Rigbay.sln --no-incremental`: 0 warnings, 0 errors.
-- `dotnet test Rigbay.sln`: PredatorSense 102, XTU 190, **Steam access 248**, Core 285, all passed (the module alone: 248).
-- `Rigbay.LangCheck --strict` on the module: ok, 100 keys, 100/100 in `en` and `vi`.
+- `dotnet test Rigbay.sln`: PredatorSense 102, XTU 190, **Steam access 248**, Core 285, all passed (the module alone: 248). *(0.1.0. For 0.1.1 see "Version 0.1.1" below: 269.)*
+- `Rigbay.LangCheck --strict` on the module: ok, 100 keys, 100/100 in `en` and `vi` (0.1.0; 103 in 0.1.1).
 - The tests that exercise real code on real sockets use ephemeral loopback ports chosen by the system (never 80 or 18081) and a fake upstream
   of their own; the registry code runs against a scratch key `HKCU\Software\RigbayTests\SteamBypass\<guid>`, removed after each test, with no
   WinINet notification. Fuzz: 21 hand-made hostile inputs and 60 random byte streams (seed 20261101) at both ports, then the proxy still serves
@@ -100,6 +101,34 @@ test scans the test sources for it).
   opening its page and running `rigbay steam-bypass status` from the app's script did not touch it: the log says "Windows points at the Steam
   proxy address and another program answers there; left as it is.", and `AutoConfigURL` was read before and after the runs and was unchanged.
   The approval dialog was opened and nobody answered it.
+
+## Version 0.1.1: one change at a time (task S2)
+
+The flaky-test review (FL1, `docs/CI.md`) noticed that `SwitchWorker` cleared its `_switching` flag in `finally` even when it had left because another
+worker had taken the flag. The fix is a rule, and it is applied in every place that had a flag:
+
+| Place | Before | Now |
+| --- | --- | --- |
+| Switch, verbs, auto-on | the switch had a flag; verbs and auto-on called the controller without it | one slot with an owner token; `EndChange(ticket)` ignores anyone who is not the holder; a second request is refused with "A change is already in progress" |
+| A flip of the switch | read `controller.IsOn` on the caller's thread: it waited for a change stuck in the registry | the caller only claims the slot (a lock around one field), the work runs on a pool thread |
+| Switch after a failure or an exception | an exception left the switch on a value that was not real | the worker always sets the switch to what is real before it gives the slot back; the module's own sets are not taken for the user's flips |
+| Stop during a change | a worker that had passed the "stopping" check could turn the bypass on after `Shutdown` had restored the setting; a late worker could publish the readings again | `BypassController.TurnOffAndClose()` (restore and refuse any later turn-on, in one step under the controller's lock); publishing and withdrawing take one lock and stop at `_stopping` |
+| `ProxyEngine.Start` | the accept loop read `_cts` from a pool thread after `Start` returned: a quick `Stop` gave it null, `Stop`+`Start` gave it the new run's token | the token is read under the lock |
+| `RunChecksAsync` | the flag was set before the `try`; a failure in between left it set for ever | the `try` opens first, an `owner` variable says whether this run set the flag, only the owner clears it and only the owner resets the rows on cancel |
+
+Why *refused* and not *queued*: a queued change would run later than the confirmation the user gave it; the Windows setting, the other program that
+may own port 18081 and the user's mind may all have moved on. Refusing costs one more click and can never apply a stale decision.
+
+Tests (269 in the module, 22 new and 1 replaced): `SwitchRaceTests` holds a fake in the middle of its work (`Hold`, a block-and-release point in the fake registry or
+listener factory; no sleep decides an outcome) and checks, after each scenario, that the slot is free and that the Windows setting, the listeners and the
+switch tell one story. `OwnershipGuardTests` covers the controller, the check flag and the engine. The old test "flipping quickly on, off, on ends in the
+state of the last flip" was replaced: with one change at a time the middle flip may be refused or accepted, and the test now asserts the state is consistent.
+What was run: the new tests 30 times alone and 30 times under a two-core CPU stress, and the whole module suite the same, with no failure (numbers in the
+release notes). Verified against the old code: the first scenario fails there (a flip waited behind the stuck change), so do the engine test (unobserved
+`NullReferenceException`s) and the stuck check flag. Not reproduced on the old code: the two-statement window FL1 described (it needs a thread to stop at an
+exact instruction); the ownership rule is tested directly instead (`Only_the_owner_of_a_change_can_release_it`).
+
+Still not verified in 0.1.1, as in 0.1.0: the bypass turned on for real on a machine.
 
 ## Not verified
 

@@ -112,15 +112,17 @@ internal sealed class ProxyEngine : IDisposable
             if (_proxyListener is not null) return;
             var proxy = _listeners.Listen(_options.ProxyPort);
             _cts = new CancellationTokenSource();
+            // The token is read here, under the lock. The loop used to read the field itself from a pool thread, where a quick Stop (which sets
+            // it to null) or a Stop and Start (a newer token) could reach it first: a loop with no token, or one on the wrong run's token.
+            var token = _cts.Token;
             _proxyListener = proxy;
-            _ = Task.Run(() => AcceptLoopAsync(proxy, HandleProxyAsync, _cts.Token));
+            _ = Task.Run(() => AcceptLoopAsync(proxy, HandleProxyAsync, token));
 
             try
             {
                 var downloads = _listeners.Listen(_options.DownloadPort);
                 _downloadListener = downloads;
                 DownloadsError = null;
-                var token = _cts.Token;
                 _ = Task.Run(() => AcceptLoopAsync(downloads, HandleDownloadAsync, token));
             }
             catch (Exception ex)

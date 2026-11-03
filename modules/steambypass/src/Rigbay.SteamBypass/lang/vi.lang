@@ -57,6 +57,7 @@ module.steam-bypass.problem.address-in-use = Cổng 18081 đang bị dùng. Có 
 module.steam-bypass.problem.setting = Không ghi được cài đặt proxy của Windows: {0}
 module.steam-bypass.problem.listen = Proxy không khởi động được: {0}
 module.steam-bypass.problem.restore = Không trả lại được cài đặt proxy của Windows: {0}
+module.steam-bypass.problem.unexpected = Có lỗi khi đổi trạng thái bypass: {0}
 module.steam-bypass.domains.value = {0} tên, từ {1}
 module.steam-bypass.domains.built-in = danh sách có sẵn
 
@@ -95,6 +96,7 @@ module.steam-bypass.toast.title = Truy cập Steam
 module.steam-bypass.toast.failed = Không bật được bypass. {0}
 module.steam-bypass.toast.no-downloads = Bypass đã bật nhưng cổng 80 đang bị dùng: không tải game được.
 module.steam-bypass.toast.restore-failed = Không trả lại được cài đặt proxy của Windows. Hãy thử tắt bypass lần nữa.
+module.steam-bypass.toast.busy = Đang có một thay đổi khác. Lần bật/tắt vừa rồi đã bị bỏ qua.
 
 # Dòng lệnh: rigbay steam-bypass status | on | off | test
 module.steam-bypass.cmd.status = Cho biết bypass bật hay tắt, đang lắng nghe ở đâu, số kết nối và Steam
@@ -108,6 +110,7 @@ module.steam-bypass.cmd.already-off = Bypass đã tắt rồi.
 module.steam-bypass.cmd.turned-on = Bypass đã bật.
 module.steam-bypass.cmd.turned-on-no-downloads = Bypass đã bật nhưng cổng 80 đang bị dùng: không tải game được.
 module.steam-bypass.cmd.turned-off = Bypass đã tắt và cài đặt proxy của Windows đã được trả lại.
+module.steam-bypass.cmd.busy = Đang có một thay đổi khác. Không có gì bị đổi.
 module.steam-bypass.cmd.on-usage = Cách dùng: rigbay steam-bypass on
 module.steam-bypass.cmd.off-usage = Cách dùng: rigbay steam-bypass off
 module.steam-bypass.cmd.test-usage = Cách dùng: rigbay steam-bypass test

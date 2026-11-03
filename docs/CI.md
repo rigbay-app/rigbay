@@ -116,6 +116,9 @@ Production code: one internal property and two counters in `SteamBypassModule` (
 `SteamBypassModule.SwitchWorker` the `finally` block clears the `_switching` flag even when the worker leaves because another worker already took it, so a flip in that
 window could start a third worker next to the second. It did not show up in any run.
 
+*Resolved in Steam access 0.1.1 (task S2):* one change at a time with an owner token, a second request refused, the same pattern fixed in `ProxyEngine.Start` and the
+connection-check flag; see `docs/steambypass/MODULE.md`, "Version 0.1.1".
+
 ### Not flaky by design (left as they are)
 
 A few tests wait a fixed time and then assert that nothing happened (`Task.Delay(100)` then "no write was made", and the like). A wait that is too short can only make such

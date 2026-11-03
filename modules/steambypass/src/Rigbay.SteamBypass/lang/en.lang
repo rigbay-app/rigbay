@@ -57,6 +57,7 @@ module.steam-bypass.problem.address-in-use = Port 18081 is already in use. Is th
 module.steam-bypass.problem.setting = The Windows proxy setting could not be written: {0}
 module.steam-bypass.problem.listen = The proxy could not start: {0}
 module.steam-bypass.problem.restore = The Windows proxy setting could not be put back: {0}
+module.steam-bypass.problem.unexpected = Something went wrong while changing the bypass: {0}
 module.steam-bypass.domains.value = {0} names, from {1}
 module.steam-bypass.domains.built-in = the built-in list
 
@@ -95,6 +96,7 @@ module.steam-bypass.toast.title = Steam access
 module.steam-bypass.toast.failed = Could not turn the bypass on. {0}
 module.steam-bypass.toast.no-downloads = The bypass is on, but port 80 is in use: game downloads will not work.
 module.steam-bypass.toast.restore-failed = The Windows proxy setting could not be put back. Try turning the bypass off again.
+module.steam-bypass.toast.busy = A change is already in progress. Your last flip of the switch was ignored.
 
 # Command line: rigbay steam-bypass status | on | off | test
 module.steam-bypass.cmd.status = Show whether the bypass is on, what it listens on, connections and Steam
@@ -108,6 +110,7 @@ module.steam-bypass.cmd.already-off = The bypass is already off.
 module.steam-bypass.cmd.turned-on = The bypass is on.
 module.steam-bypass.cmd.turned-on-no-downloads = The bypass is on, but port 80 is in use: game downloads will not work.
 module.steam-bypass.cmd.turned-off = The bypass is off and the Windows proxy setting is back.
+module.steam-bypass.cmd.busy = A change is already in progress. Nothing was changed.
 module.steam-bypass.cmd.on-usage = Usage: rigbay steam-bypass on
 module.steam-bypass.cmd.off-usage = Usage: rigbay steam-bypass off
 module.steam-bypass.cmd.test-usage = Usage: rigbay steam-bypass test

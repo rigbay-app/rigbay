@@ -18,6 +18,8 @@ public sealed partial class SteamBypassModule
         Declined,
         /// <summary>The change was tried; see the results.</summary>
         Done,
+        /// <summary>Another change (the switch, another verb, auto-on) is running: this one was refused and nothing was changed.</summary>
+        Busy,
     }
 
     internal sealed record ChangeAnswer(ChangeStatus Status, TurnOnResult? On, TurnOffResult? Off);
@@ -64,6 +66,7 @@ public sealed partial class SteamBypassModule
             case ChangeStatus.NotRunning: return CommandResult.Failed(loc.T("cmd.not-running"));
             case ChangeStatus.AlreadyThere: return CommandResult.Ok(loc.T(wanted ? "cmd.already-on" : "cmd.already-off"));
             case ChangeStatus.Declined: return CommandResult.Failed(loc.T("cmd.not-confirmed"));
+            case ChangeStatus.Busy: return CommandResult.Failed(loc.T("cmd.busy"));
         }
 
         if (wanted)
@@ -78,15 +81,17 @@ public sealed partial class SteamBypassModule
 
     /// <summary>
     /// The path for a verb: ask the user through the host's approval service with the exact effect, and only on a yes change anything.
-    /// A declined or unanswerable question (no window, command-line run) changes nothing at all.
+    /// A declined or unanswerable question (no window, command-line run) changes nothing at all. It takes the same one-change-at-a-time
+    /// slot as the switch, and only for the work itself (not while the question is open): when another change is running the answer is
+    /// <see cref="ChangeStatus.Busy"/> and nothing was asked or changed.
     /// </summary>
     internal async Task<ChangeAnswer> ChangeWithApprovalAsync(bool wanted, CancellationToken ct)
     {
         var host = _host;
         var controller = _controller;
         if (host is null || controller is null || _stopping) return new ChangeAnswer(ChangeStatus.NotRunning, null, null);
-        // Off also runs when it is off but the last restore failed, so the user can try again.
-        if (wanted == controller.IsOn && (wanted || controller.LastError is null)) return new ChangeAnswer(ChangeStatus.AlreadyThere, null, null);
+        if (ChangeInProgress) return new ChangeAnswer(ChangeStatus.Busy, null, null);   // do not ask the user about a change that cannot be made now
+        if (AlreadyThere(controller, wanted)) return new ChangeAnswer(ChangeStatus.AlreadyThere, null, null);
 
         var effect = new HardwareEffect("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" };
         var detail = LocalisedText.Of(wanted ? "detail.turn-on" : "detail.turn-off");
@@ -97,10 +102,20 @@ public sealed partial class SteamBypassModule
             return new ChangeAnswer(ChangeStatus.Declined, null, null);
         }
 
+        // The question may have been open for a long time: take the slot now, and look at the state again.
+        var ticket = TryBeginChange(wanted, out _);
+        if (ticket is null)
+        {
+            host.Log.Info($"Bypass {(wanted ? "on" : "off")}: approved, but another change is in progress; nothing was changed.");
+            return new ChangeAnswer(ChangeStatus.Busy, null, null);
+        }
+
         TurnOnResult? on = null;
         TurnOffResult? off = null;
         try
         {
+            if (_stopping || _controller is null) return new ChangeAnswer(ChangeStatus.NotRunning, null, null);
+            if (AlreadyThere(controller, wanted)) return new ChangeAnswer(ChangeStatus.AlreadyThere, null, null);
             if (wanted)
             {
                 on = await Task.Run(controller.TurnOn, ct).ConfigureAwait(false);
@@ -114,12 +129,18 @@ public sealed partial class SteamBypassModule
         }
         finally
         {
-            SyncSwitch();
+            // Whatever happened (done, failed, cancelled, thrown), the switch shows what is real and the slot is given back by its owner.
+            try { SyncSwitch(); } catch (Exception) { }
+            EndChange(ticket);
             RefreshTexts();
             PublishMetrics();
         }
         return new ChangeAnswer(ChangeStatus.Done, on, off);
     }
+
+    /// <summary>Off also runs when it is off but the last restore failed, so the user can try again.</summary>
+    private static bool AlreadyThere(BypassController controller, bool wanted) =>
+        wanted == controller.IsOn && (wanted || controller.LastError is null);
 
     // ------------------------------------------------------------------ rigbay steam-bypass test
 

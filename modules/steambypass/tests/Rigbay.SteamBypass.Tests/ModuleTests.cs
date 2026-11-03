@@ -208,19 +208,6 @@ public class ModuleSwitchTests
     }
 
     [Fact]
-    public void Flipping_quickly_on_off_on_ends_in_the_state_of_the_last_flip_with_a_matching_windows_setting()
-    {
-        using var rig = new ModuleRig(arrange: r => r.Proxy.Value = "http://corp.example/wpad.pac");
-        rig.Switch.Value.Value = true;
-        rig.Switch.Value.Value = false;
-        rig.Switch.Value.Value = true;
-        Assert.True(Wait.Until(() => rig.IsOn && rig.Switch.Value.Value));
-        rig.Switch.Value.Value = false;
-        Assert.True(Wait.Until(() => rig.Proxy.Value == "http://corp.example/wpad.pac" && !rig.Switch.Value.Value));
-        Assert.Equal("http://corp.example/wpad.pac", rig.Proxy.Value);
-    }
-
-    [Fact]
     public void Connections_and_the_dashboard_line_follow_the_proxy_counters()
     {
         using var rig = new ModuleRig();

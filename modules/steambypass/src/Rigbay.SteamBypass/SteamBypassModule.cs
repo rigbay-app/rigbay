@@ -51,7 +51,8 @@ public sealed partial class SteamBypassModule : IModule
     private SteamState _steamState = SteamState.NotRunning;
     private volatile string? _problem;
     private bool _checksRunning;
-    private bool _stopping;
+    private volatile bool _stopping;
+    private readonly object _publishGate = new();
     private EventHandler? _exitHandler;
     private LogThrottle? _logThrottle;
 
@@ -108,7 +109,8 @@ public sealed partial class SteamBypassModule : IModule
         RefreshTexts();
         _timer = new Timer(_ => Tick(), null, _fast ? FastPoll : SlowPoll, _fast ? FastPoll : SlowPoll);
 
-        if (_settings.AutoOn) _ = Task.Run(AutoTurnOn);
+        // The change is claimed here, before Initialize returns, so a flip right after start is refused instead of racing the auto-on.
+        if (_settings.AutoOn && TryBeginChange(wanted: true, out _) is { } autoTicket) RunBackground(() => AutoTurnOn(autoTicket));
     }
 
     /// <inheritdoc />
@@ -135,13 +137,14 @@ public sealed partial class SteamBypassModule : IModule
         // The rule of the module: whatever turned the bypass on, stopping puts the Windows setting back. Restore first, then stop the proxy.
         try
         {
-            var result = _controller?.TurnOff();
+            var result = _controller?.TurnOffAndClose();
             if (result is { Ok: false }) host?.Log.Error("The Windows proxy setting could not be restored at shutdown: " + result.Error);
         }
         catch (Exception ex) { host?.Log.Error("Turning the bypass off at shutdown failed", ex); }
 
-        try { host?.Metrics.Withdraw(ActiveMetric); host?.Metrics.Withdraw(ErrorsMetric); } catch (Exception) { }
-        _bypass.Value = false;
+        // Under the publish lock: a worker that is publishing right now has finished, and one that comes later sees _stopping.
+        try { lock (_publishGate) { host?.Metrics.Withdraw(ActiveMetric); host?.Metrics.Withdraw(ErrorsMetric); } } catch (Exception) { }
+        SetSwitch(false);
         (_resolver as IDisposable)?.Dispose();
         _resolver = null;
         _engine = null;
@@ -152,67 +155,152 @@ public sealed partial class SteamBypassModule : IModule
 
     // ------------------------------------------------------------------ the switch, the setting
 
-    private int _switching;
+    /// <summary>
+    /// The right to change the bypass. Whoever holds the ticket in <see cref="_activeChange"/> is the one change in progress; only that
+    /// holder may release it (<see cref="EndChange"/>). A worker that lost the right, or released it already, cannot clear someone else's.
+    /// </summary>
+    internal sealed class ChangeTicket
+    {
+        internal ChangeTicket(bool wanted) => Wanted = wanted;
+
+        /// <summary>True for a change to On, false for a change to Off.</summary>
+        public bool Wanted { get; }
+    }
+
+    private readonly object _changeGate = new();
+    private ChangeTicket? _activeChange;
+
+    /// <summary>
+    /// Claims the one change slot. Returns the ticket, or null when a change is already running (then <paramref name="inProgressWanted"/> says
+    /// what that change is doing). It never touches the controller, so it never waits for a change that is stuck in the registry.
+    /// </summary>
+    internal ChangeTicket? TryBeginChange(bool wanted, out bool inProgressWanted)
+    {
+        lock (_changeGate)
+        {
+            if (_activeChange is { } running)
+            {
+                inProgressWanted = running.Wanted;
+                return null;
+            }
+            inProgressWanted = wanted;
+            return _activeChange = new ChangeTicket(wanted);
+        }
+    }
+
+    /// <summary>Gives the change slot back, but only if <paramref name="ticket"/> still is the holder. Anyone else is ignored.</summary>
+    internal void EndChange(ChangeTicket ticket)
+    {
+        lock (_changeGate)
+            if (ReferenceEquals(_activeChange, ticket)) _activeChange = null;
+    }
+
+    /// <summary>True while some change (the switch, a verb, auto-on) holds the slot.</summary>
+    internal bool ChangeInProgress { get { lock (_changeGate) return _activeChange is not null; } }
 
     /// <summary>
     /// The user flipped the switch. The host has already shown the exact effect and asked (the row carries a hardware effect), so this
-    /// does the work, on a pool thread: it never blocks the caller. One worker at a time follows the switch until the bypass matches it,
-    /// so a quick on, off, on ends where the user's last flip says, whatever order the work finishes in.
+    /// does the work, on a pool thread: it never blocks the caller, not even while another change is stuck. Only one change runs at a time:
+    /// a flip to what is already in progress is nothing new, and a flip to the opposite is refused ("A change is already in progress")
+    /// and the switch goes back to what is in progress or real. Refusing is safer than queueing: a queued change would run later than
+    /// the user's confirmation, on a Windows setting and a state that may have moved on.
     /// </summary>
     private void OnBypassChanged()
     {
-        var controller = _controller;
-        if (controller is null || _stopping) return;
-        if (_bypass.Value == controller.IsOn) return;   // our own sync
-        StartSwitchWorker();
+        if (_programmaticSwitch > 0) return;   // our own sync of the switch
+        if (_controller is null || _stopping) return;
+        bool wanted = _bypass.Value;
+        var ticket = TryBeginChange(wanted, out bool inProgressWanted);
+        if (ticket is null)
+        {
+            if (inProgressWanted != wanted) RefuseFlip();
+            return;
+        }
+        RunBackground(() => SwitchWorker(ticket));
     }
 
-    private void StartSwitchWorker()
+    private void RefuseFlip()
     {
-        if (Interlocked.CompareExchange(ref _switching, 1, 0) != 0) return;
-        Interlocked.Increment(ref _workersStarted);
-        _ = Task.Run(SwitchWorker);
+        var host = _host;
+        try
+        {
+            host?.Log.Info("The Steam bypass switch was flipped while a change was in progress; the flip was refused.");
+            host?.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.busy"), ToastKind.Warning));
+        }
+        catch (Exception ex) { host?.Log.Warn("Showing the refusal failed", ex); }
+        // Not here: this runs inside the setter of the switch, and setting it again from its own change event would reach the host's
+        // listeners in the wrong order. A pool thread puts it back once the event has been delivered.
+        RunBackground(ReconcileSwitch);
+    }
+
+    /// <summary>What the switch should show: the change that is running (it is about to be true), or else what is real.</summary>
+    private bool SwitchShouldShow()
+    {
+        lock (_changeGate)
+            if (_activeChange is { } running) return running.Wanted;
+        return _controller?.IsOn ?? false;
+    }
+
+    /// <summary>
+    /// Puts the switch back after a refused flip. The answer can go stale between looking and setting (the change that was running may
+    /// end, and a new one start, in that gap), so it looks again after setting and repeats until the two agree.
+    /// </summary>
+    private void ReconcileSwitch()
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            bool target = SwitchShouldShow();
+            SetSwitch(target);
+            if (SwitchShouldShow() == target) return;
+        }
     }
 
     private int _workersStarted;
     private int _workersFinished;
 
-    /// <summary>True when every switch worker that was started has also finished its last step (texts refreshed, metrics published or withdrawn). Tests only.</summary>
+    /// <summary>True when every background step that was started (switch workers, auto-on, switch reverts) has finished its last step. Tests only.</summary>
     internal bool SwitchWorkersIdleForTests => Volatile.Read(ref _workersFinished) == Volatile.Read(ref _workersStarted);
 
-    private void SwitchWorker()
+    private void RunBackground(Action work)
+    {
+        Interlocked.Increment(ref _workersStarted);
+        _ = Task.Run(() =>
+        {
+            try { work(); }
+            catch (Exception ex) { _host?.Log.Error("A background step of the Steam bypass failed", ex); }
+            finally { Interlocked.Increment(ref _workersFinished); }
+        });
+    }
+
+    /// <summary>
+    /// Does one change and nothing else. It owns <paramref name="ticket"/>, releases it in <c>finally</c> (the owner only), and leaves the
+    /// switch showing what is really the case, whatever happened.
+    /// </summary>
+    private void SwitchWorker(ChangeTicket ticket)
     {
         var host = _host;
+        var controller = _controller;
         try
         {
-            while (true)
-            {
-                var controller = _controller;
-                if (controller is null || host is null || _stopping) return;
-                bool wanted = _bypass.Value;   // read now, not when the flip happened: a later flip wins
-                if (wanted != controller.IsOn && !ApplyOnce(controller, host, wanted))
-                {
-                    _bypass.Value = controller.IsOn;   // it failed: the switch shows what is really the case
-                    break;
-                }
-                // Done unless the user flipped again while the work ran; the flag is released first so a flip right now starts a new worker.
-                Interlocked.Exchange(ref _switching, 0);
-                if (_bypass.Value == controller.IsOn || Interlocked.CompareExchange(ref _switching, 1, 0) != 0) return;
-            }
+            if (controller is null || host is null || _stopping) return;
+            if (ticket.Wanted != controller.IsOn) ApplyOnce(controller, host, ticket.Wanted);
+            SetSwitch(controller.IsOn);
         }
         catch (Exception ex)
         {
             host?.Log.Error("Switching the bypass failed", ex);
+            if (host is not null) _problem = host.Localisation.F("problem.unexpected", ex.Message);
+            try { if (controller is not null) SetSwitch(controller.IsOn); } catch (Exception) { }
         }
         finally
         {
-            Interlocked.Exchange(ref _switching, 0);
+            EndChange(ticket);
             try
             {
                 RefreshTexts();
                 PublishMetrics();
             }
-            finally { Interlocked.Increment(ref _workersFinished); }
+            catch (Exception ex) { host?.Log.Warn("Refreshing the status after a switch failed", ex); }
         }
     }
 
@@ -231,7 +319,7 @@ public sealed partial class SteamBypassModule : IModule
             }
             var text = ProblemText(host.Localisation, result);
             _problem = text;
-            host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", text), ToastKind.Error));
+            if (!_stopping) host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", text), ToastKind.Error));
             return false;
         }
         var off = controller.TurnOff();
@@ -245,11 +333,23 @@ public sealed partial class SteamBypassModule : IModule
         return false;
     }
 
+    // The change event of an ObservableValue is raised on the thread that set the value, so a marker on that thread says "this one is ours".
+    // It is back to zero when SetSwitch returns; nothing is left behind.
+    [ThreadStatic] private static int _programmaticSwitch;
+
+    /// <summary>Sets the switch from inside the module without that counting as a flip of the user's.</summary>
+    private void SetSwitch(bool value)
+    {
+        _programmaticSwitch++;
+        try { _bypass.Value = value; }
+        finally { _programmaticSwitch--; }
+    }
+
     /// <summary>Makes the switch show what is really the case (the proxy may have failed to start, or a verb changed it).</summary>
     private void SyncSwitch()
     {
         var controller = _controller;
-        if (controller is not null) _bypass.Value = controller.IsOn;
+        if (controller is not null) SetSwitch(controller.IsOn);
     }
 
     private void OnAutoOnChanged()
@@ -259,23 +359,28 @@ public sealed partial class SteamBypassModule : IModule
         catch (Exception ex) { _host?.Log.Warn("Settings could not be saved", ex); }
     }
 
-    private void AutoTurnOn()
+    private void AutoTurnOn(ChangeTicket ticket)
     {
         var host = _host;
         var controller = _controller;
-        if (host is null || controller is null || _stopping) return;
         try
         {
+            if (host is null || controller is null || _stopping) return;
             host.Log.Info("Turning the bypass on at start (setting)");
             var result = controller.TurnOn();
             if (!result.Ok)
             {
                 _problem = ProblemText(host.Localisation, result);
-                host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", ProblemText(host.Localisation, result)), ToastKind.Error));
+                if (!_stopping) host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", ProblemText(host.Localisation, result)), ToastKind.Error));
             }
         }
-        catch (Exception ex) { host.Log.Error("Turning the bypass on at start failed", ex); }
-        finally { SyncSwitch(); RefreshTexts(); PublishMetrics(); }
+        catch (Exception ex) { host?.Log.Error("Turning the bypass on at start failed", ex); }
+        finally
+        {
+            try { SyncSwitch(); } catch (Exception) { }
+            EndChange(ticket);
+            try { RefreshTexts(); PublishMetrics(); } catch (Exception ex) { host?.Log.Warn("Refreshing the status after auto-on failed", ex); }
+        }
     }
 
     private void OnControllerChanged()
@@ -344,16 +449,22 @@ public sealed partial class SteamBypassModule : IModule
         var host = _host;
         var controller = _controller;
         if (host is null || controller is null) return;
-        if (controller.IsOn)
+        bool on = controller.IsOn;   // outside the publish lock: it may wait for a change that is running
+        // One publisher at a time, and none once Shutdown has withdrawn the readings: a late worker must not bring them back.
+        lock (_publishGate)
         {
-            var c = controller.Engine.Counters;
-            host.Metrics.Publish(ActiveMetric, c.Active, MetricUnit.Count);
-            host.Metrics.Publish(ErrorsMetric, c.Failed, MetricUnit.Count);
-        }
-        else
-        {
-            host.Metrics.Withdraw(ActiveMetric);
-            host.Metrics.Withdraw(ErrorsMetric);
+            if (_stopping) return;
+            if (on)
+            {
+                var c = controller.Engine.Counters;
+                host.Metrics.Publish(ActiveMetric, c.Active, MetricUnit.Count);
+                host.Metrics.Publish(ErrorsMetric, c.Failed, MetricUnit.Count);
+            }
+            else
+            {
+                host.Metrics.Withdraw(ActiveMetric);
+                host.Metrics.Withdraw(ErrorsMetric);
+            }
         }
     }
 

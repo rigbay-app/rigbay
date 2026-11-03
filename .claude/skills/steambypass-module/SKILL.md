@@ -6,7 +6,7 @@ description: Working knowledge of the Rigbay Steam access module (modules/steamb
 # Steam access module: codebase guide
 
 Module id `steam-bypass`, group `network`, `modules/steambypass/src/Rigbay.SteamBypass` (net8.0) with tests in
-`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (248 at the last run). It is the port of the standalone app `minhdevtree/steam-bypass`
+`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (269 at the last run, version 0.1.1). It is the port of the standalone app `minhdevtree/steam-bypass`
 (`D:\Documents\Projects\steam-bypass`, read only for us; its skill `.claude/skills/steam-bypass` and `references/blocking-evidence.md` hold the
 measurements: what the ISP blocks, what passes the filter, how to re-measure). User docs, evidence and the live test request:
 `docs/steambypass/MODULE.md`. Method index: `references/code-map.md`.
@@ -44,9 +44,17 @@ measurements: what the ISP blocks, what passes the filter, how to re-measure). U
 
 ## Gotchas
 
-- **Races on the switch.** `OnBypassChanged` starts one `SwitchWorker`; it reads `_bypass.Value` when it works (not when the flip happened) and
-  loops until the controller matches, so the last flip wins. `OnControllerChanged` does not sync the switch (it would undo a newer flip). Only a
-  failure, a verb or auto-on sets the switch to what is real (`SyncSwitch`).
+- **One change at a time (0.1.1).** The switch, the `on`/`off` verbs and auto-on share one slot: `TryBeginChange(wanted)` returns a `ChangeTicket`
+  or null, and only the holder may `EndChange(ticket)` (anybody else is ignored). A second request while one runs is *refused* ("A change is
+  already in progress": `toast.busy`, `cmd.busy`), never queued, and the switch is put back by `ReconcileSwitch` (in the background: setting the
+  switch inside its own change event reaches the host's listeners in the wrong order). A flip to what is already in progress is not a request.
+  `OnBypassChanged` never touches the controller (a stuck registry write must not hold the UI thread). The module sets the switch itself only
+  through `SetSwitch`/`SyncSwitch`, which mark the thread so `OnBypassChanged` does not take it for a user's flip. `OnControllerChanged` does not
+  sync the switch. The worker does ONE change, then sets the switch to what is real, then releases (in `finally`, by token). Any new flag in
+  this module follows the same rule: set it and clear it in the same method, only if you set it (`owner` variable), try block opened first.
+- **Stop during a change.** `Shutdown` calls `TurnOffAndClose()`: it waits for the controller lock (a change in the middle of its write finishes
+  first), restores, and closes the controller so a worker that was already past the `_stopping` check cannot turn the bypass on afterwards.
+  `PublishMetrics` and the withdrawing in `Shutdown` share `_publishGate` and stop at `_stopping`.
 - **The host's Revert** of the switch is a toggle back: after "on", Off restores; after "off", On turns it on again (asked about).
 - **Steam state** is only worked out while the page is visible (and by the `status` verb); `NeedsRestart` needs both the bypass and steam.exe to be older than 45 s.
 - **`Changed` on `ObservableValue` fires on the setter's thread**: the verbs set `_bypass.Value` from a pool thread, the host sets it from the UI thread.
@@ -59,6 +67,11 @@ measurements: what the ISP blocks, what passes the filter, how to re-measure). U
 
 **Build and test:** `dotnet build Rigbay.sln --no-incremental`, `dotnet test modules/steambypass/tests/Rigbay.SteamBypass.Tests/...csproj`
 (about 8 s; the fuzz and timeout tests are most of it). The engine tests open loopback sockets on free ports.
+
+**Test a race without sleeping:** `Hold` (in `SwitchRaceTests.cs`) blocks a fake until the test releases it. Put `rig.Proxy.BeforeWrite = _ => hold.Block()`
+(or `BeforeDelete`, `rig.Listeners.BeforeListen`) to freeze a change in the middle of its work, `hold.WaitEntered()`, do the second thing, `hold.Release()`,
+then `AssertConsistent(rig, original)` (slot free, setting, listeners and switch agree). `FakeToast.Throws`, `FakeLocalisation.ThrowFor` and
+`FakeApproval.Gate` make the host fail or the user take a long time. `ModuleRig.WaitUntilSwitchWorkersAreDone()` waits for workers, auto-on and switch reverts.
 
 **Look at the page in the real app without touching anything:**
 `tools\build.ps1` once, then `dotnet build modules/steambypass/src/Rigbay.SteamBypass -c Release -o tools/out/modules-steam/steam-bypass`
