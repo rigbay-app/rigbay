@@ -110,7 +110,7 @@ What `PSSvc.exe` does for 53 (this machine; B7's own decoder and B9's Ghidra agr
 4. No CPU OC, no power plan, no registry write (one unused repair write), no AC/battery check, and no check of either WMI answer in the service; the UI and `PSAdminAgent` do those (writes of the cache, Default reset on power-source change/low battery/resume).
 
 Reads (service handlers for pipe 52 and 51; the UI never uses them): `GetGamingMiscSetting` (id 23, UInt32 in) `0x0B` = current mode, `0x0A` = capability. The service returns the raw 64-bit answer,
-so the layout is unknown (B9: no Acer binary parses it; `PSAdminAgent` never reads `0x0A` or `0x0B`); by analogy the mode is probably in bits 8 to 15 (G). **Never run.** Other Misc selectors seen: `0x05` GPU OC level, `0x07` CPU OC level / CPU OC support read,
+so the layout is unknown (B9: no Acer binary parses it; `PSAdminAgent` never reads `0x0A` or `0x0B`); **Run once each in B10 (read only, owner approved): `0x0B` gave `0x0B0100` (status 0, bits 8 to 15 = 1 = Default) and `0x0A` gave `0x0B3300` (status 0, bits 8 to 15 = 0x33 = Quiet, Default, Extreme, Turbo); layout G, one observation each (FINDINGS 15.9). Since module 0.1.2 these two reads are in the module's allow-list and run by the module (page row, metric `predatorsense.opmode`).** Other Misc selectors seen: `0x05` GPU OC level, `0x07` CPU OC level / CPU OC support read,
 `0x09` discrete-GPU capability read, `0x02` GPU mode. UI Turbo branch (AC + boost + fan Max): `SetGamingLEDBehavior(0x10001)` + `SetGamingMiscSetting(0x101)`, undo `(1)` + `(1)`.
 Turbo **key** with the UI closed (agent): `SetGamingFanBehavior(0x02AA001F)` all Max / `(0x0155001F)` all Auto, mask `0x1F` (all five slots).
 

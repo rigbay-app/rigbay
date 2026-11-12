@@ -22,6 +22,8 @@ public sealed partial class PredatorSenseModule : IModule
     private readonly ObservableValue<string> _choice = new(ChoiceNotSet);
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
     private readonly ObservableValue<string> _modelText = new("");
+    private readonly ObservableValue<string> _opModeText = new("");
+    private readonly ObservableValue<string> _opModesText = new("");
     private readonly ObservableValue<string> _lastSetText = new("");
     private readonly ObservableValue<string> _checkText = new("");
     private readonly ObservableValue<double> _pollSeconds = new(2);
@@ -34,6 +36,8 @@ public sealed partial class PredatorSenseModule : IModule
     private SensorPoller? _poller;
     private FanController? _fan;
     private PollScheduler? _scheduler;
+    private OperationModeReader? _opMode;
+    private PollScheduler? _opModeScheduler;
     private IHotkeyBinding? _hotkey;
     private PredatorSenseSettings _settings = new();
     private string? _modelName;
@@ -83,12 +87,21 @@ public sealed partial class PredatorSenseModule : IModule
             ex => host.Log.Error("Polling the sensors failed", ex));
         _scheduler.Watched = IsWatched(host);
 
+        // The performance mode: read only. Its own reader and its own slow timer, which runs only while somebody looks at it.
+        _opMode = new OperationModeReader(_wmi, host.Metrics, host.Log);
+        _opModeScheduler = new PollScheduler(_opMode.PollOnce, TimeSpan.FromSeconds(PredatorSenseSettings.OpModePollSeconds), Timeout.InfiniteTimeSpan,
+            ex => host.Log.Error("Reading the performance mode failed", ex));
+        bool opWatched = IsOpModeWatched(host);
+        _opModeScheduler.Watched = opWatched;
+
         // Say once what each metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
         foreach (var info in SensorInfo.All)
             host.Metrics.Describe(new MetricDescriptor(info.Metric, SensorLabelKey(info.Sensor), info.Unit, "0"));
+        host.Metrics.Describe(new MetricDescriptor(OperationModeReader.Metric, "sensor.opmode", MetricUnit.None, "0") { DescriptionKey = "sensor.opmode.description" });
 
         _poller.StateChanged += OnReadingsState;
         _poller.Polled += OnPolled;
+        _opMode.Changed += RefreshTexts;
         _fan.Changed += OnFanChanged;
         _fan.Checking += OnChecking;
         _pollSeconds.Changed += OnPollSecondsChanged;
@@ -104,9 +117,13 @@ public sealed partial class PredatorSenseModule : IModule
 
         // One poll now (about 70 ms, or one short timeout), so the page knows which fans this machine has.
         _poller.PollOnce();
+        // Which modes exist: once now. The current mode only when somebody looks (otherwise the first look reads it at once).
+        _opMode.ReadSupported();
+        if (opWatched) _opMode.ReadCurrent();
         SyncChoice();
         RefreshTexts();
         _scheduler.Start(TimeSpan.FromSeconds(_settings.PollSeconds));
+        _opModeScheduler.Start(opWatched ? _opModeScheduler.FastInterval : Timeout.InfiniteTimeSpan);
     }
 
     /// <inheritdoc />
@@ -116,13 +133,16 @@ public sealed partial class PredatorSenseModule : IModule
         var scheduler = _scheduler;
         var poller = _poller;
         var fan = _fan;
+        var opMode = _opMode;
         scheduler?.Stop();
+        _opModeScheduler?.Stop();
 
         if (poller is not null)
         {
             poller.StateChanged -= OnReadingsState;
             poller.Polled -= OnPolled;
         }
+        if (opMode is not null) opMode.Changed -= RefreshTexts;
         if (fan is not null)
         {
             fan.Changed -= OnFanChanged;
@@ -152,6 +172,8 @@ public sealed partial class PredatorSenseModule : IModule
         _poller = null;
         _fan = null;
         _scheduler = null;
+        _opModeScheduler = null;
+        _opMode = null;
         _hotkey = null;
     }
 
@@ -176,16 +198,39 @@ public sealed partial class PredatorSenseModule : IModule
     private void OnWatchSignal()
     {
         var host = _host;
-        var scheduler = _scheduler;
-        if (host is null || scheduler is null) return;
-        bool watched = IsWatched(host);
-        if (watched == scheduler.Watched) return;
-        scheduler.Watched = watched;
-        if (watched) scheduler.PollSoon();
+        if (host is null) return;
+        if (_scheduler is { } scheduler)
+        {
+            bool watched = IsWatched(host);
+            if (watched != scheduler.Watched)
+            {
+                scheduler.Watched = watched;
+                if (watched) scheduler.PollSoon();
+            }
+        }
+        if (_opModeScheduler is { } opScheduler)
+        {
+            bool watched = IsOpModeWatched(host);
+            if (watched != opScheduler.Watched)
+            {
+                opScheduler.Watched = watched;
+                if (watched) opScheduler.PollSoon();   // somebody looks now: read the mode at once, then every 10 s
+            }
+        }
     }
+
+    /// <summary>
+    /// True when somebody can see the performance mode: the module's page is on screen, or the metric <see cref="OperationModeReader.Metric"/>
+    /// has a subscriber. When it is false the mode is not read at all.
+    /// </summary>
+    internal static bool IsOpModeWatched(IHostServices host) =>
+        host.PageVisible.Value || host.Metrics.SubscriberCount(OperationModeReader.Metric) > 0;
 
     /// <summary>The interval the sensors are read at now (tests).</summary>
     internal TimeSpan? CurrentPollInterval => _scheduler?.CurrentInterval;
+
+    /// <summary>True while the performance mode is being polled (page visible or the metric has a subscriber) (tests).</summary>
+    internal bool? OpModePolling => _opModeScheduler?.Watched;
 
     private void OnReadingsState(ReadingsState state) => RefreshTexts();
 

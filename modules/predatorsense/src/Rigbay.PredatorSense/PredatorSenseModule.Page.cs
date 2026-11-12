@@ -47,6 +47,10 @@ public sealed partial class PredatorSenseModule
 
         var cooling = new List<Row>
         {
+            // Read only. There is no selector: changing the mode is a write the owner has not approved yet.
+            new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description" },
+            new ValueRow("row.opmodes.header", _opModesText) { DescriptionKey = "row.opmodes.description" },
+            new InfoRow(Severity.Info, "info.opmode-note.header") { DescriptionKey = "info.opmode-note.description" },
             new ChoiceRow("row.fan-mode.header", options, _choice)
             {
                 DescriptionKey = "row.fan-mode.description",

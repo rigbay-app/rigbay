@@ -42,6 +42,30 @@ public sealed class AcerWmi : IAcerWmi, IDisposable
     }
 
     /// <inheritdoc />
+    public ulong ReadOperationMode() => ReadMisc(WmiAllowList.MiscCurrentMode);
+
+    /// <inheritdoc />
+    public ulong ReadSupportedOperationModes() => ReadMisc(WmiAllowList.MiscSupportedModes);
+
+    /// <summary>
+    /// The one door to <c>GetGamingMiscSetting</c>: refuses (before any WMI object exists) every input but 0x0A and 0x0B, then sends it as
+    /// a UInt32 like the other reads. Private to the module; the two public methods above are the only callers.
+    /// </summary>
+    internal ulong ReadMisc(ulong input)
+    {
+        WmiAllowList.RequireMiscRead(input);
+        uint sent = (uint)input;
+        return Run("misc read 0x" + sent.ToString("X", CultureInfo.InvariantCulture), _readTimeout, TimeSpan.FromMilliseconds(250), () =>
+        {
+            var inst = Instance();
+            using var p = inst.GetMethodParameters(WmiAllowList.MiscReadMethod);
+            p["gmInput"] = sent;
+            using var o = inst.InvokeMethod(WmiAllowList.MiscReadMethod, p, null);
+            return Convert.ToUInt64(o["gmOutput"], CultureInfo.InvariantCulture);
+        });
+    }
+
+    /// <inheritdoc />
     public uint SetFanBehavior(ulong value, TimeSpan? timeout = null)
     {
         WmiAllowList.RequireFanWrite(value);

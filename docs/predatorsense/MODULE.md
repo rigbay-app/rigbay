@@ -1,7 +1,7 @@
 # The PredatorSense module (task B6)
 
-`modules/predatorsense/` is a Rigbay module for Acer Predator laptops. Current version 0.1.1. It shows the firmware's temperatures and fan speeds and
-sets the fan mode to **Auto** or **Maximum**. Nothing else. It is built only from what `FINDINGS.md` sections 11 to 14 verified.
+`modules/predatorsense/` is a Rigbay module for Acer Predator laptops. Current version 0.1.2 (Unreleased). It shows the firmware's temperatures and fan speeds and the **performance mode (read only)**, and
+sets the fan mode to **Auto** or **Maximum**. Nothing else. It is built only from what `FINDINGS.md` sections 11 to 15 verified.
 It keeps to its own folder (own solution `Rigbay.PredatorSense.sln`, own `Directory.Build.props`, `Rigbay.Abstractions` as the only
 reference) so the owner can move it to a `module-predatorsense` repository; there, the project reference becomes the
 `Rigbay.Abstractions` package (the comment in the csproj says how).
@@ -12,15 +12,16 @@ reference) so the owner can move it to a `module-predatorsense` repository; ther
 | --- | --- |
 | Probe | Supported when the service `PSSvc` exists (registry key of the service, nothing is started) and the WMI class `root\WMI:AcerGamingFunction` exists (schema only, 6 s timeout). The first failing reason comes back as a key (`probe.no-service`, `probe.no-wmi`) or `probe.check-failed` with the error text; the probe never throws. No model is hard-wired; the model on the page is the firmware's `SystemManufacturer` and `SystemProductName` from the registry. |
 | Readings | `GetGamingSysInfo` with input `1 \| (index << 8)` for index 1 CPU temperature, 3 system temperature, 10 GPU temperature, 2 CPU fan, 6 and 9 GPU fans. Value is `(raw >> 8) & 0xFFFF` when the status byte is 0. Metric ids and units: `cpu.temp`, `system.temp`, `gpu.temp` (degC), `fan.cpu.rpm`, `fan.gpu1.rpm`, `fan.gpu2.rpm` (rpm). |
+| Performance mode (0.1.2, read only) | `GetGamingMiscSetting(0x0B)` is the current mode, `GetGamingMiscSetting(0x0A)` the modes the firmware has. Both answers: status in the low byte (non-zero = unknown), the value in bits 8 to 15 (FINDINGS 15.9; the real machine gave `0x0B0100` = Default and `0x0B3300` = bits 0, 1, 4, 5 = Quiet, Default, Extreme, Turbo). Mode ids Quiet 0, Default 1, Render 2, Edit 3, Extreme 4, Turbo 5; any other id is "Unknown", never a guess. The supported list is read once when the module starts; the mode every 10 s (`PredatorSenseSettings.OpModePollSeconds`) **only while the page is visible or the metric `predatorsense.opmode` has a subscriber**, and at once when somebody starts to look; with nobody looking it is not read at all. A failed read, timeout, non-zero status or unknown id shows "Unknown" and withdraws the metric. The metric carries the id (unit none, descriptor `sensor.opmode`). There is no write: the page says "Change it in PredatorSense for now: Rigbay will offer this after a supervised test". |
 | Not available | A non-zero status, an error, a timeout, a temperature of 0, a fan at 0 that never turned, or a value outside 130 degC / 20000 rpm gives "not available": nothing is published for that sensor. Parts the machine does not have (no system fan here, a second GPU temperature) get no row. |
-| Page | Enable row (the host's), group **Readings** (CPU, GPU, system temperature, the fans, the machine), group **Cooling** (Fan mode, Last set by Rigbay, Speed check), group **Settings** (poll interval, restore Auto, fan shortcut). The dashboard bay shows a state line plus CPU temperature and CPU fan. |
+| Page | Enable row (the host's), group **Readings** (CPU, GPU, system temperature, the fans, the machine), group **Cooling and performance** (Performance mode, Modes this laptop offers and the "change it in PredatorSense" note, then Fan mode, Last set by Rigbay, Speed check), group **Settings** (poll interval, restore Auto, fan shortcut). The dashboard bay shows a state line plus CPU temperature and CPU fan. |
 | Fan mode | One choice row, flagged `ChangesHardware`. The host shows the effect text and the exact change ("Fan mode: Auto -> Maximum"), asks, then sets the value; the module writes on a pool thread. Since 0.1.1 the row never shows a mode Rigbay does not know: it starts on **Not set** (see "Not set, set, revert") and offers Auto and Maximum. After the write the module reads the fan speeds every 2 s for 10 s and shows one line: speeds rose (Maximum), fell back (Auto after Maximum), stayed (Auto), or did not. The line says it is a reading, not proof of the mode. The host's Revert puts the previous value back and is asked about like the change itself (see "Things to know"). |
-| Last set | There is no firmware read of the mode. The page says "Last set by Rigbay: Maximum at 18:42" and that PredatorSense may change it without telling Rigbay. After a refused write the row goes back; after a write that did not answer in time the row stays on Maximum and says "not confirmed", because it may have landed. |
+| Last set | There is no firmware read of the **fan** mode (the performance mode above is a different thing and can be read). The page says "Last set by Rigbay: Maximum at 18:42" and that PredatorSense may change it without telling Rigbay. After a refused write the row goes back; after a write that did not answer in time the row stays on Maximum and says "not confirmed", because it may have landed. |
 | Safety | When the module stops (turned off, host exit, fault) and Rigbay had set Maximum (also an unconfirmed one), it sends Auto, with a 2 s timeout so the 5 s Shutdown limit holds. Setting `restoreAutoOnExit`, on by default. After 5 failed polls in a row the sensors are withdrawn from the bus (their rows say "not available"), the dashboard line says "Readings not available", and fan changes are off until a poll succeeds again. |
 | Settings | `pollSeconds` (1 to 30, default 2; the rate while the page is visible or a sensor metric has a subscriber, 10 s otherwise), `restoreAutoOnExit` (default true), in the module's settings file. |
 | Hotkey | `toggle-fan`, **unbound by default** (that is how it is "off"). When the user binds a gesture, a press asks the host's approval service ("Set fan mode to Maximum" or "Fan mode: Maximum -> Auto"), and only on a yes writes. The result is announced once, with the speed-check line in it (`toast.fan-set`; a write the laptop refused, a stalled one, or one the fans did not follow is a warning): the page's own choice or Revert shows it in the window while the user looks (`ToastOrigin.Page`), the hotkey and the verb always give a Windows notification, and a failure always does (`docs/APP.md`, "Notifications"). A "no" is not announced. |
-| Verbs | `rigbay predatorsense status` prints the model, six readings (or "not available") and the last-set line; exit 0, or 1 when no sensor answered. `rigbay predatorsense fan auto\|max` asks for approval; no yes (or no window to ask in) means exit 1 and no call; a refused or unanswered write is exit 1; other arguments are exit 2. |
-| Languages | `lang/en.lang`, `lang/vi.lang`, 76 keys each under `module.predatorsense.`; `Rigbay.LangCheck --strict` is clean (also the `name` and `description` overrides, so the enable row is translated). |
+| Verbs | `rigbay predatorsense status` prints the model, six readings (or "not available"), the performance mode (a fresh read) and the last-set fan line; exit 0, or 1 when no sensor answered. `rigbay predatorsense fan auto\|max` asks for approval; no yes (or no window to ask in) means exit 1 and no call; a refused or unanswered write is exit 1; other arguments are exit 2. |
+| Languages | `lang/en.lang`, `lang/vi.lang`, 93 keys each under `module.predatorsense.`; `Rigbay.LangCheck --strict` is clean (also the `name` and `description` overrides, so the enable row is translated). |
 
 ## The rule that decides what can reach the firmware
 
@@ -29,13 +30,14 @@ reference) so the owner can move it to a `module-predatorsense` repository; ther
 | Call | Allowed |
 | --- | --- |
 | `GetGamingSysInfo` (UInt32 input) | the six indexes above, nothing else |
+| `GetGamingMiscSetting` (UInt32 input) | `0x0B` (current mode) and `0x0A` (supported modes), nothing else; the module has no method that takes the input, only `ReadOperationMode()` and `ReadSupportedOperationModes()` |
 | `SetGamingFanBehavior` (UInt64 input) | `0x01410019` (all fans Auto) and `0x02820019` (all fans Maximum), nothing else |
 
-It is checked three times: in `FanController` (it can only name a mode, never a number), in `GuardedAcerWmi` (the decorator the module
+The two mode reads are checked in `GuardedAcerWmi` (they have no argument) and in `AcerWmi.ReadMisc`; the tests ask the allow-list about every input up to 0x20000, the mode-write values (`0x10B`, `0x20B`, `0x30B`, `0x40B`, `0x50B`, `0x105`), every one-bit change and large values, call the real `AcerWmi` with refused inputs (refused before a WMI object exists), and check by reflection that the interface has exactly four methods and the only `Set*` name on the list is the fan one. The fan write is checked three times: in `FanController` (it can only name a mode, never a number), in `GuardedAcerWmi` (the decorator the module
 logic always talks through; it also lets one write through at a time), and inside `AcerWmi` itself. The unit tests refuse every
 value below 0x40000, every one-bit change of the two values, the custom-speed value for all fans, and all other sensor indexes; a test
 calls the real `AcerWmi` with refused values to show the refusal happens before any WMI object exists. Cool Booster, MaxQ, fan curves,
-operation modes, lighting and battery limits are not in the module and cannot be added without a new decoded encoding, an owner gate and a
+a performance-mode write (`SetGamingMiscSetting`), lighting and battery limits are not in the module and cannot be added without a new decoded encoding, an owner gate and a
 new table entry.
 
 ## Layers
@@ -43,20 +45,21 @@ new table entry.
 ```
 PredatorSenseModule (IModule: Probe, Initialize, GetPageModel, Shutdown; page, texts, verbs and hotkey in partial files)
   |-- SensorPoller + PollScheduler   reads, decodes, publishes on the metrics bus, counts failed polls, withdraws sensors that stay unreadable
+  |-- OperationModeReader            reads the performance mode (and the list of modes), publishes predatorsense.opmode; its own PollScheduler (10 s, idle = never)
   |-- FanController                  the only writer: one at a time, readings rule, RPM check, restore
   |-- GuardedAcerWmi : IAcerWmi      allow-list + one write at a time
   |       '-- AcerWmi                real System.Management (timeouts, one call in flight, UInt32 reads, UInt64 write)
   '-- MachineProbe over IMachineInfo (registry + WMI schema)
 ```
 
-`IAcerWmi` has two members, `ReadSysInfo(index)` and `SetFanBehavior(value, timeout)`. The tests replace it with a fake that keeps a
+`IAcerWmi` has four members, `ReadSysInfo(index)`, `ReadOperationMode()`, `ReadSupportedOperationModes()` and `SetFanBehavior(value, timeout)`. The tests replace it with a fake that keeps a
 record of every call, so "exactly one call with the exact value" is checked as a list.
 
 ## Evidence (2026-11-01, this machine, Windows 11, elevated host, no write)
 
 - `dotnet build Rigbay.sln -c Release`: 0 warnings, 0 errors (module solution alone the same).
 - `dotnet test`: module 89 passed, Core 230 passed (Release) at 0.1.0; at 0.1.1 the module has 121 tests (18 new ones in `FanModeStateTests`), the whole solution is green.
-- `dotnet run --project src/Rigbay.LangCheck -- <lang> --module predatorsense --source <src> --strict`: ok, 76/76 in both languages.
+- `dotnet run --project src/Rigbay.LangCheck -- <lang> --module predatorsense --source <src> --strict`: ok, 76/76 in both languages at 0.1.0 and 93/93 at 0.1.2.
 - The module folder (output of the build, no `Rigbay.Abstractions.dll` in it, `System.Management.dll` and `System.CodeDom.dll` next to the
   entry assembly) was loaded by the real app from a scratch modules folder (`tools/run-elevated.ps1`). Log: probe supported, "Readings are now
   Available", `enabled`, `stopped`. System.Management loaded through the A6 loader rule.
@@ -147,3 +150,12 @@ Evidence for 0.1.1 (`modules/predatorsense/docs/evidence/`, PrintWindow of the a
 `fan-not-set-vi-dark` are the **real module** with live reads only (no write; the module was enabled and left on "Not set"). `fan-set-auto-dark-fake-firmware`
 and `fan-set-max-light-fake-firmware` are the same module code over an in-memory firmware in a scratch project (never committed), because this task may not write to
 the hardware; the app asked and approved by script (`approve:true`), the page was rebuilt without "Not set" and showed the mode.
+
+## Performance mode, read only (0.1.2, task P1)
+
+Evidence (2026-11-12/13, this machine): `dotnet build Rigbay.sln -c Release` 0 warnings, 0 errors; the module has 184 tests (63 new, all green; the whole solution is green: Core 685, XTU 208, SteamBypass 269, Recorder 146, Tunnel 117, LangCheck 19); `tools/ci/langcheck.ps1` strict: predatorsense 93/93 in en and vi (its one reported problem is the tunnel folder missing from the script's list, not this module).
+**One live run of the module's own read path** (real `AcerWmi`, the module build copied to a scratch modules folder, the app elevated with its own data folder, the page opened, then the app quit by itself; no fan write, nothing else called): the module read `GetGamingMiscSetting(0x0A)` at start and `(0x0B)` when the page opened; the log says `Performance mode read: raw 0xC0100 -> Default`, and the page shows "Performance mode: Default" and "Modes this laptop offers: Quiet, Default, Extreme, Turbo" (`docs/evidence/opmode-real-machine-dark.png`, PrintWindow of the app's own HWND). The mode byte is 1 as in B10 and as in the Acer cache; **byte 2 was `0x0C` this time, it was `0x0B` in B10** (so it is not a constant; the module ignores it).
+Screenshots over an in-memory firmware (scratch project, not committed, no hardware): `docs/evidence/opmode-dark.png`, `opmode-light.png`, `opmode-vi-dark.png`. What is **not** verified:
+the mode in any state but Default (two observations of Default, so "byte 1 = the mode" is a match with the Acer cache, not yet a proof; the first reading in another mode needs a mode change, which is a write), whether the
+mask is bit-per-mode-id, what byte 2 means (`0x0B` in both B10 answers, `0x0C` in the one live mode read of P1; ignored), and the page in the real host window beyond the screenshots of the page over the fake firmware in `docs/evidence/`.
+The tray line and a Dashboard tile are not part of this version (the metric and its descriptor are there so the Dashboard can show it).
