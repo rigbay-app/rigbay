@@ -9,7 +9,8 @@ Rows are one period apart exactly (1, 2, 5, 10 s or any number from the verb), a
   Live check with the real app and PredatorSense (reads only): `tools/live-record.ps1`.
 - Solution: `Rigbay.Recorder.slnx`. This folder is self-contained (own `Directory.Build.props`); its only dependency outside it is the `ProjectReference` to
   `Rigbay.Abstractions` (in a separate repository, replace it by the NuGet package). It has no NuGet dependency of its own.
-- Needs host API 0.1 with the metric catalogue of task A12 (`IMetricsBus.GetMetricInfo`) for labels; on a host without it the columns are labelled with their ids.
+- Version **0.1.1** (unreleased; 0.1.0 is released): the page of the November 2026 UI review, see [CHANGELOG.md](CHANGELOG.md). Needs host API 0.1.3
+  (`PageModel.Primary`, `Row.Line`, `Row.HelpKey`, `ExpanderRow.HeaderRow`); the metric catalogue of task A12 (`IMetricsBus.GetMetricInfo`) gives the labels.
 - Full description (page, CSV and meta format, timing rules, disk safety, verification record, findings): `docs/recorder/README.md` in the Rigbay repository.
   Notes for changing it: `.claude/skills/recorder-module/` there.
 
@@ -21,7 +22,8 @@ rigbay recorder status
 rigbay recorder stop
 ```
 
-Or the page (Monitoring, Recorder), the tray items "Start recording" / "Stop recording", or a shortcut you set on the page (off by default).
+Or the page (Monitoring, Recorder: one big "Start recording" / "Stop recording" button), the tray items "Start recording" / "Stop recording",
+or a shortcut you set on the page (off by default).
 Files: `Documents\Rigbay\logs\rigbay-log-<date>_<time>.csv` and `.meta.json`. Nothing is ever deleted or overwritten.
 
 ## Building

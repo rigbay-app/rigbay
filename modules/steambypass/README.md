@@ -5,8 +5,9 @@ SNI and HTTP `Host` header filtering. It runs a small proxy on `127.0.0.1`, look
 user's Windows proxy setting (`AutoConfigURL`) at a PAC file that sends only Steam addresses to it. It is the module port of the standalone app
 [steam-bypass](https://github.com/minhdevtree/steam-bypass) (same technique, same domain list format, new code).
 
-Status: **0.1.1** (pre-release). Built and tested; never turned on against the real network from this repository's automated checks. 0.1.1 fixes a
-race in the switch worker (one change at a time, see [CHANGELOG.md](CHANGELOG.md)). See `docs/steambypass/MODULE.md` in the Rigbay repository for the
+Status: **0.1.2** (unreleased; 0.1.1 is the last pre-release). Built and tested; never turned on against the real network from this repository's
+automated checks. 0.1.2 is the new page layout of the November 2026 UI review (the switch first, nothing "Not available" while it is off) and needs
+Rigbay host API 0.1.3; 0.1.1 fixed a race in the switch worker (one change at a time). See [CHANGELOG.md](CHANGELOG.md). See `docs/steambypass/MODULE.md` in the Rigbay repository for the
 design, the evidence and what is not verified.
 
 ## What it changes on your computer

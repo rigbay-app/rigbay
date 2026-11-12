@@ -23,7 +23,7 @@ module.tunnel.link.wireguard = WireGuard cho Windows
 module.tunnel.link.public = Địa chỉ công khai của {0}
 
 # Mỗi đường hầm một hàng: công tắc ở đầu hàng, trạng thái ở dòng bên dưới; bên trong chỉ có cài đặt
-module.tunnel.row.tunnel.help = Công tắc khởi động hoặc gỡ dịch vụ Windows của đường hầm, giống Activate và Deactivate trong ứng dụng WireGuard. Rigbay hỏi trước.
+module.tunnel.row.tunnel.help = Công tắc khởi động hoặc gỡ dịch vụ Windows của đường hầm, giống Activate và Deactivate trong ứng dụng WireGuard.
 module.tunnel.line.off = Tắt
 module.tunnel.line.on = Bật
 module.tunnel.line.no-handshake = Bật · chưa bắt tay với máy chủ
@@ -49,7 +49,7 @@ module.tunnel.row.port.header = Cổng dịch vụ trên máy
 module.tunnel.row.port.description = 0 là không kiểm tra
 module.tunnel.row.port.help = Một cổng TCP, ví dụ của ứng dụng điều khiển từ xa. Rigbay cho biết có gì đang lắng nghe cổng đó ở địa chỉ của đường hầm hay không.
 module.tunnel.row.hotkey.header = Phím tắt
-module.tunnel.row.hotkey.description = Bật hoặc tắt đường hầm. Rigbay hỏi trước.
+module.tunnel.row.hotkey.description = Bật hoặc tắt đường hầm từ bất cứ đâu.
 module.tunnel.row.endpoint.header = Máy chủ
 module.tunnel.row.endpoint.help = Địa chỉ đường hầm đang nói chuyện, theo báo cáo của WireGuard.
 module.tunnel.row.transfer.header = Đã truyền

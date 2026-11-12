@@ -7,9 +7,10 @@ command line, and shows how each tunnel is doing (running, newest handshake, ser
 - **It does what the WireGuard app does**: On = `wireguard.exe /installtunnelservice` with the file in WireGuard's own store, Off = `/uninstalltunnelservice <name>`. A tunnel turned on in either place shows as on in both.
 - **It never reads a configuration** (they hold private keys): it lists the names of the files in `Data\Configurations` and nothing else. Status comes from three `wg show <name> <field>` calls; `wg show` without a field is impossible in the code.
 - **Every change asks first**, from the page, the tray, a hotkey or `rigbay tunnel on|off`: "Turn on tunnel NAME" / "Turn off tunnel NAME". When Rigbay cannot ask, nothing changes.
-- Options per tunnel: turn off automatically after N hours (default never), start with Windows (the service's start type), check a local service on the tunnel address (a port), a public address you type, a hotkey.
+- **The page lists each tunnel as one row** with its switch and its state in it ("Connected · handshake 15 s ago · ↓ 17.6 KB/s ↑ 2.4 KB/s"); open the row for its settings.
+- Options per tunnel: turn off automatically after 1, 2, 4, 8 or 24 hours (default never), start with Windows (the service's start type), check a local service on the tunnel address (a port), a public address you type, a shortcut.
 - Metrics on the bus: `tunnel.<name>.rx_rate`, `tunnel.<name>.tx_rate`, `tunnel.<name>.handshake_age`.
-- English and Vietnamese.
+- English and Vietnamese. Version **0.1.1** (unreleased; 0.1.0 is released) needs Rigbay host API 0.1.3, see [CHANGELOG.md](CHANGELOG.md).
 
 Full description, the WireGuard facts that were checked and the verification record: `docs/tunnel/MODULE.md` in the [Rigbay repository](https://github.com/rigbay-app/rigbay). Notes for changing it: `.claude/skills/tunnel-module/` there.
 

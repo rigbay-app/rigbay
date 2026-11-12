@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay recorder module (modules/recorder, 
 
 # Recorder module: codebase guide
 
-Module id `recorder`, group `monitoring`, `modules/recorder/` (net8.0, no NuGet dependency), tests in `modules/recorder/tests/Rigbay.Recorder.Tests` (146 at the last run).
+Module id `recorder`, group `monitoring`, `modules/recorder/` (net8.0, no NuGet dependency), tests in `modules/recorder/tests/Rigbay.Recorder.Tests` (146 at the last run; version 0.1.1 unreleased, host API `>=0.1.3`).
 User-facing description, formats and the verification record: `docs/recorder/README.md`. Method index: `references/code-map.md`. Tests, live script and the traps of writing files here: `references/testing.md`.
 The old app's recorder is described in `docs/xtu/RECORDER-NOTES.md` (columns, units, what the bus cannot carry).
 
@@ -41,6 +41,12 @@ The old app's recorder is described in `docs/xtu/RECORDER-NOTES.md` (columns, un
 - **A stop reason:** add it to `StopReason`, the meta's `stop_reason` mapping, `EndedNotice`, the `ended.*` keys (en and vi) and a toast if nobody is looking.
 
 ## Gotchas
+
+- **The page layout (0.1.1, UI review RC-1).** `PageModel.Primary` is `_startRow` while idle and `_stopRow` while recording, both made once; their
+  `Line` is `_primaryLine` (file · elapsed · rows · size, or how the last one ended, or nothing). `ApplyRecordingState` calls
+  `RefreshPageIfRecordingChanged`, which asks the host for a new page when the main button must change. There are no status rows: put a new fact in
+  that line, never in a row that reads "–" while idle. The folder is an `ExpanderRow` (Open as `HeaderRow`, path `TextRow` inside, `_folderLine`);
+  "Select all" sits on the "Selected metrics" row, and each source expander has its own "n of m" line (`_sourceLines`).
 
 - `IsRecording` turns false just **before** the `Ended` handlers run (the toast, the page refresh). A test that checks those must wait for them (`ModuleRig.WaitUntilFinished`).
 - A reader of the csv while it is open must use `FileShare.ReadWrite` (the engine allows readers only: `Files.ReadBytes` in the tests).

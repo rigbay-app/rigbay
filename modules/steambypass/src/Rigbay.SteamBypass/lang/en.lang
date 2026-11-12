@@ -28,7 +28,7 @@ module.steam-bypass.effect.bypass-revert = Undoes the last change: after "on", t
 module.steam-bypass.detail.turn-on = Steam bypass: Off → On
 module.steam-bypass.detail.turn-off = Steam bypass: On → Off
 module.steam-bypass.info.port80.header = Game downloads will not work
-module.steam-bypass.info.port80.description = Another program uses port 80 on this computer. Browsing Steam works, but Steam's downloader needs 127.0.0.1:80. Close the other program and turn the bypass off and on again.
+module.steam-bypass.info.port80.description = Another program uses port 80 on this PC. Browsing Steam works, but Steam's downloader needs 127.0.0.1:80. Close the other program and turn the bypass off and on again.
 module.steam-bypass.info.steam-restart.header = Restart Steam
 module.steam-bypass.info.steam-restart.description = Steam was opened before the bypass and reads the proxy setting only when it starts. Close Steam completely and open it again.
 
