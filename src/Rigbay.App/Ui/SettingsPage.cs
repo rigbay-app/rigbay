@@ -56,7 +56,7 @@ static class SettingsPage
         {
             bool exists = await Task.Run(StartupTask.Exists);
             suppress = true; start.IsOn = exists; start.IsEnabled = true; suppress = false;
-            startStatus.Text = exists ? Host.T("settings.start-on") : "";
+            startStatus.Text = "";   // the switch says on or off; the text beside it is only for an error (review SE-2)
         }
         _ = RefreshStart();
         start.Toggled += async (_, _) =>

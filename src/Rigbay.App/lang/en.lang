@@ -153,7 +153,6 @@ theme.light = Light
 theme.dark = Dark
 settings.start = Start with Windows
 settings.start-desc = Starts Rigbay in the tray when you sign in.
-settings.start-on = Scheduled task is set
 settings.log-level = Log level
 settings.log-level-desc = Applies to new lines.
 level.debug = Debug

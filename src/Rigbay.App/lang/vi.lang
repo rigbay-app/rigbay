@@ -152,7 +152,6 @@ theme.light = Sáng
 theme.dark = Tối
 settings.start = Khởi động cùng Windows
 settings.start-desc = Mở Rigbay ở khay hệ thống khi bạn đăng nhập.
-settings.start-on = Đã đặt tác vụ theo lịch
 settings.log-level = Mức ghi nhật ký
 settings.log-level-desc = Áp dụng cho các dòng ghi từ giờ.
 level.debug = Gỡ lỗi
