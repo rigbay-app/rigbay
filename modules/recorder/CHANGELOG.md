@@ -8,7 +8,9 @@ itself, the CSV and the `.meta.json` do not change. The manifest now asks for ho
 
 - **One big button whose label is its state**: "Start recording" while idle, "Stop recording" while a recording runs, drawn large under the page
   header. Its line says the file, the time (and the limit), the rows and the size while recording, and how the last recording ended (or why one
-  could not start) afterwards. The module asks the host for a new page when a recording starts or ends and keeps its rows, so nothing piles up.
+  could not start) afterwards. The module asks the host for a new page when a recording starts or ends;
+  the option rows are kept (their Apply and Revert survive), Start and Stop are new each time (no stale "Recording to ..." beside Start). A
+  refusal from the button is said beside it, once.
 - **The six status rows are gone** (State, Rows written, File size, Elapsed, File, Last message): while idle they all read "–".
 - **The folder is one row**: where the files go in its line, "Open" in its header, the path to change inside.
 - **Metrics to record**: "Selected metrics 12 of 40" carries "Select all", then "Clear"; each source module says how many of its metrics are picked
