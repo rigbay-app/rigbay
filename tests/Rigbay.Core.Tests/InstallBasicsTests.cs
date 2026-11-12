@@ -191,6 +191,26 @@ public class RegistryReaderTests
     }
 
     [Fact]
+    public void Latest_honours_the_revision_a_release_names()
+    {
+        var json = RegistryKit.Json(RegistryKit.Module("demo-tool", new[]
+        {
+            RegistryKit.Version(new TestModule(Version: "1.0.0"), Zip),
+            RegistryKit.Version(new TestModule(Version: "1.1.0", HostApi: ">=0.1.2 <0.2"), Zip),
+            RegistryKit.Version(new TestModule(Version: "1.2.0", HostApi: ">=0.1.5 <0.2"), Zip),
+        }));
+        var module = Parse(json).Document!.Modules[0];
+        Assert.True(Parse(json).IsValid); // the reader takes three-number versions in a range
+        Assert.Equal("1.0.0", module.Latest(new Version(0, 1))!.Version);       // a host that names no revision is revision 0
+        Assert.Equal("1.0.0", module.Latest(new Version(0, 1, 1))!.Version);
+        Assert.Equal("1.1.0", module.Latest(new Version(0, 1, 2))!.Version);
+        Assert.Equal("1.1.0", module.Latest(new Version(0, 1, 4))!.Version);
+        Assert.Equal("1.2.0", module.Latest(new Version(0, 1, 5))!.Version);
+        Assert.Equal("1.2.0", module.Newest!.Version);
+        Assert.Equal(new Version(0, 1, 5), module.Newest!.HostApiRange.NeededRevision(new Version(0, 1, 2)));
+    }
+
+    [Fact]
     public void Declares_cover_the_same_or_fewer_things_and_never_more()
     {
         var registry = new RegistryDeclares(true, new[] { "tcp:1", "tcp:2" }, new[] { "HKCU\\X" }, Array.Empty<string>(), Array.Empty<string>());

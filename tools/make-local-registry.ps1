@@ -80,7 +80,7 @@ $modules = @()
 $fan = Get-Content (Join-Path $Source 'demo-fan\module.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $fanNew = ([version]$fan.version); $fanNewText = '{0}.{1}.{2}' -f $fanNew.Major, ($fanNew.Minor + 1), 0
 $zip = Zip-Module 'demo-fan' $fanNewText 'demo-fan' $null
-$modules += Entry $zip (Join-Path $work "demo-fan-$fanNewText") 'demo-fan' $fanNewText '>=0.1 <0.2' $null
+$modules += Entry $zip (Join-Path $work "demo-fan-$fanNewText") 'demo-fan' $fanNewText '>=0.1.2 <0.2' $null
 # installed + same release
 $dev = Get-Content (Join-Path $Source 'demo-devices\module.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $zip = Zip-Module 'demo-devices' $dev.version 'demo-devices' $null

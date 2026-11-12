@@ -6,7 +6,7 @@
   "author": "Rigbay contributors",
   "description": "A minimal module that shows every kind of row. It changes nothing on the machine.",
   "entry": { "assembly": "Rigbay.SampleModule.dll", "type": "Rigbay.SampleModule.SampleModule" },
-  "hostApi": ">=0.1 <0.2",
+  "hostApi": ">=0.1.1 <0.2",
   "group": "other",
   "requires": { "admin": false, "network": [], "registry": [], "services": [] },
   "languages": "lang"

@@ -88,7 +88,7 @@ then `git add external/rigbay` and commit, and run the fresh-clone check again.
 ## Updating the pin later
 
 A module repository stays on the contract it was built against until someone moves the submodule. Bump it in a normal commit, build and
-test, and raise `hostApi` in `module.json` only if the contract's version range changed (`docs/ABSTRACTIONS.md`, API version).
+test, and raise `hostApi` in `module.json` only if the contract's version range changed (`docs/ABSTRACTIONS.md`, API version). If the module now uses a member added in host API revision `n`, the range becomes `>=0.1.n <0.2`.
 
 ## Notes from the first run (predatorsense)
 

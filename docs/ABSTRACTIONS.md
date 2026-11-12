@@ -548,15 +548,49 @@ declined a question.
 
 ## 11. API version
 
-`HostApi.Current` is `0.1`. A module declares the range it supports as a string of space-separated comparators, all
-of which must hold: `>=0.1 <0.2`, `>=1.0 <2.0`, `=0.1`, `>0.1`. A bare version means `=`. Versions are
-`major.minor` (a third number is accepted and ignored for ordering of the minor).
+`HostApi.Current` is `0.1.2`: **major.minor.revision**. A module declares the range it supports as a string of space-separated
+comparators, all of which must hold: `>=0.1 <0.2`, `>=0.1.2 <0.2`, `>=1.0 <2.0`, `=0.1`, `>0.1`. A bare version means `=`.
 
-Policy: while the major number is 0 any minor version may break modules, so a module declares `>=0.1 <0.2` and
-is rebuilt for each. From 1.0 on, a minor version only adds, a major version may break. The host refuses a
-module whose range does not contain `HostApi.Current`, before loading any of its code, and shows
-"Needs host API >=0.1 <0.2, this is Rigbay 0.3" (the module is listed as `Incompatible`). A module may also
-read `HostApi.Current` and adapt.
+**Compatibility policy.** While the major number is 0 any minor version may break modules, so a module declares `<0.2` and is
+rebuilt for each minor. From 1.0 on, a minor version only adds, a major version may break. The host refuses a module whose range does
+not contain `HostApi.Current`, before loading any of its code, and shows "Needs host API >=0.2 <0.3, this host is API 0.1.2" (the
+module is listed as `Incompatible`). A module may also read `HostApi.Current` and adapt.
+
+**Revisions.** The third number counts the *additive* changes made inside a minor version: a new optional member of
+`Rigbay.Abstractions` (an `init` property with a default, a default interface member, a new type or enum value) that a module may
+start to use. Such a change does not break any module, but a module that uses the member cannot run on a host that lacks it (a
+`MissingMethodException` or a type load error at run time, in the worst case inside a page). A fix, a documentation change, a change
+in Core that no module can see and a new host language key are **not** revisions. A breaking change is a new minor and resets the
+revision to 0. Whoever adds the member raises `HostApi.Revision` (one place, `HostApi.cs`) in the same commit, adds a row below and a
+changelog entry (section 17); `ApiVersionTests` pins the number so the change shows in review.
+
+| Revision | Hosts that have it | What it added |
+|---|---|---|
+| `0.1.0` | Rigbay 0.1.0 and 0.1.1 (released), which report `0.1` | The whole contract of sections 1 to 10 as released, including everything the changelog lists up to "0.1 after F1": A4 to A11, **A12** (`MetricInfo`, `IMetricsBus.GetMetricInfo`, `GetAllMetricInfo`, `CatalogChanged`, `CatalogVersion`, `MetricDescriptor.DescriptionKey`) and **F1** (`EffectKind`, `HardwareEffect.Kind`). |
+| `0.1.1` | after 0.1.1 (not released yet) | **N1**: `ToastMessage.Origin` and `enum ToastOrigin { Background, Page }` (section 9). |
+| `0.1.2` | after 0.1.1 (not released yet) | **V1**: `ReadingRow.Tile` with `enum TileHint { Auto, Always, Never }`, `ReadingRow.ChartGroupKey`, `ReadingRow.RangeMin`, `ReadingRow.RangeMax` (section 5.7). |
+
+**How a range is read.** A version in a comparator is `major.minor` or `major.minor.revision`. A comparator **without** a revision
+compares major and minor only, so `>=0.1 <0.2` and `=0.1` mean "any 0.1.x" and every module written before revisions keeps loading.
+A comparator **with** a revision compares all three numbers: `>=0.1.2 <0.2` needs a host whose revision is 2 or more, `>0.1.2` needs 3
+or more, `=0.1.2` exactly 2. A host version with no third number counts as revision 0. When a module is refused only because the
+revision is too low, the message names the lowest one that would do ("Needs host API 0.1.3 or newer, this host is API 0.1.2",
+`ApiVersionRange.NeededRevision`); the same check, in the same words, is made when a release is installed or offered.
+
+**Rule for authors.** If you use a member that a revision above added, declare `>=0.1.n <0.2`, where `n` is the highest revision among
+the members you use (`>=0.1.1 <0.2` for `ToastMessage.Origin`, `>=0.1.2 <0.2` for the `ReadingRow` hints). If you use none, keep
+`>=0.1 <0.2`: the module then also runs on 0.1.0 and 0.1.1 hosts. Use the same range in the registry entry (`hostApi`); the registry
+needs no new field. A module that wants to work on both may skip the member when `HostApi.RevisionOf(HostApi.Current)` is too low,
+but then it must keep the use of the member in a method of its own (a method that mentions a missing member fails when it is
+compiled to machine code, before its first line runs) and declare the lower range.
+
+**Old hosts.** Rigbay 0.1.0 and 0.1.1 read a third number and **ignore it**: they treat `>=0.1.2 <0.2` as `>=0.1 <0.2`. A host of
+that age will still try to load a module that declares `>=0.1.2` and the module may then fail at run time. Nothing in a module or a
+registry entry can stop that, because those hosts do not know the revision rule; it is why a module that uses a new member should
+not be released to the registry before the host that has the member has been released. Every host built from this change on
+honours the revision, in the loader (before any module code), in the install checks (no download for a release that needs a newer
+host, "no release supports this Rigbay (latest 1.2.0 needs host API 0.1.2 or newer, this is 0.1.1)") and in the choice of the release
+the Modules page offers (`RegistryModule.Latest`).
 
 ## 12. Rules for module authors
 
@@ -783,9 +817,27 @@ docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
 
+### 0.1 after R2 (host API revisions: `HostApi.Current` is `0.1.2`)
+
+Additive in `Rigbay.Abstractions` and Core, no behaviour change for a module that declares `>=0.1 <0.2`.
+
+- **Abstractions.** The third number of the host API is a revision that counts additive changes inside a minor (section 11, with the list: `0.1.0` is the contract of the
+  released hosts 0.1.0 and 0.1.1, `0.1.1` is N1, `0.1.2` is V1). `HostApi.Current` is `0.1.2`; `HostApi.Major`, `Minor`, `Revision` (constants) and `HostApi.RevisionOf(Version)`.
+  `ApiVersionRange` compares the revision when a comparator names one (`>=0.1.2 <0.2`) and ignores it when it does not (`>=0.1 <0.2`, `=0.1`: any 0.1.x), and has
+  `NeededRevision(Version host)` (the lowest revision that would be accepted when the revision is the only thing wrong, else null). Before, a third number was parsed and dropped.
+- **Core.** The loader refuses a module that needs a newer revision with the new key `core.reason.api-revision` ("Needs host API 0.1.3 or newer, this host is API 0.1.2", en and vi),
+  before any module code. The installer (`needs host API 0.1.3 or newer, this is 0.1.2`, for the registry entry and for the `module.json` in the zip) and `ModuleManager` say the
+  same. `RegistryModule.Latest` already filtered by `SupportsHost`, so a release that needs a newer revision is not offered; the registry reader and the registry repository's
+  validator already accept three-number versions in `hostApi`, so no registry change is needed. `tools/verify-module-zip` prints the full API version.
+- **Modules and samples.** `hostApi` is `>=0.1.1 <0.2` in the xtu and predatorsense modules and the sample module (they set `ToastMessage.Origin`) and `>=0.1.2 <0.2` in the demo module
+  `demo-fan` (it sets `ReadingRow.Tile`). The other modules use no revision member and keep `>=0.1 <0.2`. Module versions are unchanged; the change reaches a release with the module's next version.
+- **Not fixed (cannot be).** Hosts 0.1.0 and 0.1.1 ignore the revision (section 11, "Old hosts").
+- **For the App (UI worker).** `modules.needs-host` ("Needs host API {0}. Not offered for this Rigbay.") still shows the range text; to say "Needs host API 0.1.2 or newer" call
+  `version.HostApiRange.NeededRevision(HostApi.Current)` and show it when it is not null. Not done here (`src/Rigbay.App/Ui` belongs to the UI workers).
+
 ### 0.1 after V1 (readings made visual; additive, no version number change)
 
-Additive only, so the host API stays `0.1` (the policy in section 11: a minor bump while the major is 0 would make every module that declares `>=0.1 <0.2` incompatible; nothing here breaks one).
+Additive only, so the host API stays `0.1` (the policy in section 11: a minor bump while the major is 0 would make every module that declares `>=0.1 <0.2` incompatible; nothing here breaks one). Since R2 this is host API revision `0.1.2`.
 
 - **Abstractions.** `ReadingRow.Tile` (`enum TileHint { Auto, Always, Never }`), `ReadingRow.ChartGroupKey`, `ReadingRow.RangeMin`, `ReadingRow.RangeMax` (init properties, all optional, see 5.7).
 - **Core.** `MetricHistory` (`MetricsBus.History`), fed by `Publish`, cleared by a withdraw, not a subscriber; `ReadingPlan`, `ReadingScale`; `MetricsBus.UnitOf`; `RigbayHostOptions.MetricsClock`;

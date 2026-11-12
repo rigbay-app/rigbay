@@ -6,7 +6,7 @@
   "author": "Rigbay contributors",
   "description": "Switch Intel XTU power-limit profiles (PL1, PL2, time window) and read CPU temperature and power.",
   "entry": { "assembly": "Rigbay.Module.Xtu.dll", "type": "Rigbay.Module.Xtu.XtuModule" },
-  "hostApi": ">=0.1 <0.2",
+  "hostApi": ">=0.1.1 <0.2",
   "group": "power",
   "requires": {
     "admin": true,

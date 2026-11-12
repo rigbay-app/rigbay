@@ -509,6 +509,7 @@ public class InstallEndToEndTests : IDisposable
         }));
         _env.Http.Respond = r => r.RequestUri!.ToString() == InstallPolicy.DefaultRegistryUrl.ToString() ? FakeHttp.Text(json) : FakeHttp.Bytes(zipBytes);
 
+        _env.HostApi = Rigbay.Abstractions.HostApi.Current; // the sample module declares the revision it uses, so the test host is the real one
         var installed = new HostlessInstalled();
         var manager = new ModuleManager(_env.NewInstaller(), _env.NewRegistryClient(), installed, _env.HostApi, _env.Log);
         await manager.CheckAsync();

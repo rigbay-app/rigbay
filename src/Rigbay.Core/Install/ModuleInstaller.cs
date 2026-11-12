@@ -65,7 +65,7 @@ public sealed class ModuleInstaller
                     throw new InstallException(InstallErrorCode.AlreadyInstalled, $"version {installedVersion} is installed, {version.Version} is not newer");
             }
             if (Pending.Read().Any(o => o.Id == module.Id)) throw new InstallException(InstallErrorCode.AlreadyPending, $"a change to '{module.Id}' is already waiting for a restart");
-            if (!version.SupportsHost(_hostApi)) throw new InstallException(InstallErrorCode.IncompatibleHostApi, $"version {version.Version} needs host API {version.HostApi}, this is {_hostApi.Major}.{_hostApi.Minor}");
+            if (!version.SupportsHost(_hostApi)) throw new InstallException(InstallErrorCode.IncompatibleHostApi, $"version {version.Version} {HostApiText.Needs(version.HostApiRange, _hostApi)}");
             if (!_policy.IsZipUrlOfRepo(version.Zip, module.Repo)) throw new InstallException(InstallErrorCode.UrlNotAllowed, "the zip address is not a release download of the module's repository");
             if (!Uri.TryCreate(version.Zip, UriKind.Absolute, out var zipUri)) throw new InstallException(InstallErrorCode.UrlNotAllowed, "the zip address is not valid");
 
@@ -138,7 +138,7 @@ public sealed class ModuleInstaller
         if (!string.Equals(m.Version, version.Version, StringComparison.Ordinal))
             throw new InstallException(InstallErrorCode.ManifestMismatch, $"the zip holds version {m.Version}, the registry entry is {version.Version}");
         if (!m.HostApi.Contains(_hostApi))
-            throw new InstallException(InstallErrorCode.IncompatibleHostApi, $"the module.json needs host API {m.HostApi.Text}, this is {_hostApi.Major}.{_hostApi.Minor}");
+            throw new InstallException(InstallErrorCode.IncompatibleHostApi, $"the module.json {HostApiText.Needs(m.HostApi, _hostApi)}");
         var actual = RegistryDeclares.Of(m);
         if (!version.Declares.Covers(actual))
             throw new InstallException(InstallErrorCode.DeclaresWider, "the module.json declares more than the registry says: " + version.Declares.DescribeExcess(actual));

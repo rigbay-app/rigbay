@@ -5,6 +5,7 @@
 
 core.reason.manifest-invalid = Tệp mô tả module không hợp lệ: {0}
 core.reason.api-mismatch = Cần API máy chủ {0}, bản này là API {1}
+core.reason.api-revision = Cần API máy chủ {0} trở lên, bản này là API {1}
 core.reason.abstractions-newer = Module được build cho Rigbay.Abstractions mới hơn ({0}) bản của máy chủ ({1})
 core.reason.load-failed = Không nạp được module: {0}
 core.reason.fault = Module bị lỗi trong {0}: {1}
