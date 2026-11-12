@@ -19,10 +19,20 @@ namespace Rigbay.App;
 /// </summary>
 static class CaptureDialog
 {
+    /// <summary>Asks for a chord without knowing the shortcut set now (nothing is shown until a chord is pressed).</summary>
     /// <param name="title">The row's header.</param>
-    /// <param name="current">The shortcut set now, shown until a new chord is pressed; null when none is set or it is not known.</param>
+    public static Task<(bool Ok, HotkeyGesture? Gesture)> AskAsync(string title) => AskCoreAsync(title, false, null, null);
+
+    /// <summary>Asks for a chord and shows the shortcut set now (quieter) until one is pressed; "Not set" and no Clear when there is none.</summary>
+    /// <param name="title">The row's header.</param>
+    /// <param name="current">The shortcut set now, or null when none is set.</param>
+    public static Task<(bool Ok, HotkeyGesture? Gesture)> AskAsync(string title, HotkeyGesture? current) => AskCoreAsync(title, true, current, null);
+
+    /// <param name="title">The row's header.</param>
+    /// <param name="knowsCurrent">True when <paramref name="current"/> is the shortcut set now (null = none); false when it is not known.</param>
+    /// <param name="current">The shortcut set now.</param>
     /// <param name="pressed">A chord to show as already pressed (screenshots); null for a real capture.</param>
-    public static async Task<(bool Ok, HotkeyGesture? Gesture)> AskAsync(string title, HotkeyGesture? current = null, HotkeyGesture? pressed = null)
+    static async Task<(bool Ok, HotkeyGesture? Gesture)> AskCoreAsync(string title, bool knowsCurrent, HotkeyGesture? current, HotkeyGesture? pressed)
     {
         var root = Host.Window?.Content?.XamlRoot;
         if (root == null) return (false, null);
@@ -37,15 +47,22 @@ static class CaptureDialog
             XamlRoot = root, Title = title, Content = body,
             PrimaryButtonText = Host.T("capture.set"), SecondaryButtonText = Host.T("capture.clear"), CloseButtonText = Host.T("approval.cancel"),
             IsPrimaryButtonEnabled = false,
+            // nothing to clear when it is known that no shortcut is set
+            IsSecondaryButtonEnabled = !knowsCurrent || current != null,
             RequestedTheme = ((FrameworkElement)Host.Window!.Content).ActualTheme,
         };
         Dialogs.Confirm(dialog);
-        ShowKeys(keys, current, dim: true);
+        if (knowsCurrent) ShowKeys(keys, current, dim: true);
 
         void Announce(string text)
         {
-            var peer = FrameworkElementAutomationPeer.FromElement(hint) ?? FrameworkElementAutomationPeer.CreatePeerForElement(hint);
-            peer?.RaiseNotificationEvent(AutomationNotificationKind.Other, AutomationNotificationProcessing.MostRecent, text, "rigbay.capture");
+            if (hint.XamlRoot == null) return;   // not on screen yet (a chord given by a script)
+            try
+            {
+                var peer = FrameworkElementAutomationPeer.FromElement(hint) ?? FrameworkElementAutomationPeer.CreatePeerForElement(hint);
+                peer?.RaiseNotificationEvent(AutomationNotificationKind.Other, AutomationNotificationProcessing.MostRecent, text, "rigbay.capture");
+            }
+            catch (Exception ex) { AppLog.Warn("capture: the screen reader notification failed", ex); }
         }
         void Say(string? problem)
         {
@@ -97,7 +114,7 @@ static class CaptureDialog
         var driver = Host.Window.LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == key);
         if (driver?.Row is not ShortcutRow row) { AppLog.Warn("script: no shortcut row '" + key + "' on this page"); return; }
         HotkeyGesture? pressed = eq >= 0 && HotkeyGesture.TryParse(arg[(eq + 1)..], out var g) ? g : null;
-        try { await AskAsync(driver.Name, row.Value.Value, pressed); }
+        try { await AskCoreAsync(driver.Name, true, row.Value.Value, pressed); }
         catch (Exception ex) { AppLog.Error("script: capture dialog failed", ex); }
     }
 

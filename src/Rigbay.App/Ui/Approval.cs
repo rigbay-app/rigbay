@@ -170,10 +170,20 @@ static class Dialogs
         dialog.Opened += (d, _) => FocusClose(d);
     }
 
-    /// <summary>Puts keyboard focus on the dialog's Close button (Cancel).</summary>
-    public static void FocusClose(ContentDialog dialog)
+    /// <summary>
+    /// Puts keyboard focus on the dialog's Close button (Cancel). The button is part of the dialog's template, which is not always
+    /// realised yet when <c>Opened</c> fires (seen with the capture dialog); then it tries again on the next few dispatcher turns,
+    /// before the dialog's own choice (the first enabled button) would stand.
+    /// </summary>
+    public static void FocusClose(ContentDialog dialog, int attempt = 0)
     {
-        if (Find(dialog, "CloseButton") is Button close && close.Visibility == Visibility.Visible) close.Focus(FocusState.Programmatic);
+        if (Find(dialog, "CloseButton") is Button { Visibility: Visibility.Visible } close && close.Focus(FocusState.Programmatic))
+        {
+            AppLog.Info($"dialog '{dialog.Title}': focus on {close.Content}{(attempt > 0 ? $" (try {attempt + 1})" : "")}");
+            return;
+        }
+        if (attempt < 8 && dialog.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FocusClose(dialog, attempt + 1))) return;
+        AppLog.Warn($"dialog '{dialog.Title}': the Close button could not take focus");
     }
 
     static FrameworkElement? Find(DependencyObject root, string name)
