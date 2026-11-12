@@ -147,12 +147,14 @@ and `B5-w4b-undo-run.txt` (W4a undo, recovery). Each holds exactly one `WRITE_AT
 | Testable? | **Weak.** No state read, no easy effect check at idle |
 | Order | last, and only if the owner wants MaxQ control; the first three tests teach more |
 
-### W3: performance / operation mode (Quiet, Default, Render, Edit, Extreme, Turbo) (rewritten after B7; **nothing here has been run**)
+### W3: performance / operation mode (Quiet, Default, Render, Edit, Extreme, Turbo) (rewritten after B7, cross-checked by B9 with Ghidra; **nothing here has been run**)
 
 B7 (`FINDINGS.md` section 15, static analysis only) decoded what the Acer service does for pipe command 53. The route a module can use is the WMI call the service itself makes;
 the pipe stays off limits (it checks the caller's image path, section 15.6). Every value below is copied from code (tag C); none was sent to the machine.
-**Caveat on the evidence:** the native code was read with my own decoder because no disassembler is installed (gate `g-c7f2ea3a5fd8` for a Ghidra install was unanswered). The values are
-simple immediates in a short function, and the log strings in the same function agree with them, but an independent Ghidra pass is still the right cross-check before the owner approves a write.
+**Evidence status (B9, 2026-11-12):** B7 read the native code with its own decoder. B9 then re-read it independently with Ghidra 12.1.4 (static only; `FINDINGS.md` section 15.8) and found the same values, the same order and the same level
+mapping. **No value of W3 changed.** Four details of the explanation changed and are fixed below: the NvAPI 100 ms sleeps happen only after a failed try (not after every call), the NvAPI value is an absolute offset (no accumulation), the gate check
+of the fan table is a read only while `Operation_Mode_Support` is 1 (true here), and the GPU-OC gate is an in-memory flag set at service start. What is **still not** known is what the firmware does with each value: that is in no Acer binary, so the
+steps stay tests of status and sensors, not predictions. **After B9 the reads W3-R1 and W3-R2 may be proposed to the owner first**, then the writes in the order of the table; every one still needs its own owner gate (none was opened by B9).
 
 **The call.** `root\WMI:AcerGamingFunction.SetGamingMiscSetting` (id 22), `gmInput` UInt64 = **`(mode << 8) | 0x0B`**, answer `gmOutput` UInt32 with the low byte as status (0 = ok, as the other
 Misc calls); the service sleeps 30 ms after it. Mode numbers: Quiet 0, Default 1, Render 2, Edit 3, Extreme 4, Turbo 5.
@@ -161,15 +163,16 @@ Misc calls); the service sleeps 30 ms after it. Mode numbers: Quiet 0, Default 1
 
 | Skipped part | Where it matters |
 | --- | --- |
-| a second WMI call `SetGamingMiscSetting((level << 8) \| 0x05)`, level 0 (Quiet), 1 (Default, Render, Edit), 2 (Extreme), 3 (Turbo) | GPU OC level. A module may send it as a second approved step (inputs `0x05`, `0x105`, `0x205`, `0x305`); `0x305` has never been seen in the UI tables |
-| NvAPI P-state offsets (`SetPstates20`) | all 0 except **Turbo: core +100, memory +360** on this GPU (`PredatorSense.ini`). Not reproducible through WMI |
-| NVIDIA Whisper mode via the admin agent (command 35, on only for Quiet) | not reproducible through WMI; cosmetic for the mode test |
+| a second WMI call `SetGamingMiscSetting((level << 8) \| 0x05)`, level 0 (Quiet), 1 (Default, Render, Edit), 2 (Extreme), 3 (Turbo) | GPU OC level. A module may send it as a second approved step (inputs `0x05`, `0x105`, `0x205`, `0x305`). All four are sent by the service itself on this machine (B9, `0x1D7A0`: `GPUOCWMIRule` and `GPUOCWMINewRule` are 1); `0x305` has not been seen in the UI tables, but the service sends it for Turbo |
+| NvAPI P-state offsets (`SetPstates20`) | all 0 except **Turbo: core +100, memory +360** on this GPU (`PredatorSense.ini`). Not reproducible through WMI. The service sends the offset itself (not a delta on the current clock), and **every non-Turbo mode sets it back to 0**, so a WMI-only change away from an Acer-set Turbo leaves the GPU offset on (B9) |
+| NVIDIA Whisper mode via the admin agent (command 35, on only for Quiet) | not reproducible through WMI. `NV_WhisperMode20_Support` is 1 on this machine, so the Acer app turns Whisper on for Quiet and off for every other mode; a WMI-only change leaves Whisper as it was. Cosmetic for the mode test |
 | the Acer registry cache `CurrentOperationMode`, the agent's OSD, the AC/battery rules (agent and UI) | a Rigbay write leaves the Acer cache stale (the Acer UI shows the cached mode); do not write Acer's registry. The agent can reset the mode to Default on a power-source change, low battery or resume |
 
 **Reads that would come first (each needs its own owner gate, not opened):** `GetGamingMiscSetting(0x0B)` (current mode; layout unknown, probably mode in bits 8 to 15 (G)) and
-`GetGamingMiscSetting(0x0A)` (capability). Traced to the **service's own get handlers** (pipe 52 and 51), not to the UI. See "Reads that need their own approval".
+`GetGamingMiscSetting(0x0A)` (capability). Traced to the **service's own get handlers** (pipe 52 and 51), not to the UI. See "Reads that need their own approval". B9 checked whether any Acer code parses these answers: **none does** (the service passes
+the raw 64-bit value on; `PSAdminAgent` never reads `0x0A` or `0x0B`), so the layout can only be learned by running the read, and the first run should be treated as that: log the raw 64-bit answer, interpret nothing, change nothing.
 
-**Preconditions** (all of the section "Preconditions for every test", plus): AC power, battery above 50 % (Acer's own rule is about 40 %), no plugging or unplugging during the test (the agent resets the
+**Preconditions** (all of the section "Preconditions for every test", plus): the Acer app is in Default (cache `CurrentOperationMode` = 1) and no Acer Turbo is active, so that the GPU offsets are 0 (a WMI-only test does not touch them, B9); AC power, battery above 50 % (Acer's own rule is about 40 %), no plugging or unplugging during the test (the agent resets the
 mode on a power-source change), no heavy load, the Acer UI may stay open but must not be clicked, a baseline of sysinfo 1, 2, 3, 6, 9, 10, `nvidia-smi` (power, clocks, P-state) and the RAPL
 package-power counter taken in the same minute. Stop at once on a non-zero status, any temperature of 90 C or more, a fan or temperature jump nobody expected, or any display/keyboard/audio oddity.
 
@@ -192,7 +195,9 @@ it is a fan write like W4b and would need its own gate); the UI's Turbo pair `Se
 
 **What a direct call cannot do (stated plainly):** it cannot reproduce the NvAPI part, the Whisper command or the cache update; it does not apply Acer's AC/battery guards; and the agent may undo it later.
 I found **no firmware handshake or sequence** in the WMI calls: the service builds the input from the mode number, calls the method and sleeps 30 ms. Whether the firmware demands anything else (e.g. a prior capability read) is
-untested. The only gate on the service side is the pipe's caller path check, which does not apply to direct WMI.
+untested. The only gate on the service side is the pipe's caller path check, which does not apply to direct WMI. **B9 confirmed this with Ghidra** (`FINDINGS.md` 15.8.2 item 5). Two more facts for the gate text: the service never checks the
+WMI answer (it logs it and goes on), so the only success signal for a direct call is the answer itself, and what it holds on success is **G** (status 0 is the convention of the other Misc calls, not something Acer's code tests); and the service's own pipe reply is
+always `0xFFFFFFFF`, so Acer's code gives no hint of what a good answer looks like.
 
 ### Not proposed (no value, or too risky)
 
@@ -218,7 +223,7 @@ untested. The only gate on the service side is the pipe's caller path check, whi
 | 5 | `SetFunction` | `0x7` | RPM does not fall: use the Acer app's Cool Booster toggle |
 | 6 (optional) | W2 `SetGamingMiscSetting` | `0x2005` | non-zero status |
 
-W3 (operation mode, decoded in B7, nothing run) has its own table inside the W3 section: reads W3-R1/R2 first, then W3a `0x10B`, W3b `0x0B`, W3c `0x40B`, W3d `0x50B`, each for at most 20 s and each
+W3 (operation mode, decoded in B7 and cross-checked in B9, nothing run) has its own table inside the W3 section: reads W3-R1/R2 first, then W3a `0x10B`, W3b `0x0B`, W3c `0x40B`, W3d `0x50B`, each for at most 20 s and each
 undone with `0x10B`; each step needs its own approval. Custom speed, fan table, CPU overclock levels and lighting: no steps until a decode and a separate approval.
 
 ## What is testable, given that the UI has no firmware read
