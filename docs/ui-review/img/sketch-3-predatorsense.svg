@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720" font-family="Segoe UI Variable Text, Segoe UI, system-ui, sans-serif">
+  <title>Sketch 3: PredatorSense page after (the big mode picker the owner asked for, done the Fluent way)</title>
+  <rect width="1000" height="720" fill="#202020"/>
+  <rect x="20" y="16" width="820" height="688" rx="8" fill="#272727" stroke="#353535"/>
+
+  <!-- header card -->
+  <rect x="44" y="36" width="772" height="76" rx="6" fill="#2d2d2d" stroke="#3a3a3a"/>
+  <rect x="60" y="50" width="48" height="48" rx="13" fill="#D946B8"/>
+  <circle cx="84" cy="74" r="5" fill="#fff"/><path d="M84 74 L84 58 A10 10 0 0 1 96 66 Z M84 74 L98 82 A10 10 0 0 1 84 90 Z M84 74 L70 82 A10 10 0 0 1 72 64 Z" fill="#fff"/>
+  <text x="124" y="70" font-size="20" font-weight="600" fill="#fff">PredatorSense</text>
+  <circle cx="129" cy="90" r="4" fill="#6CCB5F"/>
+  <text x="139" y="94" font-size="13" fill="#c5c5c5">Running · Fans Maximum since 14:02 · CPU fan 5,200 rpm</text>
+  <rect x="752" y="76" width="40" height="20" rx="10" fill="#60cdff"/><circle cx="782" cy="86" r="6" fill="#1a1a1a"/>
+  <text x="716" y="91" font-size="12" fill="#c5c5c5">On</text>
+
+  <!-- hero: two big choices -->
+  <rect x="44" y="124" width="772" height="340" rx="6" fill="#2d2d2d" stroke="#3a3a3a"/>
+  <text x="60" y="152" font-size="14" font-weight="600" fill="#fff">Fan mode</text>
+  <rect x="60" y="164" width="366" height="72" rx="6" fill="#262626" stroke="#3a3a3a"/>
+  <circle cx="92" cy="200" r="13" fill="none" stroke="#c5c5c5" stroke-width="2"/><text x="86" y="205" font-size="13" fill="#c5c5c5">A</text>
+  <text x="120" y="194" font-size="16" fill="#fff">Auto</text>
+  <text x="120" y="214" font-size="12" fill="#c5c5c5">The laptop decides. Quiet when idle.</text>
+  <rect x="436" y="164" width="366" height="72" rx="6" fill="#2f3a46" stroke="#60cdff" stroke-width="2"/>
+  <circle cx="468" cy="200" r="13" fill="#60cdff"/><text x="462" y="205" font-size="13" fill="#1a1a1a" font-weight="700">M</text>
+  <text x="496" y="194" font-size="16" font-weight="600" fill="#fff">Maximum</text>
+  <text x="496" y="214" font-size="12" fill="#c5c5c5">All fans at full speed. Loud.</text>
+  <text x="60" y="258" font-size="12" fill="#c5c5c5">Set by Rigbay at 14:02. Fans read 5,200 rpm 10 s later.</text>
+  <text x="402" y="258" font-size="12" fill="#60cdff">Revert to Auto</text>
+
+  <!-- paired temperature + fan tiles -->
+  <g font-size="12">
+    <rect x="60" y="276" width="240" height="100" rx="5" fill="#2f3a46" stroke="#60cdff" stroke-width="1.5"/>
+    <text x="72" y="296" fill="#fff">CPU</text><text x="230" y="296" fill="#c5c5c5">⚠ High</text>
+    <text x="72" y="332" font-size="30" font-weight="600" fill="#fff">88</text><text x="110" y="332" fill="#c5c5c5">°C</text>
+    <text x="150" y="332" font-size="13" fill="#c5c5c5">fan 5,200 rpm</text>
+    <rect x="72" y="356" width="216" height="3" rx="1.5" fill="#3a3a3a"/><rect x="72" y="356" width="190" height="3" rx="1.5" fill="#FFA66B"/>
+    <line x1="266" y1="351" x2="266" y2="363" stroke="#e6e6e6"/>
+
+    <rect x="310" y="276" width="240" height="100" rx="5" fill="#262626" stroke="#3a3a3a"/>
+    <text x="322" y="296" fill="#c5c5c5">GPU</text>
+    <text x="322" y="332" font-size="30" font-weight="600" fill="#fff">58</text><text x="360" y="332" fill="#c5c5c5">°C</text>
+    <text x="400" y="332" font-size="13" fill="#c5c5c5">fans 4,350 · 4,340</text>
+    <rect x="322" y="356" width="216" height="3" rx="1.5" fill="#3a3a3a"/><rect x="322" y="356" width="125" height="3" rx="1.5" fill="#FFA66B"/>
+    <line x1="516" y1="351" x2="516" y2="363" stroke="#e6e6e6"/>
+
+    <rect x="560" y="276" width="240" height="100" rx="5" fill="#262626" stroke="#3a3a3a"/>
+    <text x="572" y="296" fill="#c5c5c5">System</text>
+    <text x="572" y="332" font-size="30" font-weight="600" fill="#fff">46</text><text x="610" y="332" fill="#c5c5c5">°C</text>
+    <rect x="572" y="356" width="216" height="3" rx="1.5" fill="#3a3a3a"/><rect x="572" y="356" width="99" height="3" rx="1.5" fill="#FFA66B"/>
+  </g>
+  <text x="60" y="400" font-size="12" fill="#c5c5c5">CPU temperature, last 5 minutes</text>
+  <line x1="92" y1="420" x2="800" y2="420" stroke="#333"/><line x1="92" y1="446" x2="800" y2="446" stroke="#333"/>
+  <g font-size="11" fill="#9a9a9a"><text x="64" y="424">90</text><text x="64" y="450">60</text></g>
+  <polyline points="92,444 160,440 220,438 280,432 340,428 380,424 420,425 460,418 520,420 600,416 680,418 740,415 800,417" fill="none" stroke="#FFA66B" stroke-width="2"/>
+  <line x1="300" y1="410" x2="300" y2="452" stroke="#9a9a9a" stroke-dasharray="2 3"/><text x="304" y="414" font-size="11" fill="#c5c5c5">Maximum</text>
+
+  <!-- settings -->
+  <text x="46" y="494" font-size="14" font-weight="600" fill="#fff">Settings</text>
+  <rect x="44" y="504" width="772" height="48" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+  <text x="60" y="533" font-size="14" fill="#fff">Fan shortcut</text>
+  <rect x="680" y="514" width="120" height="28" rx="4" fill="#333"/><text x="712" y="533" font-size="13" fill="#c5c5c5">Not set</text>
+  <rect x="44" y="554" width="772" height="48" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+  <text x="60" y="583" font-size="14" fill="#fff">Put the fans back to Auto when Rigbay closes</text>
+  <rect x="752" y="568" width="40" height="20" rx="10" fill="#60cdff"/><circle cx="782" cy="578" r="6" fill="#1a1a1a"/>
+  <rect x="44" y="618" width="772" height="52" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+  <text x="60" y="640" font-size="14" fill="#fff">Details</text>
+  <text x="60" y="658" font-size="12" fill="#c5c5c5">Model, how often sensors are read, about the CPU sensor</text>
+  <text x="790" y="650" font-size="14" fill="#c5c5c5">⌄</text>
+
+  <g font-size="12" fill="#e6e6e6">
+    <circle cx="866" cy="200" r="11" fill="#7A5AF8"/><text x="862" y="204" fill="#fff" font-weight="600">1</text>
+    <text x="882" y="190">Two big choices,</text><text x="882" y="205">no "Not set" item:</text><text x="882" y="220">nothing selected yet</text>
+    <circle cx="866" cy="326" r="11" fill="#7A5AF8"/><text x="862" y="330" fill="#fff" font-weight="600">2</text>
+    <text x="882" y="316">Each temperature</text><text x="882" y="331">with its own fan;</text><text x="882" y="346">tick = warn level</text>
+    <circle cx="866" cy="430" r="11" fill="#7A5AF8"/><text x="862" y="434" fill="#fff" font-weight="600">3</text>
+    <text x="882" y="426">The change is</text><text x="882" y="441">marked on the chart</text>
+  </g>
+</svg>
