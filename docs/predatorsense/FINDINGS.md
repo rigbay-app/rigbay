@@ -904,4 +904,4 @@ W3c (`0x40B`), W3d (`0x50B`); each still needs its own owner gate, and Ghidra do
 
 #### 15.8.5 Kept or deleted
 
-The Ghidra project, the extracted Ghidra and JDK folders and the downloaded zips are removed when the task ends (the SHA-256 values above are the record). The task report says whether that was done.
+**Deleted, nothing kept:** the Ghidra project, my scripts and outputs, the extracted Ghidra and JDK folders, the downloaded zips (`D:\Documents\Projects\_tools\ghidra-scratch`, and the then empty `_tools`), and the per-user settings folder Ghidra created under `%APPDATA%\ghidra` during the run. The SHA-256 values above are the record. A later pass has to download and verify again.
