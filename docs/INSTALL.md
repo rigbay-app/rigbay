@@ -144,7 +144,7 @@ folder is deleted. Removing a module keeps its settings in `%LOCALAPPDATA%\Rigba
 ## 7. The registry fetch
 
 `https://raw.githubusercontent.com/rigbay-app/registry/main/registry.json`, from `raw.githubusercontent.com` only (a redirect elsewhere is refused). It is read
-when the user presses **Check for updates** or **Get the module list**, and once a day if **Check for module updates every day** (Settings; **off by
+when the user presses **Check for modules** (the same button in the page header and in the empty list), and once a day if **Check for modules every day** (Settings; **off by
 default**) is on: at the start and then every hour the app asks whether the last attempt is more than a day old. Nothing is requested in the background
 otherwise. A good answer is validated (`RegistryReader`, any problem makes the whole file invalid), cached with its ETag, and the next request is conditional
 (a 304 keeps the cache). If the network fails the page shows the cache and says **why** (offline: the connection could not be made; unreachable: the server

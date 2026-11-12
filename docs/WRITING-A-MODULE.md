@@ -106,6 +106,34 @@ A `ReadingRow` costs you nothing to make visual: the host draws a sparkline in t
 the `MetricDescriptor` is all it needs; temperatures, power and usage are grouped by unit). To steer it, set the optional `Tile`, `ChartGroupKey`, `RangeMin` and `RangeMax` on the row
 ([ABSTRACTIONS.md](ABSTRACTIONS.md) 5.7); a chart has one axis, so readings in different units never share a group. The host keeps the history, you keep nothing.
 
+#### Words on the page
+
+People open your page to do one thing, often in a hurry. Every line they have to read before they find the control is a cost. Write the
+language files to these rules; a registry reviewer reads them too.
+
+| Text | Rule | Good | Not |
+| --- | --- | --- | --- |
+| Row header | A noun phrase of at most 4 words, sentence case. | `Fan mode`, `Power limit PL1` | `Set The Fan Mode Here` |
+| Row description | Only when it adds a fact the header does not have. One line, at most 70 characters. Leave it out otherwise. | `Wait before the fan follows a temperature change` | `This setting changes the fan mode of your laptop.` |
+| Button | A verb, with its object when the row does not already name it. | `Run test`, `Start recording`, `Delete profile` | `OK`, `Go`, `Submit` |
+| Choice options | Short labels, at most 16 characters, so the host can draw 2 to 4 of them as a segmented control. | `Auto`, `Maximum` | `Automatic fan control (recommended)` |
+| Status value | Say the state. With nothing to report, publish an empty value. | `Connected`, `Set to Maximum at 14:02` | `None`, `–`, `No change made yet` |
+| Effect sentence (`HardwareEffect.DescriptionKey`) | One sentence: what changes on the machine and what the user will notice. At most 90 characters. | `Sets the fans to maximum. They get loud.` | `Rigbay will ask before it changes your hardware.` |
+| Notification (`ToastMessage`) | Title: the thing (1 to 3 words). Body: the result in one sentence. | `Fan mode` / `Set to Maximum.` | `Success!` / `The operation completed successfully.` |
+
+- **Say a thing once.** Do not repeat the module's name, the header or the group in a description. Do not write "changes your hardware" or "Rigbay asks
+  first" anywhere: the host marks every row that has a `HardwareEffect` itself.
+- **The host builds the question.** The approval dialog's title is made from the row: "Set *header* to *new value*?", with the first letter of the header in
+  lower case ("Set fan mode to Maximum?"). The capital stays when the first word is an acronym or mixed case (`CPU`, `PL1`) or a name your effect sentence also
+  writes with a capital in mid-sentence (`Steam`). The dialog adds the module's name, the current value and whether it can be reverted, so the effect sentence
+  must not.
+- **One word per idea, the host's words** (in text the user reads; the API keeps its own names such as `Hotkeys`): module (not plugin, add-on), turn on /
+  turn off (not enable, activate), apply, revert (not undo, roll back, reset), shortcut (not hotkey), PC (not machine, device, computer) when you mean the
+  user's computer.
+- **No marketing, no filler.** No "simply", "easily", "powerful", no exclamation marks, no emoji.
+- **Translations follow the meaning.** Write each language as a person who speaks it would say it, to the same rules and lengths; do not translate word for word.
+  Keep every `{0}` placeholder.
+
 Check the language files with the host's own tool; it finds missing keys, typos, placeholder mismatches and keys nothing uses:
 
 ```powershell
