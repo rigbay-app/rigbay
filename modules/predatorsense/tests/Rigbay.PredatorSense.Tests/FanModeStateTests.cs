@@ -11,7 +11,7 @@ namespace Rigbay.PredatorSense.Tests;
 /// </summary>
 public class FanModeStateTests
 {
-    private static async Task<bool> Eventually(Func<bool> c) => await Task.Run(() => Wait.Until(c));
+    private static Task<bool> Eventually(Func<bool> c) => Wait.UntilAsync(c);
 
     private static string[] OptionIds(ChoiceRow row) => row.Options.Select(o => o.Id).ToArray();
 

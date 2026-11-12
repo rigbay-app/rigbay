@@ -218,7 +218,7 @@ public class ModuleLifecycleTests
 
 public class ModuleFanWriteTests
 {
-    private static async Task<bool> Eventually(Func<bool> c) => await Task.Run(() => Wait.Until(c));
+    private static Task<bool> Eventually(Func<bool> c) => Wait.UntilAsync(c);
 
     [Fact]
     public async Task Choosing_max_in_the_row_sends_exactly_one_max_write()

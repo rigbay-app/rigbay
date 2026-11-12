@@ -136,6 +136,36 @@ a test miss a bug, never fail a correct build. They are in `PredatorSense Module
 `dotnet build Rigbay.sln --no-incremental -warnaserror`: 0 warnings, 0 errors. A series that finds a failure has to be repeated after the fix; this one was (round one
 of the fixes still had the two findings of the second table).
 
+### FL2 (2026-11-13): two failures on GitHub Actions
+
+Each failed once, on a different commit, on the windows runner (2 cores, all test projects running at the same time). Neither could be reproduced locally in
+about 65 runs of the PredatorSense project under pool and CPU limits (`DOTNET_PROCESSOR_COUNT` 1 and 2, two busy loops pinned to the cores the tests ran on), so
+the causes below come from reading the code and the logs, and are said to be that.
+
+| Test | Message | Cause | Fix |
+| --- | --- | --- | --- |
+| `Core HostGapTests.The_sample_module_polls_slowly_until_somebody_looks_and_fast_after` (run 43287929386) | `Expected: 1, Actual: 2` at the first reading, test time 3 s | The sample module's poll timer was periodic. A periodic `Timer` does not wait for its callback: when the pool is late, the callback of the first second and the one of the second second are both queued, so the module ticks twice before the first tick has slowed the rate down. | Production fix in `samples/Rigbay.SampleModule`: the timer fires once and every tick arms the next one at the rate that applies then (`ArmNextTick`, under one lock with `_fast`). |
+| `PredatorSense PollSchedulerIdleTests.An_infinite_idle_interval_means_no_poll_at_all_until_somebody_looks` (run 43292629669) | `no polling after the scheduler was watched`, after 10 s | Three `Eventually` helpers ran `Task.Run(() => Wait.Until(...))`: every wait held a pool thread asleep for the whole wait, for work that itself needs the pool (`Task.Run` in the module, timer callbacks). The pool adds threads about twice a second, so on two cores the scheduler's 30 ms timer callbacks could wait for seconds; the test allowed 10 s (every other wait had 30 s since FL1). `PollScheduler` has no race: its timer is one-shot, re-armed after each poll. | `Wait.UntilAsync` (`Task.Delay`, no pool thread held) replaces the three `Task.Run` wrappers; the test waits the 30 s default; its "and then it stops" check no longer sleeps 150 ms and compares counts (a poll running late could end after it): it counts from the moment `Watched` goes false and allows at most one more poll. |
+
+Not achieved: a test that fails before the fix and passes after it. For the sample timer I wrote one that held the whole pool busy for 2.6 s, and it passed on the
+old code too (the first timer callback of a batch runs on the timer thread itself, not on the pool, so the queued double callback needs a second timer due at the
+same moment, which cannot be arranged reliably). It was dropped, not kept as a test that proves nothing. The PredatorSense change is test-only.
+`docs/ABSTRACTIONS.md` ("Polling modules") still shows `_timer.Change(wanted ? Zero : Slow, wanted ? Fast : Slow)`, a periodic timer; the coordinator was told.
+
+Proof (build with `-m:2 -nodeReuse:false`, `--no-build`, each test alone by `--filter`, one `dotnet test` per run):
+
+| Series | Runs | Failures |
+| --- | --- | --- |
+| `PollSchedulerIdleTests` alone | 50 | 0 |
+| `The_sample_module_polls_slowly_...` alone | 50 | 0 |
+| `PollSchedulerIdleTests` under stress | 30 | 0 |
+| `The_sample_module_polls_slowly_...` under stress | 30 | 0 |
+
+Stress here: two PowerShell busy loops pinned to cores 0 and 1, and the test run pinned to the same two cores; the loops were stopped afterwards (checked: none left).
+Then `dotnet build Rigbay.sln --no-incremental -m:2`: 0 warnings, 0 errors; one full `dotnet test Rigbay.sln --no-build`: 1710 passed, 0 failed (LangCheck 19,
+Tunnel 117, Recorder 146, PredatorSense 184, XTU 208, SteamBypass 269, Core 767). The runs before the fix also passed, so the loops show no regression, not that
+the failures are gone; only the next weeks of CI can show that.
+
 ## Settings that are not in this repository
 
 Branch protection ("require the `ci` checks before merging"), Dependabot for the action pins, the labels the issue templates ask for (`bug`, `module-request`,

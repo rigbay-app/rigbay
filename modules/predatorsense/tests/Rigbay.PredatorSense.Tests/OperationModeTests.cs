@@ -233,13 +233,15 @@ public class PollSchedulerIdleTests
 
         scheduler.Watched = true;
         scheduler.PollSoon();
-        Assert.True(Wait.Until(() => Volatile.Read(ref polls) >= 3, 10000), "no polling after the scheduler was watched");
+        Assert.True(Wait.Until(() => Volatile.Read(ref polls) >= 3), "no polling after the scheduler was watched");
 
+        // Not watched any more: the poll that is running or armed right now may still happen (once, and only one of the two can
+        // exist), then the timer is armed with the infinite interval. Counting from this point makes the check independent of how
+        // late the pool runs that last poll: a correct scheduler can never exceed the bound, a scheduler that keeps polling does.
         scheduler.Watched = false;
-        Thread.Sleep(150);   // a poll that was armed may still run once
-        int after = Volatile.Read(ref polls);
-        Thread.Sleep(300);
-        Assert.Equal(after, Volatile.Read(ref polls));   // and then it stops
+        int atUnwatch = Volatile.Read(ref polls);
+        Thread.Sleep(600);
+        Assert.InRange(Volatile.Read(ref polls), atUnwatch, atUnwatch + 1);
     }
 }
 

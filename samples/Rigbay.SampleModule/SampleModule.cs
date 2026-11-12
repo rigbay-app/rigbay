@@ -42,6 +42,7 @@ public sealed class SampleModule : IModule
     private Timer? _timer;
     private int _ticks;
     private bool _fast = true; // the poll rate the timer runs at (see UpdatePollRate)
+    private readonly object _rateLock = new(); // guards _fast, _timer and every re-arm of the timer
 
     // The poll rate pattern: poll fast only while somebody can see the result, slow down otherwise.
     private static readonly TimeSpan FastPoll = TimeSpan.FromSeconds(1);
@@ -92,7 +93,14 @@ public sealed class SampleModule : IModule
         UpdateStatus();
         // A thread of our own: exceptions on it are NOT caught by the host, so the callback catches them itself.
         // The first tick comes after a second whatever the rate; the poll rate is adjusted after each tick.
-        _timer = new Timer(OnTick, null, FastPoll, FastPoll);
+        // The timer fires once and each tick arms the next one (like a poll that ends before the next starts). A periodic timer
+        // would queue a second callback while the first is still waiting for a busy thread pool, and the module would tick twice
+        // in a row before the first tick had slowed the rate down (task FL2).
+        lock (_rateLock)
+        {
+            _fast = true;
+            _timer = new Timer(OnTick, null, FastPoll, Timeout.InfiniteTimeSpan);
+        }
         host.PageVisible.Changed += UpdatePollRate;
         host.Metrics.SubscribersChanged += UpdatePollRate;
     }
@@ -103,14 +111,25 @@ public sealed class SampleModule : IModule
     private void UpdatePollRate()
     {
         var host = _host;
-        var timer = _timer;
-        if (host is null || timer is null) return;
+        if (host is null) return;
         bool wanted = host.PageVisible.Value || host.Metrics.SubscriberCount(new MetricId(TicksMetric)) > 0;
-        if (wanted == _fast) return;
-        _fast = wanted;
-        var period = wanted ? FastPoll : SlowPoll;
-        try { timer.Change(wanted ? TimeSpan.Zero : period, period); } // zero: read now when somebody starts looking
-        catch (ObjectDisposedException) { /* shut down */ }
+        lock (_rateLock)
+        {
+            if (_timer is null || wanted == _fast) return;
+            _fast = wanted;
+            try { _timer.Change(wanted ? TimeSpan.Zero : SlowPoll, Timeout.InfiniteTimeSpan); } // zero: read now when somebody starts looking
+            catch (ObjectDisposedException) { /* shut down */ }
+        }
+    }
+
+    // Arms the next tick at the rate that applies now. Called when a tick ends, so ticks never queue up behind each other.
+    private void ArmNextTick()
+    {
+        lock (_rateLock)
+        {
+            try { _timer?.Change(_fast ? FastPoll : SlowPoll, Timeout.InfiniteTimeSpan); }
+            catch (ObjectDisposedException) { /* shut down */ }
+        }
     }
 
     // Pausing takes the metric back instead of leaving the last number on the page: ReadingRow shows "not available".
@@ -201,8 +220,11 @@ public sealed class SampleModule : IModule
 
     public void Shutdown()
     {
-        _timer?.Dispose();
-        _timer = null;
+        lock (_rateLock)
+        {
+            _timer?.Dispose();
+            _timer = null;
+        }
         if (_host is { } host)
         {
             host.PageVisible.Changed -= UpdatePollRate;
@@ -284,6 +306,10 @@ public sealed class SampleModule : IModule
         catch (Exception ex)
         {
             _host?.Log.Error("tick failed", ex);
+        }
+        finally
+        {
+            ArmNextTick(); // whatever happened above, the next tick is armed (a paused module keeps its rhythm too)
         }
     }
 

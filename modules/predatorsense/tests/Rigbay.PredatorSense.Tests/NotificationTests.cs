@@ -14,7 +14,7 @@ public class NotificationTests
 
     private static async Task<List<ToastMessage>> Settled(ModuleRig rig, int count)
     {
-        Assert.True(await Task.Run(() => Wait.Until(() => Shown(rig).Count >= count)), $"expected {count} message(s), got {Shown(rig).Count}");
+        Assert.True(await Wait.UntilAsync(() => Shown(rig).Count >= count), $"expected {count} message(s), got {Shown(rig).Count}");
         await Task.Delay(100);   // a second message that should not come has had time to
         return Shown(rig);
     }
@@ -131,7 +131,7 @@ public class NotificationTests
     {
         using var rig = new ModuleRig(approve: false);
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Task.Run(() => Wait.Until(() => rig.Host.ApprovalService.Asked.Count == 1)));
+        Assert.True(await Wait.UntilAsync(() => rig.Host.ApprovalService.Asked.Count == 1));
         await Task.Delay(150);
 
         Assert.Empty(Shown(rig));
