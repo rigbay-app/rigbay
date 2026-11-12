@@ -70,12 +70,23 @@ static class ModulePage
                     break;
                 }
                 renderer = new RowRenderer(e, scope);
+                bool running = e.Lifecycle == ModuleLifecycle.Running;
                 // tiles and the trend chart come before the rows: the first thing on a page with readings is the readings
-                if (e.Lifecycle == ModuleLifecycle.Running && ReadingBlock.For(e, shown, scope) is { } block)
+                var block = running ? ReadingBlock.For(e, shown, scope) : null;
+                LastBlock = block;
+                if (shown.Primary is { } primary)
                 {
-                    page.Children.Add(block);
-                    LastBlock = block;
+                    // the module's main job first and large, with its readings, in one card (Sketch 1): the control, then the tiles, then the chart
+                    var hero = new StackPanel { Spacing = 18 };
+                    hero.Children.Add(renderer.RenderPrimary(primary));
+                    if (block != null) { block.Margin = new Thickness(0); hero.Children.Add(block); }
+                    page.Children.Add(new Border
+                    {
+                        Style = Ui.Style("RbHeroCard"), Margin = new Thickness(0, 12, 0, 4),
+                        Child = new ContentControl { Content = hero, IsTabStop = false, HorizontalContentAlignment = HorizontalAlignment.Stretch, IsEnabled = running },
+                    });
                 }
+                else if (block != null) page.Children.Add(block);
                 var groups = renderer.RenderGroups(shown);
                 var host = new ContentControl { Content = groups, HorizontalContentAlignment = HorizontalAlignment.Stretch, IsEnabled = e.Lifecycle == ModuleLifecycle.Running };
                 page.Children.Add(host);

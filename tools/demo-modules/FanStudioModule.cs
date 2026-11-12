@@ -9,6 +9,11 @@ namespace Rigbay.DemoModules;
 /// whole hardware flow can be shown without touching the machine: the fan mode and the power limit are marked with a
 /// <see cref="HardwareEffect"/>, the limit is apply-or-revert and the fake device clamps it to 55 W (so the read-back differs from
 /// what was typed), the boost button has a revert, and the fan curve is a custom control (level 2) built from XAML text.
+/// <para>It also uses every member of host API 0.1.3, so the host's drawing of them can be seen and tested: the fan mode is the page's
+/// <see cref="PageModel.Primary"/> with a live <see cref="Row.Line"/> and a <see cref="Row.HelpKey"/>; the CPU temperature has a
+/// <see cref="ReadingRow.Warn"/> and its fan as <see cref="ReadingRow.Secondary"/>; PL1 is a <see cref="ChartRole.Reference"/> of package power;
+/// the pump is an expander with its switch in the header (<see cref="ExpanderRow.HeaderRow"/>) and its state as the line; each saved curve is
+/// an expander with a Use button in its header and a Delete button that asks first (<see cref="ButtonRow.ConfirmKey"/>).</para>
 /// </summary>
 public sealed class FanStudioModule : IModule
 {
@@ -23,6 +28,12 @@ public sealed class FanStudioModule : IModule
     private readonly ObservableValue<string> _folder = new(@"C:\Users\someone\Documents\Rigbay\logs\recordings\2026-11\a-rather-long-folder-name-for-a-test");
     private readonly ObservableValue<string> _lastWrite = new("none yet");
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.line", "", 45));
+    private readonly ObservableValue<LocalisedText> _modeLine = new(default);          // empty until the mode is changed
+    private readonly ObservableValue<bool> _pumpOn = new(true);
+    private readonly ObservableValue<double> _pumpTarget = new(40);
+    private readonly ObservableValue<LocalisedText> _pumpLine = new(default);
+    private readonly List<(string Name, int MaxRpm, int AtCelsius)> _curves = new() { ("Quiet nights", 3200, 80), ("Gaming", 4800, 70) };
+    private readonly ObservableValue<string> _curveInUse = new("Quiet nights");
 
     private IHostServices? _host;
     private IHotkeyBinding? _hotkey;
@@ -43,6 +54,7 @@ public sealed class FanStudioModule : IModule
         _mode.Changed += OnModeChanged;
         _pl1.Changed += OnLimitChanged;
         _light.Changed += OnLightChanged;
+        _pumpOn.Changed += OnPumpChanged;
         host.Localisation.LanguageChanged += UpdateState;
         _pageVisible = host.PageVisible.Value;
         host.PageVisible.Changed += OnPageVisibleChanged;
@@ -70,15 +82,31 @@ public sealed class FanStudioModule : IModule
     public PageModel? GetPageModel(IHostServices host)
     {
         var modes = new[] { new ChoiceOption("auto", "mode.auto"), new ChoiceOption("max", "mode.max"), new ChoiceOption("custom", "mode.custom") };
+        string[] curves; lock (_curves) curves = _curves.Select(c => c.Name).ToArray();
         return new PageModel
         {
             Icon = "",
+            // the main job of the page, drawn large under the header: three short options become a segmented control
+            Primary = new ChoiceRow("row.mode.header", modes, _mode)
+            {
+                HelpKey = "row.mode.help",
+                Line = _modeLine,
+                HardwareEffect = new HardwareEffect("effect.fan") { RevertDescriptionKey = "effect.fan-revert" },
+            },
             Groups = new[]
             {
                 new RowGroup("group.cooling", new Row[]
                 {
-                    new ChoiceRow("row.mode.header", modes, _mode) { DescriptionKey = "row.mode.description", HardwareEffect = new HardwareEffect("effect.fan") { RevertDescriptionKey = "effect.fan-revert" } },
                     new CustomRow("curve", "row.curve.header") { DescriptionKey = "row.curve.description" },
+                    // a switch in the expander's own header and the state as its line: readable and usable without opening it
+                    new ExpanderRow("row.pump-unit.header", new Row[]
+                    {
+                        new NumberRow("row.pump-target.header", _pumpTarget, Minimum: 20, Maximum: 100, Step: 5) { Unit = MetricUnit.Percent, Enabled = _pumpOn },
+                    })
+                    {
+                        HeaderRow = new ToggleRow("row.pump-on.header", _pumpOn),
+                        Line = _pumpLine,
+                    },
                     new ExpanderRow("row.advanced.header", new Row[]
                     {
                         new NumberRow("row.ramp.header", _ramp, Minimum: 0, Maximum: 30, Step: 1) { DescriptionKey = "row.ramp.description", Unit = MetricUnit.Seconds },
@@ -87,6 +115,7 @@ public sealed class FanStudioModule : IModule
                         new TextRow("row.folder.header", _folder) { DescriptionKey = "row.folder.description", MaxLength = 260 },
                     }) { DescriptionKey = "row.advanced.description" },
                 }),
+                new RowGroup("group.curves", curves.Select(CurveRow).ToArray()),
                 new RowGroup("group.performance", new Row[]
                 {
                     new NumberRow("row.pl1.header", _pl1, Minimum: 15, Maximum: 65, Step: 5)
@@ -127,11 +156,13 @@ public sealed class FanStudioModule : IModule
                 }),
                 new RowGroup("group.readings", new Row[]
                 {
-                    new ReadingRow("row.temp.header", WellKnownMetrics.CpuTemp) { Decimals = 0 },
+                    // warning at 85 °C on this pretend CPU, and its fan as the tile's second figure
+                    new ReadingRow("row.temp.header", WellKnownMetrics.CpuTemp) { Decimals = 0, Warn = 85, Secondary = new SecondaryReading("tile.fan", WellKnownMetrics.CpuFan) },
                     new ReadingRow("row.power.header", WellKnownMetrics.CpuPower) { Decimals = 1 },
                     new ReadingRow("row.usage.header", WellKnownMetrics.CpuUsage) { Decimals = 0 },
                     new ReadingRow("row.clock.header", WellKnownMetrics.CpuClock) { Decimals = 0 },
-                    new ReadingRow("row.pl1-reading.header", WellKnownMetrics.CpuPl1) { Decimals = 0, Tile = TileHint.Never },
+                    // the limit package power is read against: a dashed line in the power chart, not a series and not a tile
+                    new ReadingRow("row.pl1-reading.header", WellKnownMetrics.CpuPl1) { Decimals = 0, ChartRole = ChartRole.Reference },
                     new ReadingRow("row.fan.header", WellKnownMetrics.CpuFan) { Decimals = 0 },
                     new ReadingRow("row.pump.header", PumpMetric) { Decimals = 0, Tile = TileHint.Never },
                     new ValueRow("row.last.header", _lastWrite) { DescriptionKey = "row.last.description" },
@@ -140,6 +171,42 @@ public sealed class FanStudioModule : IModule
             Links = new[] { new PageLink("link.docs", "https://github.com/rigbay-app/rigbay") },
             Summary = new PageSummary(_stateLine, new[] { WellKnownMetrics.CpuTemp, PumpMetric }),
         };
+    }
+
+    /// <summary>One saved curve: its limits as the line, a Use button in the header, and a Delete button inside that asks first.</summary>
+    private Row CurveRow(string name)
+    {
+        (string Name, int MaxRpm, int AtCelsius) curve;
+        lock (_curves) curve = _curves.FirstOrDefault(c => c.Name == name);
+        var line = new ObservableValue<LocalisedText>(LocalisedText.Of(_curveInUse.Value == name ? "curve.line-used" : "curve.line", curve.MaxRpm.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), curve.AtCelsius));
+        return new ExpanderRow(Text.Literal(name), new Row[]
+        {
+            new ButtonRow("row.delete-curve.header", "row.delete-curve.button", _ => DeleteCurveAsync(name))
+            {
+                DescriptionKey = "row.delete-curve.description",
+                ConfirmKey = "row.delete-curve.confirm",
+            },
+        })
+        {
+            Line = line,
+            HeaderRow = new ButtonRow("row.use-curve.header", "row.use-curve.button", _ => UseCurveAsync(name)) { Enabled = new ObservableValue<bool>(_curveInUse.Value != name) },
+        };
+    }
+
+    private Task<ActionResult> UseCurveAsync(string name)
+    {
+        _curveInUse.Value = name;
+        _lastWrite.Value = "curve = " + name;
+        _host?.RequestPageRefresh();
+        return Task.FromResult(ActionResult.Ok(LocalisedText.Of("curve.used")));
+    }
+
+    private Task<ActionResult> DeleteCurveAsync(string name)
+    {
+        lock (_curves) _curves.RemoveAll(c => c.Name == name);
+        _host?.Log.Info("pretend curve deleted: " + name);
+        _host?.RequestPageRefresh();
+        return Task.FromResult(ActionResult.Ok());
     }
 
     public object? CreateCustomControl(IHostServices host, string controlId)
@@ -165,6 +232,7 @@ public sealed class FanStudioModule : IModule
         _mode.Changed -= OnModeChanged;
         _pl1.Changed -= OnLimitChanged;
         _light.Changed -= OnLightChanged;
+        _pumpOn.Changed -= OnPumpChanged;
         if (_host is not null) _host.PageVisible.Changed -= OnPageVisibleChanged;
         if (_host is not null) _host.Localisation.LanguageChanged -= UpdateState;
     }
@@ -174,6 +242,7 @@ public sealed class FanStudioModule : IModule
     private void OnModeChanged()
     {
         _lastWrite.Value = $"fan mode = {_mode.Value}";
+        _modeLine.Value = LocalisedText.Of("mode.line", DateTime.Now.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
         _host?.Log.Info("fake device: fan mode = " + _mode.Value);
         UpdateState();
     }
@@ -196,6 +265,15 @@ public sealed class FanStudioModule : IModule
         _lastWrite.Value = $"status light = {_light.Value}";
         _host?.Log.Info("fake device: status light = " + _light.Value);
     }
+
+    private void OnPumpChanged()
+    {
+        _host?.Log.Info("fake device: pump " + (_pumpOn.Value ? "on" : "off"));
+        UpdatePumpLine();
+    }
+
+    private void UpdatePumpLine(double? flow = null) =>
+        _pumpLine.Value = _pumpOn.Value ? LocalisedText.Of("pump.line-on", Math.Round(flow ?? _pumpTarget.Value)) : LocalisedText.Of("pump.line-off");
 
     private void OnPageVisibleChanged()
     {
@@ -277,7 +355,9 @@ public sealed class FanStudioModule : IModule
             host.Metrics.Publish(WellKnownMetrics.CpuUsage, Math.Round(Math.Clamp(38 + 24 * Math.Sin(n / 7.0) + 9 * Math.Sin(n / 1.7), 2, 98)), MetricUnit.Percent);
             host.Metrics.Publish(WellKnownMetrics.CpuClock, Math.Round((3500 + 650 * Math.Sin(n / 7.0) + 90 * Math.Sin(n / 1.9)) / 10) * 10, MetricUnit.Megahertz);
             host.Metrics.Publish(WellKnownMetrics.CpuPl1, _pl1.Value, MetricUnit.Watt);
-            if (!_pumpWithdrawn) host.Metrics.Publish(PumpMetric, Math.Round(40 + 10 * Math.Sin(n / 6.0)), MetricUnit.Percent);
+            double flow = _pumpOn.Value ? Math.Round(_pumpTarget.Value + 10 * Math.Sin(n / 6.0)) : 0;
+            if (!_pumpWithdrawn) host.Metrics.Publish(PumpMetric, flow, MetricUnit.Percent);
+            UpdatePumpLine(flow);
         }
         catch (Exception ex) { _host?.Log.Error("tick failed", ex); }   // an exception on our own timer thread would end the process
     }

@@ -6,7 +6,7 @@
   "author": "Rigbay contributors",
   "description": "Fans and power limit of a pretend laptop. Demo of the confirm, apply, read-back and revert flow. Writes nothing to your machine.",
   "entry": { "assembly": "Rigbay.DemoModules.dll", "type": "Rigbay.DemoModules.FanStudioModule" },
-  "hostApi": ">=0.1.2 <0.2",
+  "hostApi": ">=0.1.3 <0.2",
   "group": "cooling",
   "requires": {
     "admin": true,

@@ -187,6 +187,7 @@ WinUI, XAML, `Windows.*` or WPF appears anywhere in the assembly, and none may a
 ```
 PageModel
   Icon : string?                      glyph name or path for the navigation pane
+  Primary : Row?                      the module's main job, drawn large under the page header (0.1.3, section 5.8)
   Groups : RowGroup[]                 RowGroup(HeaderKey, Rows)
   Links : PageLink[]                  PageLink(TextKey, Url), "Learn more" at the bottom
   Summary : PageSummary?              what the dashboard bay shows: StateLine (observable) + up to two MetricIds
@@ -199,7 +200,8 @@ background work. A module never draws its own enable switch.
 ### 5.2 Rows (level 1)
 
 Every `Row` has `HeaderKey`, optional `DescriptionKey` (the host indexes both for search), `Enabled` (an
-`IObservableValue<bool>`, default true) and `HardwareEffect` (5.4). Kinds:
+`IObservableValue<bool>`, default true) and `HardwareEffect` (5.4); since host API 0.1.3 also `HelpKey` (a longer explanation, shown as
+the tooltip of an info glyph after the header) and `Line` (a live state line under the header), section 5.8. Kinds:
 
 | Row | Control the host draws | Value |
 | --- | --- | --- |
@@ -208,10 +210,10 @@ Every `Row` has `HeaderKey`, optional `DescriptionKey` (the host indexes both fo
 | `NumberRow` | number box | `IObservableValue<double>`, `Minimum`, `Maximum`, `Step`, `Unit` (`MetricUnit`), `Apply`, `Validate` |
 | `TextRow` | text box | `IObservableValue<string>`, `MaxLength`, `PlaceholderKey`, `Apply`, `Validate` |
 | `ShortcutRow` | key capture | `IObservableValue<HotkeyGesture?>`, normally `IHotkeyBinding.Gesture`; `Apply` |
-| `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` and `RevertButtonKey` (label of the revert action, shown in the question) |
+| `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` and `RevertButtonKey` (label of the revert action, shown in the question), `ConfirmKey` (0.1.3: a question asked before an action that cannot be undone) |
 | `ValueRow` | read-only text | `IObservableValue<string>` (already localised by the module) |
-| `ReadingRow` | live number with unit, a sparkline left of it, and (host's choice) a tile and a trend chart above the rows | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color`, and the optional visual hints `Tile`, `ChartGroupKey`, `RangeMin`, `RangeMax` (5.7). Shows "not available" instead of a number when the metric has no sample or was withdrawn (section 6) |
-| `ExpanderRow` | row that folds `Children` | `IsExpanded` initially |
+| `ReadingRow` | live number with unit, a sparkline left of it, and (host's choice) a tile and a trend chart above the rows | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color`, and the optional visual hints `Tile`, `ChartGroupKey`, `RangeMin`, `RangeMax` (5.7), `ChartRole`, `Warn`, `Secondary` (0.1.3, 5.8). Shows "not available" instead of a number when the metric has no sample or was withdrawn (section 6) |
+| `ExpanderRow` | row that folds `Children` | `IsExpanded` initially; `HeaderRow` (0.1.3: a control in its own header, visible while closed) |
 | `InfoRow` | inline message | `Severity` (info, success, warning, error), `IsOpen`; header = title, description = text |
 | `CustomRow` | whatever the module builds | `ControlId` (5.5) |
 
@@ -352,6 +354,27 @@ Optional, additive hints on `ReadingRow` (a row that sets none of them is drawn 
 Nothing is drawn, subscribed to or timed while the page is not on screen (window hidden to the tray or minimised): the page's live parts
 (`PageScope`) drop their bus subscriptions, so a module sees no reader and slows down, and their one-second redraw timer stops; both come back when the page is shown.
 A module whose metric has no `Describe`d unit gets its tile and chart when the first sample tells the unit (the block rebuilds on `CatalogChanged`).
+
+### 5.8 The main control, live lines and reading roles (host API 0.1.3)
+
+From the UI review of November 2026 (`docs/ui-review/REVIEW-2026-11.md`, package B). All members are optional and additive; a module that
+sets none of them is drawn as before. A module that sets one declares `hostApi` `>=0.1.3 <0.2` (section 11).
+
+| Member | What the host draws |
+| --- | --- |
+| `PageModel.Primary` (`Row?`) | The module's main job (the profile, the fan mode, the bypass switch, Start recording) in a card right under the page header, before the tiles and the chart. A `ChoiceRow` of 2 to 5 options of at most 20 characters is a **segmented control** (the stock `RadioButtons` drawn as segments: one tab stop, arrow keys, a screen reader hears "Maximum, 2 of 3"); with more or longer options, or a window too narrow for the segments, a drop-down. A `ToggleRow` is a switch with its state in words, a `ButtonRow` the accent button, any other value row is drawn as in a group. The same editor, approval and Revert as in a group (the status and Revert sit at the right of the header). An `ExpanderRow`, `InfoRow` or `CustomRow` is refused by the validator. Do not also put the row in a group. Nothing is selected while the value is not one of the options, so a module needs no "Not set" option. |
+| `Row.Line` (`IObservableValue<LocalisedText>?`) | A live state line under the header, after the description, on every row kind: "Connected · handshake 15 s ago", "Set by Rigbay at 14:02". An empty text (`default`) takes no room. On an `ExpanderRow` it is in the closed header, so each item of a list says its state without being opened (this is the review's `ExpanderRow.Line`; it is on `Row` because a primary row needs the same line). |
+| `Row.HelpKey` (`string?`) | A small info glyph after the header with this text as its tooltip and accessible help text. Keep the description for a short fact the header does not say and put the why and the how here (the copy rule is in `docs/WRITING-A-MODULE.md`). |
+| `ExpanderRow.HeaderRow` (`Row?`) | A `ToggleRow`, `ChoiceRow`, `ButtonRow`, `ValueRow` or `ReadingRow` drawn as the control in the expander's own header (a tunnel's on switch, a profile's Use button), usable while the expander is closed. Its own header and description are not shown; approval and Revert work as in a group. |
+| `ReadingRow.ChartRole` (`ChartRole.Series` / `Reference`) | `Reference`: a limit or a target (PL1 for package power). It joins the chart of its `ChartGroupKey`, else of its unit, as a 1 px dashed line in secondary ink labelled at the line with its name and value ("PL1 limit 45 W"); never a tile, never in a legend, never a series. A reference with no data of its unit to be read against is not drawn. The axis widens to keep it on the plot. |
+| `ReadingRow.Warn` (`double?`) | The warning value in the reading's unit: a 1 px tick on the tile's meter, "High" (word and icon) on the tile from that value on, and "warning at 95 °C" in the tile's tooltip and accessible name. Null: 90 for a temperature, none for the rest. The validator refuses a value that is not finite. |
+| `ReadingRow.Secondary` (`SecondaryReading?`) | A second figure small beside the tile's number: `new SecondaryReading("tile.fan", cpuFan)` reads "fan 5,200 rpm", two metrics read "fans 4,350 · 4,340 rpm" (the unit once). Under the number on a narrow tile; hidden while none of its metrics has a value. |
+| `ButtonRow.ConfirmKey` (`string?`) | Before `InvokeAsync` runs, a dialog asks this question; its action button wears the button's label, Cancel is the other, and Enter does nothing (no default button). `{0}` is the header of the expander that holds the row (the object, such as a profile name) or the row's own header: "Delete {0}?" reads "Delete Gaming?". A "no" runs nothing and the row says "Cancelled. Nothing changed". Ignored on a row with a `HardwareEffect`, whose approval already asks. |
+
+The demo module `demo-fan` (`tools/demo-modules/FanStudioModule.cs`) uses every member: the fan mode is its `Primary` with a `Line` and a
+`HelpKey`, the CPU temperature has `Warn = 85` and its fan as `Secondary`, PL1 is a `Reference` of package power, the pump is an expander
+with its switch as `HeaderRow` and its flow as `Line`, and each saved curve has a Use button in its header and a Delete button with a
+`ConfirmKey`.
 
 ## 6. Metrics bus
 
@@ -548,12 +571,12 @@ declined a question.
 
 ## 11. API version
 
-`HostApi.Current` is `0.1.2`: **major.minor.revision**. A module declares the range it supports as a string of space-separated
+`HostApi.Current` is `0.1.3`: **major.minor.revision**. A module declares the range it supports as a string of space-separated
 comparators, all of which must hold: `>=0.1 <0.2`, `>=0.1.2 <0.2`, `>=1.0 <2.0`, `=0.1`, `>0.1`. A bare version means `=`.
 
 **Compatibility policy.** While the major number is 0 any minor version may break modules, so a module declares `<0.2` and is
 rebuilt for each minor. From 1.0 on, a minor version only adds, a major version may break. The host refuses a module whose range does
-not contain `HostApi.Current`, before loading any of its code, and shows "Needs host API >=0.2 <0.3, this host is API 0.1.2" (the
+not contain `HostApi.Current`, before loading any of its code, and shows "Needs host API >=0.2 <0.3, this host is API 0.1.3" (the
 module is listed as `Incompatible`). A module may also read `HostApi.Current` and adapt.
 
 **Revisions.** The third number counts the *additive* changes made inside a minor version: a new optional member of
@@ -569,16 +592,18 @@ changelog entry (section 17); `ApiVersionTests` pins the number so the change sh
 | `0.1.0` | Rigbay 0.1.0 and 0.1.1 (released), which report `0.1` | The whole contract of sections 1 to 10 as released, including everything the changelog lists up to "0.1 after F1": A4 to A11, **A12** (`MetricInfo`, `IMetricsBus.GetMetricInfo`, `GetAllMetricInfo`, `CatalogChanged`, `CatalogVersion`, `MetricDescriptor.DescriptionKey`) and **F1** (`EffectKind`, `HardwareEffect.Kind`). |
 | `0.1.1` | after 0.1.1 (not released yet) | **N1**: `ToastMessage.Origin` and `enum ToastOrigin { Background, Page }` (section 9). |
 | `0.1.2` | after 0.1.1 (not released yet) | **V1**: `ReadingRow.Tile` with `enum TileHint { Auto, Always, Never }`, `ReadingRow.ChartGroupKey`, `ReadingRow.RangeMin`, `ReadingRow.RangeMax` (section 5.7). |
+| `0.1.3` | after 0.1.1 (not released yet) | **UI review, package B**: `PageModel.Primary`, `Row.Line`, `Row.HelpKey`, `ExpanderRow.HeaderRow`, `ReadingRow.ChartRole` with `enum ChartRole { Series, Reference }`, `ReadingRow.Warn`, `ReadingRow.Secondary` with `record SecondaryReading(LabelKey, Metrics)`, `ButtonRow.ConfirmKey` (section 5.8). |
 
 **How a range is read.** A version in a comparator is `major.minor` or `major.minor.revision`. A comparator **without** a revision
 compares major and minor only, so `>=0.1 <0.2` and `=0.1` mean "any 0.1.x" and every module written before revisions keeps loading.
 A comparator **with** a revision compares all three numbers: `>=0.1.2 <0.2` needs a host whose revision is 2 or more, `>0.1.2` needs 3
 or more, `=0.1.2` exactly 2. A host version with no third number counts as revision 0. When a module is refused only because the
-revision is too low, the message names the lowest one that would do ("Needs host API 0.1.3 or newer, this host is API 0.1.2",
+revision is too low, the message names the lowest one that would do ("Needs host API 0.1.4 or newer, this host is API 0.1.3",
 `ApiVersionRange.NeededRevision`); the same check, in the same words, is made when a release is installed or offered.
 
 **Rule for authors.** If you use a member that a revision above added, declare `>=0.1.n <0.2`, where `n` is the highest revision among
-the members you use (`>=0.1.1 <0.2` for `ToastMessage.Origin`, `>=0.1.2 <0.2` for the `ReadingRow` hints). If you use none, keep
+the members you use (`>=0.1.1 <0.2` for `ToastMessage.Origin`, `>=0.1.2 <0.2` for the V1 `ReadingRow` hints, `>=0.1.3 <0.2` for `Primary`, `Line`, `HelpKey`,
+`HeaderRow`, `ChartRole`, `Warn`, `Secondary` or `ConfirmKey`). If you use none, keep
 `>=0.1 <0.2`: the module then also runs on 0.1.0 and 0.1.1 hosts. Use the same range in the registry entry (`hostApi`); the registry
 needs no new field. A module that wants to work on both may skip the member when `HostApi.RevisionOf(HostApi.Current)` is too low,
 but then it must keep the use of the member in a method of its own (a method that mentions a missing member fails when it is
@@ -816,6 +841,26 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after UB part 1 (UI review package B: host API `0.1.3`)
+
+Additive in `Rigbay.Abstractions`; a module that declares `>=0.1 <0.2` and uses none of it is drawn as before. Declare `>=0.1.3 <0.2` to use it.
+
+- **Abstractions.** `PageModel.Primary`, `Row.Line`, `Row.HelpKey`, `ExpanderRow.HeaderRow`, `ReadingRow.ChartRole` (`enum ChartRole { Series, Reference }`),
+  `ReadingRow.Warn`, `ReadingRow.Secondary` (`record SecondaryReading(string LabelKey, IReadOnlyList<MetricId> Metrics)`, with a `params` constructor),
+  `ButtonRow.ConfirmKey` (section 5.8). `PageModel.EnumerateRows` yields `Primary` first and an expander's `HeaderRow` right after the expander, so
+  search, the reading plan and every other walk of the rows see them. `HostApi.Revision` is 3, `HostApi.Current` `0.1.3`.
+  The review asked for `ExpanderRow.Line`; it is `Row.Line` instead, because the primary row of every kind needs the same live line
+  (XT-1, PS-1, RC-1, SA-1), and `ExpanderRow.Line` compiles as written.
+- **Core.** `ReadingPlan`: a `Reference` row is never a tile and goes into `ChartPlan.References` of its group (new init property), not `Series`; a chart
+  with no series is not planned. `PageValidator`: a `Primary` that is an expander, a message or a custom row is refused, a `HeaderRow` must be a toggle,
+  choice, button, value or reading, `Warn` must be finite, `Secondary` needs one or two metric ids; the rows in both slots get the usual checks.
+- **App.** `RowRenderer` draws a row's control in one of three places (a card, an expander header, the primary block) with the same editor, approval and
+  Revert; `ChoiceSelector` (segments or a drop-down); the primary card on the module page holds the primary, the tiles and the chart; dashed reference lines
+  with their labels in `TrendChart`; `ReadingTile` draws the warning tick, "High" from `Warn`, the second figure, and says the warning value and the
+  meter's scale in its tooltip and accessible name; the `ConfirmKey` dialog. New host keys `row.confirm-cancel`, `tile.warn-at`, `tile.scale`,
+  `chart.reference` (en, vi).
+- **Demo module.** `demo-fan` 0.2.0 declares `>=0.1.3 <0.2` and uses every member (section 5.8).
 
 ### 0.1 after R2 (host API revisions: `HostApi.Current` is `0.1.2`)
 

@@ -12,7 +12,11 @@ public sealed record TilePlan(ReadingRow Row, MetricUnit Unit);
 /// <param name="TitleKey">Module-relative key of a title the module gave (<see cref="ReadingRow.ChartGroupKey"/>); null for a group made from the unit.</param>
 /// <param name="Unit">The unit of every series.</param>
 /// <param name="Series">The readings, in page order (at most <see cref="ReadingPlan.MaxSeries"/>).</param>
-public sealed record ChartPlan(string Id, string? TitleKey, MetricUnit Unit, IReadOnlyList<ReadingRow> Series);
+public sealed record ChartPlan(string Id, string? TitleKey, MetricUnit Unit, IReadOnlyList<ReadingRow> Series)
+{
+    /// <summary>The limits and targets drawn as dashed lines in this chart (<see cref="ReadingRow.ChartRole"/> <see cref="ChartRole.Reference"/>), in page order, same unit.</summary>
+    public IReadOnlyList<ReadingRow> References { get; init; } = Array.Empty<ReadingRow>();
+}
 
 /// <summary>
 /// What the host draws above the rows of a module page, worked out from the page model and the units of its metrics: up to four tiles
@@ -89,6 +93,7 @@ public sealed record ReadingPlan(IReadOnlyList<TilePlan> Tiles, IReadOnlyList<Ch
             if (chosen.Count < MaxTiles && chosen.All(c => c.Row.Metric != x.Row.Metric)) chosen.Add(new TilePlan(x.Row, x.Unit));
         }
 
+        rows = rows.Where(x => x.Row.ChartRole != ChartRole.Reference).ToList();   // a limit is read against the data, it is never a tile of its own
         foreach (var x in rows.Where(x => x.Row.Tile == TileHint.Always)) Take(x);
         // what the module put on its dashboard bay is what it thinks matters most
         if (page.Summary?.Readings is { } summary)
@@ -105,8 +110,10 @@ public sealed record ReadingPlan(IReadOnlyList<TilePlan> Tiles, IReadOnlyList<Ch
     private static IReadOnlyList<ChartPlan> PickCharts(List<(ReadingRow Row, MetricUnit Unit)> rows, bool anyKind)
     {
         var groups = new List<(string Id, string? Title, MetricUnit Unit, List<ReadingRow> Series, int Rank)>();
+        var references = new List<(ReadingRow Row, MetricUnit Unit)>();
         foreach (var (row, unit) in rows)
         {
+            if (row.ChartRole == ChartRole.Reference) { references.Add((row, unit)); continue; }   // placed once the groups exist
             if (row.ChartGroupKey is { Length: 0 }) continue;
             string id; string? title;
             if (row.ChartGroupKey is { } key) { id = "key:" + key; title = key; }
@@ -120,10 +127,22 @@ public sealed record ReadingPlan(IReadOnlyList<TilePlan> Tiles, IReadOnlyList<Ch
             // one axis: a series in another unit than the group's first is left out of the chart (it keeps its row and its sparkline)
             if (groups[index].Unit == unit && groups[index].Series.Count < MaxSeries) groups[index].Series.Add(row);
         }
+        // a reference joins the group it names (or the group of its unit), on the same axis; one with no group of data to read against is not drawn
+        var refs = new Dictionary<string, List<ReadingRow>>();
+        foreach (var (row, unit) in references)
+        {
+            if (row.ChartGroupKey is { Length: 0 }) continue;
+            string id = row.ChartGroupKey is { } key ? "key:" + key : "unit:" + unit;
+            int index = groups.FindIndex(g => g.Id == id);
+            if (index < 0 || groups[index].Unit != unit) continue;
+            if (!refs.TryGetValue(id, out var list)) refs[id] = list = new List<ReadingRow>();
+            if (list.Count < MaxSeries) list.Add(row);
+        }
         return groups
+            .Where(g => g.Series.Count > 0)
             .Select((g, i) => (g, i))
             .OrderBy(x => x.g.Rank).ThenBy(x => x.i)
-            .Select(x => new ChartPlan(x.g.Id, x.g.Title, x.g.Unit, x.g.Series))
+            .Select(x => new ChartPlan(x.g.Id, x.g.Title, x.g.Unit, x.g.Series) { References = refs.TryGetValue(x.g.Id, out var r) ? r : Array.Empty<ReadingRow>() })
             .ToList();
     }
 }

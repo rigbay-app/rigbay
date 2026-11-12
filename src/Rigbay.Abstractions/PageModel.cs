@@ -10,6 +10,16 @@ namespace Rigbay.Abstractions;
 /// </summary>
 public sealed class PageModel
 {
+    /// <summary>
+    /// The module's main job, drawn large in a card right under the page header and before the readings: a profile picker, the fan mode, a
+    /// bypass switch, a Start button. A <see cref="ChoiceRow"/> with 2 to 5 short options becomes a segmented control (a drop-down when the
+    /// window is too narrow or the options are many or long), a <see cref="ToggleRow"/> a switch with its state words, a <see cref="ButtonRow"/>
+    /// an accent button, any other value row a normal row inside that card (an <see cref="ExpanderRow"/>, <see cref="InfoRow"/> or
+    /// <see cref="CustomRow"/> is refused by the validator). Same editor, approval and Revert as in a group; do not repeat the row in a group.
+    /// Optional: null keeps the page as it is. Host API 0.1.3.
+    /// </summary>
+    public Row? Primary { get; init; }
+
     /// <summary>A glyph name or a file path (relative to the module folder) for the navigation icon; null for the default icon.</summary>
     public string? Icon { get; init; }
 
@@ -22,9 +32,15 @@ public sealed class PageModel
     /// <summary>What the dashboard bay shows for this module: a state line and up to two readings. Null shows only the state.</summary>
     public PageSummary? Summary { get; init; }
 
-    /// <summary>All rows, depth first, with the children of expanders after their parent.</summary>
+    /// <summary>
+    /// All rows, depth first: <see cref="Primary"/> first when there is one, then the groups; an expander is followed by its
+    /// <see cref="ExpanderRow.HeaderRow"/> and then its children.
+    /// </summary>
     public IEnumerable<Row> EnumerateRows()
     {
+        if (Primary is { } primary)
+            foreach (var flat in Flatten(primary))
+                yield return flat;
         foreach (var group in Groups)
             foreach (var row in group.Rows)
                 foreach (var flat in Flatten(row))
@@ -35,9 +51,14 @@ public sealed class PageModel
     {
         yield return row;
         if (row is ExpanderRow expander)
+        {
+            if (expander.HeaderRow is { } head)
+                foreach (var flat in Flatten(head))
+                    yield return flat;
             foreach (var child in expander.Children)
                 foreach (var flat in Flatten(child))
                     yield return flat;
+        }
     }
 }
 
@@ -131,6 +152,21 @@ public abstract record Row(string HeaderKey)
 
     /// <summary>True when <see cref="HardwareEffect"/> is set. The host confirms and offers revert for such rows.</summary>
     public bool ChangesHardware => HardwareEffect is not null;
+
+    /// <summary>
+    /// Module-relative key of a longer explanation. The host shows it as the tooltip (and the accessible help text) of a small info glyph after
+    /// the header instead of a line under it: keep <see cref="DescriptionKey"/> for a fact the header does not say (about 70 characters at
+    /// most) and put the why and the how here. Indexed for search like the description. Null for none. Host API 0.1.3.
+    /// </summary>
+    public string? HelpKey { get; init; }
+
+    /// <summary>
+    /// A live state line under the header that the module changes while the page is open ("Connected · handshake 15 s ago", "Set to Maximum
+    /// at 14:02"). Shown after the description; an empty text (<see cref="LocalisedText.IsEmpty"/>) shows nothing and takes no room.
+    /// Resolved like any module text (a <see cref="Text.Literal"/> key is allowed). Every row kind draws it, an <see cref="ExpanderRow"/> in
+    /// its closed header, so the state of each item reads without opening it. Null for none. Host API 0.1.3.
+    /// </summary>
+    public IObservableValue<LocalisedText>? Line { get; init; }
 }
 
 /// <summary>An on/off switch.</summary>
@@ -208,6 +244,15 @@ public sealed record ButtonRow(string HeaderKey, string ButtonKey, Func<Cancella
     /// before it calls <see cref="RevertAsync"/> (see <see cref="Abstractions.HardwareEffect.SafeRevert"/>); null shows the generic word "Revert".
     /// </summary>
     public string? RevertButtonKey { get; init; }
+
+    /// <summary>
+    /// Module-relative key of a question the host asks before it runs <see cref="InvokeAsync"/>, for an action that cannot be undone (deleting a
+    /// profile). The text is the dialog's title and the action button wears <see cref="ButtonKey"/>'s label; nothing runs when the answer is no.
+    /// <c>{0}</c> in the text is the header of the <see cref="ExpanderRow"/> that holds the row (the object it belongs to, such as a profile
+    /// name), or the row's own header outside an expander: "Delete {0}?" reads "Delete Gaming?". Ignored on a row with a
+    /// <see cref="Row.HardwareEffect"/>, whose approval already asks. Null for none. Host API 0.1.3.
+    /// </summary>
+    public string? ConfirmKey { get; init; }
 }
 
 /// <summary>A read-only text at the right (already localised by the module).</summary>
@@ -251,6 +296,46 @@ public sealed record ReadingRow(string HeaderKey, MetricId Metric) : Row(HeaderK
 
     /// <summary>Highest value of the natural range; see <see cref="RangeMin"/>. Must be above <see cref="RangeMin"/> when both are set.</summary>
     public double? RangeMax { get; init; }
+
+    /// <summary>
+    /// <see cref="ChartRole.Series"/> (default): a reading drawn as data. <see cref="ChartRole.Reference"/>: a limit or a target the data is read
+    /// against (PL1 for package power): drawn in the chart of its group (<see cref="ChartGroupKey"/>, else its unit) as a 1 px dashed line in
+    /// secondary ink with its name and value at the line; never a tile, never in a legend. Host API 0.1.3.
+    /// </summary>
+    public ChartRole ChartRole { get; init; } = ChartRole.Series;
+
+    /// <summary>
+    /// The value from which the reading is a warning (95 for a CPU that throttles at 100 °C), in the reading's unit. The tile meter carries a
+    /// tick there, the tile says "High" from that value on, and its tooltip and accessible name say "warning at 95". Null: 90 for a
+    /// temperature, none for the rest. Host API 0.1.3.
+    /// </summary>
+    public double? Warn { get; init; }
+
+    /// <summary>
+    /// A second figure on the reading's tile, small beside the number: a temperature with its fan (<c>fan 5,200 rpm</c>), a GPU with its two
+    /// fans (<c>fans 4,350 · 4,340 rpm</c>). Shown while one of its metrics has a value. Null for none. Host API 0.1.3.
+    /// </summary>
+    public SecondaryReading? Secondary { get; init; }
+}
+
+/// <summary>How a <see cref="ReadingRow"/> takes part in its chart. Host API 0.1.3.</summary>
+public enum ChartRole
+{
+    /// <summary>A reading drawn as data: a line, and a tile when the host picks it.</summary>
+    Series,
+    /// <summary>A limit or a target the data is read against: a dashed line labelled at the line, never a tile, never in a legend.</summary>
+    Reference,
+}
+
+/// <summary>The second figure of a reading tile: a short word and one or two metrics, drawn small after the number. Host API 0.1.3.</summary>
+/// <param name="LabelKey">Module-relative key of the short word before the figures ("fan", "fans"); empty for none.</param>
+/// <param name="Metrics">One or two metrics, in the order shown (more are ignored). Their unit is written once, after the last.</param>
+public sealed record SecondaryReading(string LabelKey, IReadOnlyList<MetricId> Metrics)
+{
+    /// <summary>A label and the metrics as arguments: <c>new SecondaryReading("tile.fans", gpuFan1, gpuFan2)</c>.</summary>
+    /// <param name="labelKey">Module-relative key of the short word before the figures; empty for none.</param>
+    /// <param name="metrics">One or two metrics.</param>
+    public SecondaryReading(string labelKey, params MetricId[] metrics) : this(labelKey, (IReadOnlyList<MetricId>)metrics) { }
 }
 
 /// <summary>Whether a <see cref="ReadingRow"/> becomes a tile at the top of its module page.</summary>
@@ -271,6 +356,14 @@ public sealed record ExpanderRow(string HeaderKey, IReadOnlyList<Row> Children) 
 {
     /// <summary>Whether it starts open.</summary>
     public bool IsExpanded { get; init; }
+
+    /// <summary>
+    /// A control in the expander's own header, visible while it is closed: a tunnel's on switch, a profile's Apply button. A
+    /// <see cref="ToggleRow"/>, <see cref="ChoiceRow"/>, <see cref="ButtonRow"/>, <see cref="ValueRow"/> or <see cref="ReadingRow"/>; its own
+    /// header and description are not shown (the expander's are), its <see cref="Row.HardwareEffect"/>, approval and Revert work as in a group.
+    /// With <see cref="Row.Line"/> on the expander the state of each item reads without opening it. Null for none. Host API 0.1.3.
+    /// </summary>
+    public Row? HeaderRow { get; init; }
 }
 
 /// <summary>An inline message (<see cref="Row.HeaderKey"/> is the title, <see cref="Row.DescriptionKey"/> the text).</summary>

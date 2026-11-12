@@ -42,11 +42,17 @@ sealed class TrendChart : Grid
     int _range = 300;
     double? _hoverX;
     int _seriesDrawn;
+    int _referencesDrawn;
     bool _hasData;
 
     public int GroupIndex => _group;
     public int RangeSeconds => _range;
     public int SeriesDrawn => _seriesDrawn;
+    /// <summary>How many reference lines (limits, <see cref="ChartRole.Reference"/>) the last draw put on the plot.</summary>
+    public int ReferencesDrawn => _referencesDrawn;
+    /// <summary>The labels of the reference lines of the last draw ("PL1 limit 45 W").</summary>
+    public IReadOnlyList<string> ReferenceLabels => _referenceLabels;
+    readonly List<string> _referenceLabels = new();
     public bool HasData => _hasData;
     public Grid Plot => _plot;
     public int GroupCount => _plans.Count;
@@ -194,6 +200,8 @@ sealed class TrendChart : Grid
             series.Add(new Series(row, _e.Localisation.T(row.HeaderKey), history.Get(row.Metric, span),
                 ChartKit.SeriesHue(i, plan.Series.Count, kindHue), bus.Latest(row.Metric)));
         }
+        // the limits this chart is read against (PL1 for package power): dashed lines, not series
+        var references = plan.References.Select(r => new Series(r, _e.Localisation.T(r.HeaderKey), history.Get(r.Metric, span), "Neutral", bus.Latest(r.Metric))).ToList();
         _title.Text = $"{GroupName(plan)}  ·  {unit.Symbol()}".TrimEnd(' ', '·');
 
         // legend: one entry per line when there are two or more (the title names a single line)
@@ -220,6 +228,8 @@ sealed class TrendChart : Grid
         double pw = w - Left - Right, ph = h - Top - Bottom;
         double min = double.MaxValue, max = double.MinValue;
         foreach (var s in series) foreach (var p in s.Points) { min = Math.Min(min, p.Value); max = Math.Max(max, p.Value); }
+        // a limit stays on the plot even when the data is far below it: "how close to PL1" is the question the line answers
+        if (min <= max) foreach (var s in references) foreach (var p in s.Points) { min = Math.Min(min, p.Value); max = Math.Max(max, p.Value); }
         if (min > max) { min = 0; max = 0; }
         var first = plan.Series[0];
         var (lo, hi, ticks) = ReadingScale.Axis(min, max, unit, first.RangeMin, first.RangeMax);
@@ -282,9 +292,42 @@ sealed class TrendChart : Grid
             _seriesDrawn++;
         }
 
+        // reference lines: 1 px dashed in secondary ink, the name and the value written at the line (never in the legend)
+        _referencesDrawn = 0;
+        _referenceLabels.Clear();
+        double? lastLabelY = null;
+        if (_hasData)
+            foreach (var s in references)
+            {
+                if (s.Points.Count == 0) continue;
+                var gap = MetricHistory.GapFor(s.Points);
+                foreach (var run in MetricHistory.Segments(s.Points, gap))
+                {
+                    // one point is still a level: draw it across to now
+                    var pts = run.Select(p => new Point(X(p.Time), Y(p.Value))).ToList();
+                    if (pts.Count == 1) pts.Add(new Point(Left + pw, pts[0].Y));
+                    _dataLayer.Children.Add(new Polyline { Points = ChartKit.Points(pts), Style = Ui.Style("RbChartReference"), StrokeDashArray = new DoubleCollection { 4, 3 }, IsHitTestVisible = false });
+                }
+                var last = s.Points[^1];
+                var text = s.Name + " " + FormatValue(last.Value, s);
+                var lab = Ui.Text(text, "RbSecondaryCaption");
+                lab.IsHitTestVisible = false;
+                lab.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                double ly = Y(last.Value) - lab.DesiredSize.Height - 1;
+                if (ly < 0) ly = Y(last.Value) + 2;
+                // two limits close together (PL1 55 W, PL2 60 W): the second label goes to the other end of its line
+                bool left = lastLabelY is { } prev && Math.Abs(prev - ly) < lab.DesiredSize.Height;
+                Canvas.SetLeft(lab, left ? Left + 6 : Left + pw - lab.DesiredSize.Width - 6);
+                Canvas.SetTop(lab, ly);
+                _dataLayer.Children.Add(lab);
+                lastLabelY = ly;
+                _referenceLabels.Add(text);
+                _referencesDrawn++;
+            }
+
         if (_hoverX is { } hx && _hasData) DrawHover(series, hx, X, Y, now, span, pw, w, ph);
 
-        AutomationProperties.SetName(_plot, Describe(plan, series, unit));
+        AutomationProperties.SetName(_plot, Describe(plan, series, unit, references));
     }
 
     void DrawHover(List<Series> series, double hoverX, Func<DateTimeOffset, double> X, Func<double, double> Y, DateTimeOffset now, TimeSpan span, double pw, double w, double ph)
@@ -338,7 +381,7 @@ sealed class TrendChart : Grid
         return v.ToString("F" + Math.Max(0, s.Row.Decimals), System.Globalization.CultureInfo.InvariantCulture) + (symbol.Length > 0 ? " " + symbol : "");
     }
 
-    string Describe(ChartPlan plan, List<Series> series, MetricUnit unit)
+    string Describe(ChartPlan plan, List<Series> series, MetricUnit unit, List<Series> references)
     {
         string lowest = Host.T("chart.min-word"), highest = Host.T("chart.max-word"), unavailable = Host.T("core.reading.unavailable");
         var parts = new List<string>();
@@ -348,6 +391,8 @@ sealed class TrendChart : Grid
             double lo = s.Points.Min(p => p.Value), hi = s.Points.Max(p => p.Value);
             parts.Add(s.Name + ": " + FormatValue(s.Points[^1].Value, s) + ", " + lowest + " " + FormatValue(lo, s) + ", " + highest + " " + FormatValue(hi, s));
         }
+        foreach (var s in references)
+            if (s.Points.Count > 0) parts.Add(Host.F("chart.reference", s.Name, FormatValue(s.Points[^1].Value, s)));
         string span = Host.F("chart.last", Host.F("chart.range-min", _range / 60));
         return GroupName(plan) + ", " + span + ". " + string.Join("; ", parts);
     }

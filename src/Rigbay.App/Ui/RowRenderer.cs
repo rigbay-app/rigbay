@@ -1,10 +1,14 @@
 using System.Runtime.CompilerServices;
 using CommunityToolkit.WinUI.Controls;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media;
 using Rigbay.Abstractions;
 using Rigbay.Core;
+using Windows.Foundation;
 
 namespace Rigbay.App;
 
@@ -14,6 +18,9 @@ namespace Rigbay.App;
 /// into the module goes through the module's fault boundary, and every change that comes from a module thread reaches the UI
 /// thread through <see cref="Ui.Post"/>. A row that changes hardware: shows what will be written, asks, applies, shows the
 /// value the module reports afterwards, and offers Revert.
+/// <para>A row's control can be drawn in three places (<see cref="Place"/>): in its own card (a group, the default), in the header of the
+/// expander that holds it (<see cref="ExpanderRow.HeaderRow"/>), or as the page's primary control (<see cref="PageModel.Primary"/>, large, in
+/// the card under the page header). The editor, the approval and Revert are the same in all three.</para>
 /// </summary>
 sealed class RowRenderer
 {
@@ -22,13 +29,30 @@ sealed class RowRenderer
 
     static readonly ConditionalWeakTable<Row, RowState> States = new();
 
+    /// <summary>Where a row's control is drawn.</summary>
+    enum Place
+    {
+        /// <summary>In a card of its own, in a group or an expander.</summary>
+        Card,
+        /// <summary>Alone, as the header control of the expander that holds it (the expander shows the header and the line).</summary>
+        Header,
+        /// <summary>Large, as the page's main control (header, live line, control; a segmented choice under them).</summary>
+        Primary,
+    }
+
     readonly ModuleEntry _e;
     readonly PageScope _scope;
+    string? _holder;   // header text of the expander whose children are being drawn: {0} of a ButtonRow.ConfirmKey question
     ILocalisation L => _e.Localisation;
 
     public int RowsRendered { get; private set; }
     /// <summary>Test hooks: one per value row, to drive the same code the controls drive.</summary>
     public List<RowDriver> Drivers { get; } = new();
+    /// <summary>The choice controls drawn so far (the self-test checks which of them became segments).</summary>
+    public List<ChoiceSelector> Choices { get; } = new();
+
+    /// <summary>The question the last <see cref="ButtonRow.ConfirmKey"/> dialog asked (self-test), or null.</summary>
+    public static string? LastConfirmQuestion { get; private set; }
 
     public RowRenderer(ModuleEntry entry, PageScope scope) { _e = entry; _scope = scope; }
 
@@ -57,21 +81,32 @@ sealed class RowRenderer
         return all;
     }
 
-    public UIElement Render(Row row)
+    public UIElement Render(Row row) => Render(row, Place.Card);
+
+    /// <summary>
+    /// The page's primary row (<see cref="PageModel.Primary"/>) drawn large, without a card of its own (the page puts it in the card under the
+    /// header): its header, description and live line at the left, the status, Revert and the control at the right; a choice of 2 to 5 short
+    /// options is a segmented control under the header.
+    /// </summary>
+    public UIElement RenderPrimary(Row row) => Render(row, Place.Primary);
+
+    UIElement Render(Row row, Place place)
     {
         RowsRendered++;
         try
         {
+            // an expander, a message or a custom control has no control of its own to put in a header or in the primary slot: drawn as a card
+            if (place != Place.Card && row is ExpanderRow or InfoRow or CustomRow) place = Place.Card;
             return row switch
             {
-                ToggleRow t => Toggle(t),
-                ChoiceRow c => Choice(c),
-                NumberRow n => Number(n),
-                TextRow x => TextEntry(x),
-                ShortcutRow s => Shortcut(s),
-                ButtonRow b => Button(b),
-                ValueRow v => ValueText(v),
-                ReadingRow r => Reading(r),
+                ToggleRow t => Toggle(t, place),
+                ChoiceRow c => Choice(c, place),
+                NumberRow n => Number(n, place),
+                TextRow x => TextEntry(x, place),
+                ShortcutRow s => Shortcut(s, place),
+                ButtonRow b => Button(b, place),
+                ValueRow v => ValueText(v, place),
+                ReadingRow r => Reading(r, place),
                 ExpanderRow ex => Expander(ex),
                 InfoRow i => Info(i),
                 CustomRow cr => Custom(cr),
@@ -88,23 +123,145 @@ sealed class RowRenderer
 
     // ---------- card + chrome ----------
 
+    static FontFamily? _icons;
+    /// <summary>The system icon font (Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets before).</summary>
+    public static FontFamily Icons => _icons ??= new FontFamily("Segoe Fluent Icons,Segoe MDL2 Assets");
+
+    /// <summary>Info glyph after a header whose row has a <see cref="Row.HelpKey"/>.</summary>
+    public const string InfoGlyph = "";
+
+    /// <summary>
+    /// The header of a row: its text, and when the row has a <see cref="Row.HelpKey"/> a small info glyph after the text, set inline so a long
+    /// header still wraps; the explanation is its tooltip and the accessible help text. A plain string when there is nothing to add.
+    /// </summary>
+    object HeaderOf(Row row, out string text, out string? help)
+    {
+        text = L.T(row.HeaderKey);
+        help = row.HelpKey is { Length: > 0 } hk ? L.T(hk) : null;
+        if (help == null) return text;
+        var tb = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        tb.Inlines.Add(new Run { Text = text });
+        tb.Inlines.Add(new Run { Text = " " + InfoGlyph, FontFamily = Icons, FontSize = 12 });
+        ToolTipService.SetToolTip(tb, help);
+        AutomationProperties.SetName(tb, text);
+        AutomationProperties.SetHelpText(tb, help);
+        return tb;
+    }
+
+    /// <summary>A live line (<see cref="Row.Line"/>) as text that follows the module; collapsed while the text is empty.</summary>
+    TextBlock LineText(IObservableValue<LocalisedText> line, string? style = null)
+    {
+        var tb = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        if (style != null) tb.Style = Ui.Style(style);
+        Ui.Tabular(tb);
+        void Show(LocalisedText v)
+        {
+            var s = v.IsEmpty ? "" : L.Resolve(v);
+            tb.Text = s;
+            tb.Visibility = s.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        Show(line.Value);
+        _scope.Bind(line, _e, Show);
+        return tb;
+    }
+
+    /// <summary>The description area of a card: the description, the live line, the hardware note; a plain string (or null) when it is only the description.</summary>
+    object? DescriptionOf(Row row, bool hardwareNote)
+    {
+        string? desc = row.DescriptionKey is { Length: > 0 } k ? L.T(k) : null;
+        if (row.Line is null && !(hardwareNote && row.ChangesHardware)) return desc;
+        var stack = new StackPanel { Spacing = 0 };
+        if (desc != null) stack.Children.Add(new TextBlock { Text = desc, TextWrapping = TextWrapping.Wrap });
+        if (row.Line is { } line) stack.Children.Add(LineText(line));
+        if (hardwareNote && row.ChangesHardware)
+            stack.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
+        return stack;
+    }
+
     SettingsCard Card(Row row, UIElement content)
     {
-        object? description;
-        string? desc = row.DescriptionKey is { Length: > 0 } k ? L.T(k) : null;
-        if (row.ChangesHardware)
-        {
-            var stack = new StackPanel { Spacing = 0 };
-            if (desc != null) stack.Children.Add(new TextBlock { Text = desc, TextWrapping = TextWrapping.Wrap });
-            stack.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
-            description = stack;
-        }
-        else description = desc;
-        var card = new SettingsCard { Header = L.T(row.HeaderKey), Description = description!, Content = content };
+        var card = new SettingsCard { Header = HeaderOf(row, out var text, out var help), Description = DescriptionOf(row, hardwareNote: true)!, Content = content };
+        // the card's accessible name is its header text, also when the header carries a glyph (search and tests find a row by it)
+        AutomationProperties.SetName(card, text);
+        if (help != null) AutomationProperties.SetHelpText(card, help);
         card.IsEnabled = row.Enabled.Value;
         _scope.Bind(row.Enabled, _e, v => card.IsEnabled = v);
         return card;
     }
+
+    /// <summary>A control on its own (an expander's header control): carries the row's Enabled.</summary>
+    UIElement Bare(Row row, UIElement content)
+    {
+        var host = new ContentControl { Content = content, IsTabStop = false, VerticalAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Right };
+        host.IsEnabled = row.Enabled.Value;
+        _scope.Bind(row.Enabled, _e, v => host.IsEnabled = v);
+        return host;
+    }
+
+    /// <summary>
+    /// The primary block: header (with its glyphs), description and live line at the left; the chrome (status, Revert, Apply, the control) at the
+    /// right; <paramref name="below"/> (a segmented choice) under them across the width.
+    /// </summary>
+    UIElement Primary(Row row, UIElement chrome, UIElement? below)
+    {
+        var grid = new Grid { ColumnSpacing = 16, RowSpacing = 2 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var headerObj = HeaderOf(row, out var text, out var help);
+        var header = headerObj as TextBlock ?? new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        header.Style = Ui.Style("RbPrimaryHeader");
+        AutomationProperties.SetHeadingLevel(header, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
+        grid.Children.Add(header);
+
+        var sub = new StackPanel { Spacing = 0 };
+        if (row.DescriptionKey is { Length: > 0 } dk) sub.Children.Add(Ui.Text(L.T(dk), "RbSecondaryCaption", wrap: true));
+        if (row.Line is { } line) sub.Children.Add(LineText(line, "RbSecondaryCaption"));
+        if (row.ChangesHardware) sub.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
+        Grid.SetRow(sub, 1);
+        grid.Children.Add(sub);
+
+        if (chrome is FrameworkElement fe) { fe.VerticalAlignment = VerticalAlignment.Center; fe.HorizontalAlignment = HorizontalAlignment.Right; }
+        Grid.SetColumn((FrameworkElement)chrome, 1);
+        Grid.SetRowSpan((FrameworkElement)chrome, 2);
+        grid.Children.Add(chrome);
+
+        if (below is FrameworkElement b)
+        {
+            b.Margin = new Thickness(0, 10, 0, 0);
+            Grid.SetRow(b, 2);
+            Grid.SetColumnSpan(b, 2);
+            grid.Children.Add(b);
+        }
+
+        var host = new ContentControl { Content = grid, IsTabStop = false, HorizontalContentAlignment = HorizontalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch };
+        AutomationProperties.SetName(host, text);
+        if (help != null) AutomationProperties.SetHelpText(host, help);
+        void Enable(bool on)
+        {
+            host.IsEnabled = on;
+            // text does not grey out by itself outside a control template
+            header.Style = Ui.Style(on ? "RbPrimaryHeader" : "RbPrimaryHeaderDisabled");
+            sub.Opacity = on ? 1 : 0.6;
+        }
+        Enable(row.Enabled.Value);
+        _scope.Bind(row.Enabled, _e, Enable);
+        PrimaryRow = row;
+        return host;
+    }
+
+    /// <summary>The row drawn by <see cref="RenderPrimary"/> (self-test), or null.</summary>
+    public Row? PrimaryRow { get; private set; }
+
+    UIElement Finish(Row row, UIElement content, Place place, UIElement? below = null) => place switch
+    {
+        Place.Header => Bare(row, content),
+        Place.Primary => Primary(row, content, below),
+        _ => Card(row, content),
+    };
 
     sealed class Chrome
     {
@@ -114,13 +271,14 @@ sealed class RowRenderer
         public Button Discard = new() { Content = Host.T("row.discard"), Visibility = Visibility.Collapsed };
         public Button Apply = new() { Content = Host.T("row.apply"), Visibility = Visibility.Collapsed, Style = Ui.Style("AccentButtonStyle") };
 
-        public Chrome(UIElement control)
+        /// <param name="control">The row's control, last in the panel; null when it is drawn elsewhere (a primary choice sits under the header).</param>
+        public Chrome(UIElement? control)
         {
             Panel.Children.Add(Status);
             Panel.Children.Add(Revert);
             Panel.Children.Add(Discard);
             Panel.Children.Add(Apply);
-            Panel.Children.Add(control);
+            if (control != null) Panel.Children.Add(control);
         }
 
         public void SetStatus(string text, bool error)
@@ -253,41 +411,51 @@ sealed class RowRenderer
 
     // ---------- the row kinds ----------
 
-    UIElement Toggle(ToggleRow t)
+    UIElement Toggle(ToggleRow t, Place place)
     {
         bool suppress = false;
         var sw = new ToggleSwitch { IsOn = t.Value.Value, OnContent = "", OffContent = "", MinWidth = 0 };
         AutomationProperties.SetName(sw, L.T(t.HeaderKey));
-        var chrome = new Chrome(sw);
+        UIElement control = sw;
+        TextBlock? word = null;
+        if (place == Place.Primary)
+        {
+            // the primary switch says its state in words, at its left (Windows Settings' Bluetooth card)
+            word = Ui.Text("", "RbSecondaryText");
+            var pair = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+            pair.Children.Add(word);
+            pair.Children.Add(sw);
+            control = pair;
+        }
+        void Word() { if (word != null) word.Text = Host.T(sw.IsOn ? "value.on" : "value.off"); }
+        Word();
+        var chrome = new Chrome(control);
         var editor = RowEditors.For(_e, t); var state = StateOf(t);
         var edit = Wire(t, editor, state, chrome, () => t.Value.Value, v => Host.T(v ? "value.on" : "value.off"),
-            v => { if (sw.IsOn != v) { suppress = true; sw.IsOn = v; suppress = false; } });
-        sw.Toggled += (_, _) => { if (!suppress) edit(sw.IsOn); };
-        return Card(t, chrome.Panel);
+            v => { if (sw.IsOn != v) { suppress = true; sw.IsOn = v; suppress = false; } Word(); });
+        sw.Toggled += (_, _) => { Word(); if (!suppress) edit(sw.IsOn); };
+        return Finish(t, chrome.Panel, place);
     }
 
-    UIElement Choice(ChoiceRow c)
+    UIElement Choice(ChoiceRow c, Place place)
     {
         bool suppress = false;
-        var cb = new ComboBox { MinWidth = 240 };
-        foreach (var o in c.Options) cb.Items.Add(new ComboBoxItem { Content = L.T(o.LabelKey), Tag = o.Id });
-        void Select(string id)
-        {
-            suppress = true;
-            cb.SelectedItem = cb.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == id);
-            suppress = false;
-        }
+        string header = L.T(c.HeaderKey);
+        var options = c.Options.Select(o => (o.Id, Label: L.T(o.LabelKey))).ToList();
+        var selector = new ChoiceSelector(options, header, primary: place == Place.Primary);
+        Choices.Add(selector);
+        void Select(string id) { suppress = true; selector.Selected = id; suppress = false; }
         Select(c.Value.Value);
-        AutomationProperties.SetName(cb, L.T(c.HeaderKey));
-        var chrome = new Chrome(cb);
+        // a primary choice sits under its header across the card; elsewhere it is the control at the right of the row
+        var chrome = new Chrome(place == Place.Primary ? null : selector);
         string Label(string id) => c.Options.FirstOrDefault(o => o.Id == id) is { } o ? L.T(o.LabelKey) : id;
         var editor = RowEditors.For(_e, c); var state = StateOf(c);
         var edit = Wire(c, editor, state, chrome, () => c.Value.Value, Label, Select);
-        cb.SelectionChanged += (_, _) => { if (!suppress && cb.SelectedItem is ComboBoxItem it) edit((string)it.Tag); };
-        return Card(c, chrome.Panel);
+        selector.Chosen += id => { if (!suppress) edit(id); };
+        return Finish(c, chrome.Panel, place, place == Place.Primary ? selector : null);
     }
 
-    UIElement Number(NumberRow n)
+    UIElement Number(NumberRow n, Place place)
     {
         bool suppress = false;
         var nb = new NumberBox
@@ -312,10 +480,10 @@ sealed class RowRenderer
             v => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + (unit.Length > 0 ? " " + unit : ""),
             v => { if (nb.Value != v) { suppress = true; nb.Value = v; suppress = false; } });
         nb.ValueChanged += (_, e) => { if (!suppress && !double.IsNaN(e.NewValue)) edit(e.NewValue); };
-        return Card(n, chrome.Panel);
+        return Finish(n, chrome.Panel, place);
     }
 
-    UIElement TextEntry(TextRow x)
+    UIElement TextEntry(TextRow x, Place place)
     {
         bool suppress = false;
         // never the width of the text (a long path used to widen the box and squeeze the label), but not a fixed 280 either (E2E-06): half of the row, at least 280, at most 560
@@ -327,9 +495,10 @@ sealed class RowRenderer
         var editor = RowEditors.For(_e, x); var state = StateOf(x);
         var edit = Wire(x, editor, state, chrome, () => x.Value.Value, v => v, v => { if (tb.Text != v) { suppress = true; tb.Text = v; suppress = false; } });
         tb.TextChanged += (_, _) => { Tip(); if (!suppress) edit(tb.Text); };
-        var card = Card(x, chrome.Panel);
-        card.SizeChanged += (_, e) => { var w = TextBoxWidthFor(e.NewSize.Width); if (Math.Abs(tb.Width - w) >= 1) tb.Width = w; };
-        return card;
+        var built = Finish(x, chrome.Panel, place);
+        if (built is FrameworkElement card)
+            card.SizeChanged += (_, e) => { var w = TextBoxWidthFor(e.NewSize.Width); if (Math.Abs(tb.Width - w) >= 1) tb.Width = w; };
+        return built;
     }
 
     public const double TextBoxMinWidth = 280, TextBoxMaxWidth = 560;
@@ -338,7 +507,7 @@ sealed class RowRenderer
     public static double TextBoxWidthFor(double rowWidth) =>
         double.IsNaN(rowWidth) || rowWidth <= 0 ? TextBoxMinWidth : Math.Clamp(Math.Floor(rowWidth * 0.5), TextBoxMinWidth, TextBoxMaxWidth);
 
-    UIElement Shortcut(ShortcutRow s)
+    UIElement Shortcut(ShortcutRow s, Place place)
     {
         string Show(HotkeyGesture? g) => g?.ToString() ?? Host.T("row.shortcut-none");
         var btn = new Button { Content = Show(s.Value.Value), MinWidth = 140 };
@@ -355,16 +524,26 @@ sealed class RowRenderer
             }
             catch (Exception ex) { AppLog.For(_e.Id).Error("shortcut capture failed", ex); }
         };
-        return Card(s, chrome.Panel);
+        return Finish(s, chrome.Panel, place);
     }
 
-    UIElement Button(ButtonRow b)
+    UIElement Button(ButtonRow b, Place place)
     {
         var btn = new Button { Content = L.T(b.ButtonKey) };
+        AutomationProperties.SetName(btn, L.T(b.ButtonKey));
+        if (place == Place.Primary)
+        {
+            // the module's main action: the accent button, a size up (Windows Update's "Check for updates")
+            btn.Style = Ui.Style("AccentButtonStyle");
+            btn.MinWidth = 132;
+            btn.MinHeight = 36;
+            btn.Padding = new Thickness(20, 6, 20, 7);
+        }
         var chrome = new Chrome(btn);
         if (b.RevertButtonKey is { Length: > 0 } rk) chrome.Revert.Content = L.T(rk);   // the module's own word for the revert action
         var state = StateOf(b);
         bool busy = false;
+        string? holder = _holder ?? L.T(b.HeaderKey);   // what a ConfirmKey question names: the expander the button sits in, else the row
         string Message(ActionResult? r) => r?.Message is { } m && !string.IsNullOrEmpty(m.Key)
             ? (m.Key.StartsWith("core.", StringComparison.Ordinal) ? Host.Core.Languages.F(m.Key, m.Args ?? Array.Empty<object>()) : L.Resolve(m))
             : "";
@@ -382,6 +561,12 @@ sealed class RowRenderer
             busy = true; btn.IsEnabled = false;
             try
             {
+                if (!await ConfirmAsync(b, holder))
+                {
+                    // the answer was no: nothing ran
+                    state.Status = Host.T("row.cancelled"); state.StatusError = false;
+                    return;
+                }
                 string? detail = b.ChangesHardware ? $"{L.T(b.HeaderKey)}: {L.T(b.ButtonKey)}" : null;
                 var result = await RowEditors.InvokeButtonAsync(_e, b, _e.StopToken, detail);
                 var msg = Message(result);
@@ -415,18 +600,48 @@ sealed class RowRenderer
             Edit = _ => Click(), Apply = Click, Revert = Revert,
             Status = () => state.Status, CanRevert = () => state.ButtonCanRevert,
         });
-        return Card(b, chrome.Panel);
+        return Finish(b, chrome.Panel, place);
     }
 
-    UIElement ValueText(ValueRow v)
+    /// <summary>
+    /// The question of a <see cref="ButtonRow.ConfirmKey"/>: a dialog titled with the question (its <c>{0}</c> is <paramref name="holder"/>),
+    /// the row's description as its text, the button's own label on the action and Cancel. True to go on. A row with a hardware effect is not
+    /// asked here: its approval asks. The self-test and screenshots answer through <see cref="ApprovalPrompt.TestAnswer"/>.
+    /// </summary>
+    async Task<bool> ConfirmAsync(ButtonRow b, string holder)
+    {
+        if (b.ConfirmKey is not { Length: > 0 } key || b.ChangesHardware) return true;
+        var question = L.Resolve(new LocalisedText(key, new object[] { holder }));
+        LastConfirmQuestion = question;
+        AppLog.For(_e.Id).Info("confirmation asked: " + question);
+        if (ApprovalPrompt.TestAnswer is { } canned) return canned;
+        var root = Host.Window?.Content?.XamlRoot;
+        if (root == null) return false;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = question,
+            Content = b.DescriptionKey is { Length: > 0 } dk ? Ui.Text(L.T(dk), "RbSecondaryText", wrap: true) : null,
+            PrimaryButtonText = L.T(b.ButtonKey),
+            CloseButtonText = Host.T("row.confirm-cancel"),
+            // Enter does not delete: no default button; the action wears the accent because it is what the dialog is about
+            DefaultButton = ContentDialogButton.None,
+            PrimaryButtonStyle = Ui.Style("AccentButtonStyle"),
+            RequestedTheme = ((FrameworkElement)Host.Window!.Content).ActualTheme,
+        };
+        try { return await dialog.ShowAsync() == ContentDialogResult.Primary; }
+        catch (Exception ex) { AppLog.For(_e.Id).Error("confirmation dialog failed", ex); return false; }
+    }
+
+    UIElement ValueText(ValueRow v, Place place)
     {
         var tb = new TextBlock { Text = v.Value.Value, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, IsTextSelectionEnabled = true, MaxWidth = 460 };   // read-only status text wraps, it is never cut (E2E-06)
         Ui.Tabular(tb);
         _scope.Bind(v.Value, _e, s => tb.Text = s);
-        return Card(v, tb);
+        return Finish(v, tb, place);
     }
 
-    UIElement Reading(ReadingRow r)
+    UIElement Reading(ReadingRow r, Place place)
     {
         var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 72, TextAlignment = TextAlignment.Right };
         Ui.Tabular(tb);
@@ -446,7 +661,7 @@ sealed class RowRenderer
         _scope.Tick(spark.Redraw);
         var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, VerticalAlignment = VerticalAlignment.Center, Children = { spark, tb } };
         Sparklines.Add(spark);
-        return Card(r, content);
+        return Finish(r, content, place);
     }
 
     /// <summary>The sparklines of the reading rows rendered so far (the self-test counts them).</summary>
@@ -480,17 +695,27 @@ sealed class RowRenderer
     {
         var x = new SettingsExpander
         {
-            Header = L.T(ex.HeaderKey),
-            Description = ex.DescriptionKey is { Length: > 0 } k ? L.T(k) : "",
+            Header = HeaderOf(ex, out var text, out var help),
+            Description = DescriptionOf(ex, hardwareNote: false) ?? "",
             IsExpanded = ex.IsExpanded,
         };
+        AutomationProperties.SetName(x, text);
+        if (help != null) AutomationProperties.SetHelpText(x, help);
+        // a control in the expander's own header (a tunnel's switch): visible and usable while the expander is closed
+        if (ex.HeaderRow is { } head) x.Content = Render(head, Place.Header);
         // The expander gives every item the SettingsCard style, so only a SettingsCard can sit in it directly (an InfoBar throws when it is expanded);
         // anything else is carried inside a card that lets it use the full width.
-        foreach (var child in ex.Children)
+        var outer = _holder;
+        _holder = text;   // the object a ConfirmKey question inside names
+        try
         {
-            var el = Render(child);
-            x.Items.Add(el is SettingsCard ? el : new SettingsCard { Content = el, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Stretch });
+            foreach (var child in ex.Children)
+            {
+                var el = Render(child);
+                x.Items.Add(el is SettingsCard ? el : new SettingsCard { Content = el, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Stretch });
+            }
         }
+        finally { _holder = outer; }
         x.IsEnabled = ex.Enabled.Value;
         _scope.Bind(ex.Enabled, _e, v => x.IsEnabled = v);
         return x;
@@ -524,5 +749,140 @@ sealed class RowRenderer
             Description = cr.DescriptionKey is { Length: > 0 } k ? L.T(k) : "",
             Content = ui, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Left,
         };
+    }
+}
+
+/// <summary>
+/// One option from a short list. Drawn as a segmented control when the options are few and short (2 to 4 of at most 16 characters in a row,
+/// 2 to 5 of at most 20 as a page's primary control): the stock <see cref="RadioButtons"/> with each option drawn as a segment, so it is one tab
+/// stop, the arrow keys move the choice and a screen reader hears "Maximum, radio button, 2 of 2". A drop-down otherwise, and also when the
+/// place it gets is narrower than the segments (a narrow window). Nothing is selected while the module's value is not one of the options.
+/// </summary>
+sealed class ChoiceSelector : Grid
+{
+    /// <summary>Most options drawn as segments in a row, and as a page's primary control.</summary>
+    public const int MaxRowSegments = 4, MaxPrimarySegments = 5;
+    /// <summary>Longest option label drawn as a segment, in a row and as a primary control.</summary>
+    public const int MaxRowLabel = 16, MaxPrimaryLabel = 20;
+    /// <summary>Widest a segmented control in a row may be before it is a drop-down (it sits at the right of the row's text).</summary>
+    public const double MaxRowWidth = 380;
+
+    const double Gap = 2, TrackPad = 3;
+
+    readonly List<(string Id, string Label)> _options;
+    readonly RadioButtons? _segments;
+    readonly Border? _track;
+    readonly ComboBox _combo;
+    readonly double _needed;
+    bool _useSegments;
+    bool _suppress;
+    string? _selected;
+
+    /// <summary>The user picked an option (not raised when <see cref="Selected"/> is set from code).</summary>
+    public event Action<string>? Chosen;
+
+    /// <summary>True while the segments are on screen (false: the drop-down).</summary>
+    public bool ShowsSegments => _useSegments;
+    /// <summary>True when the options can be segments at all (count and length).</summary>
+    public bool CanSegment => _segments != null;
+    /// <summary>The width the segments need.</summary>
+    public double SegmentsWidth => _needed;
+    public RadioButtons? Segments => _segments;
+    public ComboBox Combo => _combo;
+
+    /// <summary>True when <paramref name="labels"/> can be drawn as segments (count and length of the labels).</summary>
+    public static bool Suits(IReadOnlyList<string> labels, bool primary) =>
+        labels.Count >= 2 && labels.Count <= (primary ? MaxPrimarySegments : MaxRowSegments) && labels.All(l => l.Length <= (primary ? MaxPrimaryLabel : MaxRowLabel));
+
+    public ChoiceSelector(IReadOnlyList<(string Id, string Label)> options, string name, bool primary)
+    {
+        _options = options.ToList();
+        VerticalAlignment = VerticalAlignment.Center;
+        HorizontalAlignment = primary ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+
+        _combo = new ComboBox { MinWidth = primary ? 220 : 240, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var (id, label) in _options) _combo.Items.Add(new ComboBoxItem { Content = label, Tag = id });
+        AutomationProperties.SetName(_combo, name);
+        _combo.SelectionChanged += (_, _) =>
+        {
+            if (!_suppress && _combo.SelectedItem is ComboBoxItem it) Pick((string)it.Tag);
+        };
+        Children.Add(_combo);
+
+        var labels = _options.Select(o => o.Label).ToList();
+        if (Suits(labels, primary))
+        {
+            // every segment as wide as the widest label set in its selected weight, so the choice does not shift the row
+            double widest = 0;
+            foreach (var l in labels)
+            {
+                var probe = new TextBlock { Text = l, FontSize = 14, FontWeight = FontWeights.SemiBold };
+                probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                widest = Math.Max(widest, probe.DesiredSize.Width);
+            }
+            double seg = Math.Ceiling(Math.Max(widest + 32, primary ? 112 : 72));
+            _needed = labels.Count * seg + (labels.Count - 1) * Gap + 2 * TrackPad + 2;
+            if (primary || _needed <= MaxRowWidth)
+            {
+                _segments = new RadioButtons { MaxColumns = labels.Count, HorizontalAlignment = HorizontalAlignment.Left };
+                _segments.Resources["RadioButtonsColumnSpacing"] = Gap;
+                _segments.Resources["RadioButtonsTopHeaderMargin"] = new Thickness(0);
+                foreach (var (id, label) in _options)
+                {
+                    var item = new RadioButton { Content = label, Tag = id, Width = seg, Style = Ui.Style(primary ? "RbSegmentLarge" : "RbSegment") };
+                    AutomationProperties.SetName(item, label);
+                    _segments.Items.Add(item);
+                }
+                AutomationProperties.SetName(_segments, name);
+                _segments.SelectionChanged += (_, _) =>
+                {
+                    if (!_suppress && _segments.SelectedIndex >= 0 && _segments.SelectedIndex < _options.Count) Pick(_options[_segments.SelectedIndex].Id);
+                };
+                _track = new Border { Style = Ui.Style("RbSegmentTrack"), Padding = new Thickness(TrackPad), Child = _segments, HorizontalAlignment = HorizontalAlignment.Left };
+                Children.Add(_track);
+                _useSegments = true;
+                _combo.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    void Pick(string id)
+    {
+        _selected = id;
+        Chosen?.Invoke(id);
+    }
+
+    /// <summary>The selected option's id; an id that is not an option (or null) selects nothing.</summary>
+    public string? Selected
+    {
+        get => _selected;
+        set
+        {
+            _selected = value;
+            int index = _options.FindIndex(o => o.Id == value);
+            _suppress = true;
+            try
+            {
+                _combo.SelectedIndex = index;
+                if (_segments != null) _segments.SelectedIndex = index;
+            }
+            finally { _suppress = false; }
+        }
+    }
+
+    protected override Size MeasureOverride(Size available)
+    {
+        // the segments when they fit the place this control gets, the drop-down when they do not (a narrow window)
+        if (_track != null)
+        {
+            bool fits = double.IsInfinity(available.Width) || available.Width >= _needed;
+            if (fits != _useSegments)
+            {
+                _useSegments = fits;
+                _track.Visibility = fits ? Visibility.Visible : Visibility.Collapsed;
+                _combo.Visibility = fits ? Visibility.Collapsed : Visibility.Visible;
+            }
+        }
+        return base.MeasureOverride(available);
     }
 }
