@@ -30,13 +30,18 @@ static class SelfTest
         AppLog.Info(line);
     }
 
-    /// <summary>A check that was not run, with the reason; counted neither as passed nor as failed.</summary>
+    /// <summary>
+    /// A check that is not run, with the reason: neither a pass nor a failure. Used under --allow-multi for the checks that would reach another
+    /// Rigbay running on the machine (the owner's real one): its pipe and its single-instance mutex.
+    /// </summary>
     static void Skip(string name, string why)
     {
         var line = $"SELFTEST SKIP {name}: {why}";
         Lines.Add(line);
         AppLog.Info(line);
     }
+
+    const string SiblingReason = "--allow-multi: this instance has no pipe server and no single-instance mutex, so the check would reach another Rigbay running on this machine";
 
     public static async Task Run(MainWindow w)
     {
@@ -708,8 +713,7 @@ static class SelfTest
                 listed.Split('\n').Any(l => l.StartsWith("demo-future") && (l.Contains("  enabled") || l.Contains("  disabled"))) && listed.Contains("demo-fan  "), listed.ReplaceLineEndings(" | "));
         }
         await Cmd("hardware verb refused without approval", new[] { "demo-fan", "max" }, 1);
-        // with --allow-multi this instance has no pipe; the pipe of that name belongs to another Rigbay (maybe the owner's own), which must not get commands
-        if (Host.Options.AllowMulti) { Skip("command: forwarded to the running instance over the pipe", "--allow-multi: the pipe belongs to another Rigbay"); return; }
+        if (Host.Options.AllowMulti) { Skip("command: forwarded to the running instance over the pipe", SiblingReason); return; }
         var piped = await InstanceServer.SendAsync(new[] { "cmd", "demo-fan", "status" });
         R("command: forwarded to the running instance over the pipe", piped is { Exit: 0 } && piped.Value.Output.Contains("mode="), $"{piped?.Exit} '{piped?.Output}'");
     }
