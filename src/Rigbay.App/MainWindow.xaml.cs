@@ -985,13 +985,7 @@ public sealed partial class MainWindow : Window
                     _ = driver.Revert();
                     break;
                 }
-                case "capture":   // capture:<shortcut row header key> on the open module page: what the row's button does ("Press the new shortcut"); not awaited, so the dialog stays open for a screenshot
-                {
-                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == arg && d.Row is ShortcutRow);
-                    if (driver == null) { AppLog.Warn("script: no shortcut row '" + arg + "' on this page"); break; }
-                    _ = CaptureDialog.AskAsync(driver.Name);
-                    break;
-                }
+                case "capture": _ = CaptureDialog.ScriptAsync(arg); break;   // capture:<shortcut row header key>[=<chord>] on the open module page: what the row's button does ("Press the new shortcut"), optionally with a chord already pressed; not awaited, so the dialog stays open for a screenshot
                 case "notice":   // notice:<module id>,<success|info|warning|error>,<title key>,<body key>: the in-window message, as that module's toast shows it while the window is in use
                 {
                     var p = arg.Split(',', StringSplitOptions.TrimEntries);

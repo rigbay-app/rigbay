@@ -1,7 +1,7 @@
 # E2E1 main flow: the first hour of a user, in SCRATCH folders, against the REAL GitHub registry and the REAL module releases.
 # Runs ELEVATED (tools\e2e\run.ps1 starts it). The app is the exe extracted from the released zip (never tools\out\app, never C:\Program Files).
 #
-#   fresh scratch -> first start -> Get the module list (github) -> Install recorder -> Undo -> Install recorder + predatorsense -> Restart now
+#   fresh scratch -> first start -> Check for modules (github) -> Install recorder -> Undo -> Install recorder + predatorsense -> Restart now
 #   -> both installed and OFF -> enable predatorsense (dialog, reads only) -> enable recorder, record 10 s to a scratch folder, check the CSV
 #   -> Remove recorder -> Restart now -> gone, files cleaned
 #
@@ -91,20 +91,20 @@ try {
     Check 'first start: the window appears' ($null -ne $w)
     Resize-Win $w 1240 1250
     Start-Sleep -Seconds 2
-    Check 'first start opens the Modules page by itself' (Has $w 'Get the module list' $script:CT::Button) 'the button "Get the module list" is on screen without any navigation'
+    Check 'first start opens the Modules page by itself' (Has $w 'Check for modules' $script:CT::Button) 'the button "Check for modules" is on screen without any navigation'
     Check 'the page shows the scratch modules folder, not ProgramData' (Has $w $mods) $mods
     Shot $w '01-first-start'
     Check 'nothing was created before the user asked: no install folder yet' (-not (Test-Path $inst)) ('present: ' + (Names $Run) -join ',')
 
     # ------------------------------------------------------------ 2. the module list from GitHub
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    [void](Click-Button $w 'Get the module list')
+    [void](Click-Button $w 'Check for modules')
     $ok = Wait-Until { Has $w 'Install Recorder' $script:CT::Button } 30
 
     Check 'registry fetched from GitHub through the page' $ok ("{0:N1} s" -f $sw.Elapsed.TotalSeconds)
     Start-Sleep -Milliseconds 600
     foreach ($m in 'PredatorSense', 'Recorder', 'Steam access', 'XTU profiles') { Check "list shows $m with an Install button" (Has $w "Install $m" $script:CT::Button) }
-    Check 'the list says when it was checked' (Has $w 'Module list checked')
+    Check 'the list says when it was checked' (Has $w 'List checked')
     foreach ($id in 'predatorsense', 'recorder', 'steam-bypass', 'xtu') { Check "registry entry $id exists on GitHub" ($regOf.ContainsKey($id)) }
     if ($regOf.ContainsKey('predatorsense')) {
         $v = $regOf['predatorsense'].versions[-1]
@@ -115,12 +115,12 @@ try {
     $pb = $w.FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.AndCondition (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'PredatorSense'), (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), $script:CT::Button))) | Select-Object -First 1
     if ($pb) { try { $pb.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand(); Start-Sleep -Milliseconds 700 } catch { } }
     Check 'details show the SHA-256, the source link and what it declares' ((Has $w 'SHA-256 of the zip') -and (Has $w 'github.com/rigbay-app/module-predatorsense') -and (Has $w 'AcerGamingFunction'))
-    Check 'details say "Works on this PC: not known until it is installed"' (Has $w 'Not known until it is installed')
+    Check 'details say "Works on this PC: known after it is installed"' (Has $w 'Known after it is installed')
     Shot $w '03-details-predatorsense'
     if ($pb) { try { $pb.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse() } catch { } }
     # a second request is conditional (If-None-Match): GitHub answers 304 and the app keeps its copy
-    [void](Click-Button $w 'Check for updates')
-    Check 'Check for updates again: GitHub answers 304, the saved list is kept' (Wait-Until { Select-String -Path (Join-Path $data 'logs\rigbay.log') -Pattern 'registry: not modified' -Quiet } 20)
+    [void](Click-Button $w 'Check for modules')
+    Check 'Check for modules again: GitHub answers 304, the saved list is kept' (Wait-Until { Select-String -Path (Join-Path $data 'logs\rigbay.log') -Pattern 'registry: not modified' -Quiet } 20)
 
     # ------------------------------------------------------------ 3. install recorder (watch the states), look, undo
     $seen = New-Object System.Collections.Generic.List[string]
@@ -184,15 +184,15 @@ try {
     Shot $w '08-after-restart-dashboard'
     Check 'modules\ now holds both, ready\ and pending are empty' (((Names $mods) -contains 'recorder') -and ((Names $mods) -contains 'predatorsense') -and ((Names (Join-Path $inst 'ready')).Count -eq 0) -and ((@((Pend).ops)).Count -eq 0)) ((Names $mods) -join ',')
     Nav $w 'Modules'
-    Check 'Modules page reports what the start applied, both installed turned off' ((Has $w 'At the last start') -and (Has $w ('Recorder ' + (RegVersion 'recorder') + ' was installed')) -and (Has $w ('PredatorSense ' + (RegVersion 'predatorsense') + ' was installed')))
-    Check 'both switches are off' (-not (Get-Toggle (Find-El $w 'Enable PredatorSense' $script:CT::Button)) -and -not (Get-Toggle (Find-El $w 'Enable Recorder' $script:CT::Button)))
+    Check 'Modules page reports what the start applied, both installed turned off' ((Has $w 'At the last start') -and (Has $w ('Recorder ' + (RegVersion 'recorder') + ' installed.')) -and (Has $w ('PredatorSense ' + (RegVersion 'predatorsense') + ' installed.')))
+    Check 'both switches are off' (-not (Get-Toggle (Find-El $w 'Turn on PredatorSense' $script:CT::Button)) -and -not (Get-Toggle (Find-El $w 'Turn on Recorder' $script:CT::Button)))
     Check 'host.json: nothing is enabled yet' ((Enabled).Count -eq 0)
     Shot $w '09-after-restart-modules'
 
     # ------------------------------------------------------------ 5. PredatorSense: enable through the dialog, READ only
     Nav $w 'PredatorSense'
     Shot $w '10-predatorsense-off'
-    $tg = Find-El $w 'Enable PredatorSense' $script:CT::Button
+    $tg = Find-El $w 'Turn on PredatorSense' $script:CT::Button
     $tg.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 1500
     Check 'turn-on dialog names the declarations: administrator, the Acer service, the WMI class' ((Has $w 'Turn on PredatorSense?') -and (Has $w 'Administrator rights') -and (Has $w 'AcerGamingFunction') -and (Has $w 'PSSvc') -and (Has $w 'does not enforce it'))
@@ -216,7 +216,7 @@ try {
 
     # ------------------------------------------------------------ 6. recorder: enable, record 10 s into a scratch folder, check the CSV
     Nav $w 'Recorder'
-    $tg = Find-El $w 'Enable Recorder' $script:CT::Button
+    $tg = Find-El $w 'Turn on Recorder' $script:CT::Button
     $tg.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 1500
     Check 'recorder dialog lists its two registry reads' ((Has $w 'Turn on Recorder?') -and (Has $w 'HARDWARE\DESCRIPTION\System\BIOS') -and (Has $w 'CentralProcessor'))
@@ -278,7 +278,7 @@ try {
     Start-Sleep -Seconds 2
     $pend = Pend
     Check 'removal is queued, nothing deleted yet' ((@($pend.ops)).Count -eq 1 -and $pend.ops[0].op -eq 'remove' -and (Test-Path (Join-Path $mods 'recorder\module.json')))
-    Check 'row says "Is removed after the restart" and offers Undo' ((Has $w 'Is removed after the restart') -and (Has $w 'Undo the change to Recorder' $script:CT::Button))
+    Check 'row says "Removed after the restart" and offers Undo' ((Has $w 'Removed after the restart') -and (Has $w 'Undo the change to Recorder' $script:CT::Button))
     Shot $w '20-remove-queued'
     $oldPid = $p.Id
     [void](Click-Button $w 'Restart now')
@@ -290,10 +290,10 @@ try {
     Resize-Win $w 1240 1250
     Start-Sleep -Seconds 4
     Nav $w 'Modules'
-    Check 'Modules page: "At the last start" says the recorder was removed' ((Has $w 'At the last start') -and (Has $w 'was removed'))
-    Say ('  report line: ' + ((Get-Texts $w | Where-Object { $_ -match 'was removed' }) -join ' | '))
-    Check 'the removal report names the module by its display name "Recorder" (finding E2E-04)' (@(Get-Texts $w) -clike '*] Recorder was removed*').Count -gt 0
-    Check 'Recorder is gone from the Installed list and the nav pane' (-not (Has $w 'Enable Recorder' $script:CT::Button) -and -not (Test-El $w 'Recorder' $script:CT::ListItem))
+    Check 'Modules page: "At the last start" says the recorder was removed' ((Has $w 'At the last start') -and (Has $w 'Recorder removed'))
+    Say ('  report line: ' + ((Get-Texts $w | Where-Object { $_ -match ' removed.' }) -join ' | '))
+    Check 'the removal report names the module by its display name "Recorder" (finding E2E-04)' (@(Get-Texts $w) -clike '*] Recorder removed*').Count -gt 0
+    Check 'Recorder is gone from the Installed list and the nav pane' (-not (Has $w 'Turn on Recorder' $script:CT::Button) -and -not (Test-El $w 'Recorder' $script:CT::ListItem))
     Check 'Recorder is offered again under Available' (Has $w 'Install Recorder' $script:CT::Button)
     Check 'PredatorSense came back Running (it stayed enabled)' (Has $w 'Running')
     Shot $w '21-after-remove-modules'

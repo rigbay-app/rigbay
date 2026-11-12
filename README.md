@@ -21,7 +21,7 @@ install them with `winget`. The files are **not code-signed**, so Windows SmartS
 
 1. Download `Rigbay-0.1.1-win-x64.zip` from the [latest release](https://github.com/rigbay-app/rigbay/releases) and extract it.
 2. In an administrator PowerShell, in the extracted folder: `powershell -ExecutionPolicy Bypass -File .\install.ps1` (add `-WhatIf` to see the steps first).
-3. Start **Rigbay** from the Start menu, open **Modules**, press **Get the module list**, install a module, restart, turn it on.
+3. Start **Rigbay** from the Start menu, open **Modules**, press **Check for modules**, install a module, restart, turn it on.
 
 The script copies the app to `C:\Program Files\Rigbay`, creates `C:\ProgramData\Rigbay\modules` (administrators only), adds a Start menu shortcut, an optional
 "start at logon" task (`-NoTask` skips it) and an Uninstall entry. Nothing else is changed. `uninstall.ps1` removes all of that and keeps your modules and
