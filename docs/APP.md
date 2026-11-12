@@ -141,7 +141,7 @@ already pressed) and
   with the phase and "16 KB / 23.9 KB" and a Cancel button. A registry line says whether the list is fresh, saved on this PC, **offline** (showing the
   list saved on that date), unreachable, or not valid. **Restart required** is an amber bar with **Restart now** and a dot on Modules in the pane. The page
   redraws itself when something changes, with scroll, open rows and focus kept; progress ticks only move the bar. The first start with no module at all
-  opens this page once, with "Get the module list". Short copy, no cards, language keys `modules.*` and `decl.*` in en and vi, errors `core.install.*` in Core.
+  opens this page once, with "Check for modules". Short copy, no cards, language keys `modules.*` and `decl.*` in en and vi, errors `core.install.*` in Core.
   How it works, what it protects and what not: `docs/INSTALL.md`; the list and its rules: `docs/REGISTRY.md`.
 - **Settings.** Language (switches at once, module strings too), theme (system, light, dark), start with Windows, log level, **check for module updates
   every day (off by default; asks github.com once a day, sends no identifier)**, open the log folder, and the hotkeys of all modules with conflicts marked.
@@ -306,11 +306,14 @@ The A9 changes in the Core (`docs/ABSTRACTIONS.md`, "0.1 after A9") needed these
   ("Reverted: Fan mode is now Auto (was Maximum)"); a declined revert writes nothing, keeps the Revert link and says so. A button's
   Revert link uses `ButtonRow.RevertButtonKey` as its label. `HardwareEffect.SafeRevert` rows ask nothing and the status line names
   what was written.
-- **Approval dialog.** `ApprovalRequest.IsRevert` gives it its own title ("Change your hardware back?"), button ("Revert") and hint; the
-  bold line is the exact "Fan mode: Maximum → Auto" the Core builds. Keys `approval.revert-title`, `approval.revert-apply`,
-  `approval.hint-revert` (en, vi).
-- **System-setting wording (F1).** `HardwareEffect.Kind = EffectKind.SystemSetting` (`ApprovalRequest.Kind`) gives the dialog "Change a system setting?" /
-  "Change a system setting back?", the hint `approval.hint-revert-setting` and the row line "Changes a Windows setting. Rigbay asks before it applies."
+- **Approval dialog** (UI review package C, DL-1 and DL-2). The title is the change, built from the detail the host makes for a row ("Fan mode: Auto → Maximum"
+  becomes "Set fan mode to Maximum?"; a revert, `ApprovalRequest.IsRevert`, "Revert fan mode to Auto?"); then the module's effect sentence; then one caption
+  "module · now Auto · you can revert it on the page". The primary button names the change ("Set to Maximum", "Revert to Auto") and wears the accent;
+  there is no default button and focus starts on Cancel (`Dialogs.Confirm`, also used by the turn-on and capture dialogs), so Enter alone never writes.
+  A detail in another shape (a module-started write with its own words) keeps the general title "Change your hardware?" / "Revert this hardware change?"
+  with the detail as a bold line. Keys `approval.*` (en, vi).
+- **System-setting wording (F1).** `HardwareEffect.Kind = EffectKind.SystemSetting` (`ApprovalRequest.Kind`) gives the general titles "Change a Windows setting?" /
+  "Revert this Windows setting?" and the row line "Changes a Windows setting. Rigbay asks first."
   (`approval.title-setting`, `approval.revert-title-setting`, `row.system-note`; en, vi). The demo module has a "Web proxy" row for it; shots
   `approval-system-{dark,light,vi-dark}`, `revert-system-{dark,light}`. **`TextRow`** is a box at the right of the label, 280 px in 0.1.0 and since 0.1.1 half of the row between 280 and 560 px with the whole text as a tooltip (it used to take the width of its
   text, so a long path squeezed the label and description): see `textrow-tall-{dark,light}`, `textrow-narrow-dark`.
