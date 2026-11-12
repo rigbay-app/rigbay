@@ -13,7 +13,7 @@ $scratch = Join-Path $PSScriptRoot 'out\selftest-install'
 $ids = @(Get-ChildItem $src -Directory | ForEach-Object Name)
 & "$PSScriptRoot\make-local-registry.ps1" -Source $src -Out $scratch -Installed $ids -InstallableId demo-extra -InstallableName 'Extra lighting (demo)' | Out-Null
 try {
-    $multi = if ($AllowMulti) { @('--allow-multi') } else { @() }
+    $multi = @(if ($AllowMulti) { '--allow-multi' })   # @(if ...) keeps a one-element array in Windows PowerShell 5.1 (the old form unrolled it to a string)
     $appArgs = @{}; if ($AppDir) { $appArgs.AppDir = (Resolve-Path $AppDir).Path }
     $code = & "$PSScriptRoot\run-elevated.ps1" @appArgs -Wait -Data $data -Modules (Join-Path $scratch 'modules') --registry (Join-Path $scratch 'registry.json') --slow-download 400 --selftest --selftest-out $Report --exit-after 500 @multi | Select-Object -Last 1
 }
