@@ -19,6 +19,7 @@ public static class Program
     {
         var opt = Options.Parse(args);
         AppPaths.Init(opt.Data, opt.Modules);
+        AppPaths.TimeScale = opt.TimeScale;
         if (!string.IsNullOrEmpty(opt.TaskName) && System.Text.RegularExpressions.Regex.IsMatch(opt.TaskName, @"^[A-Za-z0-9._-]{1,60}$")) StartupTask.TaskName = opt.TaskName;
 
         if (opt.Version)

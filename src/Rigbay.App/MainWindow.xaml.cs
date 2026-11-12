@@ -21,6 +21,8 @@ public sealed partial class MainWindow : Window
     readonly TaskCompletionSource _uiReady = new();
     InstanceServer? _server;
     PageScope? _scope;
+    /// <summary>The scope of the page on screen (the self-test reads its live state).</summary>
+    internal PageScope? Scope => _scope;
     object _current = "dashboard";
     bool _navSuppress, _quitting, _uiBuilt;
     int _frames;
@@ -224,6 +226,8 @@ public sealed partial class MainWindow : Window
 
     internal void UpdatePageVisibility()
     {
+        // the page itself: nothing live (subscriptions, redraw timer) while the window is hidden or minimised
+        _scope?.SetActive(_uiBuilt && WindowShown);
         var target = _uiBuilt && WindowShown ? _current as ModuleEntry : null;
         if (ReferenceEquals(target, _shownEntry)) return;
         var old = _shownEntry;
@@ -716,6 +720,23 @@ public sealed partial class MainWindow : Window
                 case "cancel-install": InstallServices.Manager.CancelOperation(); break;
                 case "restart": await RestartAsync(); break;   // Restart now (tools/restart-test.ps1)
                 case "wait": if (int.TryParse(arg, out var ms)) await Task.Delay(ms); break;
+                case "hide": AppWindow.Hide(); UpdatePageVisibility(); break;   // what the close button does when the tray icon is there (tools: CPU use while hidden)
+                case "show": ShowFromTray(); break;
+                case "cpu": AppLog.Info($"CPUMARK {arg} cpu_ms={Process.GetCurrentProcess().TotalProcessorTime.TotalMilliseconds:0} wall_ms={Environment.TickCount64} redraw_ms={_scope?.RedrawMs:0} redraws={_scope?.TotalRedraws}"); break;   // cpu:<label> logs this process's CPU time, so a script can measure a stretch of waiting
+                case "frames":   // frames:<count>x<interval ms>: PNG frames of this window (PrintWindow of its own HWND) into "<--shot name>-frames", for an animated README picture (tools/shots.ps1 turns them into a GIF)
+                {
+                    var parts = arg.Split('x');
+                    if (_opt.Shot != null && parts.Length == 2 && int.TryParse(parts[0], out var count) && int.TryParse(parts[1], out var every))
+                    {
+                        var dir = Path.ChangeExtension(_opt.Shot, null) + "-frames";
+                        if (Directory.Exists(dir)) Directory.Delete(dir, true);
+                        for (int fr = 0; fr < count; fr++) { Shoot(Path.Combine(dir, $"f{fr:000}.png")); await Task.Delay(every); }
+                    }
+                    break;
+                }
+                case "chart": if (int.TryParse(arg, out var gi)) ModulePage.LastBlock?.Chart?.SelectGroup(gi); break;   // chart:<n> picks the n-th chart tab (0-based) on the open module page
+                case "range": if (int.TryParse(arg, out var rm)) ModulePage.LastBlock?.Chart?.SelectRange(rm); break;   // range:<minutes> (1, 5 or 10) for the trend chart
+                case "hover": if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hf) && ModulePage.LastBlock?.Chart is { } hc) hc.HoverAt(hc.Plot.ActualWidth * hf); break;   // hover:<0..1> puts the crosshair at that share of the plot width (a screenshot of the tooltip)
             }
             await Task.Delay(250);
         }

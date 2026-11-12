@@ -101,6 +101,10 @@ Metric ids are lowercase dotted words; start yours with the module id unless you
 **withdrawn** (`host.Metrics.Withdraw(id)`), not left at its last value. Poll fast only while somebody can see the result (`host.PageVisible`,
 `host.Metrics.SubscriberCount`); the template has the pattern.
 
+A `ReadingRow` costs you nothing to make visual: the host draws a sparkline in the row, up to four tiles and one trend chart above the rows, from the readings you publish (a unit in
+the `MetricDescriptor` is all it needs; temperatures, power and usage are grouped by unit). To steer it, set the optional `Tile`, `ChartGroupKey`, `RangeMin` and `RangeMax` on the row
+([ABSTRACTIONS.md](ABSTRACTIONS.md) 5.7); a chart has one axis, so readings in different units never share a group. The host keeps the history, you keep nothing.
+
 Check the language files with the host's own tool; it finds missing keys, typos, placeholder mismatches and keys nothing uses:
 
 ```powershell

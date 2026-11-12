@@ -8,7 +8,7 @@ sealed class Options
 {
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase)
     {
-        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--registry", "--wait-pid", "--slow-download", "--task-name",
+        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--time-scale", "--registry", "--wait-pid", "--slow-download", "--task-name",
     };
 
     public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut, Accent;
@@ -21,6 +21,8 @@ sealed class Options
     public int SlowDownloadMs;
     /// <summary>Test switch: render the screenshot at this display scale (1.5, 2) with a RenderTargetBitmap of the window's own content; icons are then picked for that scale.</summary>
     public double ShotScale = 1;
+    /// <summary>Test switch: the metrics clock (sample times, history, charts) runs this many times faster than real time, so a screenshot can show five minutes of history after one.</summary>
+    public double TimeScale = 1;
     public bool Tray, SelfTest, AllowMulti, LangCheck, Help;
     /// <summary><c>--version</c>: print the version and exit (install scripts, bug reports).</summary>
     public bool Version;
@@ -62,6 +64,7 @@ sealed class Options
                 case "--out": o.Out = Next(); break;
                 case "--size": o.Size = Next(); break;
                 case "--shot-scale": double.TryParse(Next(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out o.ShotScale); break;
+                case "--time-scale": double.TryParse(Next(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out o.TimeScale); break;
                 case "--accent": o.Accent = Next(); break;   // test switch: pretend the Windows accent is this #RRGGBB (title bar mark)
                 case "--registry": o.Registry = Next(); break;
                 case "--wait-pid": int.TryParse(Next(), out o.WaitPid); break;

@@ -22,11 +22,18 @@ public sealed class MetricsBus
     private readonly ILog _log;
     private readonly Func<DateTimeOffset> _clock;
 
-    public MetricsBus(ILog log, Func<DateTimeOffset>? clock = null)
+    public MetricsBus(ILog log, Func<DateTimeOffset>? clock = null, MetricHistory? history = null)
     {
         _log = log;
         _clock = clock ?? (() => DateTimeOffset.Now);
+        History = history ?? new MetricHistory(_clock);
     }
+
+    /// <summary>
+    /// What the bus remembers of every metric (a bounded ring per id, see <see cref="MetricHistory"/>): fed by <see cref="Publish(MetricSample)"/>,
+    /// cleared by a withdraw. It is not a subscriber: it does not count in <see cref="SubscriberCount(MetricId)"/>, so it never keeps a module polling.
+    /// </summary>
+    public MetricHistory History { get; }
 
     /// <summary>
     /// Raised after any subscription was added or disposed (host or module); the argument is the id the subscription was
@@ -71,6 +78,7 @@ public sealed class MetricsBus
             if (catalogChanged) _catalogVersion++;
             targets = Targets(sample.Id);
         }
+        History.Record(sample);
         if (catalogChanged) RaiseCatalogChanged();
         Deliver(targets, sample);
     }
@@ -99,6 +107,7 @@ public sealed class MetricsBus
             _catalogVersion++;
             targets = Targets(id);
         }
+        History.Clear(id);   // what was drawn is no longer true
         RaiseCatalogChanged();
         Deliver(targets, notice);
         return true;
@@ -144,6 +153,16 @@ public sealed class MetricsBus
     public bool TryGetLatest(MetricId id, out MetricSample sample)
     {
         lock (_gate) return _latest.TryGetValue(id, out sample!);
+    }
+
+    /// <summary>The unit of an id: from its descriptor, else from the last sample that was published, else <see cref="MetricUnit.None"/>. Cheap; no text is resolved.</summary>
+    public MetricUnit UnitOf(MetricId id)
+    {
+        lock (_gate)
+        {
+            if (_descriptors.TryGetValue(id, out var d) && d.Descriptor.Unit != MetricUnit.None) return d.Descriptor.Unit;
+            return _known.TryGetValue(id, out var k) ? k.Unit : MetricUnit.None;
+        }
     }
 
     /// <summary>The latest sample of an id, or null when none was published or the id is withdrawn (the UI shows "not available").</summary>

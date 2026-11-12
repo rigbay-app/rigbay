@@ -15,7 +15,7 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
 | `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (129 checks, 16 of them install checks on a scratch copy of the demo modules and a local registry), prints the report. Exit code 0 when all pass. |
-| `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light; and `hero-dark` for the README. It works in `C:\Rigbay-demo` (`-Demo <dir>` changes it; a copy of the demo modules and one data folder per shot), so no developer path, user name or machine name is drawn; the app makes that folder admin-only, so delete it with an elevated shell. |
+| `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light; and `hero-dark` for the README, the `visual-*` shots of V1 and the README animation `visual-live.gif` (frames of the window put together by ffmpeg when it is on the PATH; the script never installs it). It works in `C:\Rigbay-demo` (`-Demo <dir>` changes it; a copy of the demo modules and one data folder per shot), so no developer path, user name or machine name is drawn; the app makes that folder admin-only, so delete it with an elevated shell. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\sync-brand-assets.ps1 [-Check]` | Copies the brand files the app carries from `assets\brand` (list: `src\Rigbay.App\Assets\brand-files.txt`); `-Check` only compares and fails on a difference (`build.ps1` runs it). |
@@ -101,6 +101,7 @@ token; "yes" means it acts on something only an elevated process may change.
 | `--shot-scale` | `1.5\|2` | Render the shot as if the display scale were this (RenderTargetBitmap of the window content). | no |
 | `--size` | `WxH` | Window size for a shot. | no |
 | `--accent` | `RRGGBB` | Test: pretend the Windows accent colour is this (title bar mark). | no |
+| `--time-scale` | `<n>` | Screenshots only: the metrics clock (sample times, the history, the charts) runs n times faster than real time, so 52 s of waiting shows five minutes of history. | no |
 | `--exit-after` | `<ms>` | Quit after this long (shots and tests). | no |
 | `--selftest` | | Run the in-app self-test. | yes (it checks the admin-only folders and elevated-only behaviour) |
 | `--selftest-out` | `<file>` | Where the self-test writes its report. | no |
@@ -108,7 +109,9 @@ token; "yes" means it acts on something only an elevated process may change.
 `--script` steps: `enable:id`, `disable:id`, `page:id`, `lang:vi`, `theme:dark`, `edit:<row header key>=<value>`, `revert:<row header key>`,
 `approve:true|false|ask`, `cancel-dialog`, `startup:on|off`, `turn-on:id`, `expand:id`, `expand-all`, `scroll:px`, `wait:ms`, `cmd:<verb words>`,
 and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`,
-`restart` (`docs/INSTALL.md` section 8).
+`restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `cpu:<label>` (logs this process's CPU time and the
+time spent redrawing, as a `CPUMARK` line, so a script can measure a stretch of waiting), `chart:<n>` (pick a chart tab, 0-based), `range:<1|5|10>` (minutes), `hover:<0..1>` (put the crosshair at that share of the plot width) and
+`frames:<count>x<ms>` (PNG frames of the window's own HWND into `<--shot name>-frames`, for the README animation).
 
 ## What it does
 
@@ -364,3 +367,45 @@ fallback, and "Restart now" with two real elevated processes (`tools\install-htt
 Not verified: a real download from GitHub; the real `%ProgramData%\Rigbay` folder (scratch folders with the same code were); a UAC prompt on Restart now;
 150 % and 200 % scale and high contrast on the new page; a screen reader; Windows 10; the registry workflow's pull-request step; a full disk; an
 antivirus holding a file during the swap. The list is in `docs/INSTALL.md` section 10.
+
+## V1: the readings made visual (task V1)
+
+Owner feedback from the real machine (2026-11-12): the XTU page was a long list of text rows, "no charts, too much text, nothing visual". Before V1 the metrics bus kept only the latest sample and nothing in the app drew a chart.
+Everything below is host-side, so every module gets it without a release. The design, with the reasons (tile instead of a round gauge, the colour rules, the honest scale), is `docs/UI-DIRECTION.md` section 8;
+the contract (optional hints on `ReadingRow`, the history) is `docs/ABSTRACTIONS.md` 5.7 and 6.
+
+- **History.** `MetricsBus.History` (`MetricHistory`, `src/Rigbay.Core/Registries/MetricHistory.cs`): a ring per metric, 10 minutes in at most 300 points (2-second slots, averaged), 256 metrics at most (about 1.8 MB worst case),
+  fed by `Publish`, cleared by a withdraw, memory only. It is not a subscriber, so it never keeps a module polling. A module that sleeps while nobody looks leaves a gap, which the charts show as a gap.
+- **Where the visuals are** (`src/Rigbay.App/Ui`): `Sparkline.cs` (row, tile and bay rack), `ReadingTile.cs`, `TrendChart.cs` (tabs per group, 1 / 5 / 10 minutes, crosshair, tooltip, legend, keyboard: arrow keys, Home, End),
+  `ReadingBlock.cs` (what sits above the rows; rebuilt when a metric's unit becomes known), `ChartKit.cs` (hues, `TileStrip` that wraps 4, 2 or 1 columns, `FlowPanel`, the fade-in), and the pure rules in Core
+  (`ReadingPlan`, `ReadingScale`). All drawn with stock shapes (`Polyline`, `Path`, `Ellipse`, `Line`) on canvases; no new package. Brushes come from styles (`RbLine*`, `RbFill*`, `RbDot*`, `RbKey*`, `RbSeries1..6Brush` in `Styles.xaml`),
+  because a brush fetched from code follows the app theme and not the window's.
+- **Nothing runs while the page is not on screen.** `PageScope` now has an active state (`MainWindow.UpdatePageVisibility` sets it from the window: shown and not minimised). While inactive the page drops every bus subscription of its readings
+  (so `SubscriberCount` falls and modules slow down, which the self-test reads with `demo-fan`) and its redraw timer stops; both come back, refreshed, when the window is shown. The redraw timer runs every 2 s (the history's slot).
+  Before V1 the open page kept its subscriptions while the window sat in the tray, so modules kept polling for nobody.
+- **Motion.** One 160 ms fade-in of the block, only when Windows "Animation effects" are on (`UISettings.AnimationsEnabled`); no tweening of numbers, no animated lines.
+- **High contrast.** All hues become the window text colour and the lines are told apart by dash patterns (`ChartKit.Dashes`). Written, not seen: no high contrast theme was switched on.
+- **Demo module.** Fan studio publishes `cpu.power`, `cpu.usage`, `cpu.clock` and `cpu.power.pl1` too, so its page has four tiles and five chart tabs; `PL1 limit` and `Pump flow` have `Tile = Never` (the hint at work).
+
+Self-test (`tools\selftest.ps1`, run with `--allow-multi` here because the owner's own Rigbay was running): the `visual:` checks cover a sparkline in every reading row (drawn from the history, with a live end dot), 2 to 4 tiles with their
+sparklines and a meter, the tiles before the rows, the trend chart with its time axis and tabs, the hover tooltip with time and value, the keyboard crosshair, the power tab with two lines (legend), one unit per chart, the tile columns,
+the history cleared by a withdraw, the Dashboard bay rack sparklines, **nothing drawn, no timer and no subscription while the window is hidden** (and all back when it is shown), and no tiles or chart on a page without readings.
+
+### CPU use (measured 2026-11-12, this machine, `cpu:` marks inside the elevated app, demo-fan page open, 100 % DPI)
+
+Process CPU time over a stretch of waiting, as a share of one core; two rounds each. "Before" is `main` at 3707459 with only the measuring steps added (3 metrics from its demo module), "after" is V1 (7 metrics from its demo module, which publishes at 1 Hz whether or not anybody looks).
+
+| State | Before | After |
+| --- | --- | --- |
+| Window hidden in the tray, module page open (60 s) | 0.13 %, 0.72 % | 0.16 %, 0.08 % |
+| Window visible, module page open (45 s) | 0.45 %, 0.93 % | 2.2 %, 3.4 % |
+| Window visible, Dashboard open (30 s) | 0.26 %, 0.72 % | 0.56 %, 0.56 % |
+
+Hidden costs nothing extra: the redraw counter stays at 52 across the whole hidden minute, and the self-test shows 0 subscriptions and no timer. The run-to-run noise is as large as the difference (the "before" hidden rounds differ 5 times). Visible, the page costs about 2 % of a core more
+for 11 sparklines, 4 tiles and a chart (our drawing code itself is about 6.6 ms per 2-second tick, 0.3 %; the rest is WinUI laying out and compositing the changed shapes). The demo module's own timer is in every number.
+
+### Not verified
+
+High contrast (written and reviewed, no high contrast theme was switched on); the real XTU or PredatorSense page (this ran on the demo modules; adopting hints in those modules is the follow-up after N1 merges); a real mouse hover (the tooltip was driven by the same code path, and by `hover:` for the PNGs); a screen reader reading the chart name; real 150 % / 200 % monitors (`--shot-scale` renders only);
+Windows "Animation effects" off (the code reads `UISettings.AnimationsEnabled`, the setting was not toggled); a 10-minute-old history on a real 1 Hz source (the PNGs use `--time-scale 6`, so their lines have a point every 6 s); the two self-test checks `command: forwarded to the running instance over the pipe` and `single instance` fail
+when another Rigbay is already running (one was, on this machine), because the pipe and the mutex belong to it; they are not touched by V1.

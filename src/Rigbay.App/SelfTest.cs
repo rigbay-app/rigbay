@@ -131,6 +131,7 @@ static class SelfTest
         // ---------------------------------------------------------------- hardware flow with the real editors
         await FlowChecks(w, fan);
         await VisibilityAndReadingChecks(w, fan);
+        await VisualReadingChecks(w, fan);
 
         // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
         await Task.Run(() => fan.Disable());
@@ -291,7 +292,7 @@ static class SelfTest
     // ================================================================ page visibility, unavailable readings, labels
 
     static string ReadingText(DependencyObject root, string header) =>
-        Find<SettingsCard>(root).Where(c => c.Header?.ToString() == header).Select(c => (c.Content as TextBlock)?.Text).FirstOrDefault() ?? "(no card)";
+        Find<SettingsCard>(root).Where(c => c.Header?.ToString() == header).Select(c => (c.Content as TextBlock ?? (c.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault())?.Text).FirstOrDefault() ?? "(no card)";   // a reading row is a sparkline and the number
 
     static async Task VisibilityAndReadingChecks(MainWindow w, ModuleEntry fan)
     {
@@ -323,6 +324,101 @@ static class SelfTest
         R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(500);
         R("readings: a published value replaces Not available live", ReadingText(w.PageContent!, "Pump flow") is { } t2 && t2 != na && t2.Contains('%'), $"'{ReadingText(w.PageContent!, "Pump flow")}'");
+    }
+
+
+    // ================================================================ V1: sparklines, tiles, trend chart, nothing live while hidden
+
+    static async Task VisualReadingChecks(MainWindow w, ModuleEntry fan)
+    {
+        var core = Host.Core;
+        w.Navigate(fan);
+        await Settle(5500);   // the history keeps one point per 2 s: a few seconds of the module's 1 Hz readings
+
+        var readingRows = fan.Page!.EnumerateRows().OfType<ReadingRow>().ToList();
+        var sparks = w.LastRenderer!.Sparklines;
+        R("visual: every reading row has a sparkline left of its number", sparks.Count == readingRows.Count && sparks.Count >= 5 && sparks.All(s => s.IsLoaded),
+            $"{sparks.Count} sparklines for {readingRows.Count} reading rows");
+        var drawn = sparks.Where(s => s.PointsDrawn >= 2).ToList();
+        R("visual: the sparklines are drawn from the history (two or more points, a line and a live end dot)", drawn.Count >= 4 && drawn.All(s => s.Children.OfType<Microsoft.UI.Xaml.Shapes.Polyline>().Any() && s.Live),
+            $"{drawn.Count} of {sparks.Count} have points: " + string.Join(", ", sparks.Select(s => $"{s.Metric}={s.PointsDrawn}")));
+
+        var block = ModulePage.LastBlock;
+        var tiles = block?.TileList ?? Array.Empty<ReadingTile>();
+        R("visual: reading tiles at the top of the page (2 to 4, one per kind)", block?.Tiles != null && tiles.Count is >= 2 and <= 4
+            && tiles.Select(t => t.ValueText).All(t => t.Length > 0 && t != core.Languages.T("core.reading.unavailable")),
+            $"{tiles.Count} tiles: " + string.Join(" | ", tiles.Select(t => t.ValueText)));
+        R("visual: a tile has its sparkline and a temperature or percent tile its meter", tiles.All(t => t.Spark.PointsDrawn >= 2) && tiles.Any(t => t.HasMeter && t.MeterShare > 0),
+            $"sparkline points: {string.Join(",", tiles.Select(t => t.Spark.PointsDrawn))}; meter shares: {string.Join(",", tiles.Select(t => t.MeterShare.ToString("0.00")))}");
+        R("visual: the tiles come before the rows", block != null && IndexIn(w.PageContent!, block) < IndexIn(w.PageContent!, Find<SettingsCard>(w.PageContent).Skip(1).First()),
+            "ReadingBlock is placed after the enable row and before the first group");
+
+        var chart = block?.Chart;
+        R("visual: a trend chart with a time axis, one tab per group, lines drawn", chart != null && chart.HasData && chart.SeriesDrawn >= 1 && chart.GroupCount >= 3 && Find<TextBlock>(chart.Plot).Any(t => t.Text == Host.T("chart.now")),
+            $"groups={chart?.GroupCount} series drawn={chart?.SeriesDrawn} hasData={chart?.HasData} range={chart?.RangeSeconds}s");
+        bool tip = chart != null && chart.HoverAt(chart.Plot.ActualWidth - 30);
+        R("visual: hover shows a crosshair and a tooltip with the time and the value", tip && Find<Microsoft.UI.Xaml.Shapes.Line>(chart!.Plot).Count() > 3
+            && Find<Border>(chart.Plot).SelectMany(b => Find<TextBlock>(b)).Any(t => t.Text.Length == 8 && t.Text[2] == ':'), "tooltip text found on the plot");
+        chart?.HoverAt(null);
+        bool focused = chart != null && chart.Plot.Focus(FocusState.Keyboard);
+        await Settle(200);
+        double? x0 = chart?.HoverX;
+        chart?.Nudge(Windows.System.VirtualKey.Left); chart?.Nudge(Windows.System.VirtualKey.Left);
+        double? x1 = chart?.HoverX;
+        R("visual: keyboard: the plot takes focus and Left moves the crosshair back in time", focused && x0 != null && x1 != null && x1 < x0 && Find<Border>(chart!.Plot).Any(b => b.Style == Ui.Style("RbChartTip")),
+            $"focus={focused} hover x {x0:0} -> {x1:0}");
+        chart?.Plot.Focus(FocusState.Programmatic); chart?.HoverAt(null);
+        chart?.SelectGroup(1);
+        await Settle(400);
+        R("visual: another group is one click away (power: two lines, so a legend)", chart != null && chart.GroupIndex == 1 && chart.SeriesDrawn == 2 && Find<Microsoft.UI.Xaml.Shapes.Rectangle>(chart).Count() >= 2,
+            $"group={chart?.GroupIndex} series drawn={chart?.SeriesDrawn}");
+        chart?.SelectGroup(0);
+
+        // one axis, never two: every chart plan groups one unit only
+        var plan = ReadingPlan.Build(fan.Page!, id => core.Metrics.UnitOf(id));
+        R("visual: every chart has a single unit (no second axis)", plan.Charts.Count >= 3 && plan.Charts.All(c => c.Series.All(s => core.Metrics.UnitOf(s.Metric) == c.Unit)), string.Join("; ", plan.Charts.Select(c => $"{c.Id}[{c.Series.Count}]")));
+        R("visual: tiles wrap into 4, 2 or 1 columns", TileStrip.Columns(4, 900) == 4 && TileStrip.Columns(4, 560) == 2 && TileStrip.Columns(4, 300) == 1 && TileStrip.Columns(3, 560) == 3 && TileStrip.Columns(1, 900) == 1,
+            $"4@900={TileStrip.Columns(4, 900)} 4@560={TileStrip.Columns(4, 560)} 4@300={TileStrip.Columns(4, 300)} 3@560={TileStrip.Columns(3, 560)}");
+
+        // a withdrawn reading loses its history and its line, and gets both back
+        var pump = new MetricId("demo-fan.pump");
+        await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "off" }); await Settle(1500);
+        R("visual: a withdrawn reading's history is gone", core.Metrics.History.PointCount(pump) == 0, $"points={core.Metrics.History.PointCount(pump)}");
+        await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(1200);
+
+        // the dashboard bay rack: a sparkline beside each key reading
+        w.Navigate("dashboard"); await Settle(2500);
+        var rackSparks = Find<Sparkline>(w.PageContent).ToList();
+        R("visual: the dashboard bay rack has a sparkline per key reading", rackSparks.Count >= 2 && rackSparks.Any(s => s.PointsDrawn >= 2), $"{rackSparks.Count} sparklines; points {string.Join(",", rackSparks.Select(s => s.PointsDrawn))}");
+
+        // nothing live while the window is hidden: no subscription (so the module sees no reader), no timer, no drawing
+        w.Navigate(fan); await Settle(2200);
+        var scope = w.Scope!;
+        int subsOn = scope.TotalLiveSubscriptions, redrawsOn = scope.TotalRedraws;
+        bool active = scope.Active;
+        w.AppWindow.Hide(); w.UpdatePageVisibility(); await Settle(300);
+        int redrawsAtHide = scope.TotalRedraws;
+        int pumpReaders = core.Metrics.SubscriberCount(new MetricId("demo-fan.pump")), tempReaders = core.Metrics.SubscriberCount(WellKnownMetrics.CpuTemp);
+        await Settle(2600);
+        R("visual: hidden window: nothing is drawn, the timer is off and no reading is subscribed to",
+            active && subsOn >= 7 && !scope.Active && scope.TotalLiveSubscriptions == 0 && !scope.TimerRunning && scope.TotalRedraws == redrawsAtHide && tempReaders == 0 && pumpReaders == 0,
+            $"before: active={active} subscriptions={subsOn} redraws={redrawsOn}; hidden: active={scope.Active} subscriptions={scope.TotalLiveSubscriptions} redraws {redrawsAtHide} -> {scope.TotalRedraws} readers(cpu.temp)={tempReaders}");
+        w.ShowFromTray(); await Settle(2600);
+        R("visual: shown again: subscriptions and drawing are back",
+            scope.Active && scope.TotalLiveSubscriptions == subsOn && scope.TotalRedraws > redrawsAtHide + 1 && core.Metrics.SubscriberCount(WellKnownMetrics.CpuTemp) > 0,
+            $"active={scope.Active} subscriptions={scope.TotalLiveSubscriptions} redraws {redrawsAtHide} -> {scope.TotalRedraws}");
+
+        // a page with no readings gets no block
+        w.Navigate("settings"); await Settle(300);
+        R("visual: a page without readings gets no tiles and no chart", Find<ReadingTile>(w.PageContent).Count() == 0 && Find<TrendChart>(w.PageContent).Count() == 0, "settings page");
+        w.Navigate(fan); await Settle(300);
+    }
+
+    static int IndexIn(DependencyObject root, DependencyObject target)
+    {
+        int i = 0;
+        foreach (var x in Find<DependencyObject>(root)) { if (ReferenceEquals(x, target)) return i; i++; }
+        return int.MaxValue;
     }
 
     // ================================================================ brand (A11)

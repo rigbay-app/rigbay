@@ -230,6 +230,38 @@ public sealed record ReadingRow(string HeaderKey, MetricId Metric) : Row(HeaderK
 
     /// <summary>Colour meaning; <see cref="SemanticColor.Auto"/> lets the host choose from the unit.</summary>
     public SemanticColor Color { get; init; } = SemanticColor.Auto;
+
+    // The members below steer the visuals the host draws from a reading (a sparkline in the row, a tile at the top of the page,
+    // a trend chart). All are optional and additive: a row that sets none of them is drawn from its metric's unit alone.
+
+    /// <summary>Whether the reading becomes a tile at the top of the page. <see cref="TileHint.Auto"/> lets the host pick up to four from the page.</summary>
+    public TileHint Tile { get; init; } = TileHint.Auto;
+
+    /// <summary>
+    /// Which trend chart the reading belongs to: a module-relative language key naming the group ("chart.power"), shared by every row
+    /// that should be drawn together. Null groups by unit (temperatures together, power together); an empty string keeps the reading out of every chart.
+    /// </summary>
+    public string? ChartGroupKey { get; init; }
+
+    /// <summary>
+    /// Lowest value of the reading's natural range (for example 0 for a temperature gauge). With <see cref="RangeMax"/> it fixes the scale of
+    /// the tile meter; null lets the host choose from the unit (0 to 100 for a percent, 0 to 100 °C for a temperature).
+    /// </summary>
+    public double? RangeMin { get; init; }
+
+    /// <summary>Highest value of the natural range; see <see cref="RangeMin"/>. Must be above <see cref="RangeMin"/> when both are set.</summary>
+    public double? RangeMax { get; init; }
+}
+
+/// <summary>Whether a <see cref="ReadingRow"/> becomes a tile at the top of its module page.</summary>
+public enum TileHint
+{
+    /// <summary>The host decides: up to four readings per page, the module's summary readings first, then by kind (temperature, power, load, speed).</summary>
+    Auto,
+    /// <summary>Make a tile of it (counts towards the four the host shows).</summary>
+    Always,
+    /// <summary>Never make a tile of it; the row still gets its sparkline.</summary>
+    Never,
 }
 
 /// <summary>A row that folds related rows.</summary>
