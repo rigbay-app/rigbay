@@ -11,63 +11,102 @@ public sealed partial class RecorderModule
     /// <summary>One metric the picker offers.</summary>
     private sealed record Offered(string Source, MetricId Id, string Label, MetricUnit Unit);
 
+    // The option rows are made once and kept: the page is rebuilt when a recording starts or ends, and a new row instance would lose its
+    // status and its Revert link in the host. Start and Stop are made new with every page on purpose: the host keeps a button's last message
+    // on its row instance, and "Recording to x.csv" must not come back beside Start once that recording is over (the line says how it ended).
+    private ChoiceRow? _periodRow;
+    private ChoiceRow? _durationRow;
+    private TextRow? _folderRow;
+    private ButtonRow? _openFolderRow;
+    private ButtonRow? _pickAllRow;
+    private ButtonRow? _pickNoneRow;
+
+    // 1 while the page that was built last shows Stop (a recording was running), 0 while it shows Start, -1 before the first page.
+    private int _pageShowsRecording = -1;
+
     /// <inheritdoc />
+    /// <remarks>
+    /// Review of November 2026 (RC-1): the main job is one big button whose label is its state (<see cref="PageModel.Primary"/>: "Start
+    /// recording" while idle, "Stop recording" while one runs), with a live line (file, time, rows, size; or how the last one ended). The six
+    /// status rows that read "–" while idle are gone. The folder is one row with its Open button in the header and the path inside.
+    /// </remarks>
     public PageModel? GetPageModel(IHostServices host)
     {
         var offered = OfferedMetrics();
         _pageMetrics = new HashSet<string>(offered.Select(o => o.Id.Value), StringComparer.Ordinal);
+        _pageSources = offered.GroupBy(o => o.Source).ToDictionary(g => g.Key, g => g.Select(o => o.Id.Value).ToList(), StringComparer.Ordinal);
         SyncPicks(offered);
-        UpdatePickedText();
+        bool recording = _recording.Value;
+        Volatile.Write(ref _pageShowsRecording, recording ? 1 : 0);
 
-        var periodOptions = RecorderSettings.PeriodChoices.Select(c => new ChoiceOption(Id(c.Seconds), c.LabelKey)).ToArray();
-        var durationOptions = RecorderSettings.DurationChoices.Select(c => new ChoiceOption(Id(c.Minutes), c.LabelKey)).ToArray();
-
-        var recording = new List<Row>
-        {
-            new ButtonRow("row.start.header", "row.start.button", _ => Task.FromResult(StartFromPage()))
+        Row primary = recording
+            ? new ButtonRow("row.stop.header", "row.stop.button", _ => Task.FromResult(StopFromPage()))
+            {
+                Line = _primaryLine,
+                Enabled = _recording,
+            }
+            : new ButtonRow("row.start.header", "row.start.button", _ => Task.FromResult(StartFromPage()))
             {
                 DescriptionKey = "row.start.description",
+                HelpKey = "row.start.help",
+                Line = _primaryLine,
                 Enabled = _idle,
-            },
-            new ButtonRow("row.stop.header", "row.stop.button", _ => Task.FromResult(StopFromPage()))
-            {
-                DescriptionKey = "row.stop.description",
-                Enabled = _recording,
-            },
-            new ValueRow("row.state.header", _stateText),
-            new ValueRow("row.rows.header", _rowsText),
-            new ValueRow("row.size.header", _sizeText),
-            new ValueRow("row.elapsed.header", _elapsedText),
-            new ValueRow("row.file.header", _fileText),
-            new ValueRow("row.message.header", _messageText) { DescriptionKey = "row.message.description" },
-            new ChoiceRow("row.period.header", periodOptions, _period) { DescriptionKey = "row.period.description", Enabled = _idle },
-            new ChoiceRow("row.duration.header", durationOptions, _duration) { DescriptionKey = "row.duration.description", Enabled = _idle },
-            new TextRow("row.folder.header", _folder)
-            {
-                PlaceholderKey = "row.folder.placeholder",
-                MaxLength = 240,
-                // A path is typed one character at a time: nothing is used (or created) until the user says Apply.
-                Apply = ApplyMode.ApplyRevert,
-                Validate = ValidateFolder,
-                Enabled = _idle,
-            },
-            new ButtonRow("row.open-folder.header", "row.open-folder.button", _ => Task.FromResult(OpenFolder())) { DescriptionKey = "row.open-folder.description" },
+            };
+        _periodRow ??= new ChoiceRow("row.period.header", RecorderSettings.PeriodChoices.Select(c => new ChoiceOption(Id(c.Seconds), c.LabelKey)).ToArray(), _period)
+        {
+            HelpKey = "row.period.help",
+            Enabled = _idle,
+        };
+        _durationRow ??= new ChoiceRow("row.duration.header", RecorderSettings.DurationChoices.Select(c => new ChoiceOption(Id(c.Minutes), c.LabelKey)).ToArray(), _duration)
+        {
+            Enabled = _idle,
+        };
+        _folderRow ??= new TextRow("row.folder-path.header", _folder)
+        {
+            PlaceholderKey = "row.folder.placeholder",
+            MaxLength = 240,
+            // A path is typed one character at a time: nothing is used (or created) until the user says Apply.
+            Apply = ApplyMode.ApplyRevert,
+            Validate = ValidateFolder,
+            Enabled = _idle,
+        };
+        _openFolderRow ??= new ButtonRow("row.open-folder.header", "row.open-folder.button", _ => Task.FromResult(OpenFolder()));
+
+        var options = new List<Row>
+        {
+            _periodRow,
+            _durationRow,
+            // The folder in one row: where the files go in its line, Open in its header, the path to change inside.
+            new ExpanderRow("row.folder.header", new Row[] { _folderRow }) { Line = _folderLine, HeaderRow = _openFolderRow },
         };
         if (_hotkey is not null)
-            recording.Add(new ShortcutRow("row.hotkey.header", _hotkey.Gesture) { DescriptionKey = "row.hotkey.description" });
+            options.Add(new ShortcutRow("row.hotkey.header", _hotkey.Gesture) { DescriptionKey = "row.hotkey.description" });
 
+        var groups = new[]
+        {
+            new RowGroup("group.options", options),
+            new RowGroup("group.metrics", MetricRows(offered)),
+            new RowGroup("group.history", HistoryRows()),
+        };
+        UpdatePickedText();
         return new PageModel
         {
-            Groups = new[]
-            {
-                new RowGroup("group.recording", recording),
-                new RowGroup("group.metrics", MetricRows(offered)),
-                new RowGroup("group.history", HistoryRows()),
-            },
-            // The bay says "Recording 00:12:31" or "Idle". recorder.rows is on the bus for whoever wants a counter, but a reading that
-            // says "Not available" next to "Idle" would look like an error.
+            Primary = primary,
+            Groups = groups,
+            // The bay says "Recording 00:12:31" or "Not recording". recorder.rows is on the bus for whoever wants a counter, but a reading that
+            // says "Not available" next to "Not recording" would look like an error.
             Summary = new PageSummary(_stateLine),
         };
+    }
+
+    /// <summary>The main button is Start or Stop: ask for a new page when the state changed since the page was built. Safe from any thread.</summary>
+    private void RefreshPageIfRecordingChanged(bool recording)
+    {
+        int shown = Volatile.Read(ref _pageShowsRecording);
+        if (shown < 0 || (shown == 1) == recording) return;
+        Volatile.Write(ref _pageShowsRecording, recording ? 1 : 0);   // one request per change; the rebuild writes the same value again
+        try { _host?.RequestPageRefresh(); }
+        catch (Exception ex) { _host?.Log.Warn("Asking for a new page failed", ex); }
     }
 
     private static string Id(int n) => n.ToString(CultureInfo.InvariantCulture);
@@ -78,7 +117,14 @@ public sealed partial class RecorderModule
     {
         var engine = _engine;
         if (engine is null) return ActionResult.Fail("cmd.not-running");
+        // A refusal is the button's own message, beside it; the line keeps saying how the last recording ended (said once, not twice).
+        var before = _lastNotice;
         var outcome = StartRecording(RequestFromSettings());
+        if (!outcome.Started)
+        {
+            _lastNotice = before;
+            RefreshTexts();
+        }
         return outcome.Started ? ActionResult.Ok(LocalisedText.Of("start.ok", Path.GetFileName(outcome.Path ?? ""))) : new ActionResult(false, outcome.Message);
     }
 
@@ -207,9 +253,16 @@ public sealed partial class RecorderModule
             return rows;
         }
 
-        rows.Add(new ValueRow("row.picked.header", _pickedText) { DescriptionKey = "row.picked.description" });
-        rows.Add(new ButtonRow("row.pick-all.header", "row.pick-all.button", _ => Task.FromResult(SetAllPicks(true))) { DescriptionKey = "row.pick-all.description", Enabled = _idle });
-        rows.Add(new ButtonRow("row.pick-none.header", "row.pick-none.button", _ => Task.FromResult(SetAllPicks(false))) { DescriptionKey = "row.pick-none.description", Enabled = _idle });
+        // The count and "Select all" on one row, then "Clear"; each source says how many of its metrics are picked while it is closed.
+        _pickAllRow ??= new ButtonRow("row.picked.header", "row.pick-all.button", _ => Task.FromResult(SetAllPicks(true)))
+        {
+            HelpKey = "row.picked.help",
+            Line = _pickedLine,
+            Enabled = _idle,
+        };
+        _pickNoneRow ??= new ButtonRow("row.pick-none.header", "row.pick-none.button", _ => Task.FromResult(SetAllPicks(false))) { Enabled = _idle };
+        rows.Add(_pickAllRow);
+        rows.Add(_pickNoneRow);
         foreach (var group in offered.GroupBy(o => o.Source))
         {
             var toggles = group.Select(o => (Row)new ToggleRow(Text.Literal(o.Label), _picks[o.Id.Value])
@@ -217,7 +270,7 @@ public sealed partial class RecorderModule
                 DescriptionKey = Text.Literal(o.Unit.Symbol().Length > 0 ? o.Id.Value + " · " + o.Unit.Symbol() : o.Id.Value),
                 Enabled = _idle,
             }).ToList();
-            rows.Add(new ExpanderRow(Text.Literal(group.Key), toggles));
+            rows.Add(new ExpanderRow(Text.Literal(group.Key), toggles) { Line = SourceLine(group.Key) });
         }
         return rows;
     }
@@ -244,11 +297,28 @@ public sealed partial class RecorderModule
 
     private void UpdatePickedText()
     {
-        var loc = _host?.Localisation;
-        if (loc is null) return;
+        if (_host is null) return;
         int total = _pageMetrics.Count;
-        int on = _pageMetrics.Count(id => _picks.TryGetValue(id, out var p) && p.Value);
-        _pickedText.Value = loc.F("status.picked", on, total);
+        int on = _pageMetrics.Count(IsPicked);
+        _pickedLine.Value = LocalisedText.Of("status.picked", on, total);
+        lock (_sourceLines)
+            foreach (var (source, line) in _sourceLines)
+            {
+                var ids = _pageSources.TryGetValue(source, out var list) ? list : new List<string>();
+                line.Value = LocalisedText.Of("status.picked", ids.Count(IsPicked), ids.Count);
+            }
+    }
+
+    private bool IsPicked(string id) => _picks.TryGetValue(id, out var p) && p.Value;
+
+    /// <summary>The live line of one source module's expander ("3 of 5"), kept per source so a rebuilt page keeps following it.</summary>
+    private ObservableValue<LocalisedText> SourceLine(string source)
+    {
+        lock (_sourceLines)
+        {
+            if (!_sourceLines.TryGetValue(source, out var line)) _sourceLines[source] = line = new ObservableValue<LocalisedText>(default);
+            return line;
+        }
     }
 
     /// <summary>The metric set the page was built from no longer matches the bus (a module started publishing): rebuild it when the page opens.</summary>

@@ -90,7 +90,7 @@ public class OwnershipGuardTests
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
 
-        Assert.Equal(rig.Host.Loc.T("check.idle"), rig.ValueOf("check.store.title"));
+        Assert.Equal("", rig.TestLine);                                     // the line is gone again, as before any run
         rig.Probe.Gate = null;
         var next = await rig.Module.RunChecksAsync(CancellationToken.None);
         Assert.Equal(4, next.Results.Count);                                // accepted, not "a test is already running"

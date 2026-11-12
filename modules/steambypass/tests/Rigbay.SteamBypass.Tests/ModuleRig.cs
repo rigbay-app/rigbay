@@ -57,6 +57,11 @@ internal sealed class ModuleRig : IDisposable
     public ToggleRow AutoOn => Rows.OfType<ToggleRow>().Single(r => r.HeaderKey == "row.auto-on.header");
     public ButtonRow TestButton => Rows.OfType<ButtonRow>().Single();
     public string ValueOf(string headerKey) => Rows.OfType<ValueRow>().Single(r => r.HeaderKey == headerKey).Value.Value;
+    public bool HasRow(string headerKey) => Rows.Any(r => r.HeaderKey == headerKey);
+    /// <summary>The live line under the switch (what Steam does, or the problem), as the host resolves it now.</summary>
+    public string SwitchLine => Host.Loc.Resolve(Switch.Line!.Value);
+    /// <summary>The live line of the test row: empty before a run, one line per check during and after one.</summary>
+    public string TestLine => Host.Loc.Resolve(TestButton.Line!.Value);
     public string StateLine => Host.Loc.Resolve(Page.Summary!.StateLine!.Value);
     public bool IsOn => Proxy.Value == Pac;
 

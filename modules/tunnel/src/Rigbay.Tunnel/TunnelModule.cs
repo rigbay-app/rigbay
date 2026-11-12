@@ -221,13 +221,13 @@ public sealed partial class TunnelModule : IModule
     private void AttachUi(IHostServices host, TunnelUi ui)
     {
         var options = OptionsFor(ui.Name, create: false);
-        ui.AutoOffHours.Value = options?.AutoOffHours ?? 0;
+        ui.AutoOff.Value = (options?.AutoOffHours ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture);
         ui.CheckPort.Value = options?.CheckPort ?? 0;
         ui.PublicAddress.Value = options?.PublicAddress ?? "";
 
         ui.On.Changed += () => OnToggleChanged(ui);
         ui.StartWithWindows.Changed += () => OnStartChanged(ui);
-        ui.AutoOffHours.Changed += () => OnAutoOffChanged(ui);
+        ui.AutoOff.Changed += () => OnAutoOffChanged(ui);
         ui.CheckPort.Changed += () => OnCheckPortChanged(ui);
         ui.PublicAddress.Changed += () => OnPublicAddressChanged(ui);
 
@@ -260,7 +260,7 @@ public sealed partial class TunnelModule : IModule
         var host = _host;
         if (host is null || _stopping) return;
         lock (_uiGate)
-            foreach (var ui in _ui.Values) { ui.MetricsDescribed = false; }
+            foreach (var ui in _ui.Values) { ui.MetricsDescribed = false; ui.Rows = null; }   // the rows carry texts made in the old language
         host.RequestPageRefresh();
         Track(Task.Run(async () => { try { await PollOnceAsync().ConfigureAwait(false); } catch (Exception) { } }));
     }
@@ -286,17 +286,19 @@ public sealed partial class TunnelModule : IModule
             if (ui.LastTransfer is { } last && now > last.At && rx >= last.Rx && tx >= last.Tx)
             {
                 double seconds = (now - last.At).TotalSeconds;
-                host.Metrics.Publish(new MetricId(ui.RxMetric), (rx - last.Rx) / seconds, MetricUnit.BytesPerSecond);
-                host.Metrics.Publish(new MetricId(ui.TxMetric), (tx - last.Tx) / seconds, MetricUnit.BytesPerSecond);
+                double rxRate = (rx - last.Rx) / seconds, txRate = (tx - last.Tx) / seconds;
+                host.Metrics.Publish(new MetricId(ui.RxMetric), rxRate, MetricUnit.BytesPerSecond);
+                host.Metrics.Publish(new MetricId(ui.TxMetric), txRate, MetricUnit.BytesPerSecond);
                 ui.MetricsPublished = true;
+                ui.Rates = (rxRate, txRate);
             }
             ui.LastTransfer = (now, rx, tx);   // after a counter reset (the service restarted) this is simply the new baseline
         }
-        else { host.Metrics.Withdraw(new MetricId(ui.RxMetric)); host.Metrics.Withdraw(new MetricId(ui.TxMetric)); ui.LastTransfer = null; }
+        else { host.Metrics.Withdraw(new MetricId(ui.RxMetric)); host.Metrics.Withdraw(new MetricId(ui.TxMetric)); ui.LastTransfer = null; ui.Rates = null; }
 
         var options = OptionsFor(info.Name, create: false);
         int port = options?.CheckPort ?? 0;
-        ui.Local.Value = LocalText(host.Localisation, port > 0 ? manager.CheckPort(info.Name, port, tunnelOn: true) : null, port);
+        ui.LocalLine.Value = port > 0 ? new LocalisedText(Text.Literal(LocalText(host.Localisation, manager.CheckPort(info.Name, port, tunnelOn: true), port))) : default;
     }
 
     private void DescribeMetrics(IHostServices host, TunnelUi ui)
@@ -315,6 +317,7 @@ public sealed partial class TunnelModule : IModule
         host.Metrics.Withdraw(new MetricId(ui.TxMetric));
         host.Metrics.Withdraw(new MetricId(ui.HandshakeMetric));
         ui.LastTransfer = null;
+        ui.Rates = null;
     }
 
     /// <summary>Recomputes every text from the last list and the last reading. Cheap; no I/O.</summary>
@@ -334,16 +337,45 @@ public sealed partial class TunnelModule : IModule
             foreach (var ui in _ui.Values)
             {
                 var info = list?.Tunnels.FirstOrDefault(t => string.Equals(t.Name, ui.Name, StringComparison.OrdinalIgnoreCase));
-                bool on = info?.IsOn ?? ui.On.Value;
-                ui.Status.Value = StatusText(loc, on, ui.Last, now);
-                ui.Problem.Value = ui.ProblemText ?? loc.T("problem.none");
-                ui.Endpoint.Value = on && ui.Last?.Endpoint is { } e ? e : loc.T("value.none");
-                ui.Transfer.Value = on && ui.Last is { Rx: { } rx, Tx: { } tx } ? loc.F("transfer.value", Size(rx), Size(tx)) : loc.T("value.none");
-                if (!on) ui.Local.Value = LocalText(loc, ui.CheckPort.Value > 0 ? LocalCheck.TunnelOff : null, (int)ui.CheckPort.Value);
-                else if (ui.CheckPort.Value <= 0) ui.Local.Value = loc.T("local.none");
+                bool on = info?.IsOn ?? ui.KnownOn;
+                ui.KnownOn = on;
+                UpdateLine(loc, ui, now);
+                // Facts that exist only while the tunnel is on; empty otherwise, so the host leaves their rows out (no "-" rows).
+                ui.Endpoint.Value = on && ui.Last?.Endpoint is { } e ? e : "";
+                ui.Transfer.Value = on && ui.Last is { Rx: { } rx, Tx: { } tx } ? loc.F("transfer.value", Size(rx), Size(tx)) : "";
+                ui.StartLine.Value = on ? default : LocalisedText.Of("start.only-on");
+                int port = (int)ui.CheckPort.Value;
+                if (port <= 0) ui.LocalLine.Value = default;
+                else if (!on) ui.LocalLine.Value = new LocalisedText(Text.Literal(LocalText(loc, LocalCheck.TunnelOff, port)));
             }
         }
     }
+
+    /// <summary>Sets a tunnel's live line from what is known now. Cheap; no I/O.</summary>
+    private void UpdateLine(ILocalisation loc, TunnelUi ui, DateTimeOffset now) =>
+        ui.Line.Value = new LocalisedText(Text.Literal(LineText(loc, ui.KnownOn, ui.Last, ui.Rates, ui.ProblemText, now)));
+
+    /// <summary>
+    /// The line in a tunnel's closed row: "Off", "Connected · handshake 15 s ago · ↓ 17.6 KB/s ↑ 2.4 KB/s", "Not connected · last handshake 4 min
+    /// ago", and the last problem on a line of its own when there is one.
+    /// </summary>
+    internal static string LineText(ILocalisation loc, bool on, WgSummary? last, (double Rx, double Tx)? rates, string? problem, DateTimeOffset now)
+    {
+        string state;
+        if (!on) state = loc.T("line.off");
+        else if (last is null) state = loc.T("line.on");
+        else if (last.Handshake is not { } at) state = loc.T("line.no-handshake");
+        else
+        {
+            var age = now - at;
+            state = age <= TunnelManager.ConnectedLimit ? loc.F("line.connected", Age(loc, age)) : loc.F("line.stale", Age(loc, age));
+        }
+        if (on && rates is { } r) state = loc.F("line.rates", state, Rate(r.Rx), Rate(r.Tx));
+        return problem is { Length: > 0 } ? state + "\n" + problem : state;
+    }
+
+    /// <summary>A byte rate as people read it: "17.6 KB/s".</summary>
+    internal static string Rate(double bytesPerSecond) => Size((long)Math.Round(Math.Max(0, bytesPerSecond))) + "/s";
 
     internal static string StatusText(ILocalisation loc, bool on, WgSummary? last, DateTimeOffset now)
     {

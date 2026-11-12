@@ -11,15 +11,16 @@ the recorder knows no other module by name, so PredatorSense, XTU or a module no
 
 ## What the user sees
 
-**Page** (`Monitoring > Recorder`; the host draws the enable row first):
+**Page** (`Monitoring > Recorder`; the host draws the header card first). Since 0.1.1 (the November 2026 UI review, RC-1) the main job comes first:
 
-| Group | Rows |
+| Part | What it shows |
 | --- | --- |
-| Recording | Start, Stop (one is enabled at a time), then the status: State, Rows written, File size, Elapsed (`00:02:05`, or `00:02:05 of 00:30:00` with a limit), File, Last message (why the last recording ended, or why one would not start). Then the options: Time between rows (1, 2, 5, 10 s), Stop after (no limit, 1, 5, 10, 15, 30 min, 1, 2, 4 h), Folder (empty is `Documents\Rigbay\logs`; Apply and Discard because a path is typed one character at a time), Open folder, and the shortcut. |
-| Metrics to record | "n of m" selected, All and None, then one expander per source module with one switch per metric (the label the owner gave it, `id · unit` below). Everything is on by default; a metric that appears later is on too (the settings keep what the user switched **off**). The switches are locked while recording. |
+| Main button (`PageModel.Primary`) | "Not recording" with **Start recording** while idle, "Recording" with **Stop recording** while a recording runs. Its line: `file.csv · 00:02:05 · 125 rows · 42 KB` (or `00:02:05 of 00:30:00` with a limit) while recording; afterwards how the last recording ended, or why one would not start; nothing before the first one. The module asks for a new page when a recording starts or ends. |
+| Options | Time between rows (1, 2, 5, 10 s), Stop after (no limit, 1, 5, 10, 15, 30 min, 1, 2, 4 h), Folder (one expander: where the files go in its line, **Open** in its header, the path inside; empty is `Documents\Rigbay\logs`; Apply and Discard because a path is typed one character at a time), and the shortcut. |
+| Metrics to record | "Selected metrics" with "n of m" in its line and **Select all**, then **Clear**, then one expander per source module ("n of m" of its own in its line) with one switch per metric (the label the owner gave it, `id · unit` below). Everything is on by default; a metric that appears later is on too (the settings keep what the user switched **off**). The switches are locked while recording. |
 | History | The newest 10 `rigbay-log-*.csv` in the folder with date and size, each with "Open". Files are only listed; the recorder never deletes one. |
 
-Starting and stopping is not a hardware change: no approval, no revert. **Dashboard bay:** `Recording 00:12:31` or `Idle`. **Tray:** "Start recording" while idle,
+Starting and stopping is not a hardware change: no approval, no revert. **Dashboard bay:** `Recording 00:12:31` or `Not recording` (`Idle` before 0.1.1). **Tray:** "Start recording" while idle,
 "Stop recording" while recording. **Hotkey:** `toggle`, **off until the user sets one** (the Start/stop shortcut row), starts with the page's settings or stops.
 A refusal from the tray or the hotkey (no metrics, disk full) is shown as a notification, because nobody looks at the page then.
 
@@ -88,7 +89,7 @@ default is a read every 2 s, delivered a new value every 2 s during the recordin
 ## Disk safety
 
 - **Start:** less than 200 MB free on the target drive is refused ("Not enough free space on that drive: 20 MB free, at least 200 MB needed"), before any file is created. A drive whose free space cannot be told (a network share) is allowed.
-- **While recording:** checked before every row. Under 50 MB free, or any write that fails, ends the recording cleanly: the file is closed, the meta says `disk-low` or `write-error`, a notification says so and the page's Last message keeps it.
+- **While recording:** checked before every row. Under 50 MB free, or any write that fails, ends the recording cleanly: the file is closed, the meta says `disk-low` or `write-error`, a notification says so and the main button's line keeps it.
 - Nothing is ever thrown to the host (every callback and the writing task catch everything), and **no file is ever deleted or overwritten**. The history is a list, capped at 10 entries; older files stay in the folder.
 
 ## Differences from the old XTU recorder

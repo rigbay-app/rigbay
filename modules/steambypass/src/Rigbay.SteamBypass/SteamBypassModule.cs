@@ -28,13 +28,12 @@ public sealed partial class SteamBypassModule : IModule
     private readonly ObservableValue<bool> _bypass = new(false);
     private readonly ObservableValue<bool> _autoOn = new(false);
     private readonly ObservableValue<string> _listenText = new("");
-    private readonly ObservableValue<string> _steamText = new("");
     private readonly ObservableValue<string> _domainsText = new("");
-    private readonly ObservableValue<string> _problemText = new("");
+    private readonly ObservableValue<LocalisedText> _bypassLine = new(default);
+    private readonly ObservableValue<LocalisedText> _testLine = new(default);
     private readonly ObservableValue<bool> _port80Warning = new(false);
     private readonly ObservableValue<bool> _steamRestartHint = new(false);
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.off"));
-    private readonly Dictionary<string, ObservableValue<string>> _checkTexts = CheckSpec.All.ToDictionary(s => s.Id, _ => new ObservableValue<string>(""));
     private readonly Dictionary<string, CheckResult> _checkResults = new();
     private readonly object _checkGate = new();
 
@@ -104,7 +103,6 @@ public sealed partial class SteamBypassModule : IModule
         _exitHandler = (_, _) => controller.RestoreOnExit();
         AppDomain.CurrentDomain.ProcessExit += _exitHandler;
 
-        foreach (var spec in CheckSpec.All) _checkTexts[spec.Id].Value = host.Localisation.T("check.idle");
         _fast = IsWatched(host);
         RefreshTexts();
         _timer = new Timer(_ => Tick(), null, _fast ? FastPoll : SlowPoll, _fast ? FastPoll : SlowPoll);
@@ -145,6 +143,8 @@ public sealed partial class SteamBypassModule : IModule
         // Under the publish lock: a worker that is publishing right now has finished, and one that comes later sees _stopping.
         try { lock (_publishGate) { host?.Metrics.Withdraw(ActiveMetric); host?.Metrics.Withdraw(ErrorsMetric); } } catch (Exception) { }
         SetSwitch(false);
+        _knownOn = false;
+        Volatile.Write(ref _pageShowsOn, -1);
         (_resolver as IDisposable)?.Dispose();
         _resolver = null;
         _engine = null;

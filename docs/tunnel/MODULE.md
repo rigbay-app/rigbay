@@ -75,16 +75,23 @@ Metrics (with descriptors, so charts plot them without more work): `tunnel.<slug
 `tunnel.<slug>.handshake_age` (seconds). `<slug>` is the name in lowercase with anything outside `a-z 0-9 -` replaced by `-` (and four hex digits of a hash added when that
 changed more than the case). A metric that cannot be read is withdrawn, never left at its last value.
 
+**The page** (0.1.1, the November 2026 UI review, TN-1): one group, the two messages (store unreadable, no tunnels) when they apply, then one row per tunnel.
+The row's header carries the tunnel's name, its on switch (`ExpanderRow.HeaderRow`, named after the tunnel, so the approval reads "example-tunnel: Off → On") and a live
+line: `Off`, `On · no handshake yet`, `Connected · handshake 15 s ago · ↓ 17.6 KB/s ↑ 2.4 KB/s`, `Not connected · last handshake 4 min ago`, and the last problem on a
+line of its own. Opened, it holds the options below, then Server and Transferred, which are empty (and so left out by the host) while the tunnel is off. There are no
+reading rows: a tile named "Receiving" could not say which tunnel it was, so the rates are in each tunnel's line and the metrics stay on the bus for the dashboard
+and the recorder.
+
 Options per tunnel (settings file `%LOCALAPPDATA%\Rigbay\modules\tunnel\settings.json`, plain text, never committed; it holds the user's own choices and nothing from WireGuard):
 
-- **Turn off automatically after N hours** (0 to 168, default 0 = never). Counts from the moment it was turned on through Rigbay (or from the moment the option is set,
+- **Turn off after** Never (default), 1, 2, 4, 8 or 24 hours (a list since 0.1.1, TN-2; 0.1.0 had a number box, 0 to 168, and a value from it that is not in the list stays offered). Counts from the moment it was turned on through Rigbay (or from the moment the option is set,
   or from the first poll that sees the tunnel on). The host asks when the option is set.
 - **Start with Windows**: the start type of the tunnel's service, Automatic or Manual (asked about). It can only be changed while the tunnel is on. **Turning a tunnel off removes
-  its service, as in the WireGuard app, and with it this setting**; the page says so. The default is "leave it as WireGuard set it" (the module never touches it unasked).
+  its service, as in the WireGuard app, and with it this setting**; the row says "Only while the tunnel is on" while it cannot be used. The default is "leave it as WireGuard set it" (the module never touches it unasked).
 - **Check a local service**: a TCP port. The module looks up the adapter that WireGuard named after the tunnel, takes its addresses and shows whether something listens on that port
-  there (or on every address). Nothing is sent on the network.
-- **Public address**: free text the user types; shown as a link at the bottom of the page when it starts with `http` or `https`.
-- **Hotkey** per tunnel (unbound by default; rebinding is the host's).
+  there (or on every address); the result is the port row's line. Nothing is sent on the network.
+- **Public address**: free text the user types; shown as a link at the top of the page when it starts with `http` or `https`.
+- **Shortcut** per tunnel (unbound by default; rebinding is the host's).
 
 ## Notifications
 

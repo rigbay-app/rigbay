@@ -3,7 +3,7 @@
 @name = English
 
 module.tunnel.name = Remote tunnel
-module.tunnel.description = Turns WireGuard tunnels on and off from Rigbay (page, tray, hotkey, command line) and shows their status.
+module.tunnel.description = Turns WireGuard tunnels on and off from Rigbay (page, tray, shortcut, command line) and shows their status.
 
 # --- probe (why the module is unsupported)
 module.tunnel.probe.no-wireguard = WireGuard for Windows is not installed. Install it from https://www.wireguard.com/install/ and restart Rigbay.
@@ -22,31 +22,38 @@ module.tunnel.info.no-tunnels.description = Add a tunnel in the WireGuard app (A
 module.tunnel.link.wireguard = WireGuard for Windows
 module.tunnel.link.public = Public address of {0}
 
-module.tunnel.row.on.header = On
-module.tunnel.row.on.description = Starts or removes the tunnel's Windows service, the same as Activate and Deactivate in the WireGuard app. Rigbay asks first.
-module.tunnel.row.status.header = Status
-module.tunnel.row.problem.header = Problem
-module.tunnel.problem.none = None
-module.tunnel.row.endpoint.header = Server
-module.tunnel.row.endpoint.description = The address the tunnel talks to, as WireGuard reports it.
-module.tunnel.row.transfer.header = Transferred
-module.tunnel.row.transfer.description = Bytes received and sent since the tunnel was turned on.
-module.tunnel.row.handshake.header = Last handshake
-module.tunnel.row.handshake.description = Seconds since the last handshake with the server. Connected means younger than 3 minutes.
-module.tunnel.row.rx.header = Receiving
-module.tunnel.row.tx.header = Sending
+# One row per tunnel: the switch in its header, its state in a live line; inside only its settings
+module.tunnel.row.tunnel.help = The switch starts or removes the tunnel's Windows service, as Activate and Deactivate do in the WireGuard app.
+module.tunnel.line.off = Off
+module.tunnel.line.on = On
+module.tunnel.line.no-handshake = On · no handshake yet
+module.tunnel.line.connected = Connected · handshake {0} ago
+module.tunnel.line.stale = Not connected · last handshake {0} ago
+module.tunnel.line.rates = {0} · ↓ {1} ↑ {2}
 module.tunnel.row.start.header = Start with Windows
-module.tunnel.row.start.description = Sets the start type of the tunnel's service. Only while the tunnel is on: turning it off removes its service, as in the WireGuard app, and this setting with it.
-module.tunnel.row.autooff.header = Turn off automatically after (hours)
-module.tunnel.row.autooff.description = A safety: Rigbay turns the tunnel off this many hours after it was turned on, without asking again, and tells you. 0 means never.
-module.tunnel.row.port.header = Check a local service (port)
-module.tunnel.row.port.description = A TCP port, for example a remote-control app. Rigbay shows whether something listens on it at the tunnel's address. 0 means no check.
-module.tunnel.row.local.header = Local service
+module.tunnel.row.start.help = Sets the start type of the tunnel's service. Turning the tunnel off removes its service, as in the WireGuard app, and this setting with it.
+module.tunnel.start.only-on = Only while the tunnel is on
+module.tunnel.row.autooff.header = Turn off after
+module.tunnel.row.autooff.help = A safety: Rigbay turns the tunnel off this long after it was turned on, without asking again, and tells you.
+module.tunnel.autooff.0 = Never
+module.tunnel.autooff.1 = 1 hour
+module.tunnel.autooff.2 = 2 hours
+module.tunnel.autooff.4 = 4 hours
+module.tunnel.autooff.8 = 8 hours
+module.tunnel.autooff.24 = 24 hours
+module.tunnel.autooff.custom = {0} hours
 module.tunnel.row.public.header = Public address
-module.tunnel.row.public.description = Free text for you, for example the address you connect to from outside. Shown as a link below when it starts with http or https. Stored only on this PC.
+module.tunnel.row.public.help = Free text for you, for example the address you connect to from outside. Shown as a link at the top of the page when it starts with http or https. Stored only on this PC.
 module.tunnel.row.public.placeholder = Optional
-module.tunnel.row.hotkey.header = Hotkey
-module.tunnel.row.hotkey.description = Turns the tunnel on or off. Rigbay asks before it changes anything.
+module.tunnel.row.port.header = Local service port
+module.tunnel.row.port.description = 0 means no check
+module.tunnel.row.port.help = A TCP port, for example a remote-control app. Rigbay shows whether something listens on it at the tunnel's address.
+module.tunnel.row.hotkey.header = Shortcut
+module.tunnel.row.hotkey.description = Turns the tunnel on or off from anywhere.
+module.tunnel.row.endpoint.header = Server
+module.tunnel.row.endpoint.help = The address the tunnel talks to, as WireGuard reports it.
+module.tunnel.row.transfer.header = Transferred
+module.tunnel.row.transfer.description = Since the tunnel was turned on
 module.tunnel.validate.whole = Use a whole number.
 
 # --- what Rigbay asks before it changes anything (the first two are the exact action texts)
@@ -70,14 +77,12 @@ module.tunnel.metric.handshake.description = Seconds since the last handshake wi
 # --- status texts
 module.tunnel.word.on = on
 module.tunnel.word.off = off
-module.tunnel.value.none = -
 module.tunnel.status.off = Off
 module.tunnel.status.on = On
 module.tunnel.status.no-handshake = On, no handshake yet
 module.tunnel.status.connected = On, connected (handshake {0} ago)
 module.tunnel.status.stale = On, last handshake {0} ago (not connected)
 module.tunnel.transfer.value = Received {0}, sent {1}
-module.tunnel.local.none = Not checked
 module.tunnel.local.tunnel-off = The tunnel is off
 module.tunnel.local.no-address = The tunnel has no address yet
 module.tunnel.local.listening = Port {0}: something is listening

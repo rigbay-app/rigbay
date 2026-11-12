@@ -6,7 +6,7 @@ description: Working knowledge of the Rigbay Steam access module (modules/steamb
 # Steam access module: codebase guide
 
 Module id `steam-bypass`, group `network`, `modules/steambypass/src/Rigbay.SteamBypass` (net8.0) with tests in
-`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (269 at the last run, version 0.1.1). It is the port of the standalone app `minhdevtree/steam-bypass`
+`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (269 at the last run, version 0.1.2 unreleased, host API `>=0.1.3`). It is the port of the standalone app `minhdevtree/steam-bypass`
 (`D:\Documents\Projects\steam-bypass`, read only for us; its skill `.claude/skills/steam-bypass` and `references/blocking-evidence.md` hold the
 measurements: what the ISP blocks, what passes the filter, how to re-measure). User docs, evidence and the live test request:
 `docs/steambypass/MODULE.md`. Method index: `references/code-map.md`.
@@ -43,6 +43,13 @@ measurements: what the ISP blocks, what passes the filter, how to re-measure). U
 - The module must not edit `src/*`, `tests/*` or the old repo; host gaps go to the coordinator by mail.
 
 ## Gotchas
+
+- **The page layout (0.1.2, UI review SA-1).** The switch is `PageModel.Primary` with a live `Line` (`_bypassLine`: the Steam state, or the
+  problem as a literal); the Status group (readings, listening, the two warnings) is in the page only while the bypass is on. `GetPageModel` reads
+  `_knownOn` (set in `RefreshTexts`), **never `controller.IsOn`**: its lock is held for the whole of a change and the race tests hang otherwise.
+  `RefreshPageIfOnChanged` asks the host for a new page when the state differs from what the last page showed. The switch, auto-on and test rows
+  are made once (`_bypassRow` ...) so the host keeps their status and Revert across that rebuild. The test row's line (`_testLine`) lists the four
+  checks; there are no per-check rows. Status values are never "None"/"Not tested": say nothing instead.
 
 - **One change at a time (0.1.1).** The switch, the `on`/`off` verbs and auto-on share one slot: `TryBeginChange(wanted)` returns a `ChangeTicket`
   or null, and only the holder may `EndChange(ticket)` (anybody else is ignored). A second request while one runs is *refused* ("A change is

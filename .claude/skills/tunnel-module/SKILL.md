@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay Remote tunnel module (modules/tunne
 
 # Remote tunnel module: codebase guide
 
-Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (117 at the last run, version 0.1.0).
+Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (118 at the last run, version 0.1.1 unreleased, host API `>=0.1.3`).
 User and design document: `docs/tunnel/MODULE.md` (it says which WireGuard facts were checked and where). This repository is PUBLIC.
 
 ## Hard constraints (check before you write code)
@@ -46,6 +46,12 @@ User and design document: `docs/tunnel/MODULE.md` (it says which WireGuard facts
 Repository `rigbay-app/module-tunnel`, release `v0.1.0`. Make the registry entry with a script that reads the `module.json` of the DOWNLOADED zip (a hand-typed `%ProgramFiles%\WireGuard` through Bash lost its backslash and the app refused the install: `DeclaresWider`). Run `toolsverify-module-zip` against the real registry after the merge.
 
 ## Gotchas
+
+- **The page layout (0.1.1, UI review TN-1, TN-2).** One `ExpanderRow` per tunnel, closed, with the on switch as `HeaderRow` (header = the tunnel's
+  name as a literal, so the approval reads "NAME: Off → On") and `TunnelUi.Line` (`LineText`: state, handshake age, rates from `TunnelUi.Rates`,
+  the problem on its own line). Inside only settings, then Server and Transferred, empty while off (the host leaves them out). No `ReadingRow` on the
+  page (the metrics stay on the bus). The rows are made once per tunnel (`TunnelUi.Rows`) and dropped on a language change (their effect texts are
+  literals). "Turn off after" is a `ChoiceRow` (`AutoOffChoices`; an older value outside the list is offered as "N hours").
 
 - **ON = the service exists and runs.** `/installtunnelservice` fails when a service of that name exists, so a stopped leftover is removed first. A failed start is cleaned up
   (uninstall) so no half-installed service stays; the reason is the service's own Win32 exit code (`err.service-failed`).
