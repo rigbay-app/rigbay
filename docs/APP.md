@@ -97,7 +97,7 @@ token; "yes" means it acts on something only an elevated process may change.
 | `--page` | `<id>` | Test and screenshots: open this page first. | no |
 | `--script` | `"step;step"` | Test and screenshots: drive the UI (steps below). | no |
 | `--shot` | `<png>` | Render the window's own HWND (PrintWindow) to a PNG; never the screen. | no |
-| `--shot-mode` | `<mode>` | Parsed; nothing reads it yet (the default is `printwindow`). | no |
+| `--shot-mode` | `printwindow\|rtb` | `printwindow` (default) as above. `rtb` renders the window content with RenderTargetBitmap at 1x (or at `--shot-scale`), open dialogs and flyouts laid over it; no Mica, no caption buttons. Use it when PrintWindow returns a black image, which it does while the display is asleep. | no |
 | `--shot-scale` | `1.5\|2` | Render the shot as if the display scale were this (RenderTargetBitmap of the window content). | no |
 | `--size` | `WxH` | Window size for a shot. | no |
 | `--accent` | `RRGGBB` | Test: pretend the Windows accent colour is this (title bar mark). | no |
@@ -111,7 +111,9 @@ token; "yes" means it acts on something only an elevated process may change.
 and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`,
 `restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `cpu:<label>` (logs this process's CPU time and the
 time spent redrawing, as a `CPUMARK` line, so a script can measure a stretch of waiting), `chart:<n>` (pick a chart tab, 0-based), `range:<1|5|10>` (minutes), `hover:<0..1>` (put the crosshair at that share of the plot width) and
-`frames:<count>x<ms>` (PNG frames of the window's own HWND into `<--shot name>-frames`, for the README animation).
+`frames:<count>x<ms>` (PNG frames of the window's own HWND into `<--shot name>-frames`, for the README animation). The UI review's package C adds
+`capture:<shortcut row header key>` (opens that row's "Press the new shortcut" dialog, not awaited) and
+`notice:<module id>,<success|info|warning|error>,<title key>,<body key>` (the in-window message as that module's toast shows it while the window is in use).
 
 ## What it does
 
