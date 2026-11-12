@@ -54,7 +54,7 @@ public class ModuleLifecycleTests
         Assert.Single(page.Groups[0].Rows);
         Assert.Same(rig.TestButton, page.Groups[0].Rows[0]);
         Assert.Equal("", rig.TestLine);
-        Assert.False(page.EnumerateRows().OfType<ValueRow>().Any(r => r.Value.Value is "None" or "Not tested" or "Not available" or "-" or "–"));
+        Assert.DoesNotContain(page.EnumerateRows().OfType<ValueRow>(), r => r.Value.Value is "None" or "Not tested" or "Not available" or "-" or "–");
         foreach (var row in page.EnumerateRows().Where(r => r.DescriptionKey is not null))
             Assert.InRange(rig.Host.Loc.T(row.DescriptionKey!).Length, 1, 70);   // the copy rule: a short fact, the rest in the help glyph
 

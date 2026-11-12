@@ -4,7 +4,7 @@
   "name": "Remote tunnel",
   "version": "0.1.1",
   "author": "Rigbay contributors",
-  "description": "Turns WireGuard tunnels on and off from Rigbay (page, tray, hotkey, command line) and shows their status.",
+  "description": "Turns WireGuard tunnels on and off from Rigbay (page, tray, shortcut, command line) and shows their status.",
   "entry": { "assembly": "Rigbay.Tunnel.dll", "type": "Rigbay.Tunnel.TunnelModule" },
   "hostApi": ">=0.1.3 <0.2",
   "group": "network",
