@@ -52,6 +52,8 @@ metric.memory.usage = Bộ nhớ
 metric.battery.level = Pin
 metric.battery.rate = Tốc độ pin
 
+# --- WP-A keys --- (package A adds its new shell/dashboard keys here)
+
 # trang mô-đun
 module.enable = Bật {0}
 page.homepage = Tìm hiểu thêm
@@ -89,6 +91,8 @@ row.custom-null = Mô-đun không trả về điều khiển nào cho '{0}'.
 row.custom-wrong-type = Mô-đun trả về {0}, không phải điều khiển WinUI.
 row.custom-threw = Mô-đun lỗi khi tạo điều khiển này: {0}
 row.custom-unavailable = Mô-đun không khả dụng.
+
+# --- WP-B keys --- (package B adds its new module-page keys here)
 
 # xác nhận phần cứng và lần bật đầu
 approval.title = Thay đổi phần cứng của bạn?
