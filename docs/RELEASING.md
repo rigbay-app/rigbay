@@ -146,7 +146,7 @@ This fetches `https://raw.githubusercontent.com/rigbay-app/registry/main/registr
 `RegistryReader`, and for each module downloads the **real asset from GitHub** with `ModuleInstaller` (hash and size compared before unpacking), applies the install in a scratch
 folder and loads the module with the real loader. It is the Modules page minus the window: the page was not driven. On 2026-11-01 all four passed (hashes in the release notes and in the registry).
 
-Then, by hand, on a machine with the app: Modules page, "Get the module list", Install, restart, and look at the module (turned off, what it declares shown). That step is the one
+Then, by hand, on a machine with the app: Modules page, "Check for modules", Install, restart, and look at the module (turned off, what it declares shown). That step is the one
 nobody automated, and it is the one that proves the user experience.
 
 ## 9. Cutting v0.1.1 (a fix or a new version)

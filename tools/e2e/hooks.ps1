@@ -66,8 +66,8 @@ try {
     # ============================================================ H1 offline, nothing saved
     Say '-- H1 offline, no saved list (real registry address, dead proxy for this process only)'
     $s = Start-Scenario 'h1-offline-none' @() $DeadProxy
-    Check 'H1 window up on the Modules page (first run)' ($null -ne $s.W -and (Has $s.W 'Get the module list' $script:CT::Button))
-    [void](Click-Button $s.W 'Get the module list')
+    Check 'H1 window up on the Modules page (first run)' ($null -ne $s.W -and (Has $s.W 'Check for modules' $script:CT::Button))
+    [void](Click-Button $s.W 'Check for modules')
     $ok = Wait-Until { Has $s.W 'You are offline' } 40
     Check 'H1 the page says "You are offline, and no list is saved on this PC yet."' $ok ((Row-Texts $s.W | Where-Object { $_ -match 'offline|reach|valid' }) -join ' | ')
     Check 'H1 a "Try again" button is offered, no module row is shown' ((Has $s.W 'Try again' $script:CT::Button) -and -not (Has $s.W 'Install Recorder' $script:CT::Button))
@@ -78,7 +78,7 @@ try {
     # ============================================================ H2 offline with a saved list
     Say '-- H2 offline with a saved list'
     $s = Start-Scenario 'h2-offline-cache'
-    [void](Click-Button $s.W 'Get the module list')
+    [void](Click-Button $s.W 'Check for modules')
     Check 'H2 first the list is fetched from GitHub (no proxy)' (Wait-Until { Has $s.W 'Install Recorder' $script:CT::Button } 30)
     Check 'H2 the cache is on disk, next to the modules folder (not in LOCALAPPDATA)' (Test-Path (Join-Path $s.Inst 'registry\registry.json'))
     $meta1 = Get-Content (Join-Path $s.Inst 'registry\registry.meta.json') -Raw
@@ -87,10 +87,10 @@ try {
     Start-Sleep -Seconds 1
     $s = Resume-Scenario 'h2-offline-cache' @() $DeadProxy
     Check 'H2 restarted with the dead proxy: the saved list is already on the page' (Has $s.W 'Install Recorder' $script:CT::Button)
-    Check 'H2 the page says it is the saved list' (Has $s.W 'Module list saved on this PC')
-    [void](Click-Button $s.W 'Check for updates')
+    Check 'H2 the page says it is the saved list' (Has $s.W 'Showing the list saved on')
+    [void](Click-Button $s.W 'Check for modules')
     $ok = Wait-Until { Has $s.W 'You are offline. Showing the list saved on' } 40
-    Check 'H2 Check for updates: "You are offline. Showing the list saved on <date>."' $ok ((Row-Texts $s.W | Where-Object { $_ -match 'offline' }) -join ' | ')
+    Check 'H2 Check for modules: "You are offline. Showing the list saved on <date>."' $ok ((Row-Texts $s.W | Where-Object { $_ -match 'offline' }) -join ' | ')
     Check 'H2 the four modules are still listed from the saved copy' ((Has $s.W 'Install PredatorSense' $script:CT::Button) -and (Has $s.W 'Install Recorder' $script:CT::Button) -and (Has $s.W 'Install Steam access' $script:CT::Button) -and (Has $s.W 'Install XTU profiles' $script:CT::Button))
     Shot $s.W 'h2-offline-saved-list'
     [void](Click-Button $s.W 'Install Recorder')
@@ -151,7 +151,7 @@ try {
 
     $s = Start-Scenario 'h3-damaged' @('--registry', $regFile, '--slow-download', '60')
     Check 'H3 window up' ($null -ne $s.W)
-    [void](Click-Button $s.W 'Get the module list')
+    [void](Click-Button $s.W 'Check for modules')
     Check 'H3 the local list shows the five fixture rows' (Wait-Until { Has $s.W 'Install Recorder (one byte flipped)' $script:CT::Button } 20)
     Shot $s.W 'h3-list'
     $cases = @(
@@ -182,7 +182,7 @@ try {
     Stop-MyApps
     Start-Sleep -Seconds 1
     $s = Resume-Scenario 'h3-damaged' @('--registry', $regFile, '--slow-download', '1500')
-    [void](Click-Button $s.W 'Check for updates')
+    [void](Click-Button $s.W 'Check for modules')
     Check 'H4 list is there' (Wait-Until { Has $s.W 'Install PredatorSense (slow, for Cancel)' $script:CT::Button } 20)
     [void](Click-Button $s.W 'Install PredatorSense (slow, for Cancel)')
     $ok = Wait-Until { Has $s.W 'Downloading' } 15
@@ -208,7 +208,7 @@ try {
     # ============================================================ H6 the real ProgramData layout: a parent folder called Rigbay
     Say '-- H6 admin-only folders, with the modules folder inside a parent named Rigbay (the layout of C:\ProgramData\Rigbay\modules)'
     $s = Start-Scenario 'h6-acl' @() @{} 'Rigbay\modules'
-    [void](Click-Button $s.W 'Get the module list')
+    [void](Click-Button $s.W 'Check for modules')
     Check 'H6 list fetched' (Wait-Until { Has $s.W 'Install Recorder' $script:CT::Button } 30)
     [void](Click-Button $s.W 'Install Recorder')
     Check 'H6 install queued' (Wait-Until { Has $s.W 'Restart now' $script:CT::Button } 30)
@@ -233,7 +233,7 @@ try {
     $bad = Join-Path $Work 'bad-registry.json'
     [IO.File]::WriteAllText($bad, '{ "schemaVersion": 1, "modules": [ { "id": "Bad Id", "name": "x" } ] }', (New-Object Text.UTF8Encoding($false)))
     $s = Start-Scenario 'h5-invalid' @('--registry', $bad)
-    [void](Click-Button $s.W 'Get the module list')
+    [void](Click-Button $s.W 'Check for modules')
     $ok = Wait-Until { Has $s.W 'not valid' } 20
     Check 'H5 an invalid list is refused as a whole and the page says so' $ok ((Row-Texts $s.W | Where-Object { $_ -match 'valid' }) -join ' | ')
     Shot $s.W 'h5-invalid-list'

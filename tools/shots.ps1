@@ -84,6 +84,7 @@ $jobs = @(
     # the shortcut capture dialog and the in-window notice (review AX-1, AX-2)
     @{ n = 'capture-dark';          a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;capture:row.hotkey.header;wait:900" },
     @{ n = 'capture-light';         a = '--theme', 'light', '--script', "$fan;page:demo-fan;capture:row.hotkey.header;wait:900" },
+    @{ n = 'capture-pressed-dark';  a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;capture:row.hotkey.header=Ctrl+Alt+M;wait:900" },
     @{ n = 'notice-dark';           a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;notice:demo-fan,success,toast.title,boost.on;wait:600" },
     @{ n = 'notice-light';          a = '--theme', 'light', '--script', "$fan;page:demo-fan;notice:demo-fan,success,toast.title,boost.on;wait:600" },
     @{ n = 'notice-error-dark';     a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;notice:demo-fan,error,toast.title,cmd.refused;wait:600" },
