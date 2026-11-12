@@ -14,8 +14,8 @@ Windows App Runtime 1.8, both present on this machine.
 | `tools\build.ps1` | Publishes the app to `tools\out\app` (framework-dependent, 38 MB) and lays out the demo modules in `tools\out\modules` and `tools\out\modules-test`. |
 | `tools\run-elevated.ps1 [-Wait] [app args]` | Starts the app elevated (UAC auto-elevates for this account) with its own data folder and the demo modules, so your real `%LOCALAPPDATA%\Rigbay` and modules folder stay untouched. |
 | `tools\stop-elevated.ps1` | Stops every `Rigbay.App` (an elevated process cannot be stopped from a normal shell, so it relaunches itself elevated). |
-| `tools\selftest.ps1` | Runs the in-app self-test inside an elevated process (129 checks, 16 of them install checks on a scratch copy of the demo modules and a local registry), prints the report. Exit code 0 when all pass. |
-| `tools\shots.ps1 [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light; and `hero-dark` for the README, the `visual-*` shots of V1 and the README animation `visual-live.gif` (frames of the window put together by ffmpeg when it is on the PATH; the script never installs it). It works in `C:\Rigbay-demo` (`-Demo <dir>` changes it; a copy of the demo modules and one data folder per shot), so no developer path, user name or machine name is drawn; the app makes that folder admin-only, so delete it with an elevated shell. |
+| `tools\selftest.ps1 [-AllowMulti]` | Runs the in-app self-test inside an elevated process (about 170 checks, 16 of them install checks on a scratch copy of the demo modules and a local registry), prints the report. Exit code 0 when all pass. `-AllowMulti` runs it next to a Rigbay that is already running; the pipe and single-instance checks are then skipped (they would reach the other instance). |
+| `tools\shots.ps1 [-ShotMode rtb] [name...]` | Renders the window itself (PrintWindow of the app's own HWND, never the screen) into `tools\shots\*.png`: dashboard, empty, failed, unsupported, module page on/off, approval dialog, Vietnamese, modules, settings, log, narrow; dark and light; and `hero-dark` for the README, the `visual-*` shots of V1, the `ub-*` module page shots of the UI review, the `released-*` pages of the released modules on made-up machines (when `tools\out\modules-released` was built) and the README animation `visual-live.gif` (frames of the window put together by ffmpeg when it is on the PATH; the script never installs it). `-ShotMode rtb` renders with RenderTargetBitmap instead (see `--shot-mode`): use it while the display sleeps, when PrintWindow gives black images. It works in `C:\Rigbay-demo` (`-Demo <dir>` changes it; a copy of the demo modules and one data folder per shot), so no developer path, user name or machine name is drawn; the app makes that folder admin-only, so delete it with an elevated shell. |
 | `tools\cli-test.ps1` | Command-line verbs (headless and forwarded to a running instance) and `--langcheck`. |
 | `tools\schtask-test.ps1` | "Start with Windows": creates the task through the app's own code, runs it with `schtasks /run`, checks, deletes it. Refuses to run if a task named `Rigbay` already exists. |
 | `tools\sync-brand-assets.ps1 [-Check]` | Copies the brand files the app carries from `assets\brand` (list: `src\Rigbay.App\Assets\brand-files.txt`); `-Check` only compares and fails on a difference (`build.ps1` runs it). |
@@ -106,7 +106,8 @@ token; "yes" means it acts on something only an elevated process may change.
 | `--selftest` | | Run the in-app self-test. | yes (it checks the admin-only folders and elevated-only behaviour) |
 | `--selftest-out` | `<file>` | Where the self-test writes its report. | no |
 
-`--script` steps: `enable:id`, `disable:id`, `page:id`, `lang:vi`, `theme:dark`, `edit:<row header key>=<value>`, `revert:<row header key>`,
+`--script` steps: `enable:id`, `disable:id`, `page:id`, `lang:vi`, `theme:dark`, `edit:<row header key>[=<value>]` (no value: press the button),
+`revert:<row header key>`,
 `approve:true|false|ask`, `cancel-dialog`, `startup:on|off`, `turn-on:id`, `expand:id`, `expand-all`, `scroll:px`, `wait:ms`, `cmd:<verb words>`,
 and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`,
 `restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `cpu:<label>` (logs this process's CPU time and the
@@ -115,23 +116,48 @@ time spent redrawing, as a `CPUMARK` line, so a script can measure a stretch of 
 `capture:<shortcut row header key>[=<chord>]` (opens that row's "Press the new shortcut" dialog, not awaited; with `=Ctrl+Alt+M` that chord is shown as
 already pressed) and
 `notice:<module id>,<success|info|warning|error>,<title key>,<body key>` (the in-window message as that module's toast shows it while the window is in use).
+Package A adds `pane:open|close` (the menu button), `tab-order` (logs the open page's tab stops with their names), `search:<text>` (types into
+the search box and logs the results), `search-open:<title>` (opens a result as a click does and logs where the focus landed),
+`log-filter:all|warnings|errors` and `invoke:<accessible name>` (presses that button through UI Automation). `focus:<accessible name>` puts
+keyboard focus on that control of the open page (a picture of where the focus goes after `invoke:`), `axis` logs the trend chart's time and
+value labels, and `shot:<suffix>` takes one more PNG at that moment, `<--shot name>-<suffix>.png`, the way `--shot` is taken (a long page shot
+at the top, then again after `scroll:`; the window is never taller than the screen).
+
+**A row whose header is a literal.** In `edit:`, `revert:` and `capture:` the first single `=` separates the row's header key from the value,
+and a `=` that belongs to the key is written twice. A module-made name (`Text.Literal`, a key that starts with `=`) is therefore written with
+`==` in front: the Remote tunnel row `=example-tunnel` is `edit:==example-tunnel=true`, its Revert `revert:==example-tunnel`. The value is
+the rest of the step as written (it may hold `=`, but cannot start with one).
 
 ## What it does
 
-- **Shell.** Mica window, 48 px title bar with the search box, `NavigationView` (Dashboard; groups from the manifests, empty groups
-  hidden, a dot on running and failed modules; at the bottom Modules, Settings, Log), a sheet with a hairline and 8 px top corners
-  at most 1000 px wide, a status line. Below 1000 px the pane collapses to icons. The close button hides to the tray when the
-  tray icon exists (Quit is in the tray menu); a second start brings the first window forward (named mutex plus a pipe).
-- **Dashboard.** The bay rack: one slim row per module with a bay mark (filled green running, filled red failed, outline off,
-  unsupported or incompatible), the state and its reason, up to two live readings in tabular figures (hue by kind: temperature
-  warm, power blue, speed teal, load amber), a hairline between rows. No modules: an honest empty state with one button.
-- **Module page.** Host-owned enable row first (the first time, a dialog lists what the module declares it uses), then the
-  module's groups as `SettingsCard` / `SettingsExpander` rows, then links. A turned-off module keeps its rows, greyed out. Every
+- **Shell.** Mica window, 48 px title bar with the search box (Ctrl+F or F3), `NavigationView` (Dashboard; up to 8 modules as one flat
+  list, more in their manifest groups; at the bottom Modules, Settings, Log), a sheet with a hairline and 8 px top corners at most 1000 px
+  wide. There is no status bar: the versions are in Settings > Troubleshooting. A module's item has a dot only when it asks for attention
+  (red: failed; attention dot: an update or a restart), never for "running". Labels from 1000 px, an icon rail below that, and the menu
+  button is there at every width (a window snapped to 640 px still reaches every page); the window is at least 500 px wide. "Not running
+  as administrator" is a bar above the page, only when it is true. Picking a setting in the search results opens its page at that row
+  (expander opened, row focused). The close button hides to the tray when the tray icon exists (Quit is in the tray menu); a second start
+  brings the first window forward (named mutex plus a pipe).
+- **Dashboard.** First the machine, "This PC now": one tile per key reading of the running modules, each figure once. Then the bay rack:
+  one slim row per module with its bay mark, state line and fixed reading slots for key readings without a tile; a reading that is not
+  available is left out. Failed modules lead the summary. No modules: an honest empty state with one button.
+- **Module page** (`docs/UI-DIRECTION.md` section 9). The **header card**: the module's tile and name, a state dot with the state word
+  and the module's live line, the on/off switch with its state in words, Learn more and Log small at the top right (under the name when the
+  card is narrower than 560 px, so a long link does not squeeze the name and state), and once for the page
+  what the shield after a row's name means (the first time the switch is turned on, a dialog lists what the module declares it uses).
+  The **main card**: the module's `PageModel.Primary` large (a short choice as a segmented control), then the reading **tiles, which are
+  the tabs of the trend chart** under them (1, 5 or 10 minutes; Compare adds the readings of the same kind). Then the module's groups as
+  `SettingsCard` / `SettingsExpander` rows (a row that says nothing is not drawn; a short choice in a row is a segmented control while that
+  leaves the row's name 200 px, else a drop-down; the host's own switches take the cards' switch style, so every switch on the page ends at
+  the same x) and **All readings**, folded. A failed module gets one
+  sentence, "Restart and try again", "View log" and its error under Details. A turned-off module keeps its rows, greyed out. Every
   value goes through the core's `ValueEditor`: apply-or-revert rows keep a draft with Apply and Discard; rows that change hardware
   show the exact change ("Fan mode: Auto → Maximum") in a confirmation, then show the value the module reports afterwards and a
   Revert. A custom control (level 2) is created inside the module's boundary and type-checked.
-- **Modules.** Every module with state, switch and the manifest's facts (admin, network, registry, services, "Reads files outside its folder" (one line per `probePaths` entry, also in the turn-on dialog), host API, folder,
-  problems). Since R1 the page also installs, updates, removes and rolls back (next bullet).
+- **Modules.** The subtitle is a summary ("5 installed · list checked ..."; the folder path is the tooltip of Open folder). Every module
+  with state, switch and the manifest's facts as a compact list (admin, network, registry, services, "Reads files outside its folder" (one
+  line per `probePaths` entry, also in the turn-on dialog), host API, folder, problems); a failed, unsupported or incompatible module has no
+  switch, its state word says why, and the row links to its page. Since R1 the page also installs, updates, removes and rolls back (next bullet).
 - **Modules: install, update, remove (R1).** Two lists. **Installed**: a flat row per module (state bar, icon tile, name and version, state and reason),
   the switch, **Update to X** when the registry has a newer release that fits this host, **Undo** while a change waits, and in the details the manifest's
   facts, **Go back to X** (a module that failed after an update) and **Remove** (with a confirmation). **Available**: the registry's modules, each with its
@@ -143,15 +169,23 @@ already pressed) and
   redraws itself when something changes, with scroll, open rows and focus kept; progress ticks only move the bar. The first start with no module at all
   opens this page once, with "Check for modules". Short copy, no cards, language keys `modules.*` and `decl.*` in en and vi, errors `core.install.*` in Core.
   How it works, what it protects and what not: `docs/INSTALL.md`; the list and its rules: `docs/REGISTRY.md`.
-- **Settings.** Language (switches at once, module strings too), theme (system, light, dark), start with Windows, log level, **check for module updates
-  every day (off by default; asks github.com once a day, sends no identifier)**, open the log folder, and the hotkeys of all modules with conflicts marked.
-- **Search.** A runtime index of module names and descriptions and every row's header and description, in the current language.
-- **Tray, hotkeys, toast.** Tray menu: Open, one submenu per module that registered items, Quit. Hotkeys: `RegisterHotKey` on the
+- **Settings.** Grouped by intent. General: language (switches at once, module strings too), theme (system, light, dark), start with
+  Windows, **check for module updates every day (off by default; asks github.com once a day, sends no identifier)**. Hotkeys: the shortcuts
+  of all modules, changeable here, conflicts named. Troubleshooting: log level, open the log folder, **Version info** (Rigbay, host API,
+  Windows App SDK, .NET, Windows, every module; no user or machine name) with **Copy version info** for a bug report. About.
+- **Log.** The last 500 entries as a list, not a text dump: a level filter (all, warnings and errors, errors) and a source filter (the
+  host or one module), a glyph on error and warning lines, time and source in their own columns; Copy puts the shown lines on the
+  clipboard in the log file's format.
+- **Search.** A runtime index of module names and descriptions, the primary row and every row's header, description and help, in the current language.
+- **Tray, hotkeys, toast.** Tray menu: Open, one submenu per module that registered items, Quit; the icon's tooltip names the first two
+  running modules' state ("Balanced · CPU 82 °C"). Hotkeys: `RegisterHotKey` on the
   window, only for gestures nobody else claims; a gesture the OS refuses is flagged. Notifications: see "Notifications" below.
 - **Page refresh and literal text (A8, used since A7).** The app subscribes once to `RigbayHost.PageRefreshed`. When the open page
   belongs to that module it is rebuilt in place: scroll offset kept, open expanders kept (matched by header), focus given back to the
   control with the same type and name (a button that disables itself while it works has its focus remembered at click time), swapped
-  and restored inside one UI callback so nothing is painted in between. The search index is rebuilt either way. Text that starts
+  and restored inside one UI callback so nothing is painted in between. A control of the primary block is looked for in the new primary
+  block, and when the module relabelled it (the Recorder's Start becomes Stop) the new primary control takes the focus; keyboard focus
+  comes back as keyboard focus. The search index is rebuilt either way. Text that starts
   with `=` (`Text.Literal`) is resolved by `entry.Localisation`, so pane items, tray items, hotkey names (also on Settings) and choice
   labels show it without the `module.<id>.` prefix; nothing in the app prefixes keys by hand.
 - **Expander items.** `SettingsExpander` styles every item as a `SettingsCard`; an `InfoBar` in it threw when the expander was opened.

@@ -406,7 +406,12 @@ public sealed partial class MainWindow : Window
         foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) if (KeyOf(x) is { } k && open.Contains(k)) x.IsExpanded = true;   // an open list stays open
         PageScroll.UpdateLayout();
         PageScroll.ChangeView(null, Math.Min(offset, PageScroll.ScrollableHeight), null, disableAnimation: true);
-        focus?.Restore(PageHost);
+        if (focus != null)
+        {
+            var back = focus.Restore(PageHost);
+            string name = back == null ? "" : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(back) is { Length: > 0 } n ? n : (back as ContentControl)?.Content as string ?? "";
+            AppLog.Info(back != null ? $"page refresh: focus back on {back.GetType().Name} '{name}' ({back.FocusState}){(focus.InPrimary ? ", the primary control" : "")}" : "page refresh: the focused control is gone");
+        }
     }
 
     /// <summary>The Modules page redraws itself when its data changed (install finished, list fetched): same view, new rows.</summary>
@@ -970,18 +975,19 @@ public sealed partial class MainWindow : Window
                     break;
                 }
                 case "cancel-dialog": ApprovalPrompt.CancelOpen(); break;
-                case "edit":   // edit:<row header key>=<value> on the open module page; not awaited, so an approval dialog can stay open for a screenshot
+                case "edit":   // edit:<row header key>=<value> on the open module page ('=' in the key doubled: edit:==example-tunnel=on, RowStep); not awaited, so an approval dialog can stay open for a screenshot
                 {
-                    var eq = arg.IndexOf('=');
-                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == (eq < 0 ? arg : arg[..eq]));
-                    if (driver == null) { AppLog.Warn("script: no row '" + arg + "' on this page"); break; }
-                    _ = driver.Edit(eq < 0 ? null : ParseRowValue(driver.Row, arg[(eq + 1)..]));
+                    var (key, value) = RowStep.Parse(arg);
+                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == key);
+                    if (driver == null) { AppLog.Warn("script: no row '" + key + "' on this page"); break; }
+                    _ = driver.Edit(value == null ? null : ParseRowValue(driver.Row, value));
                     break;
                 }
-                case "revert":   // revert:<row header key> on the open module page: what the Revert link does; not awaited, so the revert dialog can stay open for a screenshot
+                case "revert":   // revert:<row header key> on the open module page ('=' in the key doubled): what the Revert link does; not awaited, so the revert dialog can stay open for a screenshot
                 {
-                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == arg);
-                    if (driver == null) { AppLog.Warn("script: no row '" + arg + "' on this page"); break; }
+                    var (key, _) = RowStep.Parse(arg);
+                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == key);
+                    if (driver == null) { AppLog.Warn("script: no row '" + key + "' on this page"); break; }
                     _ = driver.Revert();
                     break;
                 }
@@ -1022,6 +1028,15 @@ public sealed partial class MainWindow : Window
                     }
                     break;
                 }
+                case "shot":   // shot:<suffix>: one more PNG now, "<--shot name>-<suffix>.png", the way --shot is taken (so a long page can be shot at the top and again after scroll:)
+                    if (_opt.Shot != null && arg.Length > 0 && arg.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+                    {
+                        var extra = Path.ChangeExtension(_opt.Shot, null) + "-" + arg + ".png";
+                        PageScroll.UpdateLayout();
+                        await Task.Delay(400);
+                        if (_opt.ShotScale > 1.01 || _opt.ShotMode == "rtb") await ShootScaledAsync(extra, Math.Max(1, _opt.ShotScale)); else Shoot(extra);
+                    }
+                    break;
                 case "pane": Nav.IsPaneOpen = arg != "close"; break;   // pane:open | pane:close, what the menu button does
                 case "tab-order":   // tab-order: logs the tab stops of the open page in visual-tree order (what Tab follows; no TabIndex is set anywhere), with their accessible names
                 {
@@ -1056,6 +1071,20 @@ public sealed partial class MainWindow : Window
                     var b = SelfTest.Find<Microsoft.UI.Xaml.Controls.Primitives.ButtonBase>(PageHost).FirstOrDefault(x => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x) == arg || x.Content as string == arg);
                     if (b == null) { AppLog.Warn("script: no button '" + arg + "'"); break; }
                     if (Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(b)?.GetPattern(Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Invoke) is Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider inv) inv.Invoke();
+                    break;
+                }
+                case "focus":   // focus:<accessible name>: keyboard focus on the first control of the open page with that name or text (a check or a screenshot of where the focus goes)
+                {
+                    var target = SelfTest.Find<Control>(PageHost).FirstOrDefault(x => x.IsTabStop && (Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x) == arg || (x as ContentControl)?.Content as string == arg));
+                    if (target == null) { AppLog.Warn("script: no control '" + arg + "'"); break; }
+                    AppLog.Info($"script: focus on {target.GetType().Name} '{arg}': {target.Focus(FocusState.Keyboard)}");
+                    break;
+                }
+                case "axis":   // axis: logs the trend chart's axes on the open module page (time labels, span, step; value labels)
+                {
+                    var ch = ModulePage.LastBlock?.Chart;
+                    AppLog.Info(ch == null ? "script: no chart on this page"
+                        : $"script: chart axis ({ch.RangeSeconds / 60} min range): time {string.Join(", ", ch.TimeLabels)} (span {ch.ShownSeconds:0} s, step {ch.TimeAxisShown?.StepSeconds} s, covers the range: {ch.TimeAxisShown?.CoversRange}); values {string.Join(", ", ch.TickLabels)}");
                     break;
                 }
                 case "chart": if (int.TryParse(arg, out var gi)) ModulePage.LastBlock?.Chart?.SelectGroup(gi); break;   // chart:<n> picks the n-th chart tab (0-based) on the open module page

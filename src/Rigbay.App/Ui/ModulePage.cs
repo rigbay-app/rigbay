@@ -178,7 +178,41 @@ static class ModulePage
         Grid.SetColumn(right, 2);
         grid.Children.Add(right);
 
+        // a narrow window (640 px): the links go under the name and the state, so a long link ("Cấu hình XTU trên GitHub") does not squeeze them
+        // into a column of a few words; the right column keeps only the switch
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.SizeChanged += (_, a) => PlaceHeaderLinks(grid, right, links, a.NewSize.Width < NarrowHeaderCard);
+
         return new Border { Style = Ui.Style("RbHeroCard"), Child = grid, Margin = new Thickness(0, 0, 0, 4) };
+    }
+
+    /// <summary>A header card narrower than this puts its links under the module's name and state instead of above the switch.</summary>
+    internal const double NarrowHeaderCard = 560;
+
+    static void PlaceHeaderLinks(Grid grid, Panel right, StackPanel links, bool narrow)
+    {
+        if (narrow == ReferenceEquals(links.Parent, grid)) return;
+        if (narrow)
+        {
+            right.Children.Remove(links);
+            links.HorizontalAlignment = HorizontalAlignment.Left;
+            links.Margin = new Thickness(-6, 4, 0, 0);   // the link's own padding: its text lines up with the state line
+            Grid.SetRow(links, 1);
+            Grid.SetColumn(links, 1);
+            Grid.SetColumnSpan(links, 2);
+            grid.Children.Add(links);
+        }
+        else
+        {
+            grid.Children.Remove(links);
+            links.HorizontalAlignment = HorizontalAlignment.Right;
+            links.Margin = new Thickness(0);
+            Grid.SetRow(links, 0);
+            Grid.SetColumn(links, 0);
+            Grid.SetColumnSpan(links, 1);
+            right.Children.Insert(0, links);
+        }
     }
 
     static HyperlinkButton SmallLink(string text, Uri? uri)
@@ -224,7 +258,7 @@ static class ModulePage
     {
         bool canToggle = e.Lifecycle is ModuleLifecycle.Off or ModuleLifecycle.Running;
         bool suppress = false;
-        var sw = new ToggleSwitch { IsOn = e.Lifecycle == ModuleLifecycle.Running, OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = canToggle };
+        var sw = Ui.CompactToggle(new ToggleSwitch { IsOn = e.Lifecycle == ModuleLifecycle.Running, OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = canToggle });   // ends where the rows' switches end
         AutomationProperties.SetName(sw, Host.F("module.enable", e.DisplayName));
         var word = Ui.Text(Host.T(sw.IsOn ? "value.on" : "value.off"), "RbSecondaryText");
         sw.Toggled += async (_, _) =>

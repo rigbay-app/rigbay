@@ -18,7 +18,8 @@ namespace Rigbay.App;
 /// the last 1, 5 or 10 minutes, from the host's history: one 2 px line in the reading's own hue (the tile's), no area, the live end marked, the limits
 /// of its group (<see cref="ChartRole.Reference"/>) as 1 px dashed lines labelled at the line. "Compare" adds the other readings of the same group
 /// (same unit, one axis, never two) in the documented categorical order, with a legend that carries their latest values. Until the data covers the
-/// chosen range the time axis is the data's own span (at least a minute), so a reading that just started is not a sliver in a corner. The y axis is
+/// chosen range the time axis is the data's own span (at least a minute), so a reading that just started is not a sliver in a corner; its labels
+/// (<see cref="TimeAxis"/>) are in one unit, never two alike, and none is older than the data. The y axis is
 /// in the current language's number format, scaled for a byte rate (KB/s), and its top tick names the unit. A crosshair with a tooltip (time and every
 /// line's value) follows the pointer or the arrow keys. The chart is not drawn at all until one of its lines has two points.
 /// Under high contrast the lines of a comparison are told apart by dashes.
@@ -52,6 +53,8 @@ sealed class TrendChart : Grid
     double _left = 42;
     double _shownSeconds;
     IReadOnlyList<string> _tickLabels = Array.Empty<string>();
+    IReadOnlyList<string> _timeLabels = Array.Empty<string>();
+    TimeAxisPlan? _timeAxis;
     readonly List<string> _referenceLabels = new();
 
     public int RangeSeconds => _range;
@@ -64,6 +67,10 @@ sealed class TrendChart : Grid
     public IReadOnlyList<string> TickLabels => _tickLabels;
     /// <summary>The time the x axis spans in the last draw: the data's own span (at least 60 s) until the data covers the chosen range.</summary>
     public double ShownSeconds => _shownSeconds;
+    /// <summary>The time-axis labels of the last draw, now first (never two alike, none older than the data).</summary>
+    public IReadOnlyList<string> TimeLabels => _timeLabels;
+    /// <summary>The time axis of the last draw (<see cref="TimeAxis"/>).</summary>
+    public TimeAxisPlan? TimeAxisShown => _timeAxis;
     public bool HasData => _hasData;
     public Grid Plot => _plot;
     public ChartPlan? PlanShown => _plan;
@@ -284,9 +291,13 @@ sealed class TrendChart : Grid
         _referenceLabels.Clear();
         if (!_hasData || w < MinLeft + Right + 40 || h < Top + Bottom + 40) { AutomationProperties.SetName(_plot, Describe(plan, series, references)); return; }
 
-        // the time axis: the data's own span (at least a minute) until the data covers the chosen range
+        // the time axis (TimeAxis): the data's own span (at least a minute) until the data covers the chosen range, within one sample's spacing (the
+        // history hands over what is inside the range, so its oldest point is up to one sample younger than the range); labels only where there is data
         var oldest = series.Where(s => s.Points.Count > 0).Select(s => s.Points[0].Time).DefaultIfEmpty(now).Min();
-        double shown = Math.Clamp((now - oldest).TotalSeconds, 60, _range);
+        double age = (now - oldest).TotalSeconds;
+        double tolerance = Math.Max(history.SlotWidth.TotalSeconds,
+            series.Where(s => s.Points.Count > 0).Select(s => MetricHistory.GapFor(s.Points).TotalSeconds / 3).DefaultIfEmpty(0).Max());
+        double shown = TimeAxis.Plan(age, _range, double.PositiveInfinity, tolerance).ShownSeconds;
         _shownSeconds = shown;
         var span = TimeSpan.FromSeconds(shown);
 
@@ -311,11 +322,14 @@ sealed class TrendChart : Grid
         _left = Math.Max(MinLeft, Math.Ceiling(labelWidth) + 8);
         double left = _left;
         double pw = w - left - Right, ph = h - Top - Bottom;
+        var axis = TimeAxis.Plan(age, _range, pw, tolerance);   // the same span, with the labels spaced for this width
+        _timeAxis = axis;
+        _timeLabels = axis.Ticks.Select(ChartKit.TickText).ToList();
         double Y(double v) => Top + ph - ReadingScale.Fraction(v / divisor, lo, hi) * ph;
         double X(DateTimeOffset t) => left + pw - Math.Clamp((now - t).TotalSeconds / span.TotalSeconds, 0, 1) * pw;
 
         // grid and the y axis: faint solid hairlines, labels in secondary ink; the x axis is the time before now. Rebuilt only when the axis, the span or the size changed.
-        string key = $"{w:0}x{h:0}|{lo}|{hi}|{string.Join(",", _tickLabels)}|{shown:0}|{left}";
+        string key = $"{w:0}x{h:0}|{lo}|{hi}|{string.Join(",", _tickLabels)}|{shown:0}|{left}|{string.Join(",", _timeLabels)}";
         if (key != _gridKey)
         {
             _gridKey = key;
@@ -329,11 +343,10 @@ sealed class TrendChart : Grid
                 Canvas.SetLeft(lab, 0); Canvas.SetTop(lab, y - 9);
                 _gridLayer.Children.Add(lab);
             }
-            int tickEvery = shown switch { <= 60 => 15, <= 150 => 30, <= 300 => 60, _ => 120 };
-            for (int k = 0; k <= shown + 0.5; k += tickEvery)
+            for (int i = 0; i < axis.Ticks.Count; i++)
             {
-                double x = left + pw - k / shown * pw;
-                var lab = Ui.Text(ChartKit.AgoText(k), "RbSecondaryCaption");
+                double x = left + pw - axis.Ticks[i].SecondsAgo / shown * pw;
+                var lab = Ui.Text(_timeLabels[i], "RbSecondaryCaption");
                 lab.IsHitTestVisible = false;
                 lab.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 double lw = lab.DesiredSize.Width;

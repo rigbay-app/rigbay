@@ -74,12 +74,13 @@ static class ChartKit
         return new Path { Data = geo, Style = Fill(hue), IsHitTestVisible = false };
     }
 
-    /// <summary>A short text such as "−45 s" or "−4 min" for a tick that is <paramref name="seconds"/> before now; "now" for 0.</summary>
-    public static string AgoText(int seconds)
+    /// <summary>The text of a time-axis label (<see cref="TimeAxis"/>): "now", "-45 s" or "-4 min" in the current language.</summary>
+    public static string TickText(TimeTick tick) => tick.Unit switch
     {
-        if (seconds <= 0) return Host.T("chart.now");
-        return seconds < 60 ? Host.F("chart.sec", seconds) : Host.F("chart.min", seconds / 60);
-    }
+        TimeTickUnit.Now => Host.T("chart.now"),
+        TimeTickUnit.Seconds => Host.F("chart.sec", tick.Value),
+        _ => Host.F("chart.min", tick.Value),
+    };
 
     /// <summary>The fade the page's visuals come in with, unless the user turned animation effects off.</summary>
     public static void FadeIn(UIElement element, int ms = 160)
