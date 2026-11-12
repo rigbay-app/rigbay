@@ -77,7 +77,11 @@ static class Ui
     public static UIElement PageHeader(string title, string? meta, params UIElement[] right) => PageHeader(null, title, meta, right);
 
     /// <summary>Page header with an optional mark on the left (a module page shows the module's tile there).</summary>
-    public static UIElement PageHeader(UIElement? lead, string title, string? meta, params UIElement[] right)
+    public static UIElement PageHeader(UIElement? lead, string title, string? meta, params UIElement[] right) =>
+        PageHeaderWith(lead, title, string.IsNullOrEmpty(meta) ? null : Text(meta, "RbSecondaryCaption", trim: true), right);
+
+    /// <summary>Page header whose second line is an element (a line with parts in different inks, such as the Dashboard's counts).</summary>
+    public static UIElement PageHeaderWith(UIElement? lead, string title, UIElement? meta, params UIElement[] right)
     {
         var g = new Grid { Margin = new Thickness(0, 0, 0, 18) };
         if (lead != null)
@@ -94,7 +98,7 @@ static class Ui
         var h = new TextBlock { Text = title, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"], TextTrimming = TextTrimming.CharacterEllipsis };
         AutomationHeading(h);
         left.Children.Add(h);
-        if (!string.IsNullOrEmpty(meta)) left.Children.Add(Text(meta, "RbSecondaryCaption", trim: true));
+        if (meta != null) left.Children.Add(meta);
         Grid.SetColumn(left, first);
         g.Children.Add(left);
         var r = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Top };

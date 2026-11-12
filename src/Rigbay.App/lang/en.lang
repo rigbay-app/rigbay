@@ -55,6 +55,40 @@ metric.battery.level = Battery
 metric.battery.rate = Battery rate
 
 # --- WP-A keys --- (package A adds its new shell/dashboard keys here)
+search.placeholder-shortcut = {0} (Ctrl+F)
+search.none = No results
+nav.modules-header = Installed
+shell.not-admin-title = Not running as administrator
+shell.not-admin-body = Modules that change hardware or Windows settings cannot work. Close Rigbay and start it again as administrator.
+dash.now = This PC now
+dash.tile-open = Opens {0}
+modules.count-installed = {0} installed
+modules.count-checked = list checked {0}
+modules.welcome-title = Rigbay controls this PC through modules
+modules.welcome-body = Fans, power limits, network access, recording: each module adds one of them, and you choose which ones this PC gets.
+modules.page-link = Open page
+modules.page-link-of = Open the page of {0}
+modules.needs-host-revision = Needs Rigbay with host API {0} or newer.
+settings.troubleshooting = Troubleshooting
+settings.about-group = About
+settings.version-info = Version info
+settings.version-info-desc = For a bug report: the versions of Rigbay, its runtime, Windows and every module. No user or machine name.
+settings.copy-version = Copy version info
+settings.copied = Copied
+settings.hotkey-conflict-with = Also used by {0}
+settings.hotkey-change-of = Change the shortcut of {0}
+log.filter = Show
+log.filter-all = All
+log.filter-warnings = Warnings and errors
+log.filter-errors = Errors
+log.source = From
+log.source-all = Everything
+log.count = {0} of {1} lines
+log.empty = Nothing to show for this filter.
+log.line-error = Error
+log.line-warning = Warning
+log.line-info = Info
+log.line-debug = Debug
 
 # module page
 module.enable = Turn on {0}
