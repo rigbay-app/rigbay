@@ -14,7 +14,6 @@ module.tunnel.state.none = No tunnels
 module.tunnel.state.line = {0} of {1} on
 
 # --- page
-module.tunnel.group.info = Status
 module.tunnel.group.tunnels = Tunnels
 module.tunnel.info.store-unreadable.header = WireGuard's tunnel list cannot be read
 module.tunnel.info.store-unreadable.description = Rigbay could not list the tunnels in WireGuard's folder. Rigbay must run as administrator, and WireGuard must be installed in its default folder.
@@ -27,6 +26,7 @@ module.tunnel.row.on.header = On
 module.tunnel.row.on.description = Starts or removes the tunnel's Windows service, the same as Activate and Deactivate in the WireGuard app. Rigbay asks first.
 module.tunnel.row.status.header = Status
 module.tunnel.row.problem.header = Problem
+module.tunnel.problem.none = None
 module.tunnel.row.endpoint.header = Server
 module.tunnel.row.endpoint.description = The address the tunnel talks to, as WireGuard reports it.
 module.tunnel.row.transfer.header = Transferred

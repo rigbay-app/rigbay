@@ -25,6 +25,8 @@ internal sealed class TunnelUi
     public ObservableValue<string> Transfer { get; } = new("");
     public ObservableValue<string> Local { get; } = new("");
     public ObservableValue<string> Problem { get; } = new("");
+    /// <summary>The raw text of the last problem (null when there is none); <see cref="Problem"/> shows it or "None".</summary>
+    public string? ProblemText { get; set; }
     public ObservableValue<bool> StartWithWindows { get; } = new(false);
     public ObservableValue<bool> StartEnabled { get; } = new(false);
     public ObservableValue<double> AutoOffHours { get; } = new(0);

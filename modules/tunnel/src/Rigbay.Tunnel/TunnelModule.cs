@@ -336,6 +336,7 @@ public sealed partial class TunnelModule : IModule
                 var info = list?.Tunnels.FirstOrDefault(t => string.Equals(t.Name, ui.Name, StringComparison.OrdinalIgnoreCase));
                 bool on = info?.IsOn ?? ui.On.Value;
                 ui.Status.Value = StatusText(loc, on, ui.Last, now);
+                ui.Problem.Value = ui.ProblemText ?? loc.T("problem.none");
                 ui.Endpoint.Value = on && ui.Last?.Endpoint is { } e ? e : loc.T("value.none");
                 ui.Transfer.Value = on && ui.Last is { Rx: { } rx, Tx: { } tx } ? loc.F("transfer.value", Size(rx), Size(tx)) : loc.T("value.none");
                 if (!on) ui.Local.Value = LocalText(loc, ui.CheckPort.Value > 0 ? LocalCheck.TunnelOff : null, (int)ui.CheckPort.Value);

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A demo build of the module for screenshots and for looking at the page in the real app WITHOUT a real tunnel or WireGuard:
+       it is the real TunnelModule on the fake machine of the tests (two made-up tunnels, a made-up server), with a real timer and clock.
+       Nothing here touches the machine. Build and lay out: tools\demo\build-demo.ps1 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.Tunnel.Demo</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>   <!-- the shared fakes have fields only the tests assign -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Tunnel\Rigbay.Tunnel.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <Compile Include="..\..\tests\Rigbay.Tunnel.Tests\Fakes.cs" Link="Fakes.cs" />
+  </ItemGroup>
+
+</Project>

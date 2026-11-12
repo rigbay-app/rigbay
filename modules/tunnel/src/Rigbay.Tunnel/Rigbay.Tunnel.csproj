@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Rigbay.Tunnel.Tests" />
+    <InternalsVisibleTo Include="Rigbay.Tunnel.Demo" />
   </ItemGroup>
 
   <ItemGroup>

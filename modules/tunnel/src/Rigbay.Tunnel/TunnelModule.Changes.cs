@@ -82,7 +82,7 @@ public sealed partial class TunnelModule
             options.OnSinceUtc = wanted && options.AutoOffHours > 0 ? _deps!.Clock.Now.ToString("O") : "";
             SaveSettings();
         }
-        lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) ui.Problem.Value = ""; }
+        lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) SetProblem(ui, null); }
         Resync();
 
         if (!wanted)
@@ -118,7 +118,7 @@ public sealed partial class TunnelModule
                 break;
             case HandshakeOutcome.NoHandshake:
                 Notify(host, ToastKind.Warning, "toast.no-handshake", name);   // always: the tunnel is on but the server does not answer
-                lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) ui.Problem.Value = host.Localisation.F("err.no-handshake", name); }
+                lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) SetProblem(ui, host.Localisation.F("err.no-handshake", name)); }
                 break;
             case HandshakeOutcome.Unreadable:
                 if (origin != Origin.Page) Notify(host, ToastKind.Info, "toast.on", name);
@@ -139,7 +139,7 @@ public sealed partial class TunnelModule
     {
         var text = host.Localisation.F(problem.Key, problem.Args);
         host.Log.Warn((wanted ? "Turn on" : "Turn off") + " failed: " + problem.Key);
-        lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) ui.Problem.Value = text; }
+        lock (_uiGate) { if (_ui.TryGetValue(name, out var ui)) SetProblem(ui, text); }
         // Every failure is shown, whatever the origin (a page click gets the notification too: the host's in-window message needs the host's notification rule).
         host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", text), ToastKind.Error));
         Resync();
@@ -150,6 +150,13 @@ public sealed partial class TunnelModule
     {
         try { host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of(bodyKey, args), kind)); }
         catch (Exception e) { host.Log.Warn("notification failed: " + e.GetType().Name); }
+    }
+
+    private void SetProblem(TunnelUi ui, string? text)
+    {
+        ui.ProblemText = text;
+        var host = _host;
+        ui.Problem.Value = text ?? host?.Localisation.T("problem.none") ?? "";
     }
 
     /// <summary>Puts every switch, text and tray check right after a change (the list is read again).</summary>
@@ -197,7 +204,7 @@ public sealed partial class TunnelModule
                 if (code != 0)
                 {
                     var text = host.Localisation.F("err.start-type", ui.Name, new System.ComponentModel.Win32Exception(code).Message);
-                    ui.Problem.Value = text;
+                    SetProblem(ui, text);
                     host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.failed", text), ToastKind.Error));
                 }
                 else host.Log.Info("Start type of a tunnel service set to " + (automatic ? "automatic" : "manual") + ".");

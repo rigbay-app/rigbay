@@ -14,7 +14,6 @@ module.tunnel.state.none = Chưa có tunnel
 module.tunnel.state.line = {0}/{1} đang bật
 
 # --- page
-module.tunnel.group.info = Trạng thái
 module.tunnel.group.tunnels = Các tunnel
 module.tunnel.info.store-unreadable.header = Không đọc được danh sách tunnel của WireGuard
 module.tunnel.info.store-unreadable.description = Rigbay không liệt kê được các tunnel trong thư mục của WireGuard. Rigbay phải chạy bằng quyền quản trị và WireGuard phải nằm ở thư mục mặc định.
@@ -27,6 +26,7 @@ module.tunnel.row.on.header = Bật
 module.tunnel.row.on.description = Khởi động hoặc gỡ service Windows của tunnel, giống Activate và Deactivate trong ứng dụng WireGuard. Rigbay hỏi trước.
 module.tunnel.row.status.header = Trạng thái
 module.tunnel.row.problem.header = Sự cố
+module.tunnel.problem.none = Không có
 module.tunnel.row.endpoint.header = Máy chủ
 module.tunnel.row.endpoint.description = Địa chỉ tunnel đang nói chuyện, theo báo cáo của WireGuard.
 module.tunnel.row.transfer.header = Đã truyền

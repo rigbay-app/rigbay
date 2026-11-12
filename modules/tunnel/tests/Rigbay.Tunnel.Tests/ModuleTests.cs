@@ -230,7 +230,7 @@ public class ModuleTests
     {
         var rig = new Rig().Running().Start();
         var page = rig.Page();
-        var headers = ((ExpanderRow)page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.Single()).Children.Select(c => c.HeaderKey).ToArray();
+        var headers = ((ExpanderRow)page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.OfType<ExpanderRow>().Single()).Children.Select(c => c.HeaderKey).ToArray();
         Assert.Contains("row.on.header", headers);
         Assert.Contains("row.handshake.header", headers);
         Assert.Contains("row.start.header", headers);
@@ -249,8 +249,8 @@ public class ModuleTests
         rig.W.Store.Tunnels.Clear();
         rig.Start();
         var page = rig.Page();
-        Assert.DoesNotContain(page.Groups, g => g.HeaderKey == "group.tunnels");
-        var info = page.Groups.Single(g => g.HeaderKey == "group.info").Rows.OfType<InfoRow>().ToDictionary(r => r.HeaderKey);
+        Assert.DoesNotContain(page.EnumerateRows(), r => r is ExpanderRow);
+        var info = page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.OfType<InfoRow>().ToDictionary(r => r.HeaderKey);
         Assert.True(info["info.no-tunnels.header"].IsOpen.Value);
         Assert.False(info["info.store-unreadable.header"].IsOpen.Value);
 
@@ -511,7 +511,7 @@ public class ModuleTests
         host2.SettingsStore.Stored = rig.Host.SettingsStore.Stored;
         again.Initialize(host2);
         var page = again.GetPageModel(host2)!;
-        var expander = (ExpanderRow)page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.Single();
+        var expander = page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.OfType<ExpanderRow>().Single();
         Assert.Equal(8080, ((NumberRow)expander.Children.Single(c => c.HeaderKey == "row.port.header")).Value.Value);
         Assert.Equal(Rig.PublicAddress, ((TextRow)expander.Children.Single(c => c.HeaderKey == "row.public.header")).Value.Value);
     }

@@ -11,21 +11,14 @@ public sealed partial class TunnelModule
         TunnelUi[] tunnels;
         lock (_uiGate) tunnels = _ui.Values.Where(u => u.Present).OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToArray();
 
-        var groups = new List<RowGroup>
+        // One group: the two messages (shown only when they apply) and then one expander per tunnel.
+        var rows = new List<Row>
         {
-            new("group.info", new Row[]
-            {
                 new InfoRow(Severity.Warning, "info.store-unreadable.header") { DescriptionKey = "info.store-unreadable.description", IsOpen = _storeUnreadable },
                 new InfoRow(Severity.Info, "info.no-tunnels.header") { DescriptionKey = "info.no-tunnels.description", IsOpen = _noTunnels },
-            }),
         };
-
-        if (tunnels.Length > 0)
-        {
-            var rows = new List<Row>();
-            foreach (var ui in tunnels) rows.Add(TunnelRow(host, ui, expanded: tunnels.Length == 1));
-            groups.Add(new RowGroup("group.tunnels", rows));
-        }
+        foreach (var ui in tunnels) rows.Add(TunnelRow(host, ui, expanded: tunnels.Length == 1));
+        var groups = new List<RowGroup> { new("group.tunnels", rows) };
 
         var links = new List<PageLink> { new("link.wireguard", "https://www.wireguard.com/install/") };
         foreach (var ui in tunnels)

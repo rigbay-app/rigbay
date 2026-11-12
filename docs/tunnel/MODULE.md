@@ -141,3 +141,14 @@ See the end of this file (filled in after the live check).
 ## Not verified
 
 (Listed in the verification record.)
+
+## Looking at the page without WireGuard (demo build)
+
+`modules/tunnel/tools/demo/` is the real module on a made-up machine (two tunnels named `example-tunnel` and `example-backup`, a made-up server in the documentation range, moving
+traffic). It changes nothing. `powershell -ExecutionPolicy Bypass -File modules\tunnel\tools\demo\build-demo.ps1 -OutDir tools\out\modules-tunnel-demo` lays it out as a module folder; run the app with
+`tools\run-elevated.ps1 -Wait -Data <absolute scratch dir> -Modules <absolute path of that OutDir> --shot <absolute png> --allow-multi --script "enable:tunnel;wait:2500;page:tunnel;expand-all;wait:1200"`
+(the elevated app resolves relative paths against its own folder, so give absolute ones). The pictures in `docs/tunnel/evidence/` come from it; each was looked at.
+
+- `page-dark.png`: the page in the real app, one tunnel on and connected (handshake age, server, transferred, live rates), options below.
+- `page-light.png`: the same in the light theme, the tunnel that is off.
+- `page-vi-dark.png`: the Vietnamese texts.
