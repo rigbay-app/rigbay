@@ -7,7 +7,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="48"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 48 px title bar: mark, name, search, room for the caption buttons. This strip is the drag region. -->
@@ -39,36 +38,41 @@
                 <TextBlock Text="Rigbay" VerticalAlignment="Center" FontWeight="SemiBold"
                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
             </StackPanel>
-            <AutoSuggestBox x:Name="Search" Grid.Column="1" MaxWidth="460" VerticalAlignment="Center"
+            <AutoSuggestBox x:Name="Search" Grid.Column="1" MaxWidth="460" VerticalAlignment="Center" UpdateTextOnSelect="False"
                             QueryIcon="Find" TextChanged="OnSearchTextChanged" SuggestionChosen="OnSearchChosen"
                             QuerySubmitted="OnSearchSubmitted"/>
         </Grid>
 
-        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Auto" OpenPaneLength="280" CompactModeThresholdWidth="640" ExpandedModeThresholdWidth="1000"
-                        IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="False"
+        <!-- The pane: labels from 1000 px, an icon rail below that (480 rather than 500, so the rail is still there at the minimum width
+             once the window frame is taken off), and below that only the menu button. The menu button is always
+             there, so Modules, Settings and Log can be reached at every width (a window snapped to half of a 1280 px screen is 640 px).
+             The window cannot be made narrower than 500 px (MainWindow.ApplyMinimumSize). -->
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Auto" OpenPaneLength="280" CompactModeThresholdWidth="480" ExpandedModeThresholdWidth="1000"
+                        IsBackButtonVisible="Collapsed" IsSettingsVisible="False" IsPaneToggleButtonVisible="True"
                         SelectionChanged="OnNavChanged" Background="Transparent">
             <!-- The sheet: hairline border, layer fill, rounded at the top corners, content at most 1000 px wide. -->
             <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,1,1,0"
                     CornerRadius="8,8,0,0" Margin="0,0,12,0">
                 <Grid>
-                    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <!-- Messages above the page, in their own row: they push the page down while open and never cover its header.
+                         AdminBar: only when Rigbay is not elevated. NoticeBar: the result of a change the user just made on a page
+                         (docs/APP.md, Notifications); it closes by itself, failures stay longer. -->
+                    <StackPanel Grid.Row="0" MaxWidth="1000" Padding="36,0,36,0" HorizontalAlignment="Stretch">
+                        <InfoBar x:Name="AdminBar" IsOpen="False" IsClosable="False" Severity="Warning" Margin="0,12,0,0"/>
+                        <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True" Margin="0,12,0,0"/>
+                    </StackPanel>
+                    <ScrollViewer x:Name="PageScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <Grid MaxWidth="1000" Padding="36,24,36,28" HorizontalAlignment="Stretch">
                             <ContentPresenter x:Name="PageHost"/>
                         </Grid>
                     </ScrollViewer>
-                    <!-- The result of a change the user just made on a page (docs/APP.md, Notifications): floats at the top, so it is
-                         seen without scrolling, and closes by itself. Failures stay longer. -->
-                    <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True" VerticalAlignment="Top" HorizontalAlignment="Center"
-                             MaxWidth="928" Margin="36,12,36,0"/>
                 </Grid>
             </Border>
         </NavigationView>
-
-        <Border Grid.Row="2" Style="{StaticResource RbHairlineTop}" Padding="16,0">
-            <Grid MinHeight="28">
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Style="{StaticResource RbSecondaryCaption}" TextTrimming="CharacterEllipsis"/>
-            </Grid>
-        </Border>
     </Grid>
 </Window>

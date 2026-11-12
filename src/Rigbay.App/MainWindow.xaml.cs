@@ -41,10 +41,24 @@ public sealed partial class MainWindow : Window
     internal UIElement? PageContent => PageHost.Content as UIElement;
 
 
+    /// <summary>
+    /// One search hit. <see cref="Text"/> is what is searched, <see cref="Label"/> the one-line form. A hit on a row also carries the row's
+    /// header (and the header of the expander it sits in), so the page can be scrolled to it and focus put on it (SH-4).
+    /// </summary>
     internal sealed record SearchItem(string Text, string Where, object Target)
     {
         public string Label => Where.Length > 0 && Where != Text ? $"{Where}" : Text;
         public override string ToString() => Label;
+        /// <summary>First line of the result: the row, setting or page name.</summary>
+        public string Title { get; init; } = "";
+        /// <summary>Second line: where it is ("Fan studio · Cooling", "Settings").</summary>
+        public string Detail { get; init; } = "";
+        /// <summary>The header of the row to bring into view after the page opens; null for the top of the page.</summary>
+        public string? RowHeader { get; init; }
+        /// <summary>The header of the expander that holds the row (it is opened first); null when the row is not in one.</summary>
+        public string? ParentHeader { get; init; }
+        /// <summary>A glyph from Segoe Fluent Icons for a host page; a module hit shows the module's own glyph instead.</summary>
+        public string? Glyph { get; init; }
     }
 
     internal MainWindow(Options opt)
@@ -72,7 +86,8 @@ public sealed partial class MainWindow : Window
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         int w = 1240, h = 800;
         if (opt.Size is { } s && s.Split('x') is { Length: 2 } p && int.TryParse(p[0], out var sw) && int.TryParse(p[1], out var sh)) { w = sw; h = sh; }
-        AppWindow.Resize(new SizeInt32(w, h));
+        ApplyMinimumSize();
+        AppWindow.Resize(new SizeInt32(Math.Max(w, MinWidthPixels()), h));
         AppWindow.Title = "Rigbay";
         var ico = Path.Combine(AppContext.BaseDirectory, "Assets", "rigbay.ico");
         if (File.Exists(ico)) { try { AppWindow.SetIcon(ico); } catch { } }
@@ -149,6 +164,7 @@ public sealed partial class MainWindow : Window
         Host.Hotkeys = new HotkeyHost(Hwnd, Host.Core.Hotkeys);
         Host.Tray = new TrayHost(Hwnd, Host.Core, () => Ui.Post(null, ShowFromTray), () => Ui.Post(null, async () => await QuitAsync()));
         Host.Tray.Add();
+        Host.Tray.StartTipUpdates();   // the tooltip says how the PC is (TR-1)
         Host.Toast.Register();
         if (!_opt.AllowMulti)
         {
@@ -178,6 +194,7 @@ public sealed partial class MainWindow : Window
     (bool, nint) WindowProc(uint msg, nint wParam, nint lParam, nint hwnd)
     {
         if (msg == Native.WM_HOTKEY) { WindowProcHotkeys++; return (Host.Hotkeys?.OnHotkey((int)wParam) == true, 0); }
+        if (msg == Native.WM_DPICHANGED) Ui.Post(null, ApplyMinimumSize, "minimum size");
         if (msg == Native.WM_APP_TRAY) { WindowProcTray++; return (Host.Tray?.OnCallback(lParam) == true, 0); }
         if (Host.Tray != null && msg == Host.Tray.TaskbarCreatedMessage && msg != 0) { Host.Tray.ReAdd(); return (false, 0); }
         if (Host.Tray != null && msg is Native.WM_SETTINGCHANGE or Native.WM_THEMECHANGED or Native.WM_DISPLAYCHANGE or Native.WM_DPICHANGED && IsColourOrScaleChange(msg, wParam, lParam))
@@ -289,17 +306,51 @@ public sealed partial class MainWindow : Window
         ApplyTitleBarColors();
         ApplyBrandMark();
         WatchWindowsColors();
+        // a closed InfoBar keeps its margin; collapse it so the row above the page takes no room while nothing is said
+        foreach (var bar in new[] { AdminBar, NoticeBar })
+        {
+            void Sync() => bar.Visibility = bar.IsOpen ? Visibility.Visible : Visibility.Collapsed;
+            bar.RegisterPropertyChangedCallback(InfoBar.IsOpenProperty, (_, _) => Sync());
+            Sync();
+        }
+        AddKeyboardAccelerators();
+        HookPageViewport();
         ApplyLanguage();
         _uiReady.TrySetResult();
+    }
+
+    // ---------------------------------------------------------------- keyboard (SH-3)
+
+    /// <summary>Ctrl+F and F3 put the focus in the search box, from anywhere in the window.</summary>
+    void AddKeyboardAccelerators()
+    {
+        void Add(Windows.System.VirtualKey key, Windows.System.VirtualKeyModifiers mods)
+        {
+            var a = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = key, Modifiers = mods };
+            a.Invoked += (_, e) => { e.Handled = true; FocusSearch(); };
+            Root.KeyboardAccelerators.Add(a);
+        }
+        Add(Windows.System.VirtualKey.F, Windows.System.VirtualKeyModifiers.Control);
+        Add(Windows.System.VirtualKey.F3, Windows.System.VirtualKeyModifiers.None);
+        Root.KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;   // no "Ctrl+F" tooltip on every control of the window
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAcceleratorKey(Search, "Control+F");
+    }
+
+    /// <summary>What Ctrl+F does: focus the search box and select what is in it.</summary>
+    internal void FocusSearch()
+    {
+        Search.Focus(FocusState.Keyboard);
+        if (SelfTest.Find<TextBox>(Search).FirstOrDefault() is { } box) box.SelectAll();
     }
 
     void ApplyLanguage()
     {
         if (!_uiBuilt) return;
-        Search.PlaceholderText = Host.T("search.placeholder");
+        Search.PlaceholderText = Host.F("search.placeholder-shortcut", Host.T("search.placeholder"));
         BuildNav();
         RebuildSearchIndex();
-        UpdateStatus();
+        UpdateAdminBar();
+        Host.Tray?.UpdateTip();
         ShowCurrent();
     }
 
@@ -318,7 +369,7 @@ public sealed partial class MainWindow : Window
         if (!_uiBuilt) return;
         BuildNav();
         RebuildSearchIndex();
-        UpdateStatus();
+        Host.Tray?.UpdateTip();
         // Rebuild the page when it shows something this change may affect.
         ShowCurrent();
     }
@@ -433,6 +484,31 @@ public sealed partial class MainWindow : Window
         });
     }
 
+    // ---------------------------------------------------------------- minimum window size
+
+    /// <summary>The narrowest the window may be, in DIP: the pane is an icon rail down to here, so navigation stays one click away (SH-1).</summary>
+    internal const int MinWidthDip = 500;
+
+    /// <summary><see cref="MinWidthDip"/> in this window's pixels (the presenter works in pixels).</summary>
+    int MinWidthPixels()
+    {
+        uint dpi = Hwnd != 0 ? Native.GetDpiForWindow(Hwnd) : 96;
+        return (int)Math.Ceiling(MinWidthDip * (dpi == 0 ? 96 : dpi) / 96.0);
+    }
+
+    /// <summary>Sets the minimum width on the window's presenter; again when the window moves to a screen with another scale.</summary>
+    internal void ApplyMinimumSize()
+    {
+        try
+        {
+            if (AppWindow.Presenter is OverlappedPresenter p) p.PreferredMinimumWidth = MinWidthPixels();
+        }
+        catch (Exception ex) { AppLog.Warn("could not set the minimum window width", ex); }
+    }
+
+    /// <summary>The minimum width the presenter has now, in pixels (self-test and shots).</summary>
+    internal int? MinimumWidthPixels => (AppWindow.Presenter as OverlappedPresenter)?.PreferredMinimumWidth;
+
     // ---------------------------------------------------------------- theme
 
     internal void ApplyTheme(string theme)
@@ -497,6 +573,9 @@ public sealed partial class MainWindow : Window
     static NavigationViewItem Item(string text, string glyph, object tag) =>
         new() { Content = text, Tag = tag, Icon = new FontIcon { Glyph = glyph } };
 
+    /// <summary>Up to this many modules the pane lists them flat under one header; above it, in their groups (SH-5).</summary>
+    internal const int FlatNavLimit = 8;
+
     void BuildNav()
     {
         _navSuppress = true;
@@ -504,30 +583,48 @@ public sealed partial class MainWindow : Window
         Nav.FooterMenuItems.Clear();
         Nav.MenuItems.Add(Item(Host.T("nav.dashboard"), "", "dashboard"));
         var entries = Host.Core.Modules;
-        var groups = GroupOrder.Select(g => (g, items: entries.Where(e => e.GroupKey() == g).ToList())).Where(x => x.items.Count > 0).ToList();
-        if (groups.Count > 0) Nav.MenuItems.Add(new NavigationViewItemSeparator());
-        foreach (var (g, items) in groups)
+        if (entries.Count > 0 && entries.Count <= FlatNavLimit)
         {
-            var header = new NavigationViewItem { Content = Host.T("group." + g), SelectsOnInvoked = false, IsExpanded = true, Icon = new FontIcon { Glyph = GroupGlyph(g) } };
-            foreach (var e in items)
+            // a handful of modules: one flat list, each with its own glyph, so every module is one click away, also on the icon rail
+            Nav.MenuItems.Add(new NavigationViewItemHeader { Content = Host.T("nav.modules-header") });
+            foreach (var e in entries) Nav.MenuItems.Add(ModuleItem(e));
+        }
+        else
+        {
+            var groups = GroupOrder.Select(g => (g, items: entries.Where(e => e.GroupKey() == g).ToList())).Where(x => x.items.Count > 0).ToList();
+            if (groups.Count > 0) Nav.MenuItems.Add(new NavigationViewItemSeparator());
+            foreach (var (g, items) in groups)
             {
-                var item = new NavigationViewItem { Content = e.DisplayName, Tag = e, Icon = ModuleNavIcon(e) };
-                var badge = e.Bay.State switch
-                {
-                    BayState.Ready => "SuccessDotInfoBadgeStyle",
-                    BayState.Failed => "CriticalDotInfoBadgeStyle",
-                    _ => null,
-                };
-                if (badge != null) item.InfoBadge = new InfoBadge { Style = (Style)Application.Current.Resources[badge] };
-                header.MenuItems.Add(item);
+                var header = new NavigationViewItem { Content = Host.T("group." + g), SelectsOnInvoked = false, IsExpanded = true, Icon = new FontIcon { Glyph = GroupGlyph(g) } };
+                foreach (var e in items) header.MenuItems.Add(ModuleItem(e));
+                Nav.MenuItems.Add(header);
             }
-            Nav.MenuItems.Add(header);
         }
         Nav.FooterMenuItems.Add(Item(Host.T("nav.modules"), "", "modules"));
         Nav.FooterMenuItems.Add(Item(Host.T("nav.settings"), "", "settings"));
         Nav.FooterMenuItems.Add(Item(Host.T("nav.log"), "", "log"));
         _navSuppress = false;
         SelectInNav(_current);
+    }
+
+    /// <summary>
+    /// A module's item in the pane. A dot only when it asks for attention: red for a failed module, the attention dot for an update or a
+    /// restart. A running module has no dot (SH-6): a signal that is always on says nothing and drowns the red one.
+    /// </summary>
+    NavigationViewItem ModuleItem(ModuleEntry e)
+    {
+        var item = new NavigationViewItem { Content = e.DisplayName, Tag = e, Icon = ModuleNavIcon(e) };
+        var badge = e.Bay.State switch
+        {
+            BayState.Failed => "CriticalDotInfoBadgeStyle",
+            BayState.UpdateAvailable or BayState.RestartRequired => "AttentionDotInfoBadgeStyle",
+            _ => null,
+        };
+        if (badge != null) item.InfoBadge = new InfoBadge { Style = (Style)Application.Current.Resources[badge] };
+        // the state is part of the name a screen reader hears when the dot is the only sign of it
+        var state = e.Bay.State is BayState.Failed or BayState.UpdateAvailable or BayState.RestartRequired ? ", " + Ui.StateWord(e.Bay.State) : "";
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, e.DisplayName + state);
+        return item;
     }
 
     /// <summary>
@@ -603,40 +700,169 @@ public sealed partial class MainWindow : Window
             new(Host.T("nav.settings"), "", "settings"),
             new(Host.T("nav.log"), "", "log"),
         };
-        foreach (var key in new[] { "settings.language", "settings.theme", "settings.start", "settings.log-level", "settings.hotkeys" })
-            list.Add(new SearchItem(Host.T(key), Host.T(key) + "  ·  " + Host.T("nav.settings"), "settings"));
+        // the host pages carry their glyph; a page hit opens the page at its top
+        list[0] = list[0] with { Title = list[0].Text, Glyph = "" };
+        list[1] = list[1] with { Title = list[1].Text, Glyph = "" };
+        list[2] = list[2] with { Title = list[2].Text, Glyph = "" };
+        list[3] = list[3] with { Title = list[3].Text, Glyph = "" };
+        foreach (var key in new[] { "settings.language", "settings.theme", "settings.start", "settings.module-check", "settings.log-level", "settings.hotkeys" })
+            list.Add(new SearchItem(Host.T(key), Host.T(key) + "  ·  " + Host.T("nav.settings"), "settings")
+            {
+                Title = Host.T(key), Detail = Host.T("nav.settings"), RowHeader = key == "settings.hotkeys" ? null : Host.T(key), Glyph = "",
+            });
         foreach (var e in Host.Core.Modules)
         {
-            list.Add(new SearchItem(e.DisplayName, e.DisplayName, e));
-            if (e.DisplayDescription.Length > 0) list.Add(new SearchItem(e.DisplayDescription, e.DisplayName, e));
+            var group = Host.T("group." + e.GroupKey());
+            list.Add(new SearchItem(e.DisplayName, e.DisplayName, e) { Title = e.DisplayName, Detail = group });
+            if (e.DisplayDescription.Length > 0) list.Add(new SearchItem(e.DisplayDescription, e.DisplayName, e) { Title = e.DisplayName, Detail = e.DisplayDescription });
             var cachedPage = e.LastPage;
             if (cachedPage == null) continue;
-            foreach (var row in cachedPage.EnumerateRows())
+            foreach (var g in cachedPage.Groups)
             {
-                if (row.HeaderKey.Length == 0) continue;
-                var header = e.Localisation.T(row.HeaderKey);
-                var desc = row.DescriptionKey is { Length: > 0 } d ? e.Localisation.T(d) : "";
-                list.Add(new SearchItem(header + (desc.Length > 0 ? " – " + desc : ""), $"{header}  ·  {e.DisplayName}", e));
+                var groupTitle = g.HeaderKey.Length > 0 ? e.Localisation.T(g.HeaderKey) : "";
+                foreach (var row in g.Rows) AddRow(e, row, groupTitle, null);
             }
         }
         SearchIndex = list;
+
+        void AddRow(ModuleEntry e, Row row, string groupTitle, string? parent)
+        {
+            if (row.HeaderKey.Length > 0)
+            {
+                var header = e.Localisation.T(row.HeaderKey);
+                var desc = row.DescriptionKey is { Length: > 0 } d ? e.Localisation.T(d) : "";
+                var where = groupTitle.Length > 0 && groupTitle != e.DisplayName ? $"{e.DisplayName}  ·  {groupTitle}" : e.DisplayName;
+                list.Add(new SearchItem(header + (desc.Length > 0 ? " – " + desc : ""), $"{header}  ·  {e.DisplayName}", e)
+                {
+                    Title = header, Detail = where, RowHeader = header, ParentHeader = parent,
+                });
+            }
+            if (row is ExpanderRow ex)
+            {
+                var exHeader = ex.HeaderKey.Length > 0 ? e.Localisation.T(ex.HeaderKey) : parent;
+                foreach (var child in ex.Children) AddRow(e, child, groupTitle, exHeader);
+            }
+        }
     }
 
+    /// <summary>How many results the search box lists.</summary>
+    internal const int SearchResultLimit = 10;
+
     internal IEnumerable<SearchItem> SearchFor(string q) =>
-        q.Length == 0 ? Enumerable.Empty<SearchItem>() : SearchIndex.Where(i => i.Text.Contains(q, StringComparison.OrdinalIgnoreCase)).DistinctBy(i => i.Label).Take(8);
+        q.Length == 0 ? Enumerable.Empty<SearchItem>() : SearchIndex.Where(i => i.Text.Contains(q, StringComparison.OrdinalIgnoreCase)).DistinctBy(i => i.Label).Take(SearchResultLimit);
+
+    /// <summary>A result in the list: the module's glyph (or the page's), the name on the first line, where it is on the second.</summary>
+    ListViewItem ResultView(SearchItem item)
+    {
+        var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0, 6, 0, 6) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        IconElement icon;
+        if (item.Target is ModuleEntry e)
+        {
+            double scale = ModuleIconUi.ScaleOverride ?? Root.XamlRoot?.RasterizationScale ?? 1.0;
+            icon = (!e.Icons.HasIcon && e.Page?.Icon is { Length: 1 } one ? new FontIcon { Glyph = one } : ModuleIconUi.NavIcon(e, scale)) ?? new FontIcon { Glyph = GroupGlyph(e.GroupKey()) };
+        }
+        else icon = new FontIcon { Glyph = item.Glyph ?? "" };
+        if (icon is FontIcon f) f.FontSize = 16;
+        icon.Width = 16; icon.Height = 16;
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        grid.Children.Add(icon);
+        var text = new StackPanel { Spacing = 0, VerticalAlignment = VerticalAlignment.Center };
+        var title = item.Title.Length > 0 ? item.Title : item.Label;
+        text.Children.Add(Ui.Text(title, trim: true).With(t => t.TextWrapping = TextWrapping.NoWrap));
+        if (item.Detail.Length > 0) text.Children.Add(Ui.Text(item.Detail, "RbSecondaryCaption", trim: true).With(t => t.TextWrapping = TextWrapping.NoWrap));
+        Grid.SetColumn(text, 1);
+        grid.Children.Add(text);
+        var view = new ListViewItem { Content = grid, Tag = item };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(view, item.Detail.Length > 0 ? $"{title}, {item.Detail}" : title);
+        return view;
+    }
 
     void OnSearchTextChanged(AutoSuggestBox s, AutoSuggestBoxTextChangedEventArgs a)
     {
         if (a.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
-        s.ItemsSource = SearchFor(s.Text.Trim()).ToList();
+        var hits = SearchFor(s.Text.Trim()).ToList();
+        s.ItemsSource = hits.Count == 0 && s.Text.Trim().Length > 0
+            ? new List<object> { new ListViewItem { Content = Ui.Text(Host.T("search.none"), "RbSecondaryText"), IsEnabled = false } }
+            : hits.Select(ResultView).ToList();
     }
 
-    void OnSearchChosen(AutoSuggestBox s, AutoSuggestBoxSuggestionChosenEventArgs a) { if (a.SelectedItem is SearchItem h) Navigate(h.Target); }
+    static SearchItem? HitOf(object? chosen) => chosen switch { SearchItem h => h, FrameworkElement { Tag: SearchItem h } => h, _ => null };
+
+    void OnSearchChosen(AutoSuggestBox s, AutoSuggestBoxSuggestionChosenEventArgs a) { if (HitOf(a.SelectedItem) is { } h) OpenHit(h); }
 
     void OnSearchSubmitted(AutoSuggestBox s, AutoSuggestBoxQuerySubmittedEventArgs a)
     {
-        if (a.ChosenSuggestion is SearchItem h) Navigate(h.Target);
-        else if (SearchFor(a.QueryText.Trim()).FirstOrDefault() is { } first) Navigate(first.Target);
+        if (HitOf(a.ChosenSuggestion) is { } h) OpenHit(h);
+        else if (SearchFor(a.QueryText.Trim()).FirstOrDefault() is { } first) OpenHit(first);
+    }
+
+    /// <summary>Opens the page of a hit and, for a row, brings the row into view and puts the focus on it (SH-4). The box shows the hit's name.</summary>
+    internal void OpenHit(SearchItem h)
+    {
+        Search.Text = h.Title.Length > 0 ? h.Title : h.Label;
+        Navigate(h.Target);
+        if (h.RowHeader != null) _ = RevealRowAsync(h.RowHeader, h.ParentHeader);
+    }
+
+    /// <summary>The header text of a settings card or expander (a string, or the text inside the element a renderer put there).</summary>
+    static bool HeaderIs(object? header, string text) => header switch
+    {
+        string s => s == text,
+        TextBlock t => t.Text == text,
+        DependencyObject d => SelfTest.Find<TextBlock>(d).Any(t => t.Text == text),
+        _ => false,
+    };
+
+    /// <summary>The card or expander a search hit named, on the open page; null when the page has none with that header.</summary>
+    internal Control? FindRow(string header) =>
+        (Control?)SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsCard>(PageHost).FirstOrDefault(c => HeaderIs(c.Header, header))
+        ?? SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).FirstOrDefault(x => HeaderIs(x.Header, header));
+
+    /// <summary>The row last revealed by a search (self-test).</summary>
+    internal Control? LastRevealed { get; private set; }
+
+    async Task RevealRowAsync(string header, string? parent)
+    {
+        try
+        {
+            await Task.Delay(60);   // the page was just built; let it lay out once
+            PageScroll.UpdateLayout();
+            if (parent != null && SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).FirstOrDefault(x => HeaderIs(x.Header, parent)) is { } holder && !holder.IsExpanded)
+            {
+                holder.IsExpanded = true;
+                await Task.Delay(120);   // the expander realises its items
+                PageScroll.UpdateLayout();
+            }
+            var row = FindRow(header);
+            LastRevealed = row;
+            if (row == null) { AppLog.Info($"search: no row '{header}' on this page"); return; }
+            row.StartBringIntoView(new BringIntoViewOptions { VerticalAlignmentRatio = 0.25, AnimationDesired = false });
+            // the focus goes to the row's own control (a switch, a list, a button), so the keyboard is where the eye is
+            var target = SelfTest.Find<Control>(row).FirstOrDefault(c => c.IsTabStop && c.IsEnabled && c.Visibility == Visibility.Visible && c is not ScrollViewer);
+            if (target != null) target.Focus(FocusState.Keyboard);
+            Flash(row);
+        }
+        catch (Exception ex) { AppLog.Warn("search: could not bring the row into view", ex); }
+    }
+
+    /// <summary>A short accent outline on the row a search landed on, so the eye finds it (Windows Settings does the same).</summary>
+    static void Flash(Control row)
+    {
+        // put back exactly what was there: a local value, or nothing (so the theme's own brush keeps following the theme)
+        object brush = row.ReadLocalValue(Control.BorderBrushProperty), thickness = row.ReadLocalValue(Control.BorderThicknessProperty);
+        row.BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
+        row.BorderThickness = new Thickness(2);
+        var timer = Host.Dq.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(1600);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            if (brush == DependencyProperty.UnsetValue) row.ClearValue(Control.BorderBrushProperty); else row.SetValue(Control.BorderBrushProperty, brush);
+            if (thickness == DependencyProperty.UnsetValue) row.ClearValue(Control.BorderThicknessProperty); else row.SetValue(Control.BorderThicknessProperty, thickness);
+        };
+        timer.Start();
     }
 
     // ---------------------------------------------------------------- status line
@@ -647,15 +873,57 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { return "? (" + ex.GetType().Name + ")"; }
     }
 
+    static string WinUiVersion() => FileVersionInfo.GetVersionInfo(typeof(Window).Assembly.Location).ProductVersion?.Split('+')[0] ?? "?";
+
+    /// <summary>
+    /// The versions in one line (what the status bar showed until SH-2; the self-test reads it). The window no longer shows it on every page:
+    /// it is on Settings, About, and in the text "Copy version info" puts on the clipboard (<see cref="VersionInfo"/>).
+    /// </summary>
     internal string StatusLine()
     {
-        var winui = FileVersionInfo.GetVersionInfo(typeof(Window).Assembly.Location).ProductVersion?.Split('+')[0];
         var elev = Native.IsUserAnAdmin() ? Host.T("status.admin") : Host.T("status.not-admin");
-        return $"Rigbay {AppPaths.Version}  ·  API {HostApi.Current}  ·  Windows App SDK {RuntimeVersion()} (WinUI {winui})  ·  .NET {Environment.Version}  ·  {elev}";
+        return $"Rigbay {AppPaths.Version}  ·  API {HostApi.Current}  ·  Windows App SDK {RuntimeVersion()} (WinUI {WinUiVersion()})  ·  .NET {Environment.Version}  ·  {elev}";
     }
 
-    void UpdateStatus() => StatusText.Text = StatusLine();
+    /// <summary>
+    /// The text for a bug report: versions, Windows build, elevation and every module with its version and state. No user name, machine name or
+    /// path (the module folder is left out on purpose).
+    /// </summary>
+    internal string VersionInfo()
+    {
+        var lines = new List<string>
+        {
+            $"Rigbay {AppPaths.Version}",
+            $"Host API {HostApi.Current}",
+            $"Windows App SDK {RuntimeVersion()} (WinUI {WinUiVersion()})",
+            $".NET {Environment.Version}",
+            $"Windows {Environment.OSVersion.Version}",
+            Native.IsUserAnAdmin() ? "Administrator" : "Not elevated",
+        };
+        foreach (var e in Host.Core.Modules)
+            lines.Add($"{e.Id} {(e.VersionText().Length > 0 ? e.VersionText() : "?")} {e.Lifecycle}");
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>"Not running as administrator" above every page, only when it is true (SH-2).</summary>
+    void UpdateAdminBar()
+    {
+        bool admin;
+        try { admin = Native.IsUserAnAdmin(); } catch { admin = true; }
+        AdminBar.Title = Host.T("shell.not-admin-title");
+        AdminBar.Message = Host.T("shell.not-admin-body");
+        AdminBar.IsOpen = !admin;
+    }
+
     internal double PageScrollOffset => PageScroll.VerticalOffset;
+
+    /// <summary>The height of the page area the user sees (a page that fills the window, such as the log, sizes its list from it).</summary>
+    internal double PageViewportHeight => PageScroll.ViewportHeight;
+
+    /// <summary>Raised when the page area changes size.</summary>
+    internal event Action? PageViewportChanged;
+
+    void HookPageViewport() => PageScroll.SizeChanged += (_, _) => PageViewportChanged?.Invoke();
 
     // ---------------------------------------------------------------- script steps (tests and screenshots)
 
@@ -732,6 +1000,57 @@ public sealed partial class MainWindow : Window
                         if (Directory.Exists(dir)) Directory.Delete(dir, true);
                         for (int fr = 0; fr < count; fr++) { Shoot(Path.Combine(dir, $"f{fr:000}.png")); await Task.Delay(every); }
                     }
+                    break;
+                }
+                case "pane": Nav.IsPaneOpen = arg != "close"; break;   // pane:open | pane:close, what the menu button does
+                case "tab-order":   // tab-order: logs the controls of the open page that take focus, in the order Tab visits them, with their accessible names
+                {
+                    var stops = new List<string>();
+                    DependencyObject? from = null;
+                    for (int n = 0; n < 200; n++)
+                    {
+                        var next = from == null
+                            ? Microsoft.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(PageHost)
+                            : Microsoft.UI.Xaml.Input.FocusManager.FindNextElement(Microsoft.UI.Xaml.Input.FocusNavigationDirection.Next, new Microsoft.UI.Xaml.Input.FindNextElementOptions { SearchRoot = PageHost });
+                        if (next == null || ReferenceEquals(next, from)) break;
+                        if (next is Control c) { c.Focus(FocusState.Keyboard); }
+                        var name = next is UIElement u ? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.FromElement(u) ?? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(u) : null;
+                        var label = name?.GetName() ?? "";
+                        if (stops.Count > 0 && stops[0] == $"{next.GetType().Name} '{label}'" && n > 0) break;   // wrapped around
+                        stops.Add($"{next.GetType().Name} '{label}'");
+                        from = next;
+                    }
+                    AppLog.Info($"script: tab order on {_current}: " + string.Join(" > ", stops));
+                    break;
+                }
+                case "search":   // search:<text>: types into the search box and lists the results in the log
+                {
+                    Search.Text = arg;
+                    var hits = SearchFor(arg.Trim()).ToList();
+                    Search.ItemsSource = hits.Select(ResultView).ToList();
+                    AppLog.Info($"script: search '{arg}' -> {hits.Count} hit(s): " + string.Join(" | ", hits.Select(h => $"{h.Title} [{h.Detail}]")));
+                    break;
+                }
+                case "search-open":   // search-open:<title>: picks the first result with that title, as a click on it does
+                {
+                    var hit = SearchFor(arg.Trim()).FirstOrDefault(h => string.Equals(h.Title, arg.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (hit == null) { AppLog.Warn("script: no search result '" + arg + "'"); break; }
+                    OpenHit(hit);
+                    await Task.Delay(700);
+                    var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(Root.XamlRoot) as FrameworkElement;
+                    AppLog.Info($"script: search opened '{hit.Title}' on {hit.Target}; row found={LastRevealed != null}; focus on {focused?.GetType().Name} '{(focused == null ? "" : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(focused))}'");
+                    break;
+                }
+                case "notice": InAppNotice.Show(arg.Length > 0 ? arg : "Rigbay", "Applied", "Fan mode is now Maximum. Revert is on the page.", ToastKind.Success); break;   // notice:<name> shows the in-window message (AX-3 shots)
+                case "log-filter":   // log-filter:all|warnings|errors on the Log page
+                    LogPage.Level = arg switch { "errors" => LogPage.Filter.Errors, "warnings" => LogPage.Filter.Warnings, _ => LogPage.Filter.All };
+                    ShowCurrent();
+                    break;
+                case "invoke":   // invoke:<accessible name>: presses the button with that name on the open page (an automation Invoke, as a screen reader does)
+                {
+                    var b = SelfTest.Find<Microsoft.UI.Xaml.Controls.Primitives.ButtonBase>(PageHost).FirstOrDefault(x => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x) == arg || x.Content as string == arg);
+                    if (b == null) { AppLog.Warn("script: no button '" + arg + "'"); break; }
+                    if (Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(b)?.GetPattern(Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Invoke) is Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider inv) inv.Invoke();
                     break;
                 }
                 case "chart": if (int.TryParse(arg, out var gi)) ModulePage.LastBlock?.Chart?.SelectGroup(gi); break;   // chart:<n> picks the n-th chart tab (0-based) on the open module page
