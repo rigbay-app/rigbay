@@ -105,7 +105,7 @@ public class NotificationTests
     public async Task Putting_back_nothing_is_not_announced_because_nothing_happened()
     {
         using var rig = new ModuleRig();
-        rig.FanRow.Value.Value = "?";   // a state, not a value
+        rig.FanRow.Value.Value = "Not set";   // a state, not a value
         await Task.Delay(150);
 
         Assert.Empty(Shown(rig));

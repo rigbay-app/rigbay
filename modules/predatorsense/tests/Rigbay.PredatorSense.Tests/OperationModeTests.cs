@@ -320,7 +320,7 @@ public class OperationModeModuleTests
     }
 
     [Fact]
-    public void The_row_shows_every_mode_with_the_current_one_chosen_but_can_never_be_used()
+    public void The_row_is_read_only_text_with_the_current_mode_every_offered_mode_and_the_honest_note()
     {
         var rig = new ModuleRig(initialize: false);
         rig.Host.PageVisibleValue.Value = true;
@@ -328,38 +328,29 @@ public class OperationModeModuleTests
         rig.Module.Initialize(rig.Host);
         using var _ = rig;
         var group = rig.Page.Groups.Single(g => g.HeaderKey == "group.performance").Rows;
-        var row = Assert.IsType<ChoiceRow>(Assert.Single(group));
+        var row = Assert.IsType<ValueRow>(Assert.Single(group));   // text, never a control
 
-        // READ ONLY: never enabled, no hardware effect, and the only row of the page that changes anything is the fan mode
-        Assert.False(row.Enabled.Value);
+        // READ ONLY: no selector and no hardware effect; the only row of the page that changes anything is the fan mode
         Assert.Null(row.HardwareEffect);
         Assert.Equal("row.fan-mode.header", Assert.Single(rig.Rows, r => r.ChangesHardware).HeaderKey);
-        Assert.Equal(new[] { "quiet", "default", "extreme", "turbo" }, row.Options.Select(o => o.Id));
-        Assert.Equal("default", row.Value.Value);
-        Assert.True(row.Line!.Value.IsEmpty);   // the chosen option says it
+        Assert.Equal("Default", row.Value.Value);
+        Assert.Equal("This laptop offers Quiet, Default, Extreme, Turbo", rig.Host.Loc.Resolve(row.Line!.Value));
         // the honest note: short on the row, the why in its help
         Assert.Equal("Read only. Change it in PredatorSense for now.", rig.Host.Loc.T(row.DescriptionKey!));
         Assert.Contains("not been tested", rig.Host.Loc.T(row.HelpKey!));
-
-        // even a value set from outside writes nothing: no handler exists for it
-        row.Value.Value = "turbo";
-        Thread.Sleep(100);
         Assert.Equal(0, rig.Wmi.WriteCount);
-        Assert.Empty(rig.Wmi.Writes);
     }
 
     [Fact]
-    public void A_mode_that_was_not_read_or_is_not_offered_is_said_in_the_line()
+    public void A_mode_list_the_laptop_did_not_give_leaves_the_line_empty()
     {
-        using var rig = new ModuleRig();   // page not visible: the mode is not read
-        var row = Assert.IsType<ChoiceRow>(rig.OpModeRow);
-        Assert.Equal("", row.Value.Value);   // nothing chosen
-        Assert.Equal("opmode.line-unknown", row.Line!.Value.Key);
-
-        rig.Wmi.OperationModeAnswer = 0x0B0200;   // Render: a mode this laptop does not list
-        rig.Host.PageVisibleValue.Value = true;
-        Assert.True(Wait.Until(() => rig.OpModeShown == "Render", 30000));
-        Assert.Equal(("opmode.line-now", "Render"), (row.Line.Value.Key, row.Line.Value.Args![0]));
+        var rig = new ModuleRig(initialize: false);
+        rig.Wmi.SupportedModesAnswer = 0x0B01E1;   // status non-zero
+        Assert.True(rig.Module.Probe().Supported);
+        rig.Module.Initialize(rig.Host);
+        using var _ = rig;
+        Assert.True(Assert.IsType<ValueRow>(rig.OpModeRow).Line!.Value.IsEmpty);
+        Assert.Equal("Unknown", rig.OpModeShown);   // not read yet: the page is not visible
     }
 
     [Fact]
@@ -437,7 +428,7 @@ public class OperationModeModuleTests
         Assert.Equal("Mặc định", rig.OpModeShown);
         Assert.Equal("Yên tĩnh, Mặc định, Extreme, Turbo", rig.OpModeOptions);
 
-        foreach (var key in new[] { "row.opmode.header", "row.opmode.description", "row.opmode.help", "opmode.line-unknown", "opmode.line-now",
+        foreach (var key in new[] { "row.opmode.header", "row.opmode.description", "row.opmode.help", "opmode.offers",
             "opmode.quiet", "opmode.default", "opmode.render", "opmode.edit", "opmode.extreme", "opmode.turbo", "opmode.unknown",
             "sensor.opmode", "sensor.opmode.description", "status.opmode", "group.performance" })
             foreach (var lang in new[] { "en", "vi" })

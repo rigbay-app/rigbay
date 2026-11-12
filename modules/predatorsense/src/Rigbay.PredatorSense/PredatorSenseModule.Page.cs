@@ -10,10 +10,15 @@ namespace Rigbay.PredatorSense;
 public sealed partial class PredatorSenseModule
 {
     /// <summary>
-    /// Value of the fan-mode choice while Rigbay has set nothing in this run. It is not one of the options, so the host selects none of them:
-    /// the firmware cannot say which mode it is in. A state, not a value: it is never written, and a Revert to it writes nothing.
+    /// Value of the fan-mode choice while Rigbay has set nothing in this run: the words "Not set" in the current language. It is not one of the
+    /// options, so the host selects none of them (the firmware cannot say which mode it is in). The host prints a value that is not an option as
+    /// it is (the approval caption "now Not set", a Revert of the first change "Maximum → Not set"), so it is the words, not a code. A state, not
+    /// a value: it is never written, and a Revert to it writes nothing.
     /// </summary>
-    internal const string ChoiceNotSet = "?";
+    internal string NotSet => _host?.Localisation.T("fan.not-set") ?? "Not set";
+
+    /// <summary>True for every value of the fan-mode choice that is not Auto or Maximum: the "not set" state, in any language.</summary>
+    internal static bool IsNotSet(string value) => value != ChoiceAuto && value != ChoiceMax;
 
     /// <summary>Id of the fan-mode option for <see cref="FanMode.Auto"/>.</summary>
     internal const string ChoiceAuto = "auto";
@@ -84,25 +89,13 @@ public sealed partial class PredatorSenseModule
     }
 
     /// <summary>
-    /// The performance mode, READ ONLY (the owner has not approved a mode write): the modes this laptop offers as a choice that can never be used,
-    /// with the current one chosen, so the page shows all of them and which one is on. Nothing handles a change of its value, and the row is never
-    /// enabled. When the laptop did not say which modes it has, the current mode as text.
+    /// The performance mode, READ ONLY (the owner has not approved a mode write): a value row, never a control. The current mode at the right in
+    /// normal ink, "Read only. Change it in PredatorSense for now." under the header, and every mode this laptop offers in its line. A choice that
+    /// can never be used was tried first and dropped: the host draws a disabled card (the note greyed out, its help unreachable), and in Vietnamese
+    /// or a narrow window the four modes no longer fit as segments, so they were hidden in a drop-down.
     /// </summary>
-    private Row PerformanceModeRow()
-    {
-        var modes = _opMode?.Supported;
-        _pageModes = modes;
-        _pageBuilt = true;
-        if (modes is not { Count: > 0 })
-            return new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description", HelpKey = "row.opmode.help" };
-        return new ChoiceRow("row.opmode.header", modes.Select(m => new ChoiceOption(OpModeId(m), OpModeKey(m))).ToList(), _opModeChoice)
-        {
-            DescriptionKey = "row.opmode.description",
-            HelpKey = "row.opmode.help",
-            Line = _opModeLine,
-            Enabled = _readOnly,
-        };
-    }
+    private Row PerformanceModeRow() =>
+        new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description", HelpKey = "row.opmode.help", Line = _opModeLine };
 
     private static ReadingRow Temperature(Sensor sensor, SecondaryReading? fan) =>
         new(SensorLabelKey(sensor), SensorInfo.Of(sensor).Metric) { Decimals = 0, Tile = TileHint.Always, Secondary = fan };

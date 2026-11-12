@@ -23,7 +23,7 @@ public class FanModeStateTests
         using var rig = new ModuleRig();
         var row = rig.FanRow;
         Assert.Equal(new[] { "auto", "max" }, OptionIds(row));
-        Assert.Equal("?", row.Value.Value);
+        Assert.Equal("Not set", row.Value.Value);
         Assert.Equal("Nothing yet", rig.LastSet);
         Assert.True(row.ChangesHardware);   // still guarded by the host's approval question
         Assert.Equal(0, rig.Wmi.WriteCount);
@@ -34,7 +34,7 @@ public class FanModeStateTests
     public async Task Choosing_not_set_while_nothing_is_set_writes_nothing()
     {
         using var rig = new ModuleRig();
-        rig.FanRow.Value.Value = "?";   // already the value: no change
+        rig.FanRow.Value.Value = "Not set";   // already the value: no change
         rig.FanRow.Value.Value = "auto";
         Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1));
         Assert.Equal("auto", rig.FanRow.Value.Value);
@@ -100,7 +100,7 @@ public class FanModeStateTests
         rig.Wmi.WriteAnswer = 0x05;
         rig.FanRow.Value.Value = "max";
         Assert.True(await Eventually(() => rig.Check.Contains("Refused by the laptop")));
-        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "?"));
+        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "Not set"));
         Assert.Equal(new[] { "auto", "max" }, OptionIds(rig.FanRow));
         Assert.Equal(0, rig.Host.PageRefreshRequests);
     }
@@ -116,7 +116,7 @@ public class FanModeStateTests
         Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
 
         // The host's Revert puts the value from before the change back, and that value is "Not set".
-        row.Value.Value = "?";
+        row.Value.Value = "Not set";
         Assert.True(await Eventually(() => rig.Check.Contains("No earlier mode")));
         Assert.Equal("max", row.Value.Value);   // the row goes back to what Rigbay really set
         await Task.Delay(100);
@@ -145,7 +145,7 @@ public class FanModeStateTests
         var row = rig.FanRow;
         row.Value.Value = "max";
         Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
-        row.Value.Value = "?";
+        row.Value.Value = "Not set";
         Assert.True(await Eventually(() => rig.Check.Contains("No earlier mode")));
         row.Value.Value = "auto";
         Assert.True(await Eventually(() => rig.Wmi.WriteCount == 2 && rig.Check.Contains("slowed")));
@@ -161,7 +161,7 @@ public class FanModeStateTests
         rig.Host.HotkeyService.Registered.Clear();
         rig.Host.CommandRegistry.Verbs.Clear();
         rig.Module.Initialize(rig.Host);
-        Assert.Equal("?", rig.FanRow.Value.Value);
+        Assert.Equal("Not set", rig.FanRow.Value.Value);
         Assert.Equal(new[] { "auto", "max" }, OptionIds(rig.FanRow));
         Assert.Equal(0, rig.Wmi.WriteCount);
     }
@@ -192,7 +192,7 @@ public class FanModeStateTests
             Assert.True(await Eventually(() => first.Wmi.WriteCount == 1 && first.Check.Contains("unchanged")));
         }
         using var second = new ModuleRig();   // nothing is carried over a process: the firmware may have been changed meanwhile
-        Assert.Equal("?", second.FanRow.Value.Value);
+        Assert.Equal("Not set", second.FanRow.Value.Value);
         Assert.Equal("Nothing yet", second.LastSet);
     }
 
@@ -204,7 +204,7 @@ public class FanModeStateTests
         using var rig = new ModuleRig();
         var row = rig.FanRow;
         rig.Host.Loc.Switch("vi");
-        Assert.Equal("?", row.Value.Value);
+        Assert.Equal("Chưa đặt", row.Value.Value);   // the not-set value is the words, in the current language
         Assert.Equal("Chưa đặt", rig.LastSet);
         rig.Host.Loc.Switch("en");
         Assert.Equal(0, rig.Wmi.WriteCount);

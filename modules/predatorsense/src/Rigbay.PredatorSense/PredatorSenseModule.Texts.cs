@@ -27,31 +27,17 @@ public sealed partial class PredatorSenseModule
         _stateLine.Value = StateLine(poller.State, fan.Last);
         if (_opMode is { } opMode)
         {
-            var current = opMode.Current;
+            _opModeText.Value = OpModeText(loc, opMode.Current);
+            // every mode the laptop offers, in the line of the read-only row; nothing when it did not say
             var supported = opMode.Supported;
-            _opModeText.Value = OpModeText(loc, current);
-            _opModeChoice.Value = current is { } c ? OpModeId(c) : "";
-            // The choice shows which mode is on; the line speaks only when it cannot: not read, or a mode the laptop did not list.
-            _opModeLine.Value = current is null ? LocalisedText.Of("opmode.line-unknown")
-                : supported is null || !supported.Contains(current.Value) ? LocalisedText.Of("opmode.line-now", OpModeText(loc, current))
-                : default;
-            // The options are the modes the laptop offers, fixed when the page is built: build it again when that list changes.
-            if (_pageBuilt && !SameModes(_pageModes, supported))
-            {
-                _pageModes = supported;
-                host.RequestPageRefresh();
-            }
+            _opModesText.Value = OpModesText(loc, supported);
+            _opModeLine.Value = supported is { Count: > 0 } ? LocalisedText.Of("opmode.offers", _opModesText.Value) : default;
         }
     }
 
-    private static bool SameModes(IReadOnlyList<OperationMode>? a, IReadOnlyList<OperationMode>? b) =>
-        a is null ? b is null : b is not null && a.SequenceEqual(b);
-
-    /// <summary>The id of a performance mode in the read-only choice.</summary>
-    internal static string OpModeId(OperationMode mode) => mode.ToString().ToLowerInvariant();
-
-    /// <summary>The label key of a performance mode.</summary>
-    internal static string OpModeKey(OperationMode mode) => "opmode." + OpModeId(mode);
+    /// <summary>The modes the firmware advertises as one line ("Quiet, Default, Extreme, Turbo"), or "Unknown".</summary>
+    internal static string OpModesText(ILocalisation loc, IReadOnlyList<OperationMode>? modes) =>
+        modes is null || modes.Count == 0 ? loc.T("opmode.unknown") : string.Join(", ", modes.Select(m => OpModeText(loc, m)));
 
     /// <summary>
     /// The line under the fan-mode choice: what Rigbay set and when, then how the fans answered ("Set to Maximum at 14:02 · CPU fan sped up:

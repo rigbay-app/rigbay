@@ -49,10 +49,10 @@ internal sealed class ModuleRig : IDisposable
     public string Check => Module.CheckShown;
     /// <summary>The current performance mode as the module names it ("Default", "Unknown").</summary>
     public string OpModeShown => Module.OpModeShown;
-    /// <summary>The performance-mode row: the read-only choice of the modes the laptop offers, or a value row when it did not say.</summary>
+    /// <summary>The performance-mode row: read-only text.</summary>
     public Row OpModeRow => Rows.Single(r => r.HeaderKey == "row.opmode.header");
-    /// <summary>The modes the page offers as options, joined ("Quiet, Default, Extreme, Turbo"), or "Unknown" when the laptop did not say.</summary>
-    public string OpModeOptions => OpModeRow is ChoiceRow c ? string.Join(", ", c.Options.Select(x => Host.Loc.T(x.LabelKey))) : Host.Loc.T("opmode.unknown");
+    /// <summary>The modes the laptop offers as the row lists them ("Quiet, Default, Extreme, Turbo"), or "Unknown" when it did not say.</summary>
+    public string OpModeOptions => Module.OpModesShown;
     public List<ulong> WrittenValues => Wmi.Writes.Select(w => w.Value).ToList();
 
     public void Stop()
@@ -108,7 +108,7 @@ public class ModuleLifecycleTests
         Assert.True(choice.ChangesHardware);
         Assert.Equal("effect.fan-mode", choice.HardwareEffect!.DescriptionKey);
         Assert.Equal(new[] { "auto", "max" }, choice.Options.Select(o => o.Id).ToArray());
-        Assert.Equal("?", choice.Value.Value);   // nothing is set yet: not an option, so the host selects none
+        Assert.Equal("Not set", choice.Value.Value);   // nothing is set yet: not an option, so the host selects none
         Assert.DoesNotContain(page.Groups.SelectMany(g => g.Rows), r => r.HeaderKey == "row.fan-mode.header");   // the main control, only there
 
         // Only the fan row changes hardware.
@@ -252,7 +252,7 @@ public class ModuleFanWriteTests
         rig.Wmi.WriteAnswer = 0x05;
         rig.FanRow.Value.Value = "max";
         Assert.True(await Eventually(() => rig.Check.Contains("Refused by the laptop")));
-        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "?"));   // nothing was set, so the row does not claim Auto
+        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "Not set"));   // nothing was set, so the row does not claim Auto
         Assert.Equal("Nothing yet", rig.LastSet);
         Assert.Equal(1, rig.Wmi.WriteCount);
     }

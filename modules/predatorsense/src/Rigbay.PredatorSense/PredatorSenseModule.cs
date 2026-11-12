@@ -19,13 +19,12 @@ public sealed partial class PredatorSenseModule : IModule
     private readonly Func<TimeSpan, CancellationToken, Task>? _delay;
 
     // Values the page shows. They live as long as the instance, so enabling again after disabling works.
-    private readonly ObservableValue<string> _choice = new(ChoiceNotSet);
+    private readonly ObservableValue<string> _choice = new("");   // set to Auto, Maximum or NotSet by SyncChoice in Initialize
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
     private readonly ObservableValue<string> _modelText = new("");
     private readonly ObservableValue<string> _opModeText = new("");
-    private readonly ObservableValue<string> _opModeChoice = new("");
+    private readonly ObservableValue<string> _opModesText = new("");
     private readonly ObservableValue<LocalisedText> _opModeLine = new(default);
-    private readonly ObservableValue<bool> _readOnly = new(false);   // the performance-mode row is never enabled
     private readonly ObservableValue<LocalisedText> _fanLine = new(default);
     private readonly ObservableValue<string> _lastSetText = new("");
     private readonly ObservableValue<string> _checkText = new("");
@@ -48,8 +47,6 @@ public sealed partial class PredatorSenseModule : IModule
     private FanResult? _result;
     private bool _watching;
     private bool _noPrevious;
-    private volatile IReadOnlyList<OperationMode>? _pageModes;   // the modes the last page was built with (null: the laptop did not say)
-    private volatile bool _pageBuilt;
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public PredatorSenseModule() : this(new MachineInfo(), () => new AcerWmi(), null, null) { }
@@ -111,7 +108,7 @@ public sealed partial class PredatorSenseModule : IModule
         _pollSeconds.Changed += OnPollSecondsChanged;
         _restore.Changed += OnRestoreChanged;
         _choice.Changed += OnChoiceChanged;
-        host.Localisation.LanguageChanged += RefreshTexts;
+        host.Localisation.LanguageChanged += OnLanguageChanged;
         host.PageVisible.Changed += OnWatchSignal;
         host.Metrics.SubscribersChanged += OnWatchSignal;
 
@@ -157,7 +154,7 @@ public sealed partial class PredatorSenseModule : IModule
         _choice.Changed -= OnChoiceChanged;
         if (host is not null)
         {
-            host.Localisation.LanguageChanged -= RefreshTexts;
+            host.Localisation.LanguageChanged -= OnLanguageChanged;
             host.PageVisible.Changed -= OnWatchSignal;
             host.Metrics.SubscribersChanged -= OnWatchSignal;
         }
@@ -245,7 +242,17 @@ public sealed partial class PredatorSenseModule : IModule
     /// <summary>The current performance mode in words ("Default", "Unknown") (tests).</summary>
     internal string OpModeShown => _opModeText.Value;
 
+    /// <summary>The modes the laptop offers, as the row's line lists them ("Quiet, Default, Extreme, Turbo", or "Unknown") (tests).</summary>
+    internal string OpModesShown => _opModesText.Value;
+
     private void OnReadingsState(ReadingsState state) => RefreshTexts();
+
+    /// <summary>The words of the "not set" value follow the language, like every other text.</summary>
+    private void OnLanguageChanged()
+    {
+        SyncChoice();
+        RefreshTexts();
+    }
 
     private void OnPolled(SensorSnapshot snapshot) => RefreshTexts();
 
@@ -292,7 +299,7 @@ public sealed partial class PredatorSenseModule : IModule
         if (fan is null) return;
         var value = _choice.Value;
 
-        if (value == ChoiceNotSet)
+        if (IsNotSet(value))
         {
             // "Not set" is a state, not a value: nothing is written for it. It arrives from our own sync (nothing set yet), or from a
             // Revert of the very first change, whose "previous" value is "Not set". Rigbay then does know what it set, so the row goes
@@ -338,13 +345,13 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     /// <summary>
-    /// Makes the choice show what Rigbay last set, or nothing (<see cref="ChoiceNotSet"/>, not an option) while it has set nothing in this run.
+    /// Makes the choice show what Rigbay last set, or nothing (<see cref="NotSet"/>, not an option) while it has set nothing in this run.
     /// </summary>
     private void SyncChoice()
     {
         var fan = _fan;
         if (fan is null) return;
-        _choice.Value = fan.Last is null ? ChoiceNotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
+        _choice.Value = fan.Last is null ? NotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
     }
 
     private void ShowResult(FanResult result)

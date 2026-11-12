@@ -364,9 +364,9 @@ internal sealed partial class XtuRuntime
         HelpKey = "row.throttle.help",
     };
 
-    /// <summary>"\nName: PL1 .. W / PL2 .. W / .. s" for every profile, for the approval text when the options are bare names.</summary>
+    /// <summary>A blank line, then "Name: PL1 .. W / PL2 .. W / .. s" for every profile: the approval text when the options are bare names.</summary>
     private static string LimitsList(IEnumerable<XtuProfile> profiles) =>
-        string.Concat(profiles.Select(p => "\n" + p.Name + ": " + p.Describe()));
+        "\n" + string.Concat(profiles.Select(p => "\n" + p.Name + ": " + p.Describe()));
 
     private Task<ActionResult> ReloadAsync(CancellationToken ct)
     {
