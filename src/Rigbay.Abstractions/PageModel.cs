@@ -5,8 +5,8 @@ namespace Rigbay.Abstractions;
 // Colours are SemanticColor names, icons are glyph names or paths, text is language keys (module-relative).
 
 /// <summary>
-/// The page of one module: groups of rows. The host adds the first row itself (the enable switch, with the name and
-/// description from the manifest) and disables every group while the module is off.
+/// The page of one module: an optional main control and groups of rows. The host draws the header itself (the module's name, its state
+/// and <see cref="PageSummary.StateLine"/>, the enable switch) and disables everything below it while the module is off.
 /// </summary>
 public sealed class PageModel
 {

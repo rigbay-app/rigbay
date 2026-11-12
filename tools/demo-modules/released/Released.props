@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Shared settings of the "released module on a fake machine" demo builds (tools\demo-modules\released\build.ps1). Each one is the module's REAL
+    code (a project reference to modules\<module>) run against the fakes of that module's own unit tests, so its page can be rendered with made-up
+    data: no hardware, no service, no Windows setting, no network. Each assembly takes the name of the module's test assembly, the one name the module
+    already lets see its internal constructors (InternalsVisibleTo); nothing in the module repositories is changed for it.
+  -->
+  <PropertyGroup>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS8618;CS0067</NoWarn>   <!-- the shared fakes have members only the tests use -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

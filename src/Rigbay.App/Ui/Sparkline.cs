@@ -12,17 +12,20 @@ namespace Rigbay.App;
 /// A hairline trend of one metric from the host's history: no axes, no numbers, the metric's hue, the newest reading marked with a dot.
 /// The scale follows the data but never fills the height with noise (<see cref="ReadingScale.Fit"/>), and the time runs from the oldest point
 /// the history has (at least 30 s) to now, up to <c>MaxSpan</c>, so a line that was just born does not hide in a corner. A hole in the data (a module that
-/// slept) is a gap in the line. Draws nothing without two points, and never while its page is inactive (the page's timer is off).
+/// slept) is a gap in the line. Draws nothing before <see cref="MinPoints"/> points (a two-point stub reads as a glyph, not a trend), and never
+/// while its page is inactive (the page's timer is off). No area under the line: an area says "a quantity from zero", and the scale is zoomed.
 /// </summary>
 sealed class Sparkline : Canvas
 {
     readonly MetricId _metric;
     readonly SemanticColor _color;
-    readonly bool _area;
     readonly double? _rangeMin, _rangeMax;
     string _hue = "";
     int _points;
     bool _live;
+
+    /// <summary>The fewest points a sparkline draws (about 20 s of a 1 Hz reading in the host's history).</summary>
+    public const int MinPoints = 10;
 
     /// <summary>The longest stretch of history shown.</summary>
     public TimeSpan MaxSpan { get; set; } = TimeSpan.FromMinutes(5);
@@ -35,9 +38,9 @@ sealed class Sparkline : Canvas
 
     public MetricId Metric => _metric;
 
-    public Sparkline(MetricId metric, SemanticColor color, double width, double height, bool area = false, double? rangeMin = null, double? rangeMax = null)
+    public Sparkline(MetricId metric, SemanticColor color, double width, double height, double? rangeMin = null, double? rangeMax = null)
     {
-        _metric = metric; _color = color; _area = area; _rangeMin = rangeMin; _rangeMax = rangeMax;
+        _metric = metric; _color = color; _rangeMin = rangeMin; _rangeMax = rangeMax;
         Height = height;
         if (width > 0) Width = width; else HorizontalAlignment = HorizontalAlignment.Stretch;
         IsHitTestVisible = false;
@@ -73,7 +76,7 @@ sealed class Sparkline : Canvas
         var unit = bus.UnitOf(_metric);
         var now = history.Now;
         var all = history.Get(_metric, MaxSpan);
-        if (all.Count < 2) return;
+        if (all.Count < MinPoints) return;
 
         var span = TimeSpan.FromSeconds(Math.Clamp((now - all[0].Time).TotalSeconds, 30, MaxSpan.TotalSeconds));
         var hue = ChartKit.Hue(_color, unit);
@@ -95,7 +98,6 @@ sealed class Sparkline : Canvas
         {
             if (run.Count < 2) continue;
             var pts = Thin(run.Select(Map).ToList());
-            if (_area) Children.Add(ChartKit.Area(pts, h - padY + 1, hue));
             var line = new Polyline { Points = ChartKit.Points(pts), Style = ChartKit.Line(hue), StrokeThickness = 1.5, IsHitTestVisible = false };
             Children.Add(line);
         }

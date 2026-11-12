@@ -20,6 +20,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- the released modules on a fake machine are separate builds (released\build.ps1) -->
+    <Compile Remove="released\**" />
+    <None Remove="released\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(WinAppSdkVersion)" />
     <ProjectReference Include="..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
       <Private>false</Private>

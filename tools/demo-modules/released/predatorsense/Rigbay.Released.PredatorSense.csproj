@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- PredatorSense, the real module on the fake firmware of its tests (no WMI call, no fan write). See ..\Released.props. -->
+  <Import Project="..\Released.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Rigbay.PredatorSense.Tests</AssemblyName>
+    <RootNamespace>Rigbay.PredatorSense.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\modules\predatorsense\src\Rigbay.PredatorSense\Rigbay.PredatorSense.csproj" />
+    <Compile Include="..\..\..\..\modules\predatorsense\tests\Rigbay.PredatorSense.Tests\Fakes.cs" Link="Fakes.cs" />
+  </ItemGroup>
+</Project>

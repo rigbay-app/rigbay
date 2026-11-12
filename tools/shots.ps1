@@ -21,6 +21,13 @@ $demoHero = Join-Path $Demo 'modules-hero'
 if (Test-Path $demoHero) { Remove-Item $demoHero -Recurse -Force }
 New-Item -ItemType Directory -Force $demoHero | Out-Null
 foreach ($m in 'demo-fan', 'demo-devices', 'demo-lighting') { Copy-Item (Join-Path $demoModules $m) (Join-Path $demoHero $m) -Recurse }
+# UI review package B: the released modules on the fake machines of their own tests (XTU profiles, PredatorSense, Steam access, Recorder) and the
+# Remote tunnel demo, built by tools\demo-modules\released\build.ps1 and modules\tunnel\tools\demo\build-demo.ps1 into tools\out\modules-released.
+# Made-up data only: no hardware, service, Windows setting or network is touched. The 'released-*' jobs are skipped when that folder is missing.
+$demoReleased = Join-Path $Demo 'modules-released'
+$releasedSource = Join-Path $PSScriptRoot 'out\modules-released'
+if (Test-Path $demoReleased) { Remove-Item $demoReleased -Recurse -Force }
+if (Test-Path $releasedSource) { Copy-Item $releasedSource $demoReleased -Recurse }
 $fan = 'enable:demo-fan;wait:1800'
 # V1 (readings made visual): the metrics clock runs 6 times faster (--time-scale 6), so 52 s of waiting is about five minutes of history, and the
 # tiles, sparklines and the 5-minute chart show what they show after five real minutes. The demo modules publish made-up numbers, nothing is read from this machine.
@@ -131,8 +138,27 @@ $jobs = @(
     @{ n = 'scale200-dashboard-light'; a = ('--theme', 'light', '--accent', '7A5AF8', '--shot-scale', '2') + $ts + ('--script', $visDash) },
     @{ n = 'scale150-modules-light';   a = '--theme', 'light', '--accent', '7A5AF8', '--shot-scale', '1.5', '--script', "$fan;page:modules" },
     @{ n = 'scale200-module-dark';     a = ('--theme', 'dark',  '--accent', '7A5AF8', '--shot-scale', '2') + $ts + ('--script', $visFan) },
-@{ n = 'narrow-dark';           a = ('--theme', 'dark',  '--size', '860x700') + $ts + ('--script', $visFan) }
+@{ n = 'narrow-dark';           a = ('--theme', 'dark',  '--size', '860x700') + $ts + ('--script', $visFan) },
+    # UI review package B (the module page): the main card with the primary control, the tiles as the chart's tabs, the header card, a question before an
+    # action that cannot be undone, a failed module with "Restart and try again"; dark, light, Vietnamese, 1240 and 640 px wide
+    @{ n = 'ub-module-dark';        a = ('--theme', 'dark',  '--size', '1240x1500') + $ts + ('--script', $visFan) },
+    @{ n = 'ub-module-light';       a = ('--theme', 'light', '--size', '1240x1500') + $ts + ('--script', $visFan) },
+    @{ n = 'ub-module-vi-dark';     a = ('--theme', 'dark',  '--lang', 'vi', '--size', '1240x1500') + $ts + ('--script', $visFan) },
+    @{ n = 'ub-module-640-dark';    a = ('--theme', 'dark',  '--size', '640x1500') + $ts + ('--script', $visFan) },
+    @{ n = 'ub-module-640-vi-light'; a = ('--theme', 'light', '--lang', 'vi', '--size', '640x1500') + $ts + ('--script', $visFan) },
+    @{ n = 'ub-rows-open-dark';     a = ('--theme', 'dark',  '--size', '1240x1500') + $ts + ('--script', "$visFan;expand-all;scroll:900;wait:600") },
+    @{ n = 'ub-confirm-dark';       a = '--theme', 'dark',  '--size', '1240x900', '--script', "$fan;page:demo-fan;expand-all;edit:row.delete-curve.header;wait:900" },
+    @{ n = 'ub-failed-light';       a = '--theme', 'light', '--size', '1240x800', '--script', 'enable:demo-broken;page:demo-broken;expand-all;wait:600' },
+    @{ n = 'released-xtu-dark';           a = ('--theme', 'dark',  '--modules', $demoReleased, '--size', '1240x1400') + $ts + ('--script', 'enable:xtu;page:xtu;wait:45000') },
+    @{ n = 'released-xtu-640-dark';       a = ('--theme', 'dark',  '--modules', $demoReleased, '--size', '640x1400') + $ts + ('--script', 'enable:xtu;page:xtu;wait:45000') },
+    @{ n = 'released-xtu-vi-light';       a = ('--theme', 'light', '--lang', 'vi', '--modules', $demoReleased, '--size', '1240x1400') + $ts + ('--script', 'enable:xtu;page:xtu;wait:45000') },
+    @{ n = 'released-predatorsense-dark'; a = ('--theme', 'dark',  '--modules', $demoReleased, '--size', '1240x1400') + $ts + ('--script', 'enable:predatorsense;page:predatorsense;wait:45000') },
+    @{ n = 'released-predatorsense-640-light'; a = ('--theme', 'light', '--modules', $demoReleased, '--size', '640x1400') + $ts + ('--script', 'enable:predatorsense;page:predatorsense;wait:45000') },
+    @{ n = 'released-steam-dark';         a = '--theme', 'dark',  '--modules', $demoReleased, '--size', '1240x1400', '--script', 'enable:steam-bypass;page:steam-bypass;wait:4000' },
+    @{ n = 'released-recorder-dark';      a = '--theme', 'dark',  '--modules', $demoReleased, '--size', '1240x1400', '--script', 'enable:xtu;enable:recorder;page:recorder;wait:6000' },
+    @{ n = 'released-tunnel-dark';        a = ('--theme', 'dark',  '--modules', $demoReleased, '--size', '1240x1400') + $ts + ('--script', 'enable:tunnel;page:tunnel;wait:40000') }
 )
+if (-not (Test-Path $demoReleased)) { $jobs = $jobs | Where-Object { -not $_.n.StartsWith('released-') } }
 $only = @($Names)
 if ($only.Count -gt 0) { $jobs = $jobs | Where-Object { $only -contains $_.n } }
 foreach ($j in $jobs) {

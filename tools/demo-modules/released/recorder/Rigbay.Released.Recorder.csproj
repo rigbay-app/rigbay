@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Recorder, the real module with a made-up folder and the shell of its tests (nothing is opened). See ..\Released.props. -->
+  <Import Project="..\Released.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Rigbay.Recorder.Tests</AssemblyName>
+    <RootNamespace>Rigbay.Recorder.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\modules\recorder\src\Rigbay.Recorder\Rigbay.Recorder.csproj" />
+    <Compile Include="..\..\..\..\modules\recorder\tests\Rigbay.Recorder.Tests\Fakes.cs" Link="Fakes.cs" />
+  </ItemGroup>
+</Project>
