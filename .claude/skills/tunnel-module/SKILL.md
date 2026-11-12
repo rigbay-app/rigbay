@@ -43,7 +43,7 @@ User and design document: `docs/tunnel/MODULE.md` (it says which WireGuard facts
 
 ## Releasing
 
-Repository `rigbay-app/module-tunnel`, release `v0.1.0`. Make the registry entry with a script that reads the `module.json` of the DOWNLOADED zip (a hand-typed `%ProgramFiles%\WireGuard` through Bash lost its backslash and the app refused the install: `DeclaresWider`). Run `toolserify-module-zip` against the real registry after the merge.
+Repository `rigbay-app/module-tunnel`, release `v0.1.0`. Make the registry entry with a script that reads the `module.json` of the DOWNLOADED zip (a hand-typed `%ProgramFiles%\WireGuard` through Bash lost its backslash and the app refused the install: `DeclaresWider`). Run `toolsverify-module-zip` against the real registry after the merge.
 
 ## Gotchas
 
