@@ -1,0 +1,133 @@
+# Remote tunnel: tiếng Việt. Giữ nguyên {0}; có thể đổi thứ tự.
+@code = vi
+@name = Tiếng Việt
+
+module.tunnel.name = Remote tunnel
+module.tunnel.description = Bật và tắt các tunnel WireGuard ngay từ Rigbay (trang, khay hệ thống, phím tắt, dòng lệnh) và hiện trạng thái của chúng.
+
+# --- probe
+module.tunnel.probe.no-wireguard = Chưa cài WireGuard cho Windows. Cài từ https://www.wireguard.com/install/ rồi khởi động lại Rigbay.
+module.tunnel.probe.not-signed = Có thư mục WireGuard nhưng wireguard.exe hoặc wg.exe không được WireGuard LLC ký, nên Rigbay không chạy chúng. Hãy cài lại WireGuard từ https://www.wireguard.com/install/.
+
+# --- dashboard
+module.tunnel.state.none = Chưa có tunnel
+module.tunnel.state.line = {0}/{1} đang bật
+
+# --- page
+module.tunnel.group.tunnels = Các tunnel
+module.tunnel.info.store-unreadable.header = Không đọc được danh sách tunnel của WireGuard
+module.tunnel.info.store-unreadable.description = Rigbay không liệt kê được các tunnel trong thư mục của WireGuard. Rigbay phải chạy bằng quyền quản trị và WireGuard phải nằm ở thư mục mặc định.
+module.tunnel.info.no-tunnels.header = Chưa có tunnel nào
+module.tunnel.info.no-tunnels.description = Thêm tunnel trong ứng dụng WireGuard (Add Tunnel, rồi nhập tệp hoặc tạo tunnel trống). Rigbay chỉ liệt kê tên và không bao giờ đọc cấu hình của tunnel.
+module.tunnel.link.wireguard = WireGuard cho Windows
+module.tunnel.link.public = Địa chỉ công khai của {0}
+
+module.tunnel.row.on.header = Bật
+module.tunnel.row.on.description = Khởi động hoặc gỡ service Windows của tunnel, giống Activate và Deactivate trong ứng dụng WireGuard. Rigbay hỏi trước.
+module.tunnel.row.status.header = Trạng thái
+module.tunnel.row.problem.header = Sự cố
+module.tunnel.problem.none = Không có
+module.tunnel.row.endpoint.header = Máy chủ
+module.tunnel.row.endpoint.description = Địa chỉ tunnel đang nói chuyện, theo báo cáo của WireGuard.
+module.tunnel.row.transfer.header = Đã truyền
+module.tunnel.row.transfer.description = Số byte nhận và gửi từ lúc bật tunnel.
+module.tunnel.row.handshake.header = Handshake gần nhất
+module.tunnel.row.handshake.description = Số giây kể từ lần handshake gần nhất với máy chủ. Đã kết nối nghĩa là dưới 3 phút.
+module.tunnel.row.rx.header = Đang nhận
+module.tunnel.row.tx.header = Đang gửi
+module.tunnel.row.start.header = Chạy cùng Windows
+module.tunnel.row.start.description = Đặt kiểu khởi động của service tunnel. Chỉ dùng được khi tunnel đang bật: tắt tunnel sẽ gỡ service của nó, như trong ứng dụng WireGuard, và cài đặt này mất theo.
+module.tunnel.row.autooff.header = Tự tắt sau (giờ)
+module.tunnel.row.autooff.description = Để an toàn: Rigbay tắt tunnel sau từng ấy giờ kể từ lúc bật, không hỏi lại, và báo cho bạn. 0 là không bao giờ.
+module.tunnel.row.port.header = Kiểm tra dịch vụ trên máy (cổng)
+module.tunnel.row.port.description = Một cổng TCP, ví dụ của ứng dụng điều khiển từ xa. Rigbay cho biết có gì đang lắng nghe cổng đó ở địa chỉ của tunnel hay không. 0 là không kiểm tra.
+module.tunnel.row.local.header = Dịch vụ trên máy
+module.tunnel.row.public.header = Địa chỉ công khai
+module.tunnel.row.public.description = Văn bản tự do cho bạn, ví dụ địa chỉ bạn dùng để kết nối từ bên ngoài. Hiện thành liên kết ở dưới nếu bắt đầu bằng http hoặc https. Chỉ lưu trên máy này.
+module.tunnel.row.public.placeholder = Tùy chọn
+module.tunnel.row.hotkey.header = Phím tắt
+module.tunnel.row.hotkey.description = Bật hoặc tắt tunnel. Rigbay hỏi trước khi thay đổi bất cứ gì.
+module.tunnel.validate.whole = Hãy nhập số nguyên.
+
+# --- câu hỏi trước khi thay đổi (hai câu đầu là nội dung hành động chính xác)
+module.tunnel.effect.turn-on = Bật tunnel {0}
+module.tunnel.effect.turn-off = Tắt tunnel {0}
+module.tunnel.detail.turn-on = Rigbay khởi động service Windows của tunnel WireGuard này, giống ứng dụng WireGuard. Truy cập từ xa qua tunnel bắt đầu.
+module.tunnel.detail.turn-off = Rigbay dừng và gỡ service Windows của tunnel WireGuard này, giống ứng dụng WireGuard. Truy cập từ xa qua tunnel kết thúc.
+module.tunnel.effect.page-toggle = Bật hoặc tắt tunnel WireGuard {0} bằng cách khởi động hoặc gỡ service Windows của nó. Truy cập từ xa qua tunnel bắt đầu hoặc kết thúc.
+module.tunnel.effect.start = Đổi cách Windows khởi động service của tunnel {0}: tự động khi bật máy, hoặc chỉ khi được yêu cầu.
+module.tunnel.effect.autooff = Từ giờ Rigbay tự tắt tunnel {0} sau từng ấy giờ, không hỏi lại.
+module.tunnel.hotkey.toggle = Bật hoặc tắt tunnel {0}
+
+# --- metrics
+module.tunnel.metric.rx = {0}: đã nhận
+module.tunnel.metric.rx.description = Số byte mỗi giây nhận qua tunnel.
+module.tunnel.metric.tx = {0}: đã gửi
+module.tunnel.metric.tx.description = Số byte mỗi giây gửi qua tunnel.
+module.tunnel.metric.handshake = {0}: tuổi handshake
+module.tunnel.metric.handshake.description = Số giây kể từ lần handshake gần nhất với máy chủ.
+
+# --- trạng thái
+module.tunnel.word.on = bật
+module.tunnel.word.off = tắt
+module.tunnel.value.none = -
+module.tunnel.status.off = Tắt
+module.tunnel.status.on = Bật
+module.tunnel.status.no-handshake = Bật, chưa có handshake
+module.tunnel.status.connected = Bật, đã kết nối (handshake {0} trước)
+module.tunnel.status.stale = Bật, handshake gần nhất {0} trước (chưa kết nối)
+module.tunnel.transfer.value = Nhận {0}, gửi {1}
+module.tunnel.local.none = Không kiểm tra
+module.tunnel.local.tunnel-off = Tunnel đang tắt
+module.tunnel.local.no-address = Tunnel chưa có địa chỉ
+module.tunnel.local.listening = Cổng {0}: có dịch vụ đang lắng nghe
+module.tunnel.local.not-listening = Cổng {0}: không có gì đang lắng nghe
+module.tunnel.age.seconds = {0} giây
+module.tunnel.age.minutes = {0} phút
+module.tunnel.age.hours = {0} giờ
+
+# --- thông báo
+module.tunnel.toast.title = Remote tunnel
+module.tunnel.toast.on = Tunnel {0} đã bật.
+module.tunnel.toast.on-connected = Tunnel {0} đã bật và đã kết nối.
+module.tunnel.toast.off = Tunnel {0} đã tắt.
+module.tunnel.toast.auto-off = Tunnel {0} đã tự tắt sau {1} giờ.
+module.tunnel.toast.no-handshake = Tunnel {0} đã bật nhưng máy chủ không phản hồi. Hãy kiểm tra internet hoặc máy chủ.
+module.tunnel.toast.busy = Đang có một thay đổi tunnel khác. Chưa thay đổi gì.
+module.tunnel.toast.failed = {0}
+
+# --- sự cố
+module.tunnel.err.unknown = WireGuard không có tunnel nào tên {0}.
+module.tunnel.err.config-missing = Cấu hình của tunnel {0} không còn trong kho của WireGuard. Hãy thêm lại trong ứng dụng WireGuard.
+module.tunnel.err.timeout = WireGuard không xong kịp với tunnel {0}. Hãy xem tunnel trong ứng dụng WireGuard.
+module.tunnel.err.install-not-run = Rigbay không chạy được WireGuard cho tunnel {0}. Hãy kiểm tra WireGuard đã cài và không bị chặn.
+module.tunnel.err.install-failed = WireGuard không khởi động được tunnel {0} (mã thoát {1}). Hãy mở ứng dụng WireGuard và đọc thẻ Log.
+module.tunnel.err.service-failed = Service của tunnel {0} không khởi động được: {1}. Hãy mở ứng dụng WireGuard và đọc thẻ Log.
+module.tunnel.err.uninstall-failed = WireGuard không tắt được tunnel {0} (mã thoát {1}). Hãy mở ứng dụng WireGuard và đọc thẻ Log.
+module.tunnel.err.no-handshake = Tunnel {0} đã bật nhưng máy chủ không phản hồi. Hãy kiểm tra internet hoặc máy chủ.
+module.tunnel.err.start-type = Windows không đổi được cách khởi động của tunnel {0}: {1}
+module.tunnel.err.store-unreadable = Rigbay không đọc được danh sách tunnel của WireGuard. Rigbay phải chạy bằng quyền quản trị và WireGuard phải nằm ở thư mục mặc định.
+
+# --- dòng lệnh: rigbay tunnel <verb>
+module.tunnel.cmd.list = Liệt kê các tunnel và cho biết tunnel nào đang bật.
+module.tunnel.cmd.status = Hiện trạng thái, handshake gần nhất, máy chủ và lưu lượng của từng tunnel (một tunnel nếu có tên).
+module.tunnel.cmd.on = Bật một tunnel (hỏi trước, rồi chờ tối đa 30 giây để máy chủ phản hồi).
+module.tunnel.cmd.off = Tắt một tunnel (hỏi trước).
+module.tunnel.cmd.list-usage = Cách dùng: rigbay tunnel list
+module.tunnel.cmd.status-usage = Cách dùng: rigbay tunnel status [tên]
+module.tunnel.cmd.on-usage = Cách dùng: rigbay tunnel on <tên>
+module.tunnel.cmd.off-usage = Cách dùng: rigbay tunnel off <tên>
+module.tunnel.cmd.no-tunnels = WireGuard chưa có tunnel nào. Hãy thêm trong ứng dụng WireGuard.
+module.tunnel.cmd.list-line = {0}: {1}
+module.tunnel.cmd.status-line = {0}: {1}
+module.tunnel.cmd.status-endpoint = máy chủ {0}
+module.tunnel.cmd.status-transfer = nhận {0}, gửi {1}
+module.tunnel.cmd.not-running = Module Remote tunnel đang không chạy.
+module.tunnel.cmd.already-on = Tunnel {0} đã bật sẵn. Chưa thay đổi gì.
+module.tunnel.cmd.already-off = Tunnel {0} đã tắt sẵn. Chưa thay đổi gì.
+module.tunnel.cmd.busy = Đang có một thay đổi tunnel khác. Chưa thay đổi gì.
+module.tunnel.cmd.not-confirmed = Chưa được xác nhận (hoặc Rigbay không có cửa sổ để hỏi). Chưa thay đổi gì.
+module.tunnel.cmd.turned-on = Tunnel {0} đã bật. Rigbay không đọc được handshake nên không biết máy chủ có phản hồi không.
+module.tunnel.cmd.turned-on-connected = Tunnel {0} đã bật và đã kết nối.
+module.tunnel.cmd.turned-off = Tunnel {0} đã tắt.
+module.tunnel.cmd.turned-off-meanwhile = Tunnel {0} đã bị tắt trước khi máy chủ phản hồi.
