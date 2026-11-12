@@ -19,11 +19,13 @@ public sealed partial class PredatorSenseModule : IModule
     private readonly Func<TimeSpan, CancellationToken, Task>? _delay;
 
     // Values the page shows. They live as long as the instance, so enabling again after disabling works.
-    private readonly ObservableValue<string> _choice = new(ChoiceNotSet);
+    private readonly ObservableValue<string> _choice = new("");   // set to Auto, Maximum or NotSet by SyncChoice in Initialize
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
     private readonly ObservableValue<string> _modelText = new("");
     private readonly ObservableValue<string> _opModeText = new("");
     private readonly ObservableValue<string> _opModesText = new("");
+    private readonly ObservableValue<LocalisedText> _opModeLine = new(default);
+    private readonly ObservableValue<LocalisedText> _fanLine = new(default);
     private readonly ObservableValue<string> _lastSetText = new("");
     private readonly ObservableValue<string> _checkText = new("");
     private readonly ObservableValue<double> _pollSeconds = new(2);
@@ -45,7 +47,6 @@ public sealed partial class PredatorSenseModule : IModule
     private FanResult? _result;
     private bool _watching;
     private bool _noPrevious;
-    private volatile bool _pageOffersNotSet;
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public PredatorSenseModule() : this(new MachineInfo(), () => new AcerWmi(), null, null) { }
@@ -107,7 +108,7 @@ public sealed partial class PredatorSenseModule : IModule
         _pollSeconds.Changed += OnPollSecondsChanged;
         _restore.Changed += OnRestoreChanged;
         _choice.Changed += OnChoiceChanged;
-        host.Localisation.LanguageChanged += RefreshTexts;
+        host.Localisation.LanguageChanged += OnLanguageChanged;
         host.PageVisible.Changed += OnWatchSignal;
         host.Metrics.SubscribersChanged += OnWatchSignal;
 
@@ -153,7 +154,7 @@ public sealed partial class PredatorSenseModule : IModule
         _choice.Changed -= OnChoiceChanged;
         if (host is not null)
         {
-            host.Localisation.LanguageChanged -= RefreshTexts;
+            host.Localisation.LanguageChanged -= OnLanguageChanged;
             host.PageVisible.Changed -= OnWatchSignal;
             host.Metrics.SubscribersChanged -= OnWatchSignal;
         }
@@ -232,7 +233,26 @@ public sealed partial class PredatorSenseModule : IModule
     /// <summary>True while the performance mode is being polled (page visible or the metric has a subscriber) (tests).</summary>
     internal bool? OpModePolling => _opModeScheduler?.Watched;
 
+    /// <summary>What Rigbay set last, as the fan line starts with it ("Maximum at 14:02") (tests).</summary>
+    internal string LastSetShown => _lastSetText.Value;
+
+    /// <summary>How the fans answered the last change, the second part of the fan line; empty before one (tests).</summary>
+    internal string CheckShown => _checkText.Value;
+
+    /// <summary>The current performance mode in words ("Default", "Unknown") (tests).</summary>
+    internal string OpModeShown => _opModeText.Value;
+
+    /// <summary>The modes the laptop offers, as the row's line lists them ("Quiet, Default, Extreme, Turbo", or "Unknown") (tests).</summary>
+    internal string OpModesShown => _opModesText.Value;
+
     private void OnReadingsState(ReadingsState state) => RefreshTexts();
+
+    /// <summary>The words of the "not set" value follow the language, like every other text.</summary>
+    private void OnLanguageChanged()
+    {
+        SyncChoice();
+        RefreshTexts();
+    }
 
     private void OnPolled(SensorSnapshot snapshot) => RefreshTexts();
 
@@ -270,7 +290,7 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     /// <summary>
-    /// The user picked another mode in the drop-down. The host has already shown the effect and asked (that is what the row's
+    /// The user picked another mode in the fan-mode choice. The host has already shown the effect and asked (that is what the row's
     /// hardware flag does), so this writes. It never blocks the caller: the write runs on a pool thread.
     /// </summary>
     private void OnChoiceChanged()
@@ -279,7 +299,7 @@ public sealed partial class PredatorSenseModule : IModule
         if (fan is null) return;
         var value = _choice.Value;
 
-        if (value == ChoiceNotSet)
+        if (IsNotSet(value))
         {
             // "Not set" is a state, not a value: nothing is written for it. It arrives from our own sync (nothing set yet), or from a
             // Revert of the very first change, whose "previous" value is "Not set". Rigbay then does know what it set, so the row goes
@@ -325,19 +345,13 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     /// <summary>
-    /// Makes the drop-down show what Rigbay last set, or "Not set" while it has set nothing in this run. Once Rigbay has set a
-    /// mode, "Not set" is no longer a true description, so the page is rebuilt without that option.
+    /// Makes the choice show what Rigbay last set, or nothing (<see cref="NotSet"/>, not an option) while it has set nothing in this run.
     /// </summary>
     private void SyncChoice()
     {
         var fan = _fan;
         if (fan is null) return;
-        _choice.Value = fan.Last is null ? ChoiceNotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
-        if (fan.Last is not null && _pageOffersNotSet)
-        {
-            _pageOffersNotSet = false;   // once; the rebuilt page asks the module again and finds the option gone
-            _host?.RequestPageRefresh();
-        }
+        _choice.Value = fan.Last is null ? NotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
     }
 
     private void ShowResult(FanResult result)

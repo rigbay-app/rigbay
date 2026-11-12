@@ -77,8 +77,12 @@ public class RevertTextTests
             var effect = row.HardwareEffect!;
             Assert.False(effect.SafeRevert, row.HeaderKey);   // putting the old limits back can raise them: asked
             Assert.NotNull(effect.RevertDescriptionKey);
-            Assert.True(en.Has(effect.RevertDescriptionKey!) && vi.Has(effect.RevertDescriptionKey!), effect.RevertDescriptionKey);
-            Assert.NotEqual(en.T(effect.DescriptionKey), en.T(effect.RevertDescriptionKey!));
+            // the profile choice with bare names builds its texts from these keys plus the limits of every profile
+            var (key, revertKey) = Text.IsLiteral(effect.DescriptionKey) ? (ApplyService.EffectKey, "effect.apply-profile-revert") : (effect.DescriptionKey, effect.RevertDescriptionKey!);
+            Assert.True(en.Has(revertKey) && vi.Has(revertKey), revertKey);
+            Assert.True(en.Has(key) && vi.Has(key), key);
+            Assert.NotEqual(en.T(key), en.T(revertKey));
+            Assert.NotEqual(effect.DescriptionKey, effect.RevertDescriptionKey);
         }
     }
 

@@ -255,7 +255,7 @@ public class OperationModeModuleTests
         Assert.Equal(new uint[] { 0x0A }, rig.Wmi.MiscReads);   // exactly one read, the capability
         Assert.False(rig.Module.OpModePolling);
         Assert.Null(rig.Host.MetricsBus.Latest(Metric));
-        Assert.Equal("Quiet, Default, Extreme, Turbo", rig.ValueOf("row.opmodes.header"));
+        Assert.Equal("Quiet, Default, Extreme, Turbo", rig.OpModeOptions);
         Assert.Equal(0, rig.Wmi.WriteCount);
     }
 
@@ -269,7 +269,7 @@ public class OperationModeModuleTests
         try
         {
             Assert.Equal(new uint[] { 0x0A, 0x0B }, rig.Wmi.MiscReads.Take(2).ToArray());
-            Assert.Equal("Default", rig.ValueOf("row.opmode.header"));
+            Assert.Equal("Default", rig.OpModeShown);
             Assert.Equal(1, rig.Host.MetricsBus.Latest(Metric)!.Value);
         }
         finally { rig.Stop(); }
@@ -284,7 +284,7 @@ public class OperationModeModuleTests
         rig.Host.PageVisibleValue.Value = true;
         Assert.True(rig.Module.OpModePolling);
         Assert.True(Wait.Until(() => rig.Wmi.MiscReads.Contains(0x0B), 30000), "no read of the mode after the page became visible");
-        Assert.True(Wait.Until(() => rig.ValueOf("row.opmode.header") == "Default", 30000));
+        Assert.True(Wait.Until(() => rig.OpModeShown == "Default", 30000));
         Assert.Equal(1, rig.Host.MetricsBus.Latest(Metric)!.Value);
 
         rig.Host.PageVisibleValue.Value = false;
@@ -320,22 +320,37 @@ public class OperationModeModuleTests
     }
 
     [Fact]
-    public void The_row_is_read_only_with_the_honest_note_and_no_selector_for_the_mode()
+    public void The_row_is_read_only_text_with_the_current_mode_every_offered_mode_and_the_honest_note()
     {
-        using var rig = new ModuleRig();
-        var cooling = rig.Page.Groups.Single(g => g.HeaderKey == "group.cooling").Rows;
-        Assert.Equal("row.opmode.header", cooling[0].HeaderKey);   // near the top of the group
-        Assert.IsType<ValueRow>(cooling[0]);
-        Assert.Equal("row.opmode.description", cooling[0].DescriptionKey);
-        var note = Assert.Single(cooling.OfType<InfoRow>());
-        Assert.Equal("info.opmode-note.header", note.HeaderKey);
+        var rig = new ModuleRig(initialize: false);
+        rig.Host.PageVisibleValue.Value = true;
+        Assert.True(rig.Module.Probe().Supported);
+        rig.Module.Initialize(rig.Host);
+        using var _ = rig;
+        var group = rig.Page.Groups.Single(g => g.HeaderKey == "group.performance").Rows;
+        var row = Assert.IsType<ValueRow>(Assert.Single(group));   // text, never a control
 
-        // The only selector on the page is the fan mode; nothing that changes the performance mode exists.
-        var choice = Assert.Single(rig.Rows.OfType<ChoiceRow>());
-        Assert.Equal("row.fan-mode.header", choice.HeaderKey);
-        Assert.Equal("Read from the laptop", rig.Host.Loc.T(cooling[0].DescriptionKey!));
-        Assert.Equal("Change it in PredatorSense for now", rig.Host.Loc.T(note.HeaderKey));
-        Assert.Equal("Rigbay will offer this after a supervised test.", rig.Host.Loc.T(note.DescriptionKey!));
+        // READ ONLY: no selector and no hardware effect; the only row of the page that changes anything is the fan mode
+        Assert.Null(row.HardwareEffect);
+        Assert.Equal("row.fan-mode.header", Assert.Single(rig.Rows, r => r.ChangesHardware).HeaderKey);
+        Assert.Equal("Default", row.Value.Value);
+        Assert.Equal("This laptop offers Quiet, Default, Extreme, Turbo", rig.Host.Loc.Resolve(row.Line!.Value));
+        // the honest note: short on the row, the why in its help
+        Assert.Equal("Read only. Change it in PredatorSense for now.", rig.Host.Loc.T(row.DescriptionKey!));
+        Assert.Contains("not been tested", rig.Host.Loc.T(row.HelpKey!));
+        Assert.Equal(0, rig.Wmi.WriteCount);
+    }
+
+    [Fact]
+    public void A_mode_list_the_laptop_did_not_give_leaves_the_line_empty()
+    {
+        var rig = new ModuleRig(initialize: false);
+        rig.Wmi.SupportedModesAnswer = 0x0B01E1;   // status non-zero
+        Assert.True(rig.Module.Probe().Supported);
+        rig.Module.Initialize(rig.Host);
+        using var _ = rig;
+        Assert.True(Assert.IsType<ValueRow>(rig.OpModeRow).Line!.Value.IsEmpty);
+        Assert.Equal("Unknown", rig.OpModeShown);   // not read yet: the page is not visible
     }
 
     [Fact]
@@ -369,7 +384,7 @@ public class OperationModeModuleTests
         rig.Wmi.OperationModeAnswer = raw;
         var result = await rig.Host.CommandRegistry.Run("status");
         Assert.Contains("Performance mode: " + expected, result.Output);
-        Assert.Equal(expected, rig.ValueOf("row.opmode.header"));
+        Assert.Equal(expected, rig.OpModeShown);
         Assert.Equal(0, rig.Wmi.WriteCount);
     }
 
@@ -378,10 +393,10 @@ public class OperationModeModuleTests
     {
         using var rig = new ModuleRig();
         rig.Host.PageVisibleValue.Value = true;
-        Assert.True(Wait.Until(() => rig.ValueOf("row.opmode.header") == "Default", 30000));
+        Assert.True(Wait.Until(() => rig.OpModeShown == "Default", 30000));
         rig.Wmi.OperationModeAnswer = 0x0B0500;
         await rig.Host.CommandRegistry.Run("status");   // a fresh read, standing in for the 10 s poll
-        Assert.Equal("Turbo", rig.ValueOf("row.opmode.header"));
+        Assert.Equal("Turbo", rig.OpModeShown);
         Assert.Equal(5, rig.Host.MetricsBus.Latest(Metric)!.Value);
     }
 
@@ -392,14 +407,14 @@ public class OperationModeModuleTests
         rig.Wmi.SupportedModesAnswer = 0x0B01E1;   // status non-zero
         Assert.True(rig.Module.Probe().Supported);
         rig.Module.Initialize(rig.Host);
-        try { Assert.Equal("Unknown", rig.ValueOf("row.opmodes.header")); }
+        try { Assert.Equal("Unknown", rig.OpModeOptions); }
         finally { rig.Stop(); }
 
         var all = new ModuleRig(initialize: false);
         all.Wmi.SupportedModesAnswer = 0x0B3F00;
         Assert.True(all.Module.Probe().Supported);
         all.Module.Initialize(all.Host);
-        try { Assert.Equal("Quiet, Default, Render, Edit, Extreme, Turbo", all.ValueOf("row.opmodes.header")); }
+        try { Assert.Equal("Quiet, Default, Render, Edit, Extreme, Turbo", all.OpModeOptions); }
         finally { all.Stop(); }
     }
 
@@ -408,14 +423,14 @@ public class OperationModeModuleTests
     {
         using var rig = new ModuleRig();
         rig.Host.PageVisibleValue.Value = true;
-        Assert.True(Wait.Until(() => rig.ValueOf("row.opmode.header") == "Default", 30000));
+        Assert.True(Wait.Until(() => rig.OpModeShown == "Default", 30000));
         rig.Host.Loc.Switch("vi");
-        Assert.Equal("Mặc định", rig.ValueOf("row.opmode.header"));
-        Assert.Equal("Yên tĩnh, Mặc định, Extreme, Turbo", rig.ValueOf("row.opmodes.header"));
+        Assert.Equal("Mặc định", rig.OpModeShown);
+        Assert.Equal("Yên tĩnh, Mặc định, Extreme, Turbo", rig.OpModeOptions);
 
-        foreach (var key in new[] { "row.opmode.header", "row.opmode.description", "row.opmodes.header", "row.opmodes.description", "info.opmode-note.header",
-            "info.opmode-note.description", "opmode.quiet", "opmode.default", "opmode.render", "opmode.edit", "opmode.extreme", "opmode.turbo", "opmode.unknown",
-            "sensor.opmode", "sensor.opmode.description", "status.opmode", "group.cooling" })
+        foreach (var key in new[] { "row.opmode.header", "row.opmode.description", "row.opmode.help", "opmode.offers",
+            "opmode.quiet", "opmode.default", "opmode.render", "opmode.edit", "opmode.extreme", "opmode.turbo", "opmode.unknown",
+            "sensor.opmode", "sensor.opmode.description", "status.opmode", "group.performance" })
             foreach (var lang in new[] { "en", "vi" })
                 Assert.True(FakeLocalisation.Load(lang).ContainsKey("module.predatorsense." + key), $"{lang}: {key}");
     }

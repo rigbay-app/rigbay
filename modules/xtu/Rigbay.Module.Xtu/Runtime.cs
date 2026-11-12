@@ -76,7 +76,6 @@ internal sealed partial class XtuRuntime : IDisposable
         }
         finally { _suppressAuto = false; }
 
-        SetMessage(LocalisedText.Of("msg.none-yet"));
         LoadProfiles();
         Refresh();
         LoadAutoChoices();
@@ -86,7 +85,9 @@ internal sealed partial class XtuRuntime : IDisposable
 
         _power.Changed += OnPowerChanged;
         _power.Resumed += OnResumed;
-        UpdatePowerText();
+        UpdateAutoLine();
+        // The approval text of the profile choice is built in the current language when the page is built: build it again.
+        _host.Localisation.LanguageChanged += RequestPageRefresh;
 
         // Say once what every metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
         foreach (var descriptor in XtuMetrics.Descriptors) _host.Metrics.Describe(descriptor);
@@ -109,6 +110,7 @@ internal sealed partial class XtuRuntime : IDisposable
         try { _stop.Cancel(); } catch (ObjectDisposedException) { }
         _host.PageVisible.Changed -= OnWatchSignal;
         _host.Metrics.SubscribersChanged -= OnWatchSignal;
+        _host.Localisation.LanguageChanged -= RequestPageRefresh;
         _wake.Set();
         _power.Changed -= OnPowerChanged;
         _power.Resumed -= OnResumed;
@@ -177,7 +179,7 @@ internal sealed partial class XtuRuntime : IDisposable
         try
         {
             Refresh();
-            UpdatePowerText();
+            UpdateAutoLine();
             AutoCheck(force: false);
         }
         finally { Volatile.Write(ref _statusBusy, 0); }
@@ -270,7 +272,6 @@ internal sealed partial class XtuRuntime : IDisposable
         var profile = Catalog.FindByName(Profiles, name);
         if (profile is null)
         {
-            SetMessage(LocalisedText.Of("msg.not-found", name));
             Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("msg.not-found", name), ToastKind.Error, ToastOrigin.Background);
             return Task.FromResult(new ApplyResult(ApplyStatus.Failed, new XtuProfile(name, 0, 0, false, 0, ProfileKind.Custom), Error: new XtuException("msg.not-found", name)));
         }
@@ -315,29 +316,23 @@ internal sealed partial class XtuRuntime : IDisposable
         switch (r.Status)
         {
             case ApplyStatus.Applied:
-                var after = r.After!;
-                SetMessage(LocalisedText.Of("msg.applied-named", name, Fmt.N(after.Pl1), Fmt.N(after.Pl2), Fmt.N(after.Window)));
                 var body = origin == ApplyOrigin.Auto
                     ? LocalisedText.Of("toast.auto-applied", name, _host.Localisation.Resolve(LocalisedText.Of(_power.Line == PowerLine.Online ? "reason.ac" : "reason.battery")))
                     : LocalisedText.Of("toast.applied", name);
                 Notify(LocalisedText.Of("toast.title"), body, ToastKind.Success, from);
                 break;
             case ApplyStatus.AlreadyActive:
-                SetMessage(LocalisedText.Of("msg.already-named", name));
                 // The user asked (page, hotkey, tray item, verb) and nothing changed: say so. The automatic rule stays quiet.
                 if (origin != ApplyOrigin.Auto)
                     Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("msg.already-named", name), ToastKind.Info, from);
                 break;
             case ApplyStatus.Declined:
-                SetMessage(LocalisedText.Of("msg.declined"));
-                break;
+                break;   // the user said no: nothing to tell
             case ApplyStatus.Busy:
-                SetMessage(LocalisedText.Of("msg.busy"));
                 Notify(LocalisedText.Of("toast.title-failed"), LocalisedText.Of("msg.busy"), ToastKind.Warning, from);
                 break;
             default:
                 var text = r.Error!.ToText();
-                SetMessage(LocalisedText.Of("msg.failed", _host.Localisation.Resolve(text)));
                 Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Error, from);
                 break;
         }
@@ -348,7 +343,7 @@ internal sealed partial class XtuRuntime : IDisposable
 
     // ---- auto-switch ----------------------------------------------------------------------------------------------------
 
-    private void OnPowerChanged() => Guard("power change", () => { UpdatePowerText(); AutoCheck(force: false); });
+    private void OnPowerChanged() => Guard("power change", () => { UpdateAutoLine(); AutoCheck(force: false); });
 
     private void OnResumed()
     {
@@ -381,7 +376,6 @@ internal sealed partial class XtuRuntime : IDisposable
             case AutoOutcome.Missing:
                 var reason = LocalisedText.Of(decision.OnAc ? "reason.ac" : "reason.battery");
                 var text = LocalisedText.Of("msg.auto-missing", decision.MissingName!, _host.Localisation.Resolve(reason));
-                SetMessage(text);
                 Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning, origin == ApplyOrigin.Auto ? ToastOrigin.Background : ToastOrigin.Page);
                 break;
         }
