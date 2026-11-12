@@ -248,7 +248,10 @@ sealed class RowRenderer
         ToolTipService.SetToolTip(tb, help);
         AutomationProperties.SetName(tb, text);
         AutomationProperties.SetHelpText(tb, help);
-        return tb;
+        // in a frame named with the header text: code that finds a row by its header (the search) matches the name, the text has glyphs in it
+        var frame = new Border { Child = tb };
+        AutomationProperties.SetName(frame, text);
+        return frame;
     }
 
     /// <summary>A live line (<see cref="Row.Line"/>) as text that follows the module; collapsed while the text is empty.</summary>
@@ -313,7 +316,8 @@ sealed class RowRenderer
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var headerObj = HeaderOf(row, out var text, out var help);
-        var header = headerObj as TextBlock ?? new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        var header = (headerObj as Border)?.Child as TextBlock ?? new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        if (headerObj is Border frame) frame.Child = null;   // the primary sets its own text style; the frame is only for cards
         header.Style = Ui.Style("RbPrimaryHeader");
         AutomationProperties.SetHeadingLevel(header, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
         grid.Children.Add(header);
