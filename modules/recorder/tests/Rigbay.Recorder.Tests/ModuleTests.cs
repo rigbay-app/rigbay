@@ -321,7 +321,9 @@ public class PageTests
 
         var stopped = ModuleRig.Invoke(stop);
         Assert.True(stopped.Succeeded);
-        Assert.Same(start, rig.Page().Primary);   // the same row instance comes back, so the host keeps its state
+        var again2 = Assert.IsType<ButtonRow>(rig.Page().Primary);
+        Assert.Equal("row.start.header", again2.HeaderKey);
+        Assert.NotSame(start, again2);   // a new Start: the old one's "Recording to x.csv" must not come back beside it
         Assert.True(start.Enabled.Value);
         Assert.False(stop.Enabled.Value);
         Assert.True(rig.Host.TrayService.Item("start").Visible.Value);
@@ -423,14 +425,16 @@ public class PageTests
         var none = rig.Press("row.start.header");
         Assert.False(none.Succeeded);
         Assert.Equal("start.no-metrics", none.Message!.Value.Key);
-        Assert.StartsWith("There is nothing to record", rig.PrimaryLine);
+        Assert.StartsWith("There is nothing to record", rig.Host.Loc.Resolve(none.Message!.Value));
+        Assert.Equal("", rig.PrimaryLine);   // said once, beside the button, not again in the line
 
         rig.PublishSome();
         rig.Disk.Free = 20L * 1024 * 1024;
         var full = rig.Press("row.start.header");
         Assert.False(full.Succeeded);
         Assert.Equal("start.disk-low", full.Message!.Value.Key);
-        Assert.Equal("Not enough free space on that drive: 20 MB free, at least 200 MB needed.", rig.PrimaryLine);
+        Assert.Equal("Not enough free space on that drive: 20 MB free, at least 200 MB needed.", rig.Host.Loc.Resolve(full.Message!.Value));
+        Assert.Equal("", rig.PrimaryLine);
         Assert.Empty(rig.Folder.Csvs);
         Assert.False(rig.Module.Engine!.IsRecording);
     }
@@ -872,6 +876,7 @@ public class TrayAndHotkeyTests
         Assert.Equal(ToastKind.Warning, toast.Kind);
         Assert.Equal("start.no-metrics", toast.Body.Key);
         Assert.False(rig.Module.Engine!.IsRecording);
+        Assert.StartsWith("There is nothing to record", rig.PrimaryLine);   // no button said it, so the page's line does
     }
 
     [Fact]

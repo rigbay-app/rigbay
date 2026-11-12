@@ -42,8 +42,10 @@ The old app's recorder is described in `docs/xtu/RECORDER-NOTES.md` (columns, un
 
 ## Gotchas
 
-- **The page layout (0.1.1, UI review RC-1).** `PageModel.Primary` is `_startRow` while idle and `_stopRow` while recording, both made once; their
-  `Line` is `_primaryLine` (file · elapsed · rows · size, or how the last one ended, or nothing). `ApplyRecordingState` calls
+- **The page layout (0.1.1, UI review RC-1).** `PageModel.Primary` is a Start row while idle and a Stop row while recording, made new for every
+  page on purpose (the host keeps a button's last message on the row instance; "Recording to x.csv" must not reappear beside Start), while the
+  option rows are made once (their Revert must survive the rebuilt page). A page-start refusal is the button's message only (`StartFromPage`
+  puts the previous `_lastNotice` back); from the tray, hotkey or verb it lands in the line. Their `Line` is `_primaryLine` (file · elapsed · rows · size, or how the last one ended, or nothing). `ApplyRecordingState` calls
   `RefreshPageIfRecordingChanged`, which asks the host for a new page when the main button must change. There are no status rows: put a new fact in
   that line, never in a row that reads "–" while idle. The folder is an `ExpanderRow` (Open as `HeaderRow`, path `TextRow` inside, `_folderLine`);
   "Select all" sits on the "Selected metrics" row, and each source expander has its own "n of m" line (`_sourceLines`).

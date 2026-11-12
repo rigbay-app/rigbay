@@ -11,10 +11,9 @@ public sealed partial class RecorderModule
     /// <summary>One metric the picker offers.</summary>
     private sealed record Offered(string Source, MetricId Id, string Label, MetricUnit Unit);
 
-    // The rows that carry an editor or a button state in the host are made once and kept: the page is rebuilt when a recording starts or
-    // ends (the main button changes), and a new row instance would lose its status and its Revert link in the host.
-    private ButtonRow? _startRow;
-    private ButtonRow? _stopRow;
+    // The option rows are made once and kept: the page is rebuilt when a recording starts or ends, and a new row instance would lose its
+    // status and its Revert link in the host. Start and Stop are made new with every page on purpose: the host keeps a button's last message
+    // on its row instance, and "Recording to x.csv" must not come back beside Start once that recording is over (the line says how it ended).
     private ChoiceRow? _periodRow;
     private ChoiceRow? _durationRow;
     private TextRow? _folderRow;
@@ -40,18 +39,19 @@ public sealed partial class RecorderModule
         bool recording = _recording.Value;
         Volatile.Write(ref _pageShowsRecording, recording ? 1 : 0);
 
-        _startRow ??= new ButtonRow("row.start.header", "row.start.button", _ => Task.FromResult(StartFromPage()))
-        {
-            DescriptionKey = "row.start.description",
-            HelpKey = "row.start.help",
-            Line = _primaryLine,
-            Enabled = _idle,
-        };
-        _stopRow ??= new ButtonRow("row.stop.header", "row.stop.button", _ => Task.FromResult(StopFromPage()))
-        {
-            Line = _primaryLine,
-            Enabled = _recording,
-        };
+        Row primary = recording
+            ? new ButtonRow("row.stop.header", "row.stop.button", _ => Task.FromResult(StopFromPage()))
+            {
+                Line = _primaryLine,
+                Enabled = _recording,
+            }
+            : new ButtonRow("row.start.header", "row.start.button", _ => Task.FromResult(StartFromPage()))
+            {
+                DescriptionKey = "row.start.description",
+                HelpKey = "row.start.help",
+                Line = _primaryLine,
+                Enabled = _idle,
+            };
         _periodRow ??= new ChoiceRow("row.period.header", RecorderSettings.PeriodChoices.Select(c => new ChoiceOption(Id(c.Seconds), c.LabelKey)).ToArray(), _period)
         {
             HelpKey = "row.period.help",
@@ -91,7 +91,7 @@ public sealed partial class RecorderModule
         UpdatePickedText();
         return new PageModel
         {
-            Primary = recording ? _stopRow : _startRow,
+            Primary = primary,
             Groups = groups,
             // The bay says "Recording 00:12:31" or "Not recording". recorder.rows is on the bus for whoever wants a counter, but a reading that
             // says "Not available" next to "Not recording" would look like an error.
@@ -117,7 +117,14 @@ public sealed partial class RecorderModule
     {
         var engine = _engine;
         if (engine is null) return ActionResult.Fail("cmd.not-running");
+        // A refusal is the button's own message, beside it; the line keeps saying how the last recording ended (said once, not twice).
+        var before = _lastNotice;
         var outcome = StartRecording(RequestFromSettings());
+        if (!outcome.Started)
+        {
+            _lastNotice = before;
+            RefreshTexts();
+        }
         return outcome.Started ? ActionResult.Ok(LocalisedText.Of("start.ok", Path.GetFileName(outcome.Path ?? ""))) : new ActionResult(false, outcome.Message);
     }
 
