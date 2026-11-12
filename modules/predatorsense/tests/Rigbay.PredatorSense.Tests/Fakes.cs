@@ -336,4 +336,19 @@ internal static class Wait
         }
         return condition();
     }
+
+    /// <summary>
+    /// The same wait for an async test. It does not hold a thread-pool thread: the tests wait for work that itself needs the pool
+    /// (timer callbacks, <c>Task.Run</c>), and a pool whose threads are all asleep in a wait starts new ones only about twice a second.
+    /// </summary>
+    public static async Task<bool> UntilAsync(Func<bool> condition, int timeoutMs = 30000)
+    {
+        var end = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < end)
+        {
+            if (condition()) return true;
+            await Task.Delay(10);
+        }
+        return condition();
+    }
 }
