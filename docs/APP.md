@@ -112,7 +112,8 @@ and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`,
 `restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `cpu:<label>` (logs this process's CPU time and the
 time spent redrawing, as a `CPUMARK` line, so a script can measure a stretch of waiting), `chart:<n>` (pick a chart tab, 0-based), `range:<1|5|10>` (minutes), `hover:<0..1>` (put the crosshair at that share of the plot width) and
 `frames:<count>x<ms>` (PNG frames of the window's own HWND into `<--shot name>-frames`, for the README animation). The UI review's package C adds
-`capture:<shortcut row header key>` (opens that row's "Press the new shortcut" dialog, not awaited) and
+`capture:<shortcut row header key>[=<chord>]` (opens that row's "Press the new shortcut" dialog, not awaited; with `=Ctrl+Alt+M` that chord is shown as
+already pressed) and
 `notice:<module id>,<success|info|warning|error>,<title key>,<body key>` (the in-window message as that module's toast shows it while the window is in use).
 
 ## What it does

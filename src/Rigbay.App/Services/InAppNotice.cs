@@ -67,7 +67,7 @@ sealed class InAppNotice : IInAppNoticeSink
                 ToastKind.Error => InfoBarSeverity.Error,
                 _ => InfoBarSeverity.Informational,
             };
-            _bar.Title = name + ": " + title;
+            _bar.Title = ToastHost.TitleFor(name, title);
             _bar.Message = body;
             _bar.IsOpen = true;
             _lifetime = Lifetime(kind);
@@ -105,17 +105,5 @@ sealed class InAppNotice : IInAppNoticeSink
     {
         for (var p = d; p != null; p = VisualTreeHelper.GetParent(p)) if (ReferenceEquals(p, _bar)) return true;
         return false;
-    }
-
-    /// <summary>
-    /// The script step <c>notice:&lt;module id&gt;,&lt;success|info|warning|error&gt;,&lt;title key&gt;,&lt;body key&gt;</c> (screenshots):
-    /// shows the message as that module's toast would while the window is in use. Keys are the module's own (no prefix).
-    /// </summary>
-    public static void ScriptSample(string arg)
-    {
-        var p = arg.Split(',', StringSplitOptions.TrimEntries);
-        if (p.Length < 4 || Host.Core.Find(p[0]) is not { } entry) { AppLog.Warn("script: notice needs <module id>,<kind>,<title key>,<body key>: '" + arg + "'"); return; }
-        var kind = p[1] switch { "warning" => ToastKind.Warning, "error" => ToastKind.Error, "info" => ToastKind.Info, _ => ToastKind.Success };
-        Host.Window.InAppNotice.Show(entry.Id, entry.Localisation.T(p[2]), entry.Localisation.T(p[3]), kind);
     }
 }

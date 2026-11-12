@@ -38,10 +38,13 @@ static class CaptureDialog
         if (root == null) return (false, null);
         HotkeyGesture? result = null;
         var hint = Ui.Text(Host.T("capture.hint"), "RbSecondaryText", wrap: true);
-        var keys = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, MinHeight = 36 };
+        var keys = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, MinHeight = 34, Margin = new Thickness(10, 8, 10, 8), VerticalAlignment = VerticalAlignment.Center };
+        // the place the keys appear: a dashed field, so an empty one reads as "keys go here" rather than as a gap
+        var field = (Grid)XamlReader.Load(FieldXaml);
+        field.Children.Add(keys);
         var status = Ui.Text("", "RbSecondaryCaption", wrap: true);
         status.Visibility = Visibility.Collapsed;
-        var body = new StackPanel { Spacing = 12, MinWidth = 320, Children = { hint, keys, status } };
+        var body = new StackPanel { Spacing = 12, MinWidth = 320, Children = { hint, field, status } };
         var dialog = new ContentDialog
         {
             XamlRoot = root, Title = title, Content = body,
@@ -147,6 +150,10 @@ static class CaptureDialog
     }
 
     // Built from XAML text so the theme brushes follow the dialog's own theme (a brush looked up in code would follow the app's).
+    const string FieldXaml =
+        "<Grid xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>" +
+        "<Rectangle RadiusX='6' RadiusY='6' StrokeThickness='1' StrokeDashArray='4,3' Stroke='{ThemeResource ControlStrongStrokeColorDefaultBrush}'/></Grid>";
+
     const string KeyCapXaml =
         "<Border xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' MinWidth='36' Padding='10,5,10,6' CornerRadius='4' BorderThickness='1,1,1,2' " +
         "Background='{ThemeResource ControlFillColorDefaultBrush}' BorderBrush='{ThemeResource ControlStrokeColorSecondaryBrush}'>" +
