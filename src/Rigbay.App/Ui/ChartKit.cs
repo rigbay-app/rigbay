@@ -134,11 +134,79 @@ sealed class FlowPanel : Panel
     }
 }
 
-/// <summary>Equal-width tiles in rows: as many columns as fit (at least <see cref="MinTileWidth"/> each), but never a lone tile on the last row (four tiles are 4, 2 or 1 wide).</summary>
+/// <summary>
+/// The tiles of a module page, which are also the chart's tabs (Task Manager's Performance page): equal-width tiles in rows, as many columns as fit
+/// (at least <see cref="MinTileWidth"/> each) but never a lone tile on the last row (four tiles are 4, 2 or 1 wide). One tile is selected; the chart
+/// below draws its reading. It is one tab stop: Tab lands on the selected tile, the arrow keys, Home and End move the selection. For a screen reader
+/// it is a list with one selected item, and each tile's name carries its value and unit.
+/// </summary>
 sealed class TileStrip : Panel
 {
     public const double MinTileWidth = 156;
     public double Gap { get; set; } = 8;
+
+    int _selected = -1;
+
+    /// <summary>The selected tile's index, or -1.</summary>
+    public int SelectedIndex => _selected;
+    public ReadingTile? SelectedTile => _selected >= 0 && _selected < Children.Count ? Children[_selected] as ReadingTile : null;
+    /// <summary>Raised after the selection changed (a click, a key, or <see cref="Select"/>), with the new index.</summary>
+    public event Action<int>? SelectionChanged;
+
+    public TileStrip()
+    {
+        TabFocusNavigation = Microsoft.UI.Xaml.Input.KeyboardNavigationMode.Once;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(this, Host.T("chart.tiles"));
+        KeyDown += OnKey;
+        GettingFocus += (_, a) =>
+        {
+            // coming in from outside (Tab, Shift+Tab): land on the selected tile, not on the first or the last
+            if (SelectedTile is { } sel && a.NewFocusedElement is ReadingTile t && t != sel && !IsInside(a.OldFocusedElement))
+                a.TrySetNewFocusedElement(sel);
+        };
+    }
+
+    bool IsInside(DependencyObject? d)
+    {
+        for (; d != null; d = VisualTreeHelper.GetParent(d)) if (ReferenceEquals(d, this)) return true;
+        return false;
+    }
+
+    /// <summary>Selects tile <paramref name="index"/>; <paramref name="focus"/> also moves the keyboard focus to it.</summary>
+    public void Select(int index, bool focus = false)
+    {
+        if (index < 0 || index >= Children.Count) return;
+        bool changed = index != _selected;
+        _selected = index;
+        for (int i = 0; i < Children.Count; i++) if (Children[i] is ReadingTile t) t.IsSelected = i == index;
+        if (focus && SelectedTile is { } tile) tile.Focus(FocusState.Keyboard);
+        if (changed)
+        {
+            if (SelectedTile is { } sel && Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.FromElement(sel) is { } peer)
+                peer.RaiseAutomationEvent(Microsoft.UI.Xaml.Automation.Peers.AutomationEvents.SelectionItemPatternOnElementSelected);
+            SelectionChanged?.Invoke(index);
+        }
+    }
+
+    void OnKey(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs a)
+    {
+        int n = Children.Count;
+        if (n == 0) return;
+        int at = _selected < 0 ? 0 : _selected;
+        int next = a.Key switch
+        {
+            Windows.System.VirtualKey.Left or Windows.System.VirtualKey.Up => Math.Max(0, at - 1),
+            Windows.System.VirtualKey.Right or Windows.System.VirtualKey.Down => Math.Min(n - 1, at + 1),
+            Windows.System.VirtualKey.Home => 0,
+            Windows.System.VirtualKey.End => n - 1,
+            _ => -1,
+        };
+        if (next < 0) return;
+        Select(next, focus: true);
+        a.Handled = true;
+    }
+
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new TileStripPeer(this);
 
     /// <summary>How many columns a strip of <paramref name="count"/> tiles gets in <paramref name="width"/>.</summary>
     public static int Columns(int count, double width, double gap = 8)
@@ -184,4 +252,37 @@ sealed class TileStrip : Panel
         }
         return final;
     }
+}
+
+/// <summary>The tile strip for UI Automation: a list with a single, required selection (AX-4).</summary>
+sealed class TileStripPeer : Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer, Microsoft.UI.Xaml.Automation.Provider.ISelectionProvider
+{
+    readonly TileStrip _strip;
+    public TileStripPeer(TileStrip owner) : base(owner) => _strip = owner;
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() => Microsoft.UI.Xaml.Automation.Peers.AutomationControlType.List;
+    protected override string GetClassNameCore() => nameof(TileStrip);
+    protected override object GetPatternCore(Microsoft.UI.Xaml.Automation.Peers.PatternInterface pattern) =>
+        pattern == Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Selection ? this : base.GetPatternCore(pattern);
+    public bool CanSelectMultiple => false;
+    public bool IsSelectionRequired => true;
+    public Microsoft.UI.Xaml.Automation.Provider.IRawElementProviderSimple[] GetSelection() =>
+        _strip.SelectedTile is { } t && FromElement(t) is { } p ? new[] { ProviderFromPeer(p) } : Array.Empty<Microsoft.UI.Xaml.Automation.Provider.IRawElementProviderSimple>();
+}
+
+/// <summary>A reading tile for UI Automation: a list item that can be selected (selecting it picks the chart's reading).</summary>
+sealed class ReadingTilePeer : Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer, Microsoft.UI.Xaml.Automation.Provider.ISelectionItemProvider
+{
+    readonly ReadingTile _tile;
+    public ReadingTilePeer(ReadingTile owner) : base(owner) => _tile = owner;
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() => Microsoft.UI.Xaml.Automation.Peers.AutomationControlType.ListItem;
+    protected override string GetClassNameCore() => nameof(ReadingTile);
+    protected override bool IsKeyboardFocusableCore() => true;
+    protected override object GetPatternCore(Microsoft.UI.Xaml.Automation.Peers.PatternInterface pattern) =>
+        pattern == Microsoft.UI.Xaml.Automation.Peers.PatternInterface.SelectionItem ? this : base.GetPatternCore(pattern);
+    public bool IsSelected => _tile.IsSelected;
+    public Microsoft.UI.Xaml.Automation.Provider.IRawElementProviderSimple SelectionContainer =>
+        _tile.Parent is TileStrip s && FromElement(s) is { } p ? ProviderFromPeer(p) : null!;
+    public void AddToSelection() => Select();
+    public void RemoveFromSelection() { }
+    public void Select() { if (_tile.Parent is TileStrip s) s.Select(s.Children.IndexOf(_tile)); }
 }

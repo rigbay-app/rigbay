@@ -90,12 +90,28 @@ public static class ReadingScale
         return nice * pow;
     }
 
-    /// <summary>A tick label: whole numbers when the step is whole, one more digit for each decimal the step has (invariant culture, like the readings).</summary>
-    public static string FormatTick(double value, double step)
+    /// <summary>A tick label: whole numbers when the step is whole, one more digit for each decimal the step has (invariant format).</summary>
+    public static string FormatTick(double value, double step) => FormatTick(value, step, CultureInfo.InvariantCulture);
+
+    /// <summary>A tick label in <paramref name="culture"/>'s number format, thousands grouped: whole numbers when the step is whole, one more digit for each decimal the step has.</summary>
+    public static string FormatTick(double value, double step, CultureInfo culture)
     {
         int decimals = 0;
         for (double s = Math.Abs(step); s > 0 && decimals < 4 && Math.Abs(s - Math.Round(s)) > 1e-9; s *= 10) decimals++;
-        return value.ToString("F" + decimals, CultureInfo.InvariantCulture);
+        return value.ToString("N" + decimals, culture);
+    }
+
+    /// <summary>
+    /// The labels of an axis whose ticks are already in the shown unit (a byte rate divided to KB/s): each in <paramref name="culture"/>'s format, and the
+    /// top one followed by <paramref name="symbol"/>, so the axis says what it measures ("20 KB/s", "100 °C"). Bottom to top, like the ticks.
+    /// </summary>
+    public static IReadOnlyList<string> TickLabels(IReadOnlyList<double> ticks, string symbol, CultureInfo culture)
+    {
+        if (ticks.Count == 0) return Array.Empty<string>();
+        double step = ticks.Count > 1 ? ticks[1] - ticks[0] : 1;
+        var labels = ticks.Select(t => FormatTick(t, step, culture)).ToArray();
+        if (symbol.Length > 0) labels[^1] += " " + symbol;
+        return labels;
     }
 
     /// <summary>The share (0 to 1) of <paramref name="value"/> between <paramref name="lo"/> and <paramref name="hi"/>, clamped; 0 for an empty range.</summary>

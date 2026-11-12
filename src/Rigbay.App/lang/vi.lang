@@ -101,7 +101,6 @@ page.invalid-problems = Cần sửa
 reason.invalid-one = module.json có 1 lỗi
 reason.invalid-many = module.json có {0} lỗi
 reason.cli-more = {0} (+{1} lỗi nữa trong nhật ký)
-page.failed-title = Mô-đun này bị lỗi
 page.incompatible-title = Viết cho phiên bản Rigbay khác
 page.unsupported-title = Máy này không được hỗ trợ
 page.build-failed = Không hiện được trang này
@@ -132,6 +131,22 @@ row.confirm-cancel = Hủy
 tile.warn-at = cảnh báo ở {0}
 tile.scale = thang {0} đến {1}
 chart.reference = {0}: {1}, mức giới hạn
+page.hardware-once = Các mục có dấu {0} thay đổi phần cứng của bạn. Rigbay hỏi trước mỗi lần thay đổi.
+page.system-once = Các mục có dấu {0} thay đổi một cài đặt của Windows. Rigbay hỏi trước mỗi lần thay đổi.
+page.mixed-once = Các mục có dấu {0} thay đổi phần cứng hoặc một cài đặt của Windows. Rigbay hỏi trước mỗi lần thay đổi.
+page.shield-word = hình khiên
+page.failed-start = {0} đã dừng khi đang khởi động.
+page.failed-page = {0} không dựng được trang của mình.
+page.failed-run = {0} đã ngừng hoạt động.
+page.failed-timeout = {0} không còn phản hồi.
+page.failed-generic = {0} đã dừng.
+page.failed-hint = Rigbay đã tắt nó. Những phần khác không bị ảnh hưởng.
+page.failed-retry = Khởi động lại và thử lại
+page.failed-details = Chi tiết
+page.all-readings = Tất cả số đo
+page.all-readings-count = {0} số đo, kèm diễn biến mấy phút gần nhất
+chart.compare = So sánh
+chart.tiles = Số đo. Mục đang chọn được vẽ trên biểu đồ.
 
 # xác nhận thay đổi, hoàn tác, lần bật đầu tiên, đặt phím tắt
 # approval.title-to và approval.revert-title-to: {0} là tên cài đặt viết thường trong câu ("chế độ quạt"), {1} là giá trị mới
@@ -289,11 +304,9 @@ settings.module-check-desc = Hỏi github.com mỗi ngày một lần. Không g�
 
 # hình ảnh số đo: ô số, đường xu hướng, biểu đồ
 tile.high = Cao
-chart.collecting = Đang thu thập số đo...
 chart.now = bây giờ
 chart.sec = -{0} giây
 chart.min = -{0} phút
-chart.groups = Biểu đồ
 chart.range = Khoảng thời gian
 chart.range-min = {0} phút
 chart.last = {0} gần nhất

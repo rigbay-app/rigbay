@@ -15,6 +15,9 @@ namespace Rigbay.App;
 /// text colour, the hue is on the marks. At the warning value (the module's <see cref="ReadingRow.Warn"/>, else 90 °C for a temperature) the tile
 /// says "High" in words with an icon, so the state never depends on a colour. A second figure (<see cref="ReadingRow.Secondary"/>, a temperature's
 /// fan) sits small beside the number.
+/// <para>The tiles are the chart's tabs: a tile is focusable and selectable (a click, Space or Enter, the arrow keys in its <see cref="TileStrip"/>),
+/// the selected one wears a 1.5 px accent border and the chart below draws its reading. Numbers are in the current language's format and a byte
+/// rate is scaled (<c>17.6 KB/s</c>).</para>
 /// <para><b>Why a tile and not the round gauge Acer's own app shows.</b> A gauge spends about four times the area of a tile on one number and shows
 /// nothing about where it is going; at idle a CPU sits at 40 to 60 °C, where the needle looks the same all day. The tile gives the same number
 /// at the same size, the trend beside it and the meter (with the warning tick) for the "how close to the limit" question.</para>
@@ -42,6 +45,10 @@ sealed class ReadingTile : UserControl
     readonly Rectangle? _warnTick;
     readonly string _name;
     readonly double? _warn;
+    readonly Border _frame;
+    readonly Border _hover;
+    readonly Border _tint;
+    bool _selected;
     MetricSample? _latest;
     (double Min, double Max) _meterRange;
 
@@ -58,13 +65,28 @@ sealed class ReadingTile : UserControl
     /// <summary>The second figure as shown ("fan 5,200 rpm"), or "" when there is none.</summary>
     public string SecondaryText => _secondary.Visibility == Visibility.Visible ? _secondary.Text : "";
 
+    /// <summary>Whether this tile is the one the chart draws (set by its <see cref="TileStrip"/>).</summary>
+    public bool IsSelected
+    {
+        get => _selected;
+        set
+        {
+            _selected = value;
+            _frame.Style = Ui.Style(value ? "RbTileFrameSelected" : "RbTileFrame");
+            _tint.Opacity = value ? 0.1 : 0;   // a faint accent tint under the selected tile
+        }
+    }
+
     public ReadingTile(ModuleEntry e, ReadingRow row, MetricUnit unit, PageScope scope)
     {
         _e = e; _row = row;
         _name = e.Localisation.T(row.HeaderKey);
         _warn = row.Warn ?? (unit == MetricUnit.Celsius ? HighCelsius : null);
         HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        var frame = new Border { Style = Ui.Style("RbTileFrame"), Padding = new Thickness(12, 10, 12, 10), MinHeight = 108 };
+        IsTabStop = true;
+        UseSystemFocusVisuals = true;
+        _frame = new Border { Style = Ui.Style("RbTileFrame"), Padding = new Thickness(12, 10, 12, 10), MinHeight = 108 };
+        var frame = _frame;
 
         var grid = new Grid { RowSpacing = 2 };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -106,7 +128,7 @@ sealed class ReadingTile : UserControl
         grid.Children.Add(valueHost);
         SizeChanged += (_, a) => PlaceSecondary(a.NewSize.Width);
 
-        _spark = new Sparkline(row.Metric, row.Color, 0, 36, area: true);
+        _spark = new Sparkline(row.Metric, row.Color, 0, 36);
         _spark.VerticalAlignment = VerticalAlignment.Bottom;
         Grid.SetRow(_spark, 2);
         grid.Children.Add(_spark);
@@ -130,7 +152,19 @@ sealed class ReadingTile : UserControl
             grid.Children.Add(_meter);
         }
         frame.Child = grid;
-        Content = frame;
+        // a hover layer and the selection tint sit under the content, inside the frame's rounded corners
+        _hover = new Border { Style = Ui.Style("RbTileHover"), Opacity = 0, CornerRadius = new CornerRadius(4), IsHitTestVisible = false };
+        _tint = new Border { Style = Ui.Style("RbTileTint"), Opacity = 0, CornerRadius = new CornerRadius(4), IsHitTestVisible = false };
+        var stack = new Grid();
+        stack.Children.Add(_tint);
+        stack.Children.Add(_hover);
+        stack.Children.Add(frame);
+        Content = stack;
+        PointerEntered += (_, _) => _hover.Opacity = 1;
+        PointerExited += (_, _) => _hover.Opacity = 0;
+        PointerCanceled += (_, _) => _hover.Opacity = 0;
+        Tapped += (_, _) => SelectMe(focus: false);
+        KeyDown += (_, a) => { if (a.Key is Windows.System.VirtualKey.Space or Windows.System.VirtualKey.Enter) { SelectMe(focus: true); a.Handled = true; } };
 
         AutomationProperties.SetName(this, _name);
 
@@ -148,6 +182,13 @@ sealed class ReadingTile : UserControl
         scope.Tick(_spark.Redraw);
     }
 
+    void SelectMe(bool focus)
+    {
+        if (Parent is TileStrip strip) strip.Select(strip.Children.IndexOf(this), focus);
+    }
+
+    protected override Microsoft.UI.Xaml.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new ReadingTilePeer(this);
+
     void PlaceSecondary(double width)
     {
         bool inline = width >= InlineSecondaryWidth;
@@ -162,15 +203,16 @@ sealed class ReadingTile : UserControl
     {
         if (_row.Secondary is not { } second) return;
         var parts = new List<string>();
-        MetricUnit unit = MetricUnit.None;
+        string symbol = "";
+        var culture = ReadingFormat.Culture(Host.Core.Languages);
         foreach (var id in second.Metrics.Take(2))
             if (Host.Core.Metrics.TryGetLatest(id, out var s) && ReadingFormat.IsAvailable(s))
             {
-                parts.Add(s.Value.ToString("N0", CultureInfo.InvariantCulture));
-                unit = s.Unit;
+                var p = ReadingFormat.Parts(s.Value, s.Unit, 0, culture);
+                parts.Add(p.Number);
+                symbol = p.Unit;
             }
         string label = second.LabelKey is { Length: > 0 } k ? _e.Localisation.T(k) : "";
-        string symbol = unit.Symbol();
         var text = parts.Count == 0 ? "" : (label.Length > 0 ? label + " " : "") + string.Join(" · ", parts) + (symbol.Length > 0 ? " " + symbol : "");
         _secondary.Text = text;
         _secondary.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -186,9 +228,10 @@ sealed class ReadingTile : UserControl
         _unavailable.Visibility = ok ? Visibility.Collapsed : Visibility.Visible;
         if (ok)
         {
-            _number.Text = s!.Value.ToString("F" + Math.Max(0, _row.Decimals), CultureInfo.InvariantCulture);
-            var symbol = s.Unit.Symbol();
-            _unit.Text = symbol;
+            // the current language's number format, thousands grouped; a byte rate scaled to KB/s, MB/s
+            var text = ReadingFormat.Parts(s!.Value, s.Unit, _row.Decimals, ReadingFormat.Culture(Host.Core.Languages));
+            _number.Text = text.Number;
+            _unit.Text = text.Unit;
         }
         _high.Visibility = ok && _warn is { } w && s!.Value >= w ? Visibility.Visible : Visibility.Collapsed;
         ApplyMeter();
@@ -202,11 +245,12 @@ sealed class ReadingTile : UserControl
         var parts = new List<string> { _name, ok ? _number.Text + (_unit.Text.Length > 0 ? " " + _unit.Text : "") : _unavailable.Text };
         if (ShowsHigh) parts.Add(Host.T("tile.high"));
         string unit = _unit.Text.Length > 0 ? " " + _unit.Text : "";
-        if (_warn is { } w) parts.Add(Host.F("tile.warn-at", w.ToString("0.##", CultureInfo.InvariantCulture) + unit));
+        var culture = ReadingFormat.Culture(Host.Core.Languages);
+        if (_warn is { } w) parts.Add(Host.F("tile.warn-at", w.ToString("0.##", culture) + unit));
         if (SecondaryText.Length > 0) parts.Add(SecondaryText);
         AutomationProperties.SetName(this, string.Join(", ", parts));
         var tip = string.Join(" · ", parts.Skip(1));
-        if (_meter != null) tip += " · " + Host.F("tile.scale", _meterRange.Min.ToString("0.##", CultureInfo.InvariantCulture), _meterRange.Max.ToString("0.##", CultureInfo.InvariantCulture) + unit);
+        if (_meter != null) tip += " · " + Host.F("tile.scale", _meterRange.Min.ToString("0.##", culture), _meterRange.Max.ToString("0.##", culture) + unit);
         ToolTipService.SetToolTip(this, _name + ": " + tip);
     }
 

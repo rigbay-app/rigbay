@@ -84,6 +84,8 @@ Change (the `impeccable` and `design-taste-frontend` rules, applied to a native 
 
 ## 4. Module page skeleton
 
+(The first skeleton, kept for the record. Since the UI review of November 2026 the page is built as section 9 describes.)
+
 ```
  PredatorSense                                              [ Learn more ]  [ Log ]
  --------------------------------------------------------------------------------
@@ -156,13 +158,62 @@ round gauges for CPU, GPU and system temperature. The host now draws a reading f
 at 40 to 60 °C, where the needle looks the same all day. A tile gives the same number as large as Acer's, the trend next to it, and a thin meter (0 to 100 °C, or a module's own range) for the
 "how close to the limit" question. A temperature at 90 °C or more adds the word "High" and an icon, so the state is never colour alone. A module that wants a gauge can still build one as a `CustomRow`.
 
-**Colour.** One hue per kind of reading, as before (temperature warm, power blue, speed teal, load amber: `RbReading*Brush`), used for the line, the area (12 %) and the meter of a
+**Colour.** One hue per kind of reading, as before (temperature warm, power blue, speed teal, load amber: `RbReading*Brush`), used for the line and the meter (no area since section 9: an area says "a quantity from zero" and the scale is zoomed) of a
 single series. A chart with two or more lines uses the documented categorical order in fixed order (blue, orange, aqua, amber, magenta, green; `RbSeries1..6Brush`), checked with the data-viz validator
 (`validate_palette.js`, light surface `#f9f9f9`, dark `#272727`): all six lightness, chroma, adjacent colour-blind and normal-vision floors pass in both themes; aqua and magenta (light) and amber (light) are below 3:1
 on the light surface, which the rule allows because every line is also named in the legend with its value, in the tooltip and in the page's reading rows (the table view). Text never wears a series colour in the chart.
 Under Windows high contrast every hue becomes the window text colour and the lines are told apart by dash patterns.
 
 **Honest scale.** The scale follows the data with 6 % room but never below a smallest span per unit (10 °C, 10 W, 20 %, 500 rpm, 400 MHz), so 1 W of noise is a flat line, not a full-height one; a percent stays
-inside 0 to 100 and units that cannot go negative stay above zero. A hole in the data (a module that sleeps while nobody looks) is a gap in the line, never an interpolated one. A chart with no data says so ("Collecting readings...").
+inside 0 to 100 and units that cannot go negative stay above zero. A hole in the data (a module that sleeps while nobody looks) is a gap in the line, never an interpolated one. A chart is not drawn until one of its lines has two points (section 9).
 
 **Motion.** The block fades in once (160 ms, ease-out) unless the Windows "Animation effects" setting is off; numbers do not tween and lines do not animate. Nothing is drawn or timed while the page is not on screen.
+
+## 9. The module page after the UI review (November 2026, package B)
+
+The review (`docs/ui-review/REVIEW-2026-11.md`) found the module page long and wordy for three reasons: the module's main job was not at the top, the
+same fact was said several times (a reading as a tile, in the chart and again as a row; the hardware sentence under every row that writes), and rows
+said nothing ("Last action: No change made yet", "–"). The host now builds every module page in this order; every block is optional and an empty
+block is not drawn (Sketch 1 of the review):
+
+```
+ [tile] XTU profiles                                                        Learn more  Log
+        ● Running · Balanced · PL1 55 W, PL2 60 W, 56 s                               On [●]
+        Settings marked (shield) change your hardware. Rigbay asks before each change.
+ ----------------------------------------------------------------------------------------
+ Profile (shield) (i)                                             Applied. Now Balanced  Revert
+ [ Quiet | Balanced | Performance | Custom ]
+ [CPU temperature 79 °C] [Package power 49.2 W] [CPU usage 36 %] [Clock 4,200 MHz]   <- the chart's tabs
+ Package power                                                  [Compare]  1  5  10 min
+ ~~~~~~~~~~~~~~~ one line in the tile's hue, PL1 55 W - - - - - - - - - - - dashed, labelled
+ ----------------------------------------------------------------------------------------
+ Groups of rows (a row that says nothing is not drawn; a group with nothing left neither)
+ > All readings  (every reading as a 32 px line: name, sparkline, value)
+```
+
+- **Header card** (Windows Settings' Bluetooth card). The module's tile and name, a state dot with the state word and the module's own live state line,
+  the switch with its state in words, the links small at the top right. While the module is off the card also says what it does. Id, version and
+  author belong to the Modules page. A failed module gets one sentence by the phase that failed, "Restart and try again", "View log" and its error
+  folded under Details.
+- **Main card**: the module's `PageModel.Primary` first and large (a short choice is a segmented control, the stock `RadioButtons` drawn as
+  segments: one tab stop, arrow keys, "2 of 3" for a screen reader; a drop-down when the window is too narrow for the segments or the options are many
+  or long; no "Not set" option, nothing is selected while the value is not an option), then the tiles, then the chart.
+- **The tiles are the chart's tabs** (Task Manager). The selected tile wears a 1.5 px accent border over a faint accent tint; the chart draws its
+  reading in the tile's hue and the limits of its group as dashed reference lines labelled at the line; Compare adds the other readings of the group
+  in the categorical order with a legend. One subject keeps one hue on the screen; one chart, one axis.
+- **Said once.** A row that writes wears a small shield after its name; its tooltip and accessible help say what it changes. The header card explains
+  the shield once for the page (the hardware wording, the Windows-setting wording, or both). A longer explanation of a row goes to an info glyph
+  (`Row.HelpKey`), not to a third line under it.
+- **Rows that say nothing are not drawn**: a `ValueRow` whose value is empty or only a dash, and a group with nothing left. A live state belongs in
+  `Row.Line` (on any row, and in an expander's closed header, with an optional `ExpanderRow.HeaderRow` control there).
+- **Numbers** in the current language's format, thousands grouped, byte rates scaled to KB/s and MB/s; the chart's top tick names the unit.
+- **Narrow window (640 px)**: the header card wraps, the segmented control becomes a drop-down below its width, the tiles go 2 by 2, the chart's range
+  goes under its title. Nothing is cut.
+
+Colour and contrast (`dataviz`): a single line wears its reading's hue (`RbReading*Brush`, 5.5 to 8.7:1 on the cards in both themes); the
+categorical order (`RbSeries1..6Brush`) is used only when Compare draws several lines, each named in the legend with its value and in the tooltip,
+so the light amber, aqua and magenta under 3:1 never carry identity alone.
+
+Kept on purpose: the tile (not a round gauge, section 8), the approval and Revert flow, the 1/5/10 minute range, the crosshair. Not done: big
+"cards" for each option of a primary choice (Sketch 3's two large Auto/Maximum cards need a per-option description the page model does not have; the
+segmented control at 38 px is the big picker), and an observable button label (a module swaps `ButtonKey` with a page refresh).
