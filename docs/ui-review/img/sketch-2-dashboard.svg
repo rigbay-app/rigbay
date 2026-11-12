@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640" font-family="Segoe UI Variable Text, Segoe UI, system-ui, sans-serif">
+  <title>Sketch 2: Dashboard after</title>
+  <rect width="1000" height="640" fill="#202020"/>
+  <rect x="20" y="16" width="820" height="608" rx="8" fill="#272727" stroke="#353535"/>
+  <text x="44" y="58" font-size="20" font-weight="600" fill="#fff">Dashboard</text>
+  <text x="44" y="80" font-size="12" fill="#c5c5c5">4 running · 1 off</text>
+
+  <!-- this PC now: the key readings of every running module, one tile each, click opens the module -->
+  <text x="46" y="114" font-size="14" font-weight="600" fill="#fff">This PC now</text>
+  <g font-size="12">
+    <rect x="44" y="124" width="148" height="78" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+    <text x="56" y="143" fill="#c5c5c5">CPU</text>
+    <text x="56" y="174" font-size="24" font-weight="600" fill="#fff">79</text><text x="86" y="174" fill="#c5c5c5">°C</text>
+    <polyline points="112,186 128,182 142,184 158,176 178,170" fill="none" stroke="#FFA66B" stroke-width="1.5"/>
+    <rect x="56" y="192" width="124" height="3" rx="1.5" fill="#3a3a3a"/><rect x="56" y="192" width="98" height="3" rx="1.5" fill="#FFA66B"/>
+
+    <rect x="200" y="124" width="148" height="78" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+    <text x="212" y="143" fill="#c5c5c5">GPU</text>
+    <text x="212" y="174" font-size="24" font-weight="600" fill="#fff">58</text><text x="242" y="174" fill="#c5c5c5">°C</text>
+    <polyline points="268,184 284,184 298,182 314,183 334,180" fill="none" stroke="#FFA66B" stroke-width="1.5"/>
+    <rect x="212" y="192" width="124" height="3" rx="1.5" fill="#3a3a3a"/><rect x="212" y="192" width="72" height="3" rx="1.5" fill="#FFA66B"/>
+
+    <rect x="356" y="124" width="148" height="78" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+    <text x="368" y="143" fill="#c5c5c5">CPU fan</text>
+    <text x="368" y="174" font-size="24" font-weight="600" fill="#fff">3,900</text><text x="432" y="174" fill="#c5c5c5">rpm</text>
+    <polyline points="432,188 448,186 462,184 478,182 494,180" fill="none" stroke="#5FD3C4" stroke-width="1.5"/>
+
+    <rect x="512" y="124" width="148" height="78" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+    <text x="524" y="143" fill="#c5c5c5">Package power</text>
+    <text x="524" y="174" font-size="24" font-weight="600" fill="#fff">49</text><text x="554" y="174" fill="#c5c5c5">W of 55</text>
+    <rect x="524" y="192" width="124" height="3" rx="1.5" fill="#3a3a3a"/><rect x="524" y="192" width="110" height="3" rx="1.5" fill="#6CB8FF"/>
+
+    <rect x="668" y="124" width="148" height="78" rx="5" fill="#2d2d2d" stroke="#3a3a3a"/>
+    <text x="680" y="143" fill="#c5c5c5">Tunnel download</text>
+    <text x="680" y="174" font-size="24" font-weight="600" fill="#fff">1.2</text><text x="716" y="174" fill="#c5c5c5">MB/s ↓</text>
+    <polyline points="740,190 754,186 768,188 784,178 804,182" fill="none" stroke="#6CB8FF" stroke-width="1.5"/>
+  </g>
+
+  <!-- the rack: state, name, one line, the module's main control at the right -->
+  <text x="46" y="240" font-size="14" font-weight="600" fill="#fff">Modules</text>
+  <g font-size="14">
+    <line x1="44" y1="250" x2="816" y2="250" stroke="#333"/>
+    <rect x="50" y="262" width="5" height="34" rx="1" fill="#6CCB5F"/>
+    <rect x="66" y="267" width="24" height="24" rx="6" fill="#2F7BFF"/>
+    <text x="104" y="276" fill="#fff">XTU profiles</text><text x="104" y="293" font-size="12" fill="#c5c5c5">Running · Balanced</text>
+    <rect x="540" y="262" width="276" height="32" rx="4" fill="#252525" stroke="#3a3a3a"/>
+    <text x="556" y="283" font-size="13" fill="#c5c5c5">Quiet</text><rect x="604" y="265" width="96" height="26" rx="3" fill="#3a3a3a"/><text x="618" y="283" font-size="13" font-weight="600" fill="#fff">Balanced</text><text x="716" y="283" font-size="13" fill="#c5c5c5">Perform…</text>
+
+    <line x1="44" y1="306" x2="816" y2="306" stroke="#333"/>
+    <rect x="50" y="318" width="5" height="34" rx="1" fill="#6CCB5F"/>
+    <rect x="66" y="323" width="24" height="24" rx="6" fill="#D946B8"/>
+    <text x="104" y="332" fill="#fff">PredatorSense</text><text x="104" y="349" font-size="12" fill="#c5c5c5">Running · Fans Auto</text>
+    <rect x="640" y="318" width="176" height="32" rx="4" fill="#252525" stroke="#3a3a3a"/>
+    <rect x="643" y="321" width="84" height="26" rx="3" fill="#3a3a3a"/><text x="670" y="339" font-size="13" font-weight="600" fill="#fff">Auto</text><text x="750" y="339" font-size="13" fill="#c5c5c5">Maximum</text>
+
+    <line x1="44" y1="362" x2="816" y2="362" stroke="#333"/>
+    <rect x="50" y="374" width="5" height="34" rx="1" fill="none" stroke="#9a9a9a" stroke-width="1.5"/>
+    <rect x="66" y="379" width="24" height="24" rx="6" fill="#0A8FB0"/>
+    <text x="104" y="388" fill="#fff">Steam access</text><text x="104" y="405" font-size="12" fill="#c5c5c5">Bypass off · Steam not running</text>
+    <rect x="776" y="381" width="40" height="20" rx="10" fill="none" stroke="#9a9a9a"/><circle cx="786" cy="391" r="5" fill="#c5c5c5"/>
+
+    <line x1="44" y1="418" x2="816" y2="418" stroke="#333"/>
+    <rect x="50" y="430" width="5" height="34" rx="1" fill="#6CCB5F"/>
+    <rect x="66" y="435" width="24" height="24" rx="6" fill="#6B7794"/>
+    <text x="104" y="444" fill="#fff">Recorder</text><text x="104" y="461" font-size="12" fill="#c5c5c5">Idle · last file 12 min, 40 columns</text>
+    <rect x="716" y="430" width="100" height="32" rx="4" fill="#333" stroke="#3a3a3a"/><circle cx="736" cy="446" r="5" fill="#e6e6e6"/><text x="748" y="451" font-size="13" fill="#fff">Record</text>
+
+    <line x1="44" y1="474" x2="816" y2="474" stroke="#333"/>
+    <rect x="50" y="486" width="5" height="34" rx="1" fill="#6CCB5F"/>
+    <rect x="66" y="491" width="24" height="24" rx="6" fill="#7B8497"/>
+    <text x="104" y="500" fill="#fff">Remote tunnel</text><text x="104" y="517" font-size="12" fill="#c5c5c5">1 of 2 tunnels on · handshake 40 s ago</text>
+    <rect x="776" y="493" width="40" height="20" rx="10" fill="#60cdff"/><circle cx="806" cy="503" r="6" fill="#1a1a1a"/>
+    <line x1="44" y1="530" x2="816" y2="530" stroke="#333"/>
+  </g>
+  <text x="44" y="566" font-size="12" fill="#c5c5c5">Every control above is the same row the module page shows first; a change still asks before it touches the hardware.</text>
+
+  <g font-size="12" fill="#e6e6e6">
+    <circle cx="866" cy="160" r="11" fill="#7A5AF8"/><text x="862" y="164" fill="#fff" font-weight="600">1</text>
+    <text x="882" y="148">The machine first:</text><text x="882" y="163">key readings of all</text><text x="882" y="178">running modules</text>
+    <circle cx="866" cy="290" r="11" fill="#7A5AF8"/><text x="862" y="294" fill="#fff" font-weight="600">2</text>
+    <text x="882" y="278">Each module's main</text><text x="882" y="293">job, one click away</text><text x="882" y="308">(Acer-style picker)</text>
+    <circle cx="866" cy="446" r="11" fill="#7A5AF8"/><text x="862" y="450" fill="#fff" font-weight="600">3</text>
+    <text x="882" y="442">State line says the</text><text x="882" y="457">thing itself</text>
+  </g>
+</svg>
