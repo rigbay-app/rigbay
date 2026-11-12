@@ -2,6 +2,17 @@
 
 ## 0.1.2 (Unreleased)
 
+Needs a Rigbay host with host API 0.1.3 (`hostApi` `>=0.1.3 <0.2`); release it after the host that has it.
+
+- **The fan mode is the page's main control** (UI review of November 2026, PS-1, sketch 3): Auto and Maximum as two segments under the page header, nothing
+  chosen while Rigbay has set nothing (the value `?` is not an option; the "Not set" option and the page rebuild after the first set are gone). One line under
+  it replaces the rows "Last set by Rigbay" and "Speed check": "Not set by Rigbay yet", or "Set to Maximum at 18:42 · CPU fan sped up: 2857 to 5555 rpm".
+- **Each temperature is a tile with its own fan** (PS-2): CPU with the CPU fan, GPU with its fans, system; the fans are rows only, out of the charts.
+- **Performance mode, still read only:** the modes the laptop offers as a choice that is never enabled, the current one chosen, "Read only. Change it in
+  PredatorSense for now." (the rows "Modes this laptop offers" and the note bar are gone; the why is in the help glyph). Nothing writes the mode.
+- Groups: Readings, Performance, Settings (fan shortcut, restore Auto, Details with the machine and the poll interval). The dashboard line says the state of
+  the fans when Rigbay set them ("Fans Maximum since 18:42") and nothing otherwise (DB-5). Shorter descriptions, explanations in help glyphs (LC-2).
+
 - **Shows the performance mode, read only.** The Cooling and performance group has a "Performance mode" row (Quiet, Default, Extreme, Turbo; Render and Edit only if the laptop advertises them), read from the
   firmware with `GetGamingMiscSetting(0x0B)`, and a "Modes this laptop offers" row from `GetGamingMiscSetting(0x0A)`. A failed read, a non-zero status or an id nobody knows shows "Unknown".
   There is no selector: the page says "Change it in PredatorSense for now". Rigbay will offer a change only after a supervised test.

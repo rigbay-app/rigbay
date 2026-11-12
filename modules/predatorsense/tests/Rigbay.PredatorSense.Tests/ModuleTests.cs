@@ -37,9 +37,22 @@ internal sealed class ModuleRig : IDisposable
 
     public PageModel Page => Module.GetPageModel(Host)!;
     public IEnumerable<Row> Rows => Page.EnumerateRows();
-    public ChoiceRow FanRow => Rows.OfType<ChoiceRow>().Single();
+    /// <summary>The fan mode: the page's main control (host API 0.1.3, PageModel.Primary).</summary>
+    public ChoiceRow FanRow => Assert.IsType<ChoiceRow>(Page.Primary);
     public IEnumerable<ValueRow> ValueRows => Rows.OfType<ValueRow>();
     public string ValueOf(string headerKey) => ValueRows.Single(r => r.HeaderKey == headerKey).Value.Value;
+    /// <summary>The line under the fan mode, resolved.</summary>
+    public string FanLine => Host.Loc.Resolve(FanRow.Line!.Value);
+    /// <summary>What Rigbay set last ("Maximum at 18:42"), the first part of <see cref="FanLine"/>.</summary>
+    public string LastSet => Module.LastSetShown;
+    /// <summary>How the fans answered the last change ("CPU fan sped up: ..."), the second part of <see cref="FanLine"/>; empty before one.</summary>
+    public string Check => Module.CheckShown;
+    /// <summary>The current performance mode as the module names it ("Default", "Unknown").</summary>
+    public string OpModeShown => Module.OpModeShown;
+    /// <summary>The performance-mode row: the read-only choice of the modes the laptop offers, or a value row when it did not say.</summary>
+    public Row OpModeRow => Rows.Single(r => r.HeaderKey == "row.opmode.header");
+    /// <summary>The modes the page offers as options, joined ("Quiet, Default, Extreme, Turbo"), or "Unknown" when the laptop did not say.</summary>
+    public string OpModeOptions => OpModeRow is ChoiceRow c ? string.Join(", ", c.Options.Select(x => Host.Loc.T(x.LabelKey))) : Host.Loc.T("opmode.unknown");
     public List<ulong> WrittenValues => Wmi.Writes.Select(w => w.Value).ToList();
 
     public void Stop()
@@ -61,7 +74,7 @@ public class ModuleLifecycleTests
         var ids = rig.Host.MetricsBus.Snapshot().Select(p => p.Id.Value).Distinct().OrderBy(s => s).ToArray();
         Assert.Equal(new[] { "cpu.temp", "fan.cpu.rpm", "fan.gpu1.rpm", "fan.gpu2.rpm", "gpu.temp", "system.temp" }, ids);
         Assert.Equal(0, rig.Wmi.WriteCount);
-        Assert.Equal("Sensors live", rig.Host.Loc.Resolve(rig.Page.Summary!.StateLine!.Value));
+        Assert.True(rig.Page.Summary!.StateLine!.Value.IsEmpty);   // nothing set by Rigbay: no line, the readings beside it say the state (review DB-5)
     }
 
     [Fact]
@@ -86,7 +99,7 @@ public class ModuleLifecycleTests
     {
         using var rig = new ModuleRig();
         var page = rig.Page;
-        Assert.Equal(new[] { "group.readings", "group.cooling", "group.settings" }, page.Groups.Select(g => g.HeaderKey).ToArray());
+        Assert.Equal(new[] { "group.readings", "group.performance", "group.settings" }, page.Groups.Select(g => g.HeaderKey).ToArray());
 
         var readings = page.Groups[0].Rows.OfType<ReadingRow>().Select(r => r.Metric.Value).ToArray();
         Assert.Equal(new[] { "cpu.temp", "gpu.temp", "system.temp", "fan.cpu.rpm", "fan.gpu1.rpm", "fan.gpu2.rpm" }, readings);
@@ -94,8 +107,9 @@ public class ModuleLifecycleTests
         var choice = rig.FanRow;
         Assert.True(choice.ChangesHardware);
         Assert.Equal("effect.fan-mode", choice.HardwareEffect!.DescriptionKey);
-        Assert.Equal(new[] { "notset", "auto", "max" }, choice.Options.Select(o => o.Id).ToArray());   // nothing is set yet: the first choice says so
-        Assert.Equal("notset", choice.Value.Value);
+        Assert.Equal(new[] { "auto", "max" }, choice.Options.Select(o => o.Id).ToArray());
+        Assert.Equal("?", choice.Value.Value);   // nothing is set yet: not an option, so the host selects none
+        Assert.DoesNotContain(page.Groups.SelectMany(g => g.Rows), r => r.HeaderKey == "row.fan-mode.header");   // the main control, only there
 
         // Only the fan row changes hardware.
         Assert.Single(page.EnumerateRows(), r => r.ChangesHardware);
@@ -139,9 +153,9 @@ public class ModuleLifecycleTests
     public void Last_set_starts_as_nothing_and_says_the_laptop_cannot_report_it()
     {
         using var rig = new ModuleRig();
-        Assert.Equal("Nothing yet", rig.ValueOf("row.last-set.header"));
-        var row = rig.ValueRows.Single(r => r.HeaderKey == "row.last-set.header");
-        Assert.Contains("cannot report", rig.Host.Loc.T(row.DescriptionKey!));
+        Assert.Equal("Nothing yet", rig.LastSet);
+        Assert.Equal("Not set by Rigbay yet", rig.FanLine);
+        Assert.Contains("cannot report", rig.Host.Loc.T(rig.FanRow.HelpKey!));
     }
 
     [Fact]
@@ -211,11 +225,11 @@ public class ModuleFanWriteTests
     {
         using var rig = new ModuleRig();
         rig.FanRow.Value.Value = "max";   // the host does this after its own confirmation
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
         Assert.Equal(new[] { 0x02820019UL }, rig.WrittenValues.ToArray());
-        Assert.Equal("Maximum at 18:42", rig.ValueOf("row.last-set.header"));
-        Assert.Equal("GPU fan 2 sped up: 2663 to 5900 rpm", rig.ValueOf("row.check.header"));   // the biggest change is shown
-        Assert.Equal("Fans Maximum, set by Rigbay", rig.Host.Loc.Resolve(rig.Page.Summary!.StateLine!.Value));
+        Assert.Equal("Maximum at 18:42", rig.LastSet);
+        Assert.Equal("GPU fan 2 sped up: 2663 to 5900 rpm", rig.Check);   // the biggest change is shown
+        Assert.Equal("Fans Maximum since 18:42", rig.Host.Loc.Resolve(rig.Page.Summary!.StateLine!.Value));   // the state of the fans, with the time (review DB-5)
         Assert.Equal("max", rig.FanRow.Value.Value);
     }
 
@@ -224,11 +238,11 @@ public class ModuleFanWriteTests
     {
         using var rig = new ModuleRig();
         rig.FanRow.Value.Value = "max";
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
         rig.FanRow.Value.Value = "auto";
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 2 && rig.ValueOf("row.check.header").Contains("slowed")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 2 && rig.Check.Contains("slowed")));
         Assert.Equal(new[] { 0x02820019UL, 0x01410019UL }, rig.WrittenValues.ToArray());
-        Assert.Equal("Auto at 18:42", rig.ValueOf("row.last-set.header"));
+        Assert.Equal("Auto at 18:42", rig.LastSet);
     }
 
     [Fact]
@@ -237,9 +251,9 @@ public class ModuleFanWriteTests
         using var rig = new ModuleRig();
         rig.Wmi.WriteAnswer = 0x05;
         rig.FanRow.Value.Value = "max";
-        Assert.True(await Eventually(() => rig.ValueOf("row.check.header").Contains("Refused by the laptop")));
-        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "notset"));   // nothing was set, so the row does not claim Auto
-        Assert.Equal("Nothing yet", rig.ValueOf("row.last-set.header"));
+        Assert.True(await Eventually(() => rig.Check.Contains("Refused by the laptop")));
+        Assert.True(await Eventually(() => rig.FanRow.Value.Value == "?"));   // nothing was set, so the row does not claim Auto
+        Assert.Equal("Nothing yet", rig.LastSet);
         Assert.Equal(1, rig.Wmi.WriteCount);
     }
 
@@ -249,7 +263,7 @@ public class ModuleFanWriteTests
         using var rig = new ModuleRig();
         rig.Wmi.WriteThrows = new AcerWmiException(AcerWmiFailure.Timeout, "stalled");
         rig.FanRow.Value.Value = "max";
-        Assert.True(await Eventually(() => rig.ValueOf("row.last-set.header").Contains("not confirmed")));
+        Assert.True(await Eventually(() => rig.LastSet.Contains("not confirmed")));
         Assert.Equal("max", rig.FanRow.Value.Value);
         Assert.Equal("Fans Maximum, not confirmed", rig.Host.Loc.Resolve(rig.Page.Summary!.StateLine!.Value));
     }
@@ -283,13 +297,13 @@ public class ModuleFanWriteTests
     {
         using var rig = new ModuleRig(approve: true);
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
         Assert.Equal(new[] { 0x02820019UL }, rig.WrittenValues.ToArray());
         Assert.Equal("max", rig.FanRow.Value.Value);   // the row follows
         Assert.Single(rig.Host.ToastService.Shown, t => t.Kind == ToastKind.Success);
 
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 2 && rig.ValueOf("row.check.header").Contains("slowed")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 2 && rig.Check.Contains("slowed")));
         Assert.Equal(new[] { 0x02820019UL, 0x01410019UL }, rig.WrittenValues.ToArray());
         Assert.Equal("Fan mode: Maximum -> Auto", rig.Host.Loc.Resolve(rig.Host.ApprovalService.Asked[1].Detail!.Value));
         Assert.Equal("auto", rig.FanRow.Value.Value);
@@ -302,7 +316,7 @@ public class ModuleFanWriteTests
     {
         using var rig = new ModuleRig(approve: true);
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
 
         rig.Stop();
         Assert.Equal(new[] { 0x02820019UL, 0x01410019UL }, rig.WrittenValues.ToArray());
@@ -315,7 +329,7 @@ public class ModuleFanWriteTests
         using var rig = new ModuleRig(approve: true);
         rig.Rows.OfType<ToggleRow>().Single().Value.Value = false;
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
         rig.Stop();
         Assert.Equal(1, rig.Wmi.WriteCount);
         Assert.False(((PredatorSenseSettings)rig.Host.SettingsStore.Stored!).RestoreAutoOnExit);
@@ -335,12 +349,12 @@ public class ModuleFanWriteTests
         using var rig = new ModuleRig(approve: true);
         rig.Rows.OfType<ToggleRow>().Single().Value.Value = false;   // do not restore: simulate a failed restore
         rig.Host.HotkeyService.Press("toggle-fan");
-        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.ValueOf("row.check.header").Contains("sped up")));
+        Assert.True(await Eventually(() => rig.Wmi.WriteCount == 1 && rig.Check.Contains("sped up")));
         rig.Module.Shutdown();
         rig.Host.HotkeyService.Registered.Clear();
         rig.Host.CommandRegistry.Verbs.Clear();
         rig.Module.Initialize(rig.Host);
-        Assert.Equal("Maximum at 18:42", rig.ValueOf("row.last-set.header"));
+        Assert.Equal("Maximum at 18:42", rig.LastSet);
         Assert.Equal("max", rig.FanRow.Value.Value);
     }
 
@@ -493,7 +507,7 @@ public class LanguageAndManifestTests
     public async Task Texts_are_translated_when_the_language_is_vietnamese()
     {
         using var rig = new ModuleRig("vi", approve: true);
-        Assert.Equal("Chưa đặt", rig.ValueOf("row.last-set.header"));
+        Assert.Equal("Chưa đặt", rig.LastSet);
         var status = await rig.Host.CommandRegistry.Run("status");
         Assert.Contains("Quạt CPU: 2564 rpm", status.Output);
     }
@@ -502,9 +516,9 @@ public class LanguageAndManifestTests
     public void A_language_switch_refreshes_the_texts()
     {
         using var rig = new ModuleRig("en");
-        Assert.Equal("Nothing yet", rig.ValueOf("row.last-set.header"));
+        Assert.Equal("Nothing yet", rig.LastSet);
         rig.Host.Loc.Switch("vi");
-        Assert.Equal("Chưa đặt", rig.ValueOf("row.last-set.header"));
+        Assert.Equal("Chưa đặt", rig.LastSet);
     }
 
     [Fact]
@@ -516,7 +530,7 @@ public class LanguageAndManifestTests
         Assert.Equal(1, root.GetProperty("manifestVersion").GetInt32());
         Assert.Equal("predatorsense", root.GetProperty("id").GetString());
         Assert.Equal("cooling", root.GetProperty("group").GetString());
-        Assert.Equal(">=0.1.1 <0.2", root.GetProperty("hostApi").GetString());
+        Assert.Equal(">=0.1.3 <0.2", root.GetProperty("hostApi").GetString());
         Assert.Equal("Rigbay.PredatorSense.PredatorSenseModule", root.GetProperty("entry").GetProperty("type").GetString());
         var requires = root.GetProperty("requires");
         Assert.True(requires.GetProperty("admin").GetBoolean());

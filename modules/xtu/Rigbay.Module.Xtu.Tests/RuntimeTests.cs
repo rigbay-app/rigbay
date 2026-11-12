@@ -82,9 +82,11 @@ public class RuntimeTests
     {
         using var rig = new Rig();    // hardware: 55 / 60 / on / 56 = PL55-60W
 
-        Assert.Equal("PL55-60W", rig.Row<ValueRow>("row.active.header").Value.Value);
-        Assert.Equal("PL1 55 W / PL2 60 W / 56 s", rig.Row<ValueRow>("row.limits.header").Value.Value);
-        Assert.Equal("p:PL55-60W", rig.Row<ChoiceRow>("row.profile.header").Value.Value);
+        // the selected option names the profile, the line under it says the limits in force (UI review XT-1: no rows that repeat it)
+        var choice = rig.Row<ChoiceRow>("row.profile.header");
+        Assert.Equal("p:PL55-60W", choice.Value.Value);
+        Assert.Equal(Text.Literal("PL1 55 W / PL2 60 W / 56 s"), choice.Line!.Value.Key);
+        Assert.DoesNotContain(rig.Page.EnumerateRows(), r => r.HeaderKey is "row.active.header" or "row.limits.header" or "row.status.header");
         var checkedItems = rig.Host.FakeTray.Items.Values.Where(t => t.Checked.Value).ToList();
         Assert.Single(checkedItems);
         Assert.Equal("=PL55-60W", checkedItems[0].TextKey);
@@ -99,8 +101,10 @@ public class RuntimeTests
         rig.Client.State = rig.Client.State with { Pl1 = 47 };
         rig.Runtime.Start();
 
-        Assert.Equal("Custom values", rig.Row<ValueRow>("row.active.header").Value.Value);
-        Assert.Equal("-", rig.Row<ChoiceRow>("row.profile.header").Value.Value);
+        var choice = rig.Row<ChoiceRow>("row.profile.header");
+        Assert.Equal("-", choice.Value.Value);
+        Assert.DoesNotContain(choice.Options, o => o.Id == "-");   // not an option: the host selects nothing (host API 0.1.3)
+        Assert.Equal(("line.custom", "PL1 47 W / PL2 60 W / 56 s"), (choice.Line!.Value.Key, choice.Line.Value.Args![0]));
         Assert.DoesNotContain(rig.Host.FakeTray.Items.Values, t => t.Checked.Value);
     }
 
@@ -110,14 +114,23 @@ public class RuntimeTests
         using var rig = new Rig();
         var page = rig.Page;
 
-        Assert.Equal(new[] { "group.now", "group.readings", "group.auto", "group.custom", "group.hotkeys", "group.about" }, page.Groups.Select(g => g.HeaderKey));
-        var choice = rig.Row<ChoiceRow>("row.profile.header");
+        Assert.Equal(new[] { "group.readings", "group.auto", "group.custom", "group.about" }, page.Groups.Select(g => g.HeaderKey));
+        // the profile choice is the page's main control, and only there
+        var choice = Assert.IsType<ChoiceRow>(page.Primary);
+        Assert.Equal("row.profile.header", choice.HeaderKey);
+        Assert.DoesNotContain(page.Groups.SelectMany(g => g.Rows), r => r.HeaderKey == "row.profile.header");
         Assert.NotNull(choice.HardwareEffect);
-        Assert.Equal(ApplyService.EffectKey, choice.HardwareEffect!.DescriptionKey);
-        Assert.Equal(new[] { "-", "p:Default (BIOS)", "p:PL55-60W", "p:PL35W" }, choice.Options.Select(o => o.Id));
-        Assert.Equal("=PL55-60W  ·  PL1 55 W / PL2 60 W / 56 s", choice.Options[2].LabelKey);
-        Assert.True(Text.IsLiteral(choice.Options[2].LabelKey));       // the host shows it as it is
-        Assert.NotNull(rig.Row<ToggleRow>("row.auto.header").HardwareEffect);
+        Assert.Equal(new[] { "p:Default (BIOS)", "p:PL55-60W", "p:PL35W" }, choice.Options.Select(o => o.Id));
+        // three short names: the host draws segments, so the options are the bare names (literals the host shows as they are) ...
+        Assert.Equal(new[] { "=Default (BIOS)", "=PL55-60W", "=PL35W" }, choice.Options.Select(o => o.LabelKey));
+        // ... and the approval text says the exact limits of every profile instead
+        Assert.True(Text.IsLiteral(choice.HardwareEffect!.DescriptionKey));
+        Assert.StartsWith("=" + rig.Host.Localisation.T(ApplyService.EffectKey), choice.HardwareEffect.DescriptionKey);
+        Assert.Contains("\nPL55-60W: PL1 55 W / PL2 60 W / 56 s", choice.HardwareEffect.DescriptionKey);
+        Assert.Contains("\nPL35W: PL1 35 W / PL2 40 W / 28 s", choice.HardwareEffect.RevertDescriptionKey!);
+        Assert.Equal("row.profile.help", choice.HelpKey);
+        var autoSwitch = rig.Row<ToggleRow>("row.auto.header");
+        Assert.NotNull(autoSwitch.HardwareEffect);
         Assert.NotNull(page.Summary);
         Assert.Equal(new[] { "cpu.temp", "cpu.power" }, page.Summary!.Readings!.Select(m => m.Value));
         Assert.Equal(3, page.EnumerateRows().OfType<ShortcutRow>().Count());
@@ -166,7 +179,7 @@ public class RuntimeTests
         Assert.Equal("PL35W", rig.Client.Applied[0].Name);
         Assert.Empty(rig.Host.FakeApproval.Asked);
         Assert.True(await Rig.WaitFor(() => choice.Value.Value == "p:PL35W"));
-        Assert.True(await Rig.WaitFor(() => rig.Row<ValueRow>("row.status.header").Value.Value.StartsWith("Applied PL35W", StringComparison.Ordinal)));
+        Assert.True(await Rig.WaitFor(() => rig.Host.FakeToast.Shown.ToList().Any(t => t.Body.Key == "toast.applied")));   // N1 tells the result; no "Last action" row
     }
 
     [Fact]
@@ -181,7 +194,7 @@ public class RuntimeTests
         Assert.True(await Rig.WaitFor(() => rig.Host.FakeToast.Shown.Count == 1));
         Assert.True(await Rig.WaitFor(() => choice.Value.Value == "p:PL55-60W"));
         Assert.Equal(ToastKind.Error, rig.Host.FakeToast.Shown[0].Kind);
-        Assert.Contains("rejected the values (InvalidValue)", rig.Row<ValueRow>("row.status.header").Value.Value);
+        Assert.Equal(("err.rejected", "InvalidValue"), (rig.Host.FakeToast.Shown[0].Body.Key, rig.Host.FakeToast.Shown[0].Body.Args![0]));
     }
 
     [Fact]
@@ -249,7 +262,8 @@ public class RuntimeTests
 
         Assert.True(rig.Row<InfoRow>("row.unreachable.header").IsOpen.Value);
         Assert.False(rig.Row<ChoiceRow>("row.profile.header").Enabled.Value);
-        Assert.Contains("pipe closed", rig.Row<ValueRow>("row.status.header").Value.Value);
+        var line = rig.Row<ChoiceRow>("row.profile.header").Line!.Value;   // why, under the control it disables
+        Assert.Equal(("err.unavailable", "pipe closed"), (line.Key, line.Args![0]));
         Assert.Equal("state.unreachable", rig.Runtime.BuildPage().Summary!.StateLine!.Value.Key);
 
         rig.Client.ReadError = null;

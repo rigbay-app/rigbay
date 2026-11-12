@@ -4,88 +4,108 @@ using Rigbay.PredatorSense.Sensors;
 
 namespace Rigbay.PredatorSense;
 
+// The page after the UI review of November 2026 (docs/ui-review/REVIEW-2026-11.md PS-1, PS-2, sketch 3): the fan mode is the page's main
+// control with what Rigbay set and what the fans did as its line; each temperature is a tile with its own fan beside the number; the
+// performance mode shows the modes this laptop offers with the current one chosen, READ ONLY; settings, then the facts in Details.
 public sealed partial class PredatorSenseModule
 {
     /// <summary>
-    /// Id of the fan-mode drop-down's first option while Rigbay has set nothing in this run. A state, not a value: choosing it
-    /// writes nothing, and the page is rebuilt without it after the first set.
+    /// Value of the fan-mode choice while Rigbay has set nothing in this run. It is not one of the options, so the host selects none of them:
+    /// the firmware cannot say which mode it is in. A state, not a value: it is never written, and a Revert to it writes nothing.
     /// </summary>
-    internal const string ChoiceNotSet = "notset";
+    internal const string ChoiceNotSet = "?";
 
-    /// <summary>Id of the fan-mode drop-down option for <see cref="FanMode.Auto"/>.</summary>
+    /// <summary>Id of the fan-mode option for <see cref="FanMode.Auto"/>.</summary>
     internal const string ChoiceAuto = "auto";
 
-    /// <summary>Id of the fan-mode drop-down option for <see cref="FanMode.Max"/>.</summary>
+    /// <summary>Id of the fan-mode option for <see cref="FanMode.Max"/>.</summary>
     internal const string ChoiceMax = "max";
 
     /// <inheritdoc />
     public PageModel? GetPageModel(IHostServices host)
     {
         var present = _poller?.Present ?? Array.Empty<Sensor>();
+        bool has(Sensor s) => present.Contains(s);
+        var cpuFan = SensorInfo.Of(Sensor.CpuFan).Metric;
+        var gpuFan1 = SensorInfo.Of(Sensor.GpuFan1).Metric;
+        var gpuFan2 = SensorInfo.Of(Sensor.GpuFan2).Metric;
 
+        // Each temperature is a tile with its own fan as the second figure ("fan 5,200 rpm"); the fans themselves are rows, never tiles, never
+        // charted again. A sensor that cannot be read is withdrawn from the bus, so its row says "not available" by itself; parts this machine
+        // does not have answer "0" and are left out (only sensors that have reported are listed).
         var readings = new List<Row>
         {
-            // A sensor that cannot be read is withdrawn from the bus, so its row says "not available" by itself.
-            Reading(Sensor.CpuTemp, "sensor.cpu-temp", "row.cpu-temp.description"),
-            Reading(Sensor.GpuTemp, "sensor.gpu-temp", null),
+            Temperature(Sensor.CpuTemp, new SecondaryReading("tile.fan", cpuFan)) with { HelpKey = "row.cpu-temp.help" },
+            Temperature(Sensor.GpuTemp, has(Sensor.GpuFan1) && has(Sensor.GpuFan2) ? new SecondaryReading("tile.fans", gpuFan1, gpuFan2)
+                : has(Sensor.GpuFan1) ? new SecondaryReading("tile.fan", gpuFan1) : null),
         };
-        // Parts this machine does not have answer "0" and are left out: only sensors that have reported are listed.
-        if (present.Contains(Sensor.SystemTemp)) readings.Add(Reading(Sensor.SystemTemp, "sensor.system-temp", null));
-        readings.Add(Reading(Sensor.CpuFan, "sensor.cpu-fan", null));
-        if (present.Contains(Sensor.GpuFan1)) readings.Add(Reading(Sensor.GpuFan1, "sensor.gpu-fan1", null));
-        if (present.Contains(Sensor.GpuFan2)) readings.Add(Reading(Sensor.GpuFan2, "sensor.gpu-fan2", null));
-        readings.Add(new ValueRow("row.model.header", _modelText) { DescriptionKey = "row.model.description" });
+        if (has(Sensor.SystemTemp)) readings.Add(Temperature(Sensor.SystemTemp, null));
+        readings.Add(Fan(Sensor.CpuFan));
+        if (has(Sensor.GpuFan1)) readings.Add(Fan(Sensor.GpuFan1));
+        if (has(Sensor.GpuFan2)) readings.Add(Fan(Sensor.GpuFan2));
 
-        // The firmware cannot say which mode it is in, so until Rigbay has set one the control must not show one: it starts on
-        // "Not set". A ChoiceRow has no placeholder text, so the option goes away after the first set, when the page is rebuilt.
-        bool notSet = _fan?.Last is null;
-        _pageOffersNotSet = notSet;
-        var options = new List<ChoiceOption>();
-        if (notSet) options.Add(new ChoiceOption(ChoiceNotSet, "fan.not-set"));
-        options.Add(new ChoiceOption(ChoiceAuto, "fan.auto"));
-        options.Add(new ChoiceOption(ChoiceMax, "fan.max"));
-
-        var cooling = new List<Row>
+        // The module's one control, drawn large under the page header: Auto or Maximum, nothing chosen while Rigbay has set nothing.
+        var fanMode = new ChoiceRow("row.fan-mode.header", new[] { new ChoiceOption(ChoiceAuto, "fan.auto"), new ChoiceOption(ChoiceMax, "fan.max") }, _choice)
         {
-            // Read only. There is no selector: changing the mode is a write the owner has not approved yet.
-            new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description" },
-            new ValueRow("row.opmodes.header", _opModesText) { DescriptionKey = "row.opmodes.description" },
-            new InfoRow(Severity.Info, "info.opmode-note.header") { DescriptionKey = "info.opmode-note.description" },
-            new ChoiceRow("row.fan-mode.header", options, _choice)
-            {
-                DescriptionKey = "row.fan-mode.description",
-                // No SafeRevert: both directions are asked about. Auto -> Maximum (what a Revert after "Auto" does) is loud.
-                HardwareEffect = new HardwareEffect("effect.fan-mode") { RevertDescriptionKey = "effect.fan-mode-revert" },
-                Enabled = _choiceEnabled,
-            },
-            new ValueRow("row.last-set.header", _lastSetText) { DescriptionKey = "row.last-set.description" },
-            new ValueRow("row.check.header", _checkText) { DescriptionKey = "row.check.description" },
+            DescriptionKey = "row.fan-mode.description",
+            HelpKey = "row.fan-mode.help",
+            Line = _fanLine,
+            // No SafeRevert: both directions are asked about. Auto -> Maximum (what a Revert after "Auto" does) is loud.
+            HardwareEffect = new HardwareEffect("effect.fan-mode") { RevertDescriptionKey = "effect.fan-mode-revert" },
+            Enabled = _choiceEnabled,
         };
 
-        var settings = new List<Row>
+        var settings = new List<Row>();
+        if (_hotkey is not null)
+            settings.Add(new ShortcutRow("row.hotkey.header", _hotkey.Gesture) { DescriptionKey = "row.hotkey.description" });
+        settings.Add(new ToggleRow("row.restore.header", _restore) { DescriptionKey = "row.restore.description" });
+        settings.Add(new ExpanderRow("row.details.header", new Row[]
         {
+            new ValueRow("row.model.header", _modelText),
             new NumberRow("row.poll.header", _pollSeconds, PredatorSenseSettings.MinPollSeconds, PredatorSenseSettings.MaxPollSeconds, 1)
             {
                 DescriptionKey = "row.poll.description",
+                HelpKey = "row.poll.help",
                 Unit = MetricUnit.Seconds,
             },
-            new ToggleRow("row.restore.header", _restore) { DescriptionKey = "row.restore.description" },
-        };
-        if (_hotkey is not null)
-            settings.Add(new ShortcutRow("row.hotkey.header", _hotkey.Gesture) { DescriptionKey = "row.hotkey.description" });
+        }) { DescriptionKey = "row.details.description" });
 
         return new PageModel
         {
+            Primary = fanMode,
             Groups = new[]
             {
                 new RowGroup("group.readings", readings),
-                new RowGroup("group.cooling", cooling),
+                new RowGroup("group.performance", new[] { PerformanceModeRow() }),
                 new RowGroup("group.settings", settings),
             },
-            Summary = new PageSummary(_stateLine, new[] { SensorInfo.Of(Sensor.CpuTemp).Metric, SensorInfo.Of(Sensor.CpuFan).Metric }),
+            Summary = new PageSummary(_stateLine, new[] { SensorInfo.Of(Sensor.CpuTemp).Metric, cpuFan }),
         };
     }
 
-    private static ReadingRow Reading(Sensor sensor, string headerKey, string? descriptionKey) =>
-        new(headerKey, SensorInfo.Of(sensor).Metric) { DescriptionKey = descriptionKey, Decimals = 0 };
+    /// <summary>
+    /// The performance mode, READ ONLY (the owner has not approved a mode write): the modes this laptop offers as a choice that can never be used,
+    /// with the current one chosen, so the page shows all of them and which one is on. Nothing handles a change of its value, and the row is never
+    /// enabled. When the laptop did not say which modes it has, the current mode as text.
+    /// </summary>
+    private Row PerformanceModeRow()
+    {
+        var modes = _opMode?.Supported;
+        _pageModes = modes;
+        if (modes is not { Count: > 0 })
+            return new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description", HelpKey = "row.opmode.help" };
+        return new ChoiceRow("row.opmode.header", modes.Select(m => new ChoiceOption(OpModeId(m), OpModeKey(m))).ToList(), _opModeChoice)
+        {
+            DescriptionKey = "row.opmode.description",
+            HelpKey = "row.opmode.help",
+            Line = _opModeLine,
+            Enabled = _readOnly,
+        };
+    }
+
+    private static ReadingRow Temperature(Sensor sensor, SecondaryReading? fan) =>
+        new(SensorLabelKey(sensor), SensorInfo.Of(sensor).Metric) { Decimals = 0, Tile = TileHint.Always, Secondary = fan };
+
+    private static ReadingRow Fan(Sensor sensor) =>
+        new(SensorLabelKey(sensor), SensorInfo.Of(sensor).Metric) { Decimals = 0, Tile = TileHint.Never, ChartGroupKey = "" };
 }

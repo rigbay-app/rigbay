@@ -3,17 +3,24 @@ using Rigbay.Abstractions;
 namespace Rigbay.Module.Xtu;
 
 // The page (level 1, declarative rows), the values it binds to, and the registrations that depend on the profile list
-// (hotkeys, tray items). Order on the page: what is active now and how to change it; live readings; auto-switch;
-// the profiles of your own; hotkeys; facts about XTU.
+// (hotkeys, tray items). Order on the page (UI review 2026-11, sketch 1): the profile choice as the page's main control with the
+// limits in force as its line; the readings (four tiles, PL1 and PL2 as dashed limits in the power chart); switching by power
+// source; the profiles of your own; XTU itself (messages, hotkeys, details).
 
 internal sealed partial class XtuRuntime
 {
     private const string NoneId = "-";
 
+    /// <summary>
+    /// Most profiles, and longest name, that the host can draw as segments in the page's main control (host API 0.1.3, ChoiceRow as
+    /// <see cref="PageModel.Primary"/>: 2 to 5 options of at most 20 characters). Within it the options are the bare names and the approval
+    /// text lists every profile's limits; beyond it the host draws a drop-down and each option carries its limits itself.
+    /// </summary>
+    internal const int MaxSegments = 5, MaxSegmentLabel = 20;
+
     // Values the rows bind to. They live as long as the runtime.
-    private readonly ObservableValue<string> _activeText = new("");
-    private readonly ObservableValue<string> _limitsText = new("");
-    private readonly ObservableValue<string> _message = new("");
+    private readonly ObservableValue<LocalisedText> _profileLine = new(default);
+    private readonly ObservableValue<LocalisedText> _autoLine = new(default);
     private readonly ObservableValue<string> _selected = new(NoneId);
     private readonly ObservableValue<bool> _profileEnabled = new(true);
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.unreachable"));
@@ -21,12 +28,10 @@ internal sealed partial class XtuRuntime
     private readonly ObservableValue<bool> _fastStartup = new(false);
     private readonly ObservableValue<string> _restoreText = new("");
     private readonly ObservableValue<string> _versionText = new("");
-    private readonly ObservableValue<string> _powerNow = new("");
     private readonly ObservableValue<bool> _autoSwitch = new(false);
     private readonly ObservableValue<string> _acChoice = new(NoneId);
     private readonly ObservableValue<string> _batChoice = new(NoneId);
     private readonly ObservableValue<bool> _perCore = new(false);
-    private readonly ObservableValue<bool> _noCustom = new(true);
 
     // The draft of "New profile".
     private readonly ObservableValue<string> _newName = new("");
@@ -39,7 +44,6 @@ internal sealed partial class XtuRuntime
     private readonly HashSet<string> _usedIds = new();
     private volatile bool _suppressChoice;
     private volatile bool _suppressAuto;
-    private string _lastErrorKey = "";
 
     private sealed record ProfileEntry(string ActionId, TrayItem Tray, IHotkeyBinding? Binding);
 
@@ -72,24 +76,21 @@ internal sealed partial class XtuRuntime
             _unreachable.Value = true;
             _profileEnabled.Value = false;
             _stateLine.Value = LocalisedText.Of("state.unreachable");
-            _activeText.Value = Loc.T("value.unknown");
-            _limitsText.Value = "";
-            if (_lastErrorKey != error.Message)
-            {
-                _lastErrorKey = error.Message;
-                SetMessage(error.ToText());
-            }
+            // what went wrong, under the profile choice it disables ("Can't reach XTU. The pipe was closed.")
+            _profileLine.Value = error.ToText();
             return;
         }
 
-        _lastErrorKey = "";
         _unreachable.Value = false;
         _profileEnabled.Value = true;
         var active = ActiveProfile();
-        _activeText.Value = active?.Name ?? Loc.T("value.custom-values");
-        _limitsText.Value = state is null ? "" : Fmt.Limits(state);
         _stateLine.Value = active is null ? LocalisedText.Of("state.custom") : LocalisedText.Of("state.active", active.Name);
+        // The selected option names the profile; the line under it says the limits in force, the one fact the options do not show.
+        _profileLine.Value = state is null ? default
+            : active is null ? LocalisedText.Of("line.custom", Fmt.Limits(state))
+            : new LocalisedText(Text.Literal(Fmt.Limits(state)));
 
+        // Values that match no saved profile select nothing (the host draws no option as chosen); the line says "Custom values".
         _suppressChoice = true;
         try { _selected.Value = active is null ? NoneId : IdOf(active); }
         finally { _suppressChoice = false; }
@@ -115,16 +116,20 @@ internal sealed partial class XtuRuntime
             entry.Tray.Checked.Value = active is not null && string.Equals(active.Name, name, StringComparison.OrdinalIgnoreCase);
     }
 
-    private void SetMessage(LocalisedText text) => _message.Value = Loc.Resolve(text);
-
-    private void UpdatePowerText()
+    /// <summary>
+    /// The line of "Switch automatically", visible while it is closed: the power source now and, while the switch is on, the profile it
+    /// uses for that source ("Now: plugged in · uses Balanced 45W").
+    /// </summary>
+    private void UpdateAutoLine()
     {
-        _powerNow.Value = Loc.T(_power.Line switch
-        {
-            PowerLine.Online => "value.on-ac",
-            PowerLine.Offline => "value.on-battery",
-            _ => "value.unknown",
-        });
+        var line = _power.Line;
+        if (line is not (PowerLine.Online or PowerLine.Offline)) { _autoLine.Value = default; return; }
+        bool ac = line == PowerLine.Online;
+        var name = ac ? _settings.AcProfile : _settings.BatteryProfile;
+        bool uses = _settings.AutoSwitch && Catalog.FindByName(Profiles, name) is not null;
+        _autoLine.Value = uses
+            ? LocalisedText.Of(ac ? "auto.line-ac-uses" : "auto.line-battery-uses", name)
+            : LocalisedText.Of(ac ? "auto.line-ac" : "auto.line-battery");
     }
 
     // ---- the profile choice ---------------------------------------------------------------------------------------------
@@ -160,6 +165,7 @@ internal sealed partial class XtuRuntime
             _batChoice.Value = ChoiceFor(_settings.BatteryProfile);
         }
         finally { _suppressAuto = false; }
+        UpdateAutoLine();
     }
 
     private string ChoiceFor(string name) =>
@@ -175,6 +181,7 @@ internal sealed partial class XtuRuntime
         _settings.AcProfile = NameFor(_acChoice.Value);
         _settings.BatteryProfile = NameFor(_batChoice.Value);
         SaveSettings();
+        UpdateAutoLine();
         // Turning it on, or changing the profile of the power source in use, applies at once (the host confirmed the change).
         // That apply is the user's own click, so it is announced as one (in the window when they look, a toast otherwise).
         bool applyNow = toggled ? _settings.AutoSwitch : true;
@@ -233,115 +240,133 @@ internal sealed partial class XtuRuntime
             restoring = true;
             try { binding.Gesture.Value = lastGood; }
             finally { restoring = false; }
-            var text = LocalisedText.Of(reason, g.Value.ToString());
-            SetMessage(text);
-            Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning, ToastOrigin.Background);
+            Notify(LocalisedText.Of("toast.title-failed"), LocalisedText.Of(reason, g.Value.ToString()), ToastKind.Warning, ToastOrigin.Background);
         };
     }
 
     // ---- the page -------------------------------------------------------------------------------------------------------
 
+    /// <summary>True when the profile choice can be drawn as segments, so its options are the bare names (see <see cref="MaxSegments"/>).</summary>
+    internal static bool NamesOnly(IReadOnlyList<XtuProfile> profiles) =>
+        profiles.Count is >= 2 and <= MaxSegments && profiles.All(p => p.Name.Length <= MaxSegmentLabel);
+
     public PageModel BuildPage()
     {
         var profiles = Profiles;
-        var options = new List<ChoiceOption> { new(NoneId, "choice.custom-values") };
-        options.AddRange(profiles.Select(p => new ChoiceOption(IdOf(p), Text.Literal($"{p.Name}  ·  {p.Describe()}"))));
+        bool namesOnly = NamesOnly(profiles);
+        var options = profiles.Select(p => new ChoiceOption(IdOf(p), Text.Literal(namesOnly ? p.Name : $"{p.Name}  ·  {p.Describe()}"))).ToList();
         var autoOptions = new List<ChoiceOption> { new(NoneId, "choice.keep-current") };
         autoOptions.AddRange(profiles.Select(p => new ChoiceOption(IdOf(p), Text.Literal($"{p.Name}  ·  {p.Describe()}"))));
 
-        var now = new RowGroup("group.now", new Row[]
+        // The approval question names the change as "Profile: A -> B" from the option labels. With bare names the exact limits would be
+        // missing from it, so the effect text then lists every profile's limits (built in the current language; a language change rebuilds the page).
+        var effect = namesOnly
+            ? new HardwareEffect(Text.Literal(Loc.T(ApplyService.EffectKey) + LimitsList(profiles))) { RevertDescriptionKey = Text.Literal(Loc.T("effect.apply-profile-revert") + LimitsList(profiles)) }
+            : new HardwareEffect(ApplyService.EffectKey) { RevertDescriptionKey = "effect.apply-profile-revert" };
+
+        // The module's main job, drawn large under the page header: no SafeRevert, a revert can raise the limits, so it is asked about.
+        var profile = new ChoiceRow("row.profile.header", options, _selected)
         {
-            new InfoRow(Severity.Error, "row.unreachable.header") { DescriptionKey = "row.unreachable.description", IsOpen = _unreachable },
-            new InfoRow(Severity.Warning, "row.faststart.header") { DescriptionKey = "row.faststart.description", IsOpen = _fastStartup },
-            new ValueRow("row.active.header", _activeText) { DescriptionKey = "row.active.description" },
-            new ValueRow("row.limits.header", _limitsText) { DescriptionKey = "row.limits.description" },
-            new ChoiceRow("row.profile.header", options, _selected)
-            {
-                DescriptionKey = "row.profile.description",
-                HardwareEffect = new HardwareEffect(ApplyService.EffectKey) { RevertDescriptionKey = "effect.apply-profile-revert" },   // no SafeRevert: a revert can raise the limits, so it is asked about
-                Enabled = _profileEnabled,
-            },
-            new ValueRow("row.status.header", _message),
-            new ButtonRow("row.reload.header", "row.reload.button", ReloadAsync) { DescriptionKey = "row.reload.description" },
-        });
+            HardwareEffect = effect,
+            Enabled = _profileEnabled,
+            Line = _profileLine,
+            HelpKey = "row.profile.help",
+        };
 
         var readings = new RowGroup("group.readings", new Row[]
         {
-            new ReadingRow("row.temp.header", XtuMetrics.CpuTemp) { Decimals = 0 },
-            new ReadingRow("row.power.header", XtuMetrics.CpuPower) { Decimals = 1 },
-            new ReadingRow("row.usage.header", XtuMetrics.CpuUsage) { Decimals = 0 },
-            new ReadingRow("row.clock.header", XtuMetrics.CpuClock) { Decimals = 0 },
-            new ReadingRow("row.pl1.header", XtuMetrics.Pl1) { Decimals = 0 },
-            new ReadingRow("row.pl2.header", XtuMetrics.Pl2) { Decimals = 0 },
-            new ExpanderRow("row.throttle.header", new Row[]
-            {
-                new ReadingRow("row.throttle-thermal.header", XtuMetrics.ThrottleThermal) { Decimals = 0 },
-                new ReadingRow("row.throttle-power.header", XtuMetrics.ThrottlePower) { Decimals = 0 },
-                new ReadingRow("row.throttle-current.header", XtuMetrics.ThrottleCurrent) { Decimals = 0 },
-                new ReadingRow("row.throttle-vr.header", XtuMetrics.ThrottleVr) { Decimals = 0 },
-            }) { DescriptionKey = "row.throttle.description" },
+            new ReadingRow("row.temp.header", XtuMetrics.CpuTemp) { Decimals = 0, Tile = TileHint.Always },
+            new ReadingRow("row.power.header", XtuMetrics.CpuPower) { Decimals = 1, Tile = TileHint.Always },
+            new ReadingRow("row.usage.header", XtuMetrics.CpuUsage) { Decimals = 0, Tile = TileHint.Always },
+            new ReadingRow("row.clock.header", XtuMetrics.CpuClock) { Decimals = 0, Tile = TileHint.Always },
+            // limits, not readings: dashed lines in the power chart, labelled with their value
+            new ReadingRow("row.pl1.header", XtuMetrics.Pl1) { Decimals = 0, ChartRole = ChartRole.Reference },
+            new ReadingRow("row.pl2.header", XtuMetrics.Pl2) { Decimals = 0, ChartRole = ChartRole.Reference },
         });
 
+        // Switching by power source: the switch in the header (usable while closed), the power source now in its line, the two choices inside.
         var auto = new RowGroup("group.auto", new Row[]
         {
-            new ToggleRow("row.auto.header", _autoSwitch)
+            new ExpanderRow("row.auto.header", new Row[]
+            {
+                new ChoiceRow("row.ac.header", autoOptions, _acChoice)
+                {
+                    HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
+                },
+                new ChoiceRow("row.battery.header", autoOptions, _batChoice)
+                {
+                    HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
+                },
+            })
             {
                 DescriptionKey = "row.auto.description",
-                HardwareEffect = new HardwareEffect("effect.auto-switch") { RevertDescriptionKey = "effect.auto-switch-revert" },
+                Line = _autoLine,
+                HeaderRow = new ToggleRow("row.auto.header", _autoSwitch)
+                {
+                    HardwareEffect = new HardwareEffect("effect.auto-switch") { RevertDescriptionKey = "effect.auto-switch-revert" },
+                },
             },
-            new ChoiceRow("row.ac.header", autoOptions, _acChoice)
-            {
-                DescriptionKey = "row.ac.description",
-                HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
-            },
-            new ChoiceRow("row.battery.header", autoOptions, _batChoice)
-            {
-                DescriptionKey = "row.battery.description",
-                HardwareEffect = new HardwareEffect("effect.auto-choice") { RevertDescriptionKey = "effect.auto-choice-revert" },
-            },
-            new ValueRow("row.power-now.header", _powerNow),
         });
 
-        var custom = new List<Row>
-        {
-            NewProfileRow(),
-            new InfoRow(Severity.Info, "row.no-custom.header") { DescriptionKey = "row.no-custom.description", IsOpen = _noCustom },
-        };
-        foreach (var c in _settings.Customs.ToList()) custom.Add(CustomProfileRow(c));
-        _noCustom.Value = _settings.Customs.Count == 0;
+        // Your profiles, each closed with its limits in its line, then the form for a new one.
+        var custom = _settings.Customs.ToList().Select(CustomProfileRow).ToList();
+        custom.Add(NewProfileRow());
 
         var hotkeyRows = profiles
             .Where(p => _entries.TryGetValue(p.Name, out var e) && e.Binding is not null)
             .Select(p => (Row)new ShortcutRow(Text.Literal(p.Name), _entries[p.Name].Binding!.Gesture) { DescriptionKey = "row.hotkey.description" })
             .ToList();
 
-        var groups = new List<RowGroup>
+        // XTU itself: what is wrong with it (shown only then), the hotkeys, and the facts and rare settings folded away.
+        var xtu = new List<Row>
         {
-            now,
-            readings,
-            auto,
-            new RowGroup("group.custom", custom),
+            new InfoRow(Severity.Error, "row.unreachable.header") { DescriptionKey = "row.unreachable.description", IsOpen = _unreachable },
+            new InfoRow(Severity.Warning, "row.faststart.header") { DescriptionKey = "row.faststart.description", IsOpen = _fastStartup },
         };
         if (hotkeyRows.Count > 0)
-            groups.Add(new RowGroup("group.hotkeys", new Row[]
-            {
-                new ExpanderRow("row.hotkeys.header", hotkeyRows) { DescriptionKey = "row.hotkeys.description" },
-            }));
-        groups.Add(new RowGroup("group.about", new Row[]
+            xtu.Add(new ExpanderRow("row.hotkeys.header", hotkeyRows) { DescriptionKey = "row.hotkeys.description" });
+        xtu.Add(new ExpanderRow("row.details.header", new Row[]
         {
+            new ButtonRow("row.reload.header", "row.reload.button", ReloadAsync) { DescriptionKey = "row.reload.description" },
+            Throttle("row.throttle-thermal.header", XtuMetrics.ThrottleThermal),
+            Throttle("row.throttle-power.header", XtuMetrics.ThrottlePower),
+            Throttle("row.throttle-current.header", XtuMetrics.ThrottleCurrent),
+            Throttle("row.throttle-vr.header", XtuMetrics.ThrottleVr),
             new ValueRow("row.version.header", _versionText),
             new ValueRow("row.restore.header", _restoreText) { DescriptionKey = "row.restore.description" },
             new ToggleRow("row.percore.header", _perCore) { DescriptionKey = "row.percore.description" },
-        }));
+        }) { DescriptionKey = "row.details.description" });
 
         return new PageModel
         {
             Icon = "Processing",
-            Groups = groups,
+            Primary = profile,
+            Groups = new[]
+            {
+                readings,
+                auto,
+                new RowGroup("group.custom", custom),
+                new RowGroup("group.about", xtu),
+            },
             Links = new[] { new PageLink("link.docs", "https://github.com/rigbay-app/module-xtu") },
             Summary = new PageSummary(_stateLine, new[] { XtuMetrics.CpuTemp, XtuMetrics.CpuPower }),
         };
     }
+
+    /// <summary>One throttling reading in Details: a ratio from 0 to 100, never a tile, never in a chart; its row keeps a sparkline.</summary>
+    private static ReadingRow Throttle(string headerKey, MetricId metric) => new(headerKey, metric)
+    {
+        Decimals = 0,
+        Tile = TileHint.Never,
+        ChartGroupKey = "",
+        RangeMin = 0,
+        RangeMax = 100,
+        HelpKey = "row.throttle.help",
+    };
+
+    /// <summary>"\nName: PL1 .. W / PL2 .. W / .. s" for every profile, for the approval text when the options are bare names.</summary>
+    private static string LimitsList(IEnumerable<XtuProfile> profiles) =>
+        string.Concat(profiles.Select(p => "\n" + p.Name + ": " + p.Describe()));
 
     private Task<ActionResult> ReloadAsync(CancellationToken ct)
     {
@@ -368,7 +393,7 @@ internal sealed partial class XtuRuntime
         new NumberRow("row.edit-pl2.header", _newPl2, (double)Limits.MinPl1, (double)Limits.MaxPl2) { Unit = MetricUnit.Watt, DescriptionKey = "row.edit-pl2.description" },
         new ToggleRow("row.edit-pl2enable.header", _newPl2Enable) { DescriptionKey = "row.edit-pl2enable.description" },
         new NumberRow("row.edit-window.header", _newWindow, (double)Limits.MinWindow, (double)Limits.MaxWindow) { Unit = MetricUnit.Seconds, DescriptionKey = "row.edit-window.description" },
-        new ButtonRow("row.create.header", "row.create.button", CreateAsync) { DescriptionKey = "row.create.description" },
+        new ButtonRow("row.create.header", "row.create.button", CreateAsync),
     }) { DescriptionKey = "row.new.description" };
 
     private Task<ActionResult> CreateAsync(CancellationToken ct)
@@ -390,7 +415,6 @@ internal sealed partial class XtuRuntime
         SaveSettings();
         LoadProfiles();
         RegisterProfileEntries(Profiles);
-        _noCustom.Value = false;
         _newName.Value = "";
         Refresh();
         RequestPageRefresh();
@@ -422,6 +446,8 @@ internal sealed partial class XtuRuntime
 
         LocalisedText? Check(double a, double b, double w) => ToText(Rules.Check((decimal)a, (decimal)b, (decimal)w));
 
+        // closed, with its limits in the line, so the list reads at a glance; a change of a value rebuilds the page and the line with it
+        var limits = new LocalisedText(Text.Literal(c.ToProfile().Describe()));
         return new ExpanderRow(Text.Literal(c.Name), new Row[]
         {
             new NumberRow("row.edit-pl1.header", pl1, (double)Limits.MinPl1, (double)Limits.MaxPl1)
@@ -440,8 +466,9 @@ internal sealed partial class XtuRuntime
                 Unit = MetricUnit.Seconds, Apply = ApplyMode.ApplyRevert, DescriptionKey = "row.edit-window.description",
                 Validate = v => Check(pl1.Value, pl2.Value, v),
             },
-            new ButtonRow("row.delete.header", "row.delete.button", ct => DeleteAsync(c)) { DescriptionKey = "row.delete.description" },
-        }) { DescriptionKey = "row.custom.description" };
+            // asks "Delete <name>?" first: the profile is gone from Rigbay, its hotkey finds nothing any more
+            new ButtonRow("row.delete.header", "row.delete.button", ct => DeleteAsync(c)) { DescriptionKey = "row.delete.description", ConfirmKey = "row.delete.confirm" },
+        }) { Line = new ObservableValue<LocalisedText>(limits) };
     }
 
     private Task<ActionResult> DeleteAsync(CustomProfile c)
@@ -453,7 +480,6 @@ internal sealed partial class XtuRuntime
         if (_entries.Remove(c.Name, out var entry)) _host.Tray.Remove(entry.ActionId);
         LoadProfiles();
         LoadAutoChoices();
-        _noCustom.Value = _settings.Customs.Count == 0;
         Refresh();
         RequestPageRefresh();
         return Task.FromResult(ActionResult.Ok(LocalisedText.Of("msg.deleted", c.Name)));

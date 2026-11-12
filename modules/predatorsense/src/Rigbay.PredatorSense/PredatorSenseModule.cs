@@ -23,7 +23,10 @@ public sealed partial class PredatorSenseModule : IModule
     private readonly ObservableValue<bool> _choiceEnabled = new(true);
     private readonly ObservableValue<string> _modelText = new("");
     private readonly ObservableValue<string> _opModeText = new("");
-    private readonly ObservableValue<string> _opModesText = new("");
+    private readonly ObservableValue<string> _opModeChoice = new("");
+    private readonly ObservableValue<LocalisedText> _opModeLine = new(default);
+    private readonly ObservableValue<bool> _readOnly = new(false);   // the performance-mode row is never enabled
+    private readonly ObservableValue<LocalisedText> _fanLine = new(default);
     private readonly ObservableValue<string> _lastSetText = new("");
     private readonly ObservableValue<string> _checkText = new("");
     private readonly ObservableValue<double> _pollSeconds = new(2);
@@ -45,7 +48,7 @@ public sealed partial class PredatorSenseModule : IModule
     private FanResult? _result;
     private bool _watching;
     private bool _noPrevious;
-    private volatile bool _pageOffersNotSet;
+    private volatile IReadOnlyList<OperationMode>? _pageModes;   // the modes the last page was built with
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public PredatorSenseModule() : this(new MachineInfo(), () => new AcerWmi(), null, null) { }
@@ -232,6 +235,15 @@ public sealed partial class PredatorSenseModule : IModule
     /// <summary>True while the performance mode is being polled (page visible or the metric has a subscriber) (tests).</summary>
     internal bool? OpModePolling => _opModeScheduler?.Watched;
 
+    /// <summary>What Rigbay set last, as the fan line starts with it ("Maximum at 14:02") (tests).</summary>
+    internal string LastSetShown => _lastSetText.Value;
+
+    /// <summary>How the fans answered the last change, the second part of the fan line; empty before one (tests).</summary>
+    internal string CheckShown => _checkText.Value;
+
+    /// <summary>The current performance mode in words ("Default", "Unknown") (tests).</summary>
+    internal string OpModeShown => _opModeText.Value;
+
     private void OnReadingsState(ReadingsState state) => RefreshTexts();
 
     private void OnPolled(SensorSnapshot snapshot) => RefreshTexts();
@@ -270,7 +282,7 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     /// <summary>
-    /// The user picked another mode in the drop-down. The host has already shown the effect and asked (that is what the row's
+    /// The user picked another mode in the fan-mode choice. The host has already shown the effect and asked (that is what the row's
     /// hardware flag does), so this writes. It never blocks the caller: the write runs on a pool thread.
     /// </summary>
     private void OnChoiceChanged()
@@ -325,19 +337,13 @@ public sealed partial class PredatorSenseModule : IModule
     }
 
     /// <summary>
-    /// Makes the drop-down show what Rigbay last set, or "Not set" while it has set nothing in this run. Once Rigbay has set a
-    /// mode, "Not set" is no longer a true description, so the page is rebuilt without that option.
+    /// Makes the choice show what Rigbay last set, or nothing (<see cref="ChoiceNotSet"/>, not an option) while it has set nothing in this run.
     /// </summary>
     private void SyncChoice()
     {
         var fan = _fan;
         if (fan is null) return;
         _choice.Value = fan.Last is null ? ChoiceNotSet : fan.Last.Mode == FanMode.Max ? ChoiceMax : ChoiceAuto;
-        if (fan.Last is not null && _pageOffersNotSet)
-        {
-            _pageOffersNotSet = false;   // once; the rebuilt page asks the module again and finds the option gone
-            _host?.RequestPageRefresh();
-        }
     }
 
     private void ShowResult(FanResult result)

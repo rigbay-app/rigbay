@@ -56,17 +56,26 @@ write-path call discards the pending proposals.
 
 ## The page
 
-Operate-mode page of standard host rows (see `docs/UI-DIRECTION.md`); nothing custom. In order:
+Operate-mode page of standard host rows (see `docs/UI-DIRECTION.md`); nothing custom. Since 0.1.1 it follows the UI review of November 2026
+(`docs/ui-review/REVIEW-2026-11.md` XT-1 to XT-4, LC-1, LC-2, sketch 1) and uses host API 0.1.3 (`hostApi` `>=0.1.3 <0.2`). In order:
 
-1. **Power limits now**: error row when XTU cannot be read, warning row when Windows Fast Startup is on, the active profile (same match
-   rule as the old app: first profile whose four values equal the hardware's within 0.01), the limits in force, the **Profile** choice
-   (a hardware change: the host shows `A -> B` with the exact values, asks, and offers Revert), the last action, and a Reload button.
-2. **Readings**: CPU temperature, package power, usage, clock, PL1, PL2, and a Throttling expander (thermal, power, current, VR).
-3. **Switch by power source**: the switch, a profile for AC, a profile for battery, the power source now.
-4. **Your profiles**: "New profile" (name, PL1, PL2, PL2 enabled, window, Create) and one expander per profile made in Rigbay (the four values
-   with Apply and Discard, and Delete). The number rows carry the old ranges and cross-check PL1 against PL2.
-5. **Hotkeys**: one shortcut row per profile. A gesture without Ctrl or Alt, or one XTU's own hotkey pairing already uses, is refused and the
-   old one comes back (with a notification).
+1. **Profile**, the page's main control (`PageModel.Primary`), drawn large under the page header. The active profile (same match rule as the old
+   app: first profile whose four values equal the hardware's within 0.01) is the chosen option; values that match no profile choose none. The line
+   under it says the limits in force (`PL1 45 W / PL2 60 W / 56 s`, or "Custom values: ...", or why XTU cannot be read). A hardware change: the host
+   shows `A -> B`, asks, and offers Revert. With 2 to 5 profiles of at most 20 characters the host draws segments, so the options are the bare
+   names and the approval text lists every profile's exact limits; with more or longer ones each option carries its limits (a drop-down). The rows
+   "Active profile", "Limits in force" and "Last action" are gone: the notifications report every change.
+2. **Readings**: CPU temperature, package power, usage and clock as the four tiles; PL1 and PL2 as dashed limits of the power chart
+   (`ChartRole.Reference`), never tiles. A host with the review's package B part 2 folds these rows into "All readings".
+3. **Switch by power source**: one row with the switch in its header (`ExpanderRow.HeaderRow`) and the power source now in its line ("Plugged in
+   now · uses Balanced"); the AC and battery profiles inside.
+4. **Your profiles**: one closed row per profile made in Rigbay with its limits in the line (the four values with Apply and Discard inside, and
+   Delete, which asks "Delete Gaming?" first, `ButtonRow.ConfirmKey`), then "New profile" (name, PL1, PL2, PL2 enabled, time window, Create).
+   The number rows carry the old ranges and cross-check PL1 against PL2.
+5. **XTU**: the error row when XTU cannot be read and the warning row when Windows Fast Startup is on (each only while true), **Profile hotkeys**
+   (one shortcut row per profile; a gesture without Ctrl or Alt, or one XTU's own hotkey pairing already uses, is refused and the old one comes
+   back, with a notification), and **Details**: Reload the profiles from XTU, the four throttling ratios (rows with a sparkline, no tile, no
+   chart), XTU version, restore after restart, per-core readings.
 
 Notifications (`docs/APP.md`, "Notifications"): every apply is announced once. A profile chosen on the page, and the auto-switch settings changed
 there (including turning it off), are shown in the window while the user looks at it; a hotkey, a tray item, `rigbay xtu apply` and the

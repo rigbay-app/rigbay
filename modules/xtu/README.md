@@ -26,3 +26,5 @@ The tests compare the copies with a recording of the real service made once, rea
 on a machine that has the XTU service (`XTU3SERVICE`) running; the probe checks the service and its two pipes.
 
 Only four controls are ever written (PL1, PL2, PL2 enable, time window), after approval.
+
+Version 0.1.1 (Unreleased; needs host API 0.1.3); see `CHANGELOG.md`.
