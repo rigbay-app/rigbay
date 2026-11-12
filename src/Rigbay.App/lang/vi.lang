@@ -4,7 +4,7 @@
 @name = Tiếng Việt
 
 # điều hướng và khung ứng dụng
-nav.dashboard = Tổng quan
+nav.dashboard = Bảng điều khiển
 nav.modules = Mô-đun
 nav.settings = Cài đặt
 nav.log = Nhật ký
@@ -101,7 +101,7 @@ page.invalid-problems = Cần sửa
 reason.invalid-one = module.json có 1 lỗi
 reason.invalid-many = module.json có {0} lỗi
 reason.cli-more = {0} (+{1} lỗi nữa trong nhật ký)
-page.failed-title = Mô-đun này gặp lỗi
+page.failed-title = Mô-đun này bị lỗi
 page.incompatible-title = Viết cho phiên bản Rigbay khác
 page.unsupported-title = Máy này không được hỗ trợ
 page.build-failed = Không hiện được trang này
