@@ -712,7 +712,8 @@ sealed class RowRenderer
 
     /// <summary>
     /// The question of a <see cref="ButtonRow.ConfirmKey"/>: a dialog titled with the question (its <c>{0}</c> is <paramref name="holder"/>),
-    /// the row's description as its text, the button's own label on the action and Cancel. True to go on. A row with a hardware effect is not
+    /// the row's description as its text, the button's own label on the action and Cancel (where the keyboard focus starts, so Enter deletes
+    /// nothing). True to go on. A row with a hardware effect is not
     /// asked here: its approval asks. The self-test and screenshots answer through <see cref="ApprovalPrompt.TestAnswer"/>.
     /// </summary>
     async Task<bool> ConfirmAsync(ButtonRow b, string holder)
@@ -731,11 +732,10 @@ sealed class RowRenderer
             Content = b.DescriptionKey is { Length: > 0 } dk ? Ui.Text(L.T(dk), "RbSecondaryText", wrap: true) : null,
             PrimaryButtonText = L.T(b.ButtonKey),
             CloseButtonText = Host.T("row.confirm-cancel"),
-            // Enter does not delete: no default button; the action wears the accent because it is what the dialog is about
-            DefaultButton = ContentDialogButton.None,
-            PrimaryButtonStyle = Ui.Style("AccentButtonStyle"),
             RequestedTheme = ((FrameworkElement)Host.Window!.Content).ActualTheme,
         };
+        // the one rule of Rigbay's confirmations (DL-1, package C): no default button, the action wears the accent, focus starts on Cancel
+        Dialogs.Confirm(dialog);
         try { return await dialog.ShowAsync() == ContentDialogResult.Primary; }
         catch (Exception ex) { AppLog.For(_e.Id).Error("confirmation dialog failed", ex); return false; }
     }
