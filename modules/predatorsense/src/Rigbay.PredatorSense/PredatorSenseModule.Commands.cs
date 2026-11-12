@@ -88,20 +88,8 @@ public sealed partial class PredatorSenseModule
         try
         {
             var next = fan.MaxIsSet ? FanMode.Auto : FanMode.Max;
-            var answer = await ChangeWithApprovalAsync(next, host.StopToken).ConfigureAwait(false);
-            var loc = host.Localisation;
-            switch (answer.Status)
-            {
-                case ChangeStatus.NoReadings:
-                    host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.fan-title"), LocalisedText.Of("check.refused-readings"), ToastKind.Warning));
-                    break;
-                case ChangeStatus.Done when answer.Result!.Applied:
-                    host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.fan-title"), LocalisedText.Of("toast.fan-set", ModeLabel(loc, next)), ToastKind.Success));
-                    break;
-                case ChangeStatus.Done:
-                    host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.fan-title"), LocalisedText.Of("toast.fan-failed", CheckText(loc, answer.Result!)), ToastKind.Warning));
-                    break;
-            }
+            // The result is announced inside ChangeWithApprovalAsync (hotkey and verb alike), so it is told once.
+            await ChangeWithApprovalAsync(next, host.StopToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -122,7 +110,12 @@ public sealed partial class PredatorSenseModule
         var host = _host;
         var fan = _fan;
         if (host is null || fan is null) return new ChangeAnswer(ChangeStatus.NotRunning, null);
-        if (!fan.CanWrite(mode)) return new ChangeAnswer(ChangeStatus.NoReadings, null);
+        if (!fan.CanWrite(mode))
+        {
+            // A refusal before the question: the user pressed a key or ran a verb and nothing happens, so say why.
+            Notify(host, LocalisedText.Of("check.refused-readings"), ToastKind.Warning, ToastOrigin.Background);
+            return new ChangeAnswer(ChangeStatus.NoReadings, null);
+        }
 
         var loc = host.Localisation;
         var detail = fan.Last is { } last
@@ -136,9 +129,36 @@ public sealed partial class PredatorSenseModule
         }
 
         var result = await fan.ApplyAsync(mode, ct).ConfigureAwait(false);
+        AnnounceFan(host, mode, result, ToastOrigin.Background);   // before the page shows it, so a reader of the page sees the toast already
         ShowResult(result);
         SyncChoice();
         RefreshTexts();
         return new ChangeAnswer(ChangeStatus.Done, result);
     }
+
+    // ------------------------------------------------------------------ telling the user
+
+    /// <summary>
+    /// Says how a fan change ended, by the rule in docs/APP.md ("Notifications"): once per change, always for a failure or a
+    /// refusal, and the speed-check result in the same message. Where it appears (a message in the window or a Windows toast) is
+    /// the host's decision from <paramref name="origin"/>. A "no" from the user is not announced.
+    /// </summary>
+    internal static void AnnounceFan(IHostServices host, FanMode mode, FanResult result, ToastOrigin origin)
+    {
+        var loc = host.Localisation;
+        string check = CheckText(loc, result);
+        if (result.Applied)
+        {
+            // The firmware accepted it, but the fans did not follow within the check window: that is worth a toast even from the page.
+            bool unseen = result.Verdict is RpmVerdict.NotRose or RpmVerdict.NotFell;
+            Notify(host, LocalisedText.Of("toast.fan-set", ModeLabel(loc, mode), check), unseen ? ToastKind.Warning : ToastKind.Success, origin);
+        }
+        else if (result.Outcome == FanOutcome.Unknown)
+            Notify(host, LocalisedText.Of("toast.fan-unconfirmed", ModeLabel(loc, mode), check), ToastKind.Warning, origin);
+        else
+            Notify(host, LocalisedText.Of("toast.fan-failed", check), ToastKind.Warning, origin);
+    }
+
+    private static void Notify(IHostServices host, LocalisedText body, ToastKind kind, ToastOrigin origin)
+        => host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.fan-title"), body, kind) { Origin = origin });
 }

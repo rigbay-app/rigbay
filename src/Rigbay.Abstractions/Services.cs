@@ -277,7 +277,24 @@ public enum ToastKind
 /// <param name="Title">Title (module-relative key).</param>
 /// <param name="Body">Body (module-relative key).</param>
 /// <param name="Kind">Kind.</param>
-public sealed record ToastMessage(LocalisedText Title, LocalisedText Body, ToastKind Kind = ToastKind.Info);
+public sealed record ToastMessage(LocalisedText Title, LocalisedText Body, ToastKind Kind = ToastKind.Info)
+{
+    /// <summary>
+    /// What caused the change this message reports. Set <see cref="ToastOrigin.Page"/> for the result of something the user just
+    /// confirmed on the module's page: the host then shows it inside the window while the window is in use, and as a Windows toast
+    /// otherwise. Everything else (hotkey, tray item, command-line verb, auto-switch, timers) keeps the default.
+    /// </summary>
+    public ToastOrigin Origin { get; init; } = ToastOrigin.Background;
+}
+
+/// <summary>What caused the change a <see cref="ToastMessage"/> reports.</summary>
+public enum ToastOrigin
+{
+    /// <summary>Not the page: a hotkey, a tray item, a command-line verb, an automatic rule or a timer. Always a Windows toast.</summary>
+    Background,
+    /// <summary>The user changed something on the module's page and confirmed it.</summary>
+    Page,
+}
 
 /// <summary>Notifications; the app supplies the implementation.</summary>
 public interface IToastService

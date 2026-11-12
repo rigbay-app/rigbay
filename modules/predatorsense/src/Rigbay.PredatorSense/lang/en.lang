@@ -95,5 +95,6 @@ module.predatorsense.status.fan-mode = Fan mode, last set by Rigbay: {0}
 
 # Notifications
 module.predatorsense.toast.fan-title = Fan mode
-module.predatorsense.toast.fan-set = Fans set to {0}.
+module.predatorsense.toast.fan-set = Fans set to {0}. {1}
 module.predatorsense.toast.fan-failed = Not changed. {0}
+module.predatorsense.toast.fan-unconfirmed = Not confirmed whether the fans are on {0}. {1}

@@ -255,7 +255,8 @@ public sealed class SampleModule : IModule
         _mode.Value = "normal";
         _limit.Value = 45;
         _label.Value = "";
-        _host?.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.body"), ToastKind.Info));
+        // A button on the page: the user is looking, so the host shows this in the window (a toast when the window is not in use).
+        _host?.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.body"), ToastKind.Info) { Origin = ToastOrigin.Page });
         return Task.FromResult(ActionResult.Ok());
     }
 

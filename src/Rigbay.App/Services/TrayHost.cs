@@ -185,7 +185,37 @@ sealed class TrayHost
         int msg = (int)(lParam & 0xFFFF);
         if (msg == Native.WM_LBUTTONUP || msg == Native.WM_LBUTTONDBLCLK) _open();
         else if (msg == Native.WM_RBUTTONUP || msg == Native.WM_CONTEXTMENU) ShowMenu();
+        else if (msg == Native.NIN_BALLOONSHOW) { BalloonsDisplayed++; AppLog.Info("tray balloon: Windows displayed it (NIN_BALLOONSHOW)"); }
+        else if (msg == Native.NIN_BALLOONTIMEOUT) AppLog.Info("tray balloon: timed out (NIN_BALLOONTIMEOUT)");
+        else if (msg == Native.NIN_BALLOONUSERCLICK) { AppLog.Info("tray balloon: clicked"); _open(); }
         return true;
+    }
+
+    /// <summary>Balloons Windows reported as displayed (NIN_BALLOONSHOW).</summary>
+    public int BalloonsDisplayed { get; private set; }
+
+    /// <summary>Balloons handed to the shell.</summary>
+    public int BalloonsSent { get; private set; }
+
+    /// <summary>
+    /// Shows a notification as a balloon from the tray icon (the way an elevated app can: <c>AppNotificationManager</c> is not
+    /// supported there). False when there is no icon or the shell refused. Runs the shell call on the UI thread.
+    /// </summary>
+    public bool ShowBalloon(string title, string body, ToastKind kind)
+    {
+        if (_added != 1) { AppLog.Warn($"tray balloon NOT shown (the tray icon is not there): {title} / {body}"); return false; }
+        uint flags = kind switch { ToastKind.Error => 3u, ToastKind.Warning => 2u, _ => 1u };
+        bool ok = false;
+        void Send() { ok = Native.TrayBalloon(_hwnd, title, body, flags); if (ok) BalloonsSent++; }
+        if (Host.Dq.HasThreadAccess) Send();
+        else
+        {
+            using var done = new ManualResetEventSlim();
+            if (!Host.Dq.TryEnqueue(() => { try { Send(); } finally { done.Set(); } })) { AppLog.Warn("tray balloon dropped: the dispatcher is gone"); return false; }
+            if (!done.Wait(TimeSpan.FromSeconds(3))) { AppLog.Warn("tray balloon: the UI thread did not take it in 3 s"); return false; }
+        }
+        if (!ok) AppLog.Warn($"tray balloon NOT shown (Shell_NotifyIcon refused it): {title} / {body}");
+        return ok;
     }
 
     public void ShowMenu()

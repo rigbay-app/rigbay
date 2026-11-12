@@ -137,7 +137,7 @@ internal sealed partial class XtuRuntime
         var profile = Profiles.FirstOrDefault(p => IdOf(p) == id);
         if (profile is null) return;
         // The host has shown the change and the user confirmed; the work is slow, so it leaves the UI thread.
-        Fire("apply " + profile.Name, () => _apply.ApplyAsync(profile, ApplyOrigin.PageConfirmed, _stop.Token));
+        Fire("apply " + profile.Name, () => ApplyReportingAsync(profile, ApplyOrigin.PageConfirmed));
     }
 
     private void Fire(string what, Func<Task> work)
@@ -176,8 +176,12 @@ internal sealed partial class XtuRuntime
         _settings.BatteryProfile = NameFor(_batChoice.Value);
         SaveSettings();
         // Turning it on, or changing the profile of the power source in use, applies at once (the host confirmed the change).
+        // That apply is the user's own click, so it is announced as one (in the window when they look, a toast otherwise).
         bool applyNow = toggled ? _settings.AutoSwitch : true;
-        if (applyNow) Fire("auto-switch", () => { AutoCheck(force: true); return Task.CompletedTask; });
+        if (!applyNow)
+            Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.auto-off"), ToastKind.Info, ToastOrigin.Page);
+        else
+            Fire("auto-switch", () => { AutoCheck(force: true, ApplyOrigin.PageConfirmed); return Task.CompletedTask; });
     }
 
     // ---- hotkeys and tray -----------------------------------------------------------------------------------------------
@@ -231,7 +235,7 @@ internal sealed partial class XtuRuntime
             finally { restoring = false; }
             var text = LocalisedText.Of(reason, g.Value.ToString());
             SetMessage(text);
-            _host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning));
+            Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning, ToastOrigin.Background);
         };
     }
 

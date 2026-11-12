@@ -66,7 +66,12 @@ Operate-mode page of standard host rows (see `docs/UI-DIRECTION.md`); nothing cu
 4. **Your profiles**: "New profile" (name, PL1, PL2, PL2 enabled, window, Create) and one expander per profile made in Rigbay (the four values
    with Apply and Discard, and Delete). The number rows carry the old ranges and cross-check PL1 against PL2.
 5. **Hotkeys**: one shortcut row per profile. A gesture without Ctrl or Alt, or one XTU's own hotkey pairing already uses, is refused and the
-   old one comes back (with a toast).
+   old one comes back (with a notification).
+
+Notifications (`docs/APP.md`, "Notifications"): every apply is announced once. A profile chosen on the page, and the auto-switch settings changed
+there (including turning it off), are shown in the window while the user looks at it; a hotkey, a tray item, `rigbay xtu apply` and the
+auto-switch applying on a power change or after resume always give a Windows notification. A failure, a refusal, a busy service and a missing
+auto-switch profile always do. "Already in use" is said for a request by the user and not for the automatic rule; a "no" in the approval is not announced.
 6. **XTU**: version, restore after restart, and a switch for per-core readings.
 
 Dashboard line: `Profile <name>` (or `Custom limits`, or `XTU not answering`) with CPU temperature and package power.

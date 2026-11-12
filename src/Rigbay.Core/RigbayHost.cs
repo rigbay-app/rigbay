@@ -47,6 +47,12 @@ public interface IToastSink
     void Show(string moduleId, string title, string body, ToastKind kind);
 }
 
+/// <summary>The UI side of a transient message inside the window (see <see cref="NotificationPolicy"/>). Texts are already localised; may be called from any thread.</summary>
+public interface IInAppNoticeSink
+{
+    void Show(string moduleId, string title, string body, ToastKind kind);
+}
+
 /// <summary>Host state that outlives a run: which modules the user enabled, and the language.</summary>
 public sealed class HostState
 {
@@ -110,6 +116,12 @@ public sealed class RigbayHost : IDisposable
     /// <summary>The UI's way to run an action on its thread; null runs actions inline (tests, command-line mode).</summary>
     public Action<Action>? UiDispatcher { get; set; }
     public IToastSink? ToastSink { get; set; }
+
+    /// <summary>The UI's message inside the window; null when there is no window (command-line mode, tests): then every notice is a toast.</summary>
+    public IInAppNoticeSink? InAppSink { get; set; }
+
+    /// <summary>True while the window is visible, not minimised and the foreground window (the user is looking at it). Null means false.</summary>
+    public Func<bool>? WindowInUse { get; set; }
     public IApprovalPrompt? ApprovalPrompt { get; set; }
 
     public IReadOnlyList<ModuleEntry> Modules

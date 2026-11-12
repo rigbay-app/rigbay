@@ -90,10 +90,28 @@ internal sealed class ModuleHostServices : IHostServices
     {
         public void Show(ToastMessage message)
         {
-            var sink = host.ToastSink;
-            if (sink is null) return;
-            try { sink.Show(entry.Id, entry.Localisation.Resolve(message.Title), entry.Localisation.Resolve(message.Body), message.Kind); }
-            catch (Exception ex) { entry.Log.Warn("toast sink failed: " + ex.Message); }
+            var toastSink = host.ToastSink;
+            var inAppSink = host.InAppSink;
+            bool inUse = false;
+            try { inUse = host.WindowInUse?.Invoke() == true; }
+            catch (Exception ex) { entry.Log.Warn("window state check failed: " + ex.Message); }
+
+            var route = NotificationPolicy.Decide(message.Kind, message.Origin, inUse, inAppSink is not null);
+            string title = entry.Localisation.Resolve(message.Title), body = entry.Localisation.Resolve(message.Body);
+            // The log line is what tells, afterwards, whether a result was announced and where.
+            entry.Log.Info($"notice [{message.Kind}, {message.Origin}, window in use: {inUse}] -> {(route.Toast ? "toast" : "")}{(route.Toast && route.InApp ? " + " : "")}{(route.InApp ? "in-window" : "")}: {title} / {body}");
+
+            if (route.InApp)
+            {
+                try { inAppSink!.Show(entry.Id, title, body, message.Kind); }
+                catch (Exception ex) { entry.Log.Warn("in-window notice failed: " + ex.Message); }
+            }
+            if (route.Toast)
+            {
+                if (toastSink is null) { entry.Log.Info("toast not shown: the host has no toast sink"); return; }
+                try { toastSink.Show(entry.Id, title, body, message.Kind); }
+                catch (Exception ex) { entry.Log.Warn("toast sink failed: " + ex.Message); }
+            }
         }
     }
 

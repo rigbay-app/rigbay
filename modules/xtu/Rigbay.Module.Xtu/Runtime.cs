@@ -271,10 +271,25 @@ internal sealed partial class XtuRuntime : IDisposable
         if (profile is null)
         {
             SetMessage(LocalisedText.Of("msg.not-found", name));
-            _host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("msg.not-found", name), ToastKind.Error));
+            Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("msg.not-found", name), ToastKind.Error, ToastOrigin.Background);
             return Task.FromResult(new ApplyResult(ApplyStatus.Failed, new XtuProfile(name, 0, 0, false, 0, ProfileKind.Custom), Error: new XtuException("msg.not-found", name)));
         }
-        return _apply.ApplyAsync(profile, origin, _stop.Token);
+        return ApplyReportingAsync(profile, origin);
+    }
+
+    /// <summary>
+    /// Applies a profile. A request dropped because another apply is running never reaches <c>Completed</c>, so it is announced
+    /// here: a hotkey that does nothing without a word is the case this exists for.
+    /// </summary>
+    private async Task<ApplyResult> ApplyReportingAsync(XtuProfile profile, ApplyOrigin origin)
+    {
+        var result = await _apply.ApplyAsync(profile, origin, _stop.Token).ConfigureAwait(false);
+        if (result.Status == ApplyStatus.Busy)
+        {
+            try { Announce(result, origin); }
+            catch (Exception ex) { _host.Log.Error("announcing a busy apply", ex); }
+        }
+        return result;
     }
 
     private void OnApplyCompleted(ApplyResult result, ApplyOrigin origin)
@@ -287,33 +302,49 @@ internal sealed partial class XtuRuntime : IDisposable
         catch (Exception ex) { _host.Log.Error("after apply", ex); }
     }
 
+    /// <summary>
+    /// Says how an apply ended, by the rule in docs/APP.md ("Notifications"): the host picks the place (a message in the window
+    /// while the user is looking at it and clicked it, a Windows toast otherwise); this method picks the content and the kind.
+    /// Every success and every failure or refusal is told once. Declined is silent (the user said no). So is an auto-switch that
+    /// found nothing to change.
+    /// </summary>
     private void Announce(ApplyResult r, ApplyOrigin origin)
     {
         var name = r.Profile.Name;
+        var from = origin == ApplyOrigin.PageConfirmed ? ToastOrigin.Page : ToastOrigin.Background;
         switch (r.Status)
         {
             case ApplyStatus.Applied:
                 var after = r.After!;
                 SetMessage(LocalisedText.Of("msg.applied-named", name, Fmt.N(after.Pl1), Fmt.N(after.Pl2), Fmt.N(after.Window)));
-                if (origin != ApplyOrigin.PageConfirmed)
-                    _host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.applied", name), ToastKind.Success));
+                var body = origin == ApplyOrigin.Auto
+                    ? LocalisedText.Of("toast.auto-applied", name, _host.Localisation.Resolve(LocalisedText.Of(_power.Line == PowerLine.Online ? "reason.ac" : "reason.battery")))
+                    : LocalisedText.Of("toast.applied", name);
+                Notify(LocalisedText.Of("toast.title"), body, ToastKind.Success, from);
                 break;
             case ApplyStatus.AlreadyActive:
                 SetMessage(LocalisedText.Of("msg.already-named", name));
+                // The user asked (page, hotkey, tray item, verb) and nothing changed: say so. The automatic rule stays quiet.
+                if (origin != ApplyOrigin.Auto)
+                    Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("msg.already-named", name), ToastKind.Info, from);
                 break;
             case ApplyStatus.Declined:
                 SetMessage(LocalisedText.Of("msg.declined"));
                 break;
             case ApplyStatus.Busy:
                 SetMessage(LocalisedText.Of("msg.busy"));
+                Notify(LocalisedText.Of("toast.title-failed"), LocalisedText.Of("msg.busy"), ToastKind.Warning, from);
                 break;
             default:
                 var text = r.Error!.ToText();
                 SetMessage(LocalisedText.Of("msg.failed", _host.Localisation.Resolve(text)));
-                _host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title-failed"), text, ToastKind.Error));
+                Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Error, from);
                 break;
         }
     }
+
+    private void Notify(LocalisedText title, LocalisedText body, ToastKind kind, ToastOrigin origin)
+        => _host.Toast.Show(new ToastMessage(title, body, kind) { Origin = origin });
 
     // ---- auto-switch ----------------------------------------------------------------------------------------------------
 
@@ -333,19 +364,25 @@ internal sealed partial class XtuRuntime : IDisposable
     }
 
     /// <summary>The auto-switch rule. Applies without asking again: the user's consent was given with the setting.</summary>
-    public void AutoCheck(bool force)
+    /// <param name="force">Apply even when the power source did not change.</param>
+    /// <param name="origin"><see cref="ApplyOrigin.Auto"/> when the machine did it by itself (a power change, a resume, the timer); <see cref="ApplyOrigin.PageConfirmed"/> when the user's own click on the page asked for it now.</param>
+    public void AutoCheck(bool force, ApplyOrigin origin = ApplyOrigin.Auto)
     {
         var decision = _auto.Check(_settings.AutoSwitch, _settings.AcProfile, _settings.BatteryProfile, _power.Line, force, Profiles);
         switch (decision.Outcome)
         {
             case AutoOutcome.Apply:
-                _ = _apply.ApplyAsync(decision.Profile!, ApplyOrigin.Auto, _stop.Token);
+                _ = ApplyReportingAsync(decision.Profile!, origin);
+                break;
+            case AutoOutcome.None when origin == ApplyOrigin.PageConfirmed:
+                // The user changed an auto-switch setting and nothing is applied now (no profile for this power source, or the switch is off).
+                Notify(LocalisedText.Of("toast.title"), LocalisedText.Of("toast.auto-nothing"), ToastKind.Info, ToastOrigin.Page);
                 break;
             case AutoOutcome.Missing:
                 var reason = LocalisedText.Of(decision.OnAc ? "reason.ac" : "reason.battery");
                 var text = LocalisedText.Of("msg.auto-missing", decision.MissingName!, _host.Localisation.Resolve(reason));
                 SetMessage(text);
-                _host.Toast.Show(new ToastMessage(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning));
+                Notify(LocalisedText.Of("toast.title-failed"), text, ToastKind.Warning, origin == ApplyOrigin.Auto ? ToastOrigin.Background : ToastOrigin.Page);
                 break;
         }
     }
