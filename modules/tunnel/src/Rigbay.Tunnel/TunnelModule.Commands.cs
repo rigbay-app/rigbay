@@ -59,6 +59,8 @@ public sealed partial class TunnelModule
             WgSummary? last = null;
             if (t.IsOn && await manager.ReadAsync(t.Name, ctx.CancellationToken).ConfigureAwait(false) is { } r)
                 last = new WgSummary(r.LatestHandshake, r.RxBytes, r.TxBytes, r.Endpoint);
+            // One line for the log that names nothing (no tunnel name, server or key): what was read, so "the status verb said X" can be checked later.
+            host.Log.Info("status read: on=" + t.IsOn + ", handshake age " + (last?.Handshake is { } h ? (long)(now - h).TotalSeconds + " s" : "none") + ", received " + (last?.Rx?.ToString() ?? "-") + ", sent " + (last?.Tx?.ToString() ?? "-"));
             text.AppendLine(loc.F("cmd.status-line", t.Name, StatusText(loc, t.IsOn, last, now)));
             if (last is { Endpoint: { } endpoint }) text.AppendLine("  " + loc.F("cmd.status-endpoint", endpoint));
             if (last is { Rx: { } rx, Tx: { } tx }) text.AppendLine("  " + loc.F("cmd.status-transfer", Size(rx), Size(tx)));

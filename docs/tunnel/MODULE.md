@@ -134,13 +134,6 @@ Checked on 2026-11-12 against the documents of the `wireguard-windows` repositor
 - An installed tunnel service on this machine: start type Automatic (not delayed), account LocalSystem, image `wireguard.exe /tunnelservice <config path>`.
 - `Data\` cannot be listed from a normal (non-elevated) shell, which is why the module needs the administrator rights Rigbay always has; `wg show <name> <field>` from a normal shell answers "Permission denied".
 
-## Verification record
-
-See the end of this file (filled in after the live check).
-
-## Not verified
-
-(Listed in the verification record.)
 
 ## Looking at the page without WireGuard (demo build)
 
@@ -152,3 +145,37 @@ traffic). It changes nothing. `powershell -ExecutionPolicy Bypass -File modules\
 - `page-dark.png`: the page in the real app, one tunnel on and connected (handshake age, server, transferred, live rates), options below.
 - `page-light.png`: the same in the light theme, the tunnel that is off.
 - `page-vi-dark.png`: the Vietnamese texts.
+
+## Verification record (2026-11-12, Windows 11 10.0.26300, one machine)
+
+**Tests, no real tunnel touched.** `modules/tunnel/tests/Rigbay.Tunnel.Tests`: 117 tests, about 0.2 s, no sleeps, no process, service or network (fakes for the programs, the service table, the store, the clock and the host).
+They cover: the name rules and slugs; the parsers; the exact argument lists, the signature gate and its cache; the store listing (both file kinds, the files locked so that opening one would fail); the one-change slot; install/uninstall/stale
+service/failed start/timeout; the handshake wait (connected, 30 s without one, too old, turned off meanwhile, unreadable); the tray, hotkey, verb and page paths with the exact approval text and no second question from the page; declined and unanswerable
+approvals change nothing; auto-off (default off, exact time, no second question, toast); start type; the local-service check; metrics (described, published, withdrawn); a tunnel that appears, goes or is turned on elsewhere; settings after a restart; language switch;
+that nothing of the network (server, peer key, address, public address) reaches the log or the settings; and source scans (`wg show` only with a field, no file is opened, programs only through the runner, no registry, no service start/stop).
+
+**Build.** `dotnet build Rigbay.sln --no-incremental` (Debug, and Release earlier): 0 warnings, 0 errors. `dotnet test Rigbay.sln`: all green, 1491 tests (Tunnel 117, Core 629, SteamBypass 269, Xtu 190, Recorder 146, PredatorSense 121, one more project 19). LangCheck strict on the module: 110 English keys, `en` 110/110, `vi` 110/110, result ok.
+
+**The page in the real app** (elevated `Rigbay.App` 0.1.1 with the demo build, scratch data and modules folders; pictures in `evidence/`, each looked at): the manifest is accepted, the module loads, probes as supported, enables, and the page draws in dark, light and Vietnamese
+with a tunnel on and connected (handshake age, server, transferred, live rates from the bus) and one that is off. This found two things the unit tests did not (an empty "Status" group header, an empty "Problem" value) and both were fixed.
+
+**Live check with the real WireGuard and one real tunnel** (the real module in the real elevated app with scratch data, the approval answered by the app's own test switch `approve:true`, commands started with the script step `cmd:`; the tunnel name does not appear in any committed file):
+
+| Step | Seen from outside |
+| --- | --- |
+| before | service running, start type Automatic (not delayed), `wg show <name> latest-handshakes|transfer|endpoints` answer with `peer-key TAB value` lines (as the parsers expect); the configuration in the store is a **plain `.conf`** (the manager had not converted it) |
+| `rigbay tunnel off <name>` | the log shows the question **"Turn off tunnel <name>"** with its detail, the answer, "Tunnel turned off"; 0.3 s later the service no longer exists, the adapter is gone (`wg show` says "No such file or directory") |
+| `rigbay tunnel on <name>` | the question **"Turn on tunnel <name>"**; `wireguard.exe /installtunnelservice` was given the `.conf` path; the service is running 0.3 s later, start type **Automatic** again (as before), no delayed start; a handshake appeared about 4 s later |
+| `rigbay tunnel status <name>` (separate run) | the module read the real output: on, handshake age 2 s, received 184 and sent 520 bytes |
+| end | **tunnel ON**, service running, start type Automatic |
+
+**Not verified.**
+
+- The page switch, the tray item and the hotkey were not used on the real tunnel (only the command-line path was; the others share `RequestChangeAsync` and are covered by tests with fakes, and the page was only drawn).
+- The approval dialog was answered by the test switch, not clicked by a person; the real dialog with this module's text was not looked at.
+- The notification: the verbs call `host.Toast`; whether a banner appeared on the screen was not checked (see `docs/APP.md`, "Notifications": a banner is not verified on this machine at all).
+- A turn-on that fails (service refuses to start), the 30-second "server is not answering" path, the automatic turn-off and "Start with Windows" were not run on a real tunnel (a failing turn-on would have disconnected the owner's tunnel for nothing); they are tested with fakes only.
+- One tunnel, one peer, IPv4 endpoint, Windows 11, WireGuard for Windows as installed here; other versions, several peers, IPv6, and a store that is not in `%ProgramFiles%\WireGuard` were not tried.
+- The local-service check was exercised with a fake adapter and fake listeners; the real adapter lookup and listener table were only run for "does not throw".
+- `tools\selftest.ps1` (the host's own self-test) was run with a sibling worker's Rigbay running on the same machine: 132 passed, 4 failed (hotkey registration, command over the pipe, single instance: they need to be the only instance); none concerns this module.
+- `ToastMessage.Origin` (in-window message for page clicks, N1) is not used: the pinned host does not have it yet.

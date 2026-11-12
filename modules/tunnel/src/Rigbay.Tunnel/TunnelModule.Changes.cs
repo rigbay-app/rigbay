@@ -111,6 +111,7 @@ public sealed partial class TunnelModule
     {
         var host = _host!;
         var outcome = await _manager!.WaitForHandshakeAsync(name, TunnelManager.HandshakeWait, ct).ConfigureAwait(false);
+        host.Log.Info("Handshake wait after turn-on: " + outcome);
         switch (outcome)
         {
             case HandshakeOutcome.Connected:

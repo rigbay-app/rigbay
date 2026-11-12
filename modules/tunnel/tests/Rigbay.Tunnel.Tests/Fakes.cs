@@ -145,7 +145,7 @@ internal sealed class World
     public World() => Tools = new FakeTools(Services);
 
     /// <summary>A sample of what wg.exe prints, with a made-up peer key (44 characters, not a real key).</summary>
-    public const string PeerKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    public static readonly string PeerKey = new string('A', 43) + "=";
 
     public static string Handshakes(DateTimeOffset? at) => PeerKey + "\t" + (at?.ToUnixTimeSeconds() ?? 0) + "\n";
     public static string Transfer(long rx, long tx) => PeerKey + "\t" + rx + "\t" + tx + "\n";

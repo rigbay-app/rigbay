@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay Remote tunnel module (modules/tunne
 
 # Remote tunnel module: codebase guide
 
-Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (114 at the last run, version 0.1.0).
+Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (117 at the last run, version 0.1.0).
 User and design document: `docs/tunnel/MODULE.md` (it says which WireGuard facts were checked and where). This repository is PUBLIC.
 
 ## Hard constraints (check before you write code)
