@@ -428,7 +428,7 @@ sealed class RowRenderer
 
     UIElement Reading(ReadingRow r)
     {
-        var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        var tb = new TextBlock { VerticalAlignment = VerticalAlignment.Center, MinWidth = 72, TextAlignment = TextAlignment.Right };
         Ui.Tabular(tb);
         string styleKey = "";
         // One place decides the text: a number with its unit, or the host's "Not available" (never published, or the module withdrew it).
@@ -438,10 +438,19 @@ sealed class RowRenderer
             var key = ReadingFormat.IsAvailable(s) ? ReadingStyle(r.Color, s!.Unit) : "RbSecondaryText";
             if (key != styleKey) { styleKey = key; tb.Style = Ui.Style(key); }
         }
-        Show(Host.Core.Metrics.TryGetLatest(r.Metric, out var latest) ? latest : null);
-        _scope.Add(Host.Core.Metrics.Subscribe(s => Ui.Post(_e, () => { if (!_scope.Disposed) Show(s); }), r.Metric));
-        return Card(r, tb);
+        MetricSample? Latest() => Host.Core.Metrics.TryGetLatest(r.Metric, out var latest) ? latest : null;
+        Show(Latest());
+        // the number follows the bus while the page is on screen; the sparkline left of it is drawn from the host's history once a second
+        _scope.Live(() => Host.Core.Metrics.Subscribe(s => Ui.Post(_e, () => { if (!_scope.Disposed && _scope.Active) Show(s); }), r.Metric), () => Show(Latest()));
+        var spark = new Sparkline(r.Metric, r.Color, 84, 22);
+        _scope.Tick(spark.Redraw);
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14, VerticalAlignment = VerticalAlignment.Center, Children = { spark, tb } };
+        Sparklines.Add(spark);
+        return Card(r, content);
     }
+
+    /// <summary>The sparklines of the reading rows rendered so far (the self-test counts them).</summary>
+    public List<Sparkline> Sparklines { get; } = new();
 
     /// <summary>Style key of a reading: one hue family per kind (temperature warm, power blue, speed teal, load amber), neutral otherwise.</summary>
     public static string ReadingStyle(SemanticColor color, MetricUnit unit)

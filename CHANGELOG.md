@@ -3,6 +3,13 @@
 All notable changes to the Rigbay app (`rigbay-app/rigbay`). Modules are released from their own repositories and have their own history.
 Both releases are pre-releases (major version 0). The files are not code-signed.
 
+## Unreleased
+
+- **Readings are visual.** Every reading row has a sparkline; a module page with readings starts with up to four tiles (big number, unit, trend, a thin meter for temperatures and percents) and one trend chart
+  (tabs per group, 1 / 5 / 10 minutes, crosshair and tooltip, legend for several lines); the Dashboard bay rack shows a sparkline beside each key reading. Every module gets it without a module release; modules can steer it with
+  the optional `ReadingRow.Tile`, `ChartGroupKey`, `RangeMin` and `RangeMax` (host API stays 0.1, additive). The host keeps the last 10 minutes of every metric in memory (about 1.8 MB at most, never on disk, cleared when a metric is withdrawn).
+- **A hidden window costs nothing for the page that was open.** The open page now drops its bus subscriptions and its redraw timer while the window is hidden to the tray or minimised, so modules see no reader and slow down (before, an open page kept them polling).
+
 ## 0.1.1 (2026-11-02)
 
 Fixes for what the first-hour end-to-end run found against 0.1.0 (`docs/E2E.md`, section 6). No new features, no change to the module contract (host API stays 0.1).

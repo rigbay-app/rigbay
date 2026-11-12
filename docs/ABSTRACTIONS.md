@@ -210,7 +210,7 @@ Every `Row` has `HeaderKey`, optional `DescriptionKey` (the host indexes both fo
 | `ShortcutRow` | key capture | `IObservableValue<HotkeyGesture?>`, normally `IHotkeyBinding.Gesture`; `Apply` |
 | `ButtonRow` | button | `InvokeAsync(ct) -> Task<ActionResult>`, `ButtonKey`, optional `RevertAsync` and `RevertButtonKey` (label of the revert action, shown in the question) |
 | `ValueRow` | read-only text | `IObservableValue<string>` (already localised by the module) |
-| `ReadingRow` | live number with unit | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color`. Shows "not available" instead of a number when the metric has no sample or was withdrawn (section 6) |
+| `ReadingRow` | live number with unit, a sparkline left of it, and (host's choice) a tile and a trend chart above the rows | `MetricId` (host subscribes to the bus and formats), `Decimals`, `Color`, and the optional visual hints `Tile`, `ChartGroupKey`, `RangeMin`, `RangeMax` (5.7). Shows "not available" instead of a number when the metric has no sample or was withdrawn (section 6) |
 | `ExpanderRow` | row that folds `Children` | `IsExpanded` initially |
 | `InfoRow` | inline message | `Severity` (info, success, warning, error), `IsOpen`; header = title, description = text |
 | `CustomRow` | whatever the module builds | `ControlId` (5.5) |
@@ -325,6 +325,34 @@ return the module's label, else the host's own `metric.<id>` text (shared ids su
 Label, Unit, FormatHint)`. If two modules describe the same id, the first description is kept (the id is a shared
 vocabulary, so the label should be the same anyway).
 
+### 5.7 Readings made visual (V1)
+
+The host draws every `ReadingRow` three ways, from the host's own history of the metric (section 6, "History"); a module writes nothing for it:
+
+1. **A sparkline** left of the number in the row: the last few minutes, in the metric's hue, no axes, with the newest reading marked by a dot. The
+   scale follows the data but never fills the height with noise: every unit has a smallest span (10 °C, 10 W, 20 %, 500 rpm, 400 MHz ...), so a
+   temperature that moves by one degree is a near-flat line.
+2. **Tiles** at the top of the module page (below the enable row): up to four, each with the name, the number big with its unit small, the sparkline,
+   and for a temperature or a percent (or a reading with `RangeMin` and `RangeMax`) a thin meter of where it sits in its range. A temperature at 90 °C
+   or more says "High" in words with an icon. Without hints the host picks: readings that are in `PageSummary.Readings` first, then one reading per kind in the order
+   temperature, power, usage, clock, fan speed, voltage, current, the rest (a count or a plain number only when nothing better is on the page).
+3. **One trend chart** under the tiles, with one tab per group: the readings of one group on **one axis** over the last 1, 5 or 10 minutes (default 5),
+   a faint time axis, a crosshair and tooltip (time and every line's value), and a legend with the latest values when a chart has two or more lines.
+   Without hints the groups are the units, so temperatures are together, power (a package reading and its limits) is together, usage is together. A
+   page with no reading rows gets none of this; a module that is off gets none (its rows stay greyed out as before).
+
+Optional, additive hints on `ReadingRow` (a row that sets none of them is drawn from its metric's unit; no module has to change):
+
+| Member | Meaning |
+| --- | --- |
+| `Tile` (`TileHint.Auto` / `Always` / `Never`) | Force a reading to be a tile, or keep it out of the tiles (it keeps its sparkline). At most four tiles in all. |
+| `ChartGroupKey` (module-relative key, or `""`) | Readings with the same key share one chart, and the key's text is the tab. Null groups by unit; `""` keeps the reading out of every chart. **One axis only:** a reading whose unit differs from the first one of its group stays out of that chart (it keeps its row and sparkline). At most six lines in a chart. |
+| `RangeMin`, `RangeMax` | The natural range of the reading (for example 0 and 100 for a gauge-like temperature): sets the scale of the tile's meter and widens the chart axis to contain it. Validated: `RangeMin` must be below `RangeMax` (`PageValidator`). |
+
+Nothing is drawn, subscribed to or timed while the page is not on screen (window hidden to the tray or minimised): the page's live parts
+(`PageScope`) drop their bus subscriptions, so a module sees no reader and slows down, and their one-second redraw timer stops; both come back when the page is shown.
+A module whose metric has no `Describe`d unit gets its tile and chart when the first sample tells the unit (the block rebuilds on `CatalogChanged`).
+
 ## 6. Metrics bus
 
 - `MetricId`: a lowercase dotted id such as `cpu.temp`, `gpu.fan.rpm`, `cpu.power.pl1` (segments of `[a-z0-9_-]`,
@@ -338,6 +366,7 @@ vocabulary, so the label should be the same anyway).
 - `IMetricsBus.Publish(id, value, unit)`; `Subscribe(handler)` for all samples or `Subscribe(id, handler)`; both
   return an `IDisposable`. `TryGetLatest(id, out sample)` and `GetLatest()` read the cache, which holds the last
   sample of every id, so a page that opens late shows a value at once.
+- **History (V1).** The host also keeps what it saw: `host.Metrics.History` (`MetricHistory`), a bounded in-memory ring per metric id, the last 10 minutes in at most 300 points (samples inside a 2-second slot are averaged), fed by `Publish`, **cleared when the metric is withdrawn**, never written to disk and gone when the app ends. At most 256 ids are tracked: the worst case is 256 x 301 x 24 B, about 1.8 MB (a typical machine has 20 to 40 ids, under 250 KB). It is **not a subscriber**: it does not count in `SubscriberCount`, so it never keeps a module polling. A module that sleeps while nobody looks leaves a gap in the history, not made-up points; the charts break the line at a gap. The history exists for the host's own visuals (5.7); it is not part of `IMetricsBus` (a module that wants its own series keeps it). `MetricHistory.Get(id, span)` returns the points oldest first; `Version`/`VersionOf(id)` change with every sample; the clock is the bus clock (`RigbayHostOptions.MetricsClock`), so tests drive it with a fake one.
 - NaN and infinity are dropped and logged. If two modules publish the same id, the newest sample wins and
   `SourceModule` says who. Delivery to subscribers is synchronous on the publisher's thread, each subscriber in
   its own module's fault boundary: a slow subscriber slows the publisher, so keep handlers short and hand off.
@@ -688,6 +717,7 @@ await Task.Run(() => { host.Discover(); host.StartEnabled(); });
 | `ValueEditor<T>` via `RowEditors.For(entry, row)` | The apply-or-revert model of section 5.4 for `ToggleRow`, `ChoiceRow`, `NumberRow`, `TextRow`, `ShortcutRow`: `Draft`, `SetDraft`, `IsDirty`, `Error`, `SubmitAsync` (immediate rows), `ApplyAsync`, `Discard`, `CanRevert`, `RevertAsync` (asks first for a hardware row, 5.4), `Revert` (synchronous: refuses hardware rows that need a question), `Changed`. Returns an `EditResult` with an outcome (`Applied`, `Invalid`, `Declined`, `Faulted`, `NothingToDo`) and a localised message. `For` returns one editor per row instance (the same object each time); `ValueEditor<T>` is `IDisposable` and the entry disposes its editors when the module stops or faults and before it is enabled again, so the UI need not. |
 | `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects, for the action and for its revert. `RevertButtonAsync(entry, row, ct, detail?)` asks too (5.4). |
 | `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `Latest(id)`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. A sample with `IsAvailable == false` is the "withdrawn" notice (6). `TryGetDescriptor`, `GetDescriptors`, `SubscriberCount(id)`, `SubscribersChanged`, `IsWithdrawn(id)`. `ReadingFormat.Format(host.Languages, row, sample)` turns a sample (or null) into the text of a reading, including "not available". |
+| `host.Metrics.History` (`MetricHistory`), `ReadingPlan`, `ReadingScale` | V1 (5.7): the ring buffers behind the charts, the pure rules that choose tiles and chart groups from a page (`ReadingPlan.Build(page, unitOf)`), and the scale rules (`ReadingScale.Fit`, `Axis`, `NiceStep`). `MetricsBus.UnitOf(id)` gives a metric's unit without resolving texts. |
 | `host.Hotkeys` (`HotkeyRegistry`) | `Entries`, `Conflicts`, `ReserveHost(name, gesture)`, `Press(gesture)` (call it from the window's hotkey message), `Changed`. Entry `Gesture` and `HasConflict` are observable. |
 | `host.Tray` (`TrayRegistry`) | `Items` (`TrayEntry`: module id, `TrayItem` data, a guarded `Invoke`), `Changed`. |
 | `host.Commands`, `ExecuteCommandAsync(args)` | `rigbay <module> <verb> [args]` to a `CommandOutcome(ExitCode, Output)`. The app carries the command line to the running process and prints `Output` (stdout for 0, stderr otherwise). |
@@ -746,6 +776,18 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after V1 (readings made visual; additive, no version number change)
+
+Additive only, so the host API stays `0.1` (the policy in section 11: a minor bump while the major is 0 would make every module that declares `>=0.1 <0.2` incompatible; nothing here breaks one).
+
+- **Abstractions.** `ReadingRow.Tile` (`enum TileHint { Auto, Always, Never }`), `ReadingRow.ChartGroupKey`, `ReadingRow.RangeMin`, `ReadingRow.RangeMax` (init properties, all optional, see 5.7).
+- **Core.** `MetricHistory` (`MetricsBus.History`), fed by `Publish`, cleared by a withdraw, not a subscriber; `ReadingPlan`, `ReadingScale`; `MetricsBus.UnitOf`; `RigbayHostOptions.MetricsClock`;
+  `PageValidator` refuses `RangeMin >= RangeMax`.
+- **App.** Sparkline in every `ReadingRow`; tiles and one trend chart on a module page; a sparkline beside each key reading on the Dashboard bay rack (as `docs/UI-DIRECTION.md` promised);
+  a page is active only while the window is on screen (`PageScope.Active`): a hidden window drops the page's bus subscriptions and stops its redraw timer. Before this, a page that was open when the window was hidden to the tray kept its subscriptions, so modules kept polling.
+- **Demo module.** Fan studio publishes `cpu.power`, `cpu.usage`, `cpu.clock` and `cpu.power.pl1` as well, so the page has four tiles and five chart groups.
+- **Tools.** `--time-scale <n>` (metrics clock n times faster, screenshots only), script steps `hide`, `show`, `cpu:<label>`, `chart:<n>`, `range:<min>`, `hover:<0..1>`, `frames:<count>x<ms>`; `tools\shots.ps1` has the `visual-*` shots and the README GIF.
 
 ### 0.1 after F1 (fixes found by S1, M2 and R1; no version number change)
 

@@ -14,6 +14,12 @@
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#00695C"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#6E5600"/>
             <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="#7B8497"/>
+            <SolidColorBrush x:Key="RbSeries1Brush" Color="#2a78d6"/>
+            <SolidColorBrush x:Key="RbSeries2Brush" Color="#eb6834"/>
+            <SolidColorBrush x:Key="RbSeries3Brush" Color="#1baf7a"/>
+            <SolidColorBrush x:Key="RbSeries4Brush" Color="#eda100"/>
+            <SolidColorBrush x:Key="RbSeries5Brush" Color="#e87ba4"/>
+            <SolidColorBrush x:Key="RbSeries6Brush" Color="#008300"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="#FFA66B"/>
@@ -21,6 +27,12 @@
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="#5FD3C4"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="#E5C95C"/>
             <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="#7B8497"/>
+            <SolidColorBrush x:Key="RbSeries1Brush" Color="#3987e5"/>
+            <SolidColorBrush x:Key="RbSeries2Brush" Color="#d95926"/>
+            <SolidColorBrush x:Key="RbSeries3Brush" Color="#199e70"/>
+            <SolidColorBrush x:Key="RbSeries4Brush" Color="#c98500"/>
+            <SolidColorBrush x:Key="RbSeries5Brush" Color="#d55181"/>
+            <SolidColorBrush x:Key="RbSeries6Brush" Color="#008300"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="RbReadingTemperatureBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
@@ -28,6 +40,12 @@
             <SolidColorBrush x:Key="RbReadingSpeedBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
             <SolidColorBrush x:Key="RbReadingLoadBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
             <SolidColorBrush x:Key="RbMarkQuietBayBrush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries1Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries2Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries3Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries4Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries5Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
+            <SolidColorBrush x:Key="RbSeries6Brush" Color="{ThemeResource SystemColorWindowTextColor}"/>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -82,6 +100,75 @@
     <Style x:Key="RbHairlineTop" TargetType="Border">
         <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
         <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    </Style>
+
+    <!--
+      Reading visuals (sparklines, tiles, trend charts). One style per hue and shape, because a brush fetched from code would follow the app theme and
+      not the window's; a style resolves it in the element's own tree. Hues: one family per kind of reading (Temperature, Power, Speed, Load), Neutral,
+      and S1..S6 for the series of a chart with more than one line (the documented categorical order, validated with the data-viz script).
+    -->
+    <Style x:Key="RbLineTemperature" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbReadingTemperatureBrush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillTemperature" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbReadingTemperatureBrush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotTemperature" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbReadingTemperatureBrush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyTemperature" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbReadingTemperatureBrush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLinePower" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbReadingPowerBrush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillPower" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbReadingPowerBrush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotPower" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbReadingPowerBrush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyPower" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbReadingPowerBrush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineSpeed" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbReadingSpeedBrush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillSpeed" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbReadingSpeedBrush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotSpeed" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbReadingSpeedBrush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeySpeed" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbReadingSpeedBrush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineLoad" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbReadingLoadBrush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillLoad" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbReadingLoadBrush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotLoad" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbReadingLoadBrush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyLoad" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbReadingLoadBrush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineNeutral" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillNeutral" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource TextFillColorSecondaryBrush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotNeutral" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource TextFillColorSecondaryBrush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyNeutral" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource TextFillColorSecondaryBrush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS1" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries1Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS1" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries1Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS1" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries1Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS1" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries1Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS2" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries2Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS2" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries2Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS2" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries2Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS2" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries2Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS3" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries3Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS3" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries3Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS3" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries3Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS3" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries3Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS4" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries4Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS4" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries4Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS4" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries4Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS4" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries4Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS5" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries5Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS5" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries5Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS5" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries5Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS5" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries5Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+    <Style x:Key="RbLineS6" TargetType="Polyline"><Setter Property="Stroke" Value="{ThemeResource RbSeries6Brush}"/><Setter Property="StrokeThickness" Value="2"/><Setter Property="StrokeLineJoin" Value="Round"/><Setter Property="StrokeStartLineCap" Value="Round"/><Setter Property="StrokeEndLineCap" Value="Round"/></Style>
+    <Style x:Key="RbFillS6" TargetType="Path"><Setter Property="Fill" Value="{ThemeResource RbSeries6Brush}"/><Setter Property="Opacity" Value="0.12"/></Style>
+    <Style x:Key="RbDotS6" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource RbSeries6Brush}"/><Setter Property="Stroke" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="2"/></Style>
+    <Style x:Key="RbKeyS6" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource RbSeries6Brush}"/><Setter Property="RadiusX" Value="1"/><Setter Property="RadiusY" Value="1"/></Style>
+
+    <Style x:Key="RbChartGrid" TargetType="Line"><Setter Property="Stroke" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="1"/></Style>
+    <Style x:Key="RbChartCursor" TargetType="Line"><Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}"/><Setter Property="StrokeThickness" Value="1"/></Style>
+    <Style x:Key="RbMeterTrack" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/><Setter Property="RadiusX" Value="1.5"/><Setter Property="RadiusY" Value="1.5"/></Style>
+    <Style x:Key="RbChartTip" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource ControlSolidFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="8,6,8,6"/>
+    </Style>
+    <Style x:Key="RbTileFrame" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style x:Key="RbTileValue" TargetType="TextBlock" BasedOn="{StaticResource TitleLargeTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
     </Style>
 
 </ResourceDictionary>

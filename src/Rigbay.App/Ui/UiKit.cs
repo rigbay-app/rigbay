@@ -137,11 +137,51 @@ static class Ui
     public static string SeverityWord(Severity s) => s.ToString();
 }
 
-/// <summary>Everything a page subscribed to (module values, the metrics bus, language) so that leaving the page lets go of it.</summary>
+/// <summary>
+/// Everything a page subscribed to (module values, the metrics bus, language) so that leaving the page lets go of it.
+/// <para>A page is also <b>active</b> or not: it is active while the window is on screen and not minimised. Live things (a bus subscription
+/// that feeds a number, a redraw timer of a chart) are registered with <see cref="Live"/> and <see cref="Tick"/>; while the page is
+/// inactive they are all let go of (no subscription, so modules see no reader and slow down; no timer, nothing is drawn) and they come back, refreshed,
+/// when the page is active again. A window hidden in the tray therefore costs nothing for the page that was open.</para>
+/// </summary>
 sealed class PageScope : IDisposable
 {
+    sealed class LiveItem
+    {
+        public required Func<IDisposable> Subscribe;
+        public required Action Refresh;
+        public IDisposable? Subscription;
+    }
+
     readonly List<Action> _undo = new();
+    readonly List<LiveItem> _live = new();
+    readonly List<Action> _redraws = new();
+    readonly List<PageScope> _children = new();
+    Microsoft.UI.Dispatching.DispatcherQueueTimer? _timer;
+    int _drawn;
+    long _redrawTicks;
     public bool Disposed { get; private set; }
+
+    /// <summary>True while the page is on screen (window shown, not minimised); see the class text.</summary>
+    public bool Active { get; private set; } = true;
+
+    /// <summary>Redraw timer ticks of this scope and its children (see <see cref="Redraws"/>).</summary>
+    public int TotalRedraws => _drawn + _children.Sum(c => c.TotalRedraws);
+
+    /// <summary>Live subscriptions of this scope and its children.</summary>
+    public int TotalLiveSubscriptions => LiveSubscriptions + _children.Sum(c => c.TotalLiveSubscriptions);
+
+    /// <summary>How many redraws the timer ran for this page; a hidden page does not count up (the self-test reads it).</summary>
+    public int Redraws => _drawn;
+
+    /// <summary>Milliseconds spent in this scope's redraws and its children's so far (the CPU check reads it).</summary>
+    public double RedrawMs => _redrawTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency + _children.Sum(c => c.RedrawMs);
+
+    /// <summary>Live bus subscriptions held now (0 while inactive).</summary>
+    public int LiveSubscriptions => _live.Count(l => l.Subscription != null);
+
+    /// <summary>Whether the redraw timer is running.</summary>
+    public bool TimerRunning => _timer?.IsRunning == true;
 
     /// <summary>Calls <paramref name="apply"/> on the UI thread, inside <paramref name="owner"/>'s boundary, whenever the value changes.</summary>
     public void Bind<T>(IObservableValue<T> value, ModuleEntry? owner, Action<T> apply)
@@ -154,10 +194,89 @@ sealed class PageScope : IDisposable
     public void Add(IDisposable d) => _undo.Add(d.Dispose);
     public void Add(Action undo) => _undo.Add(undo);
 
+    /// <summary>
+    /// A subscription that exists only while the page is active: <paramref name="subscribe"/> runs now (when active) and again each time the page
+    /// becomes active; <paramref name="refresh"/> runs right after a re-subscribe, to show what came in meanwhile.
+    /// </summary>
+    public void Live(Func<IDisposable> subscribe, Action refresh)
+    {
+        var item = new LiveItem { Subscribe = subscribe, Refresh = refresh };
+        _live.Add(item);
+        if (Active && !Disposed) item.Subscription = subscribe();
+    }
+
+    /// <summary>How often the charts are drawn again: once per 2-second slot of the history, which is how often a new point can appear (the numbers follow the bus at once).</summary>
+    public static readonly TimeSpan RedrawInterval = TimeSpan.FromSeconds(2);
+
+    /// <summary>A redraw that runs every <see cref="RedrawInterval"/> while the page is active (a chart, a sparkline). Draw once yourself when you create it.</summary>
+    public void Tick(Action redraw)
+    {
+        _redraws.Add(redraw);
+        if (_timer == null && !Disposed)
+        {
+            _timer = Host.Dq.CreateTimer();
+            _timer.Interval = RedrawInterval;
+            _timer.Tick += (_, _) => RunRedraws();
+            if (Active) _timer.Start();
+        }
+    }
+
+    void RunRedraws()
+    {
+        if (Disposed || !Active) return;
+        _drawn++;
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        foreach (var r in _redraws.ToArray())
+        {
+            try { r(); } catch (Exception ex) { AppLog.Warn("a chart redraw failed: " + ex.Message); }
+        }
+        _redrawTicks += System.Diagnostics.Stopwatch.GetTimestamp() - t0;
+    }
+
+    /// <summary>
+    /// A scope that lives inside this one: it follows this page's active state and goes with it, and can be disposed alone (a part of the page that is
+    /// rebuilt lets go of its subscriptions and timer without waiting for the whole page).
+    /// </summary>
+    public PageScope CreateChild()
+    {
+        _children.RemoveAll(c => c.Disposed);
+        var child = new PageScope { Active = Active };
+        _children.Add(child);
+        return child;
+    }
+
+    /// <summary>Redraws everything now (the page became active, or the theme or width changed).</summary>
+    public void RedrawNow() => RunRedraws();
+
+    /// <summary>Tells the page whether it is on screen. Idempotent; UI thread.</summary>
+    public void SetActive(bool active)
+    {
+        if (Disposed || active == Active) return;
+        Active = active;
+        foreach (var c in _children) c.SetActive(active);
+        if (active)
+        {
+            foreach (var l in _live) { l.Subscription?.Dispose(); l.Subscription = l.Subscribe(); l.Refresh(); }
+            _timer?.Start();
+            RunRedraws();
+        }
+        else
+        {
+            _timer?.Stop();
+            foreach (var l in _live) { l.Subscription?.Dispose(); l.Subscription = null; }
+        }
+    }
+
     public void Dispose()
     {
         if (Disposed) return;
         Disposed = true;
+        _timer?.Stop();
+        foreach (var c in _children) c.Dispose();
+        _children.Clear();
+        foreach (var l in _live) { try { l.Subscription?.Dispose(); } catch { } l.Subscription = null; }
+        _live.Clear();
+        _redraws.Clear();
         foreach (var u in _undo) { try { u(); } catch { } }
         _undo.Clear();
     }

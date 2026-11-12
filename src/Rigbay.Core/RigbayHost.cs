@@ -23,6 +23,9 @@ public sealed class RigbayHostOptions
     public TimeSpan InitializeTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(5);
     public LogLevel LogLevel { get; init; } = LogLevel.Info;
+
+    /// <summary>The clock of the metrics bus (sample timestamps and the history); null is the system clock. Tests and screenshots may run it faster.</summary>
+    public Func<DateTimeOffset>? MetricsClock { get; init; }
     public long LogMaxBytes { get; init; } = 1024 * 1024;
 }
 
@@ -77,7 +80,7 @@ public sealed class RigbayHost : IDisposable
         Languages = new LanguageCatalog(_hostLog);
         Languages.LoadEmbedded(typeof(RigbayHost).Assembly, "Rigbay.Core.lang.");
         Languages.LoadDirectory(Paths.UserLanguageDirectory);
-        Metrics = new MetricsBus(Log.ForSource("metrics"));
+        Metrics = new MetricsBus(Log.ForSource("metrics"), options.MetricsClock);
         // metric descriptors carry owner-relative keys: resolve them through the owner's localisation (null owner = the host's own texts)
         Metrics.TextResolver = (owner, key) =>
         {

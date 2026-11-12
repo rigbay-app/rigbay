@@ -1,6 +1,7 @@
 {
   // keys the source builds at run time, or the unused-key scan cannot see
   "dynamic": [
+    "chart.group.*",           // TrendChart: "chart.group." + the unit name
     "metric.*",                // MetricsBus / RigbayHost: "metric." + metric id, the shared label of a built-in metric
     "bay.*",                   // dashboard bay reasons; not spelled in the App source (coordinator: dead keys or built in Core?)
     "row.custom-unavailable",  // not spelled in the App source (coordinator: dead key?)

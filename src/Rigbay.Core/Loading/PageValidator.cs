@@ -53,6 +53,7 @@ public static class PageValidator
             case ButtonRow r when r.InvokeAsync is null: problems.Add($"ButtonRow '{r.HeaderKey}': InvokeAsync is null"); break;
             case ValueRow r when r.Value is null: problems.Add($"ValueRow '{r.HeaderKey}': Value is null"); break;
             case ReadingRow r when r.Metric.Value.Length == 0: problems.Add($"ReadingRow '{r.HeaderKey}': no metric"); break;
+            case ReadingRow r when r.RangeMin is { } lo && r.RangeMax is { } hi && !(lo < hi && double.IsFinite(lo) && double.IsFinite(hi)): problems.Add($"ReadingRow '{r.HeaderKey}': RangeMin must be below RangeMax"); break;
             case CustomRow r when string.IsNullOrWhiteSpace(r.ControlId): problems.Add("a CustomRow has no ControlId"); break;
             case ExpanderRow r:
                 if (r.Children is null) problems.Add($"ExpanderRow '{r.HeaderKey}': Children is null");

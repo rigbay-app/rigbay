@@ -51,7 +51,7 @@ Change (the `impeccable` and `design-taste-frontend` rules, applied to a native 
   reason), failed (with the error and a "view log" action), update available, restart required.
 - **A product-specific element:** the Dashboard is a **bay rack**: one slim row per installed module with its state
   and its one or two most important live readings on the right (for example `CPU 61 °C`, `PL1 45 W`, `Fan auto`),
-  tabular figures, a hairline sparkline. This is what PowerToys does not have, because Rigbay's modules produce
+  tabular figures, a hairline sparkline, built in V1: section 8. This is what PowerToys does not have, because Rigbay's modules produce
   readings (metrics bus). Empty rack = a clear "No modules installed" with one button to the Modules page.
 - Short copy; verbs on buttons; no marketing text in the app.
 
@@ -139,3 +139,30 @@ The spike result decides the exact shape of level 2; level 1 does not depend on 
 - Search: index built at runtime from the page models (cheap) versus build-time XAML index (what PowerToys does).
   Runtime is the only option for modules we do not compile.
 - Whether a module may add its own pane group. Proposed: no, only choose from the fixed list.
+
+## 8. Readings made visual (V1)
+
+Owner feedback, 2026-11-12, on the real machine: the XTU page was a long list of text rows ("no charts, too much text, nothing visual"). Acer's own app shows
+round gauges for CPU, GPU and system temperature. The host now draws a reading four ways, from its own history of the metric (`docs/ABSTRACTIONS.md` 5.7), so every module gets it without a release.
+
+| Where | What | Why this form (data-viz rules) |
+| --- | --- | --- |
+| Row | A hairline **sparkline** left of the number, the last 5 minutes at most | "Change over time" next to a single current value; no axes, the number beside it is the label. 1.5 px line, one end dot. |
+| Page top | Up to four **tiles**: name, big number + small unit, sparkline, a thin meter for a temperature or a percent | A single current value is a stat tile, not a bar. The number wears the text colour; the hue is on the marks. |
+| Page | **One trend chart** with a tab per group (temperature, power, usage, clock, fan speed) and a 1 / 5 / 10 minute range | One axis, never two: a group is one unit. 2 px lines, faint solid hairline grid, a crosshair with a tooltip (time and every value), a legend with the latest values for two or more lines, end dot with a surface ring. |
+| Dashboard | A sparkline between the label and the number of each key reading | What this document promised in section 2; it drops out of a row narrower than 640 px. |
+
+**Tile, not round gauge.** A gauge was considered and left out. It spends about four times the area of a tile on one number, and it shows nothing about where the number is going; at idle a CPU sits
+at 40 to 60 °C, where the needle looks the same all day. A tile gives the same number as large as Acer's, the trend next to it, and a thin meter (0 to 100 °C, or a module's own range) for the
+"how close to the limit" question. A temperature at 90 °C or more adds the word "High" and an icon, so the state is never colour alone. A module that wants a gauge can still build one as a `CustomRow`.
+
+**Colour.** One hue per kind of reading, as before (temperature warm, power blue, speed teal, load amber: `RbReading*Brush`), used for the line, the area (12 %) and the meter of a
+single series. A chart with two or more lines uses the documented categorical order in fixed order (blue, orange, aqua, amber, magenta, green; `RbSeries1..6Brush`), checked with the data-viz validator
+(`validate_palette.js`, light surface `#f9f9f9`, dark `#272727`): all six lightness, chroma, adjacent colour-blind and normal-vision floors pass in both themes; aqua and magenta (light) and amber (light) are below 3:1
+on the light surface, which the rule allows because every line is also named in the legend with its value, in the tooltip and in the page's reading rows (the table view). Text never wears a series colour in the chart.
+Under Windows high contrast every hue becomes the window text colour and the lines are told apart by dash patterns.
+
+**Honest scale.** The scale follows the data with 6 % room but never below a smallest span per unit (10 °C, 10 W, 20 %, 500 rpm, 400 MHz), so 1 W of noise is a flat line, not a full-height one; a percent stays
+inside 0 to 100 and units that cannot go negative stay above zero. A hole in the data (a module that sleeps while nobody looks) is a gap in the line, never an interpolated one. A chart with no data says so ("Collecting readings...").
+
+**Motion.** The block fades in once (160 ms, ease-out) unless the Windows "Animation effects" setting is off; numbers do not tween and lines do not animate. Nothing is drawn or timed while the page is not on screen.

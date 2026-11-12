@@ -128,8 +128,12 @@ public sealed class FanStudioModule : IModule
                 new RowGroup("group.readings", new Row[]
                 {
                     new ReadingRow("row.temp.header", WellKnownMetrics.CpuTemp) { Decimals = 0 },
+                    new ReadingRow("row.power.header", WellKnownMetrics.CpuPower) { Decimals = 1 },
+                    new ReadingRow("row.usage.header", WellKnownMetrics.CpuUsage) { Decimals = 0 },
+                    new ReadingRow("row.clock.header", WellKnownMetrics.CpuClock) { Decimals = 0 },
+                    new ReadingRow("row.pl1-reading.header", WellKnownMetrics.CpuPl1) { Decimals = 0, Tile = TileHint.Never },
                     new ReadingRow("row.fan.header", WellKnownMetrics.CpuFan) { Decimals = 0 },
-                    new ReadingRow("row.pump.header", PumpMetric) { Decimals = 0 },
+                    new ReadingRow("row.pump.header", PumpMetric) { Decimals = 0, Tile = TileHint.Never },
                     new ValueRow("row.last.header", _lastWrite) { DescriptionKey = "row.last.description" },
                 }),
             },
@@ -268,6 +272,11 @@ public sealed class FanStudioModule : IModule
             double rpm = _mode.Value switch { "max" => 5200 + 60 * Math.Sin(n / 3.0), "custom" => 3600 + 80 * Math.Sin(n / 3.0), _ => 2400 + (temp - 55) * 60 + 40 * Math.Sin(n / 4.0) };
             host.Metrics.Publish(WellKnownMetrics.CpuTemp, Math.Round(temp), MetricUnit.Celsius);
             host.Metrics.Publish(WellKnownMetrics.CpuFan, Math.Round(rpm / 10) * 10, MetricUnit.Rpm);
+            // a pretend CPU: package power follows the temperature, load and clock wander on their own, PL1 is the limit the user set (a flat line to read against)
+            host.Metrics.Publish(WellKnownMetrics.CpuPower, Math.Round(24 + (temp - 52) * 2.1 + 3 * Math.Sin(n / 2.3), 1), MetricUnit.Watt);
+            host.Metrics.Publish(WellKnownMetrics.CpuUsage, Math.Round(Math.Clamp(38 + 24 * Math.Sin(n / 7.0) + 9 * Math.Sin(n / 1.7), 2, 98)), MetricUnit.Percent);
+            host.Metrics.Publish(WellKnownMetrics.CpuClock, Math.Round((3500 + 650 * Math.Sin(n / 7.0) + 90 * Math.Sin(n / 1.9)) / 10) * 10, MetricUnit.Megahertz);
+            host.Metrics.Publish(WellKnownMetrics.CpuPl1, _pl1.Value, MetricUnit.Watt);
             if (!_pumpWithdrawn) host.Metrics.Publish(PumpMetric, Math.Round(40 + 10 * Math.Sin(n / 6.0)), MetricUnit.Percent);
         }
         catch (Exception ex) { _host?.Log.Error("tick failed", ex); }   // an exception on our own timer thread would end the process

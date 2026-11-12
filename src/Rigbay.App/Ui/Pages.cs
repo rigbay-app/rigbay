@@ -87,6 +87,13 @@ static class DashboardPage
             foreach (var reading in readings) strip.Children.Add(Reading(e, reading, scope));
             Grid.SetColumn(strip, 3);
             grid.Children.Add(strip);
+            // a narrow window (the pane is open at 640 px): the sparklines make room for the name, the numbers stay
+            grid.SizeChanged += (_, a) =>
+            {
+                var show = a.NewSize.Width >= 640 ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var panel in strip.Children.OfType<StackPanel>())
+                    foreach (var spark in panel.Children.OfType<Sparkline>()) spark.Visibility = show;
+            };
         }
 
         var button = new Button
@@ -115,9 +122,14 @@ static class DashboardPage
             var key = ReadingFormat.IsAvailable(s) ? RowRenderer.ReadingStyle(SemanticColor.Auto, s!.Unit) : "RbSecondaryText";
             if (key != style) { style = key; value.Style = Ui.Style(key); }
         }
-        Show(Host.Core.Metrics.TryGetLatest(reading.Id, out var latest) ? latest : null);
-        scope.Add(Host.Core.Metrics.Subscribe(s => Ui.Post(e, () => { if (!scope.Disposed) Show(s); }), reading.Id));
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { label, value } };
+        MetricSample? Latest() => Host.Core.Metrics.TryGetLatest(reading.Id, out var latest) ? latest : null;
+        Show(Latest());
+        scope.Live(() => Host.Core.Metrics.Subscribe(s => Ui.Post(e, () => { if (!scope.Disposed && scope.Active) Show(s); }), reading.Id), () => Show(Latest()));
+        // the hairline sparkline the design promised, left of the number; it drops out on a narrow row (see Row)
+        var spark = new Sparkline(reading.Id, SemanticColor.Auto, 64, 20);
+        spark.Tag = "rack-spark";
+        scope.Tick(spark.Redraw);
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { label, spark, value } };
     }
 
     /// <summary>Digits after the point named by a descriptor's format hint ("0", "0.0", "F1"); the bay showed whole numbers before, so no hint means 0.</summary>
@@ -133,9 +145,13 @@ static class DashboardPage
 /// <summary>A module's page: the enable row (host-owned), then the module's groups, then its links.</summary>
 static class ModulePage
 {
+    /// <summary>The tiles and chart of the page built last (the self-test looks at them); null when that page had none.</summary>
+    public static ReadingBlock? LastBlock { get; private set; }
+
     public static UIElement Build(ModuleEntry e, PageScope scope, out RowRenderer? renderer)
     {
         renderer = null;
+        LastBlock = null;
         var page = new StackPanel();
 
         var right = new List<UIElement>();
@@ -186,6 +202,12 @@ static class ModulePage
                     break;
                 }
                 renderer = new RowRenderer(e, scope);
+                // tiles and the trend chart come before the rows: the first thing on a page with readings is the readings
+                if (e.Lifecycle == ModuleLifecycle.Running && ReadingBlock.For(e, shown, scope) is { } block)
+                {
+                    page.Children.Add(block);
+                    LastBlock = block;
+                }
                 var groups = renderer.RenderGroups(shown);
                 var host = new ContentControl { Content = groups, HorizontalContentAlignment = HorizontalAlignment.Stretch, IsEnabled = e.Lifecycle == ModuleLifecycle.Running };
                 page.Children.Add(host);

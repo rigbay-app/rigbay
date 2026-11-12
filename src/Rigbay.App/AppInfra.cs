@@ -19,12 +19,21 @@ static class AppPaths
         if (!string.IsNullOrWhiteSpace(modulesRoot)) ModulesRoot = Path.GetFullPath(modulesRoot);
     }
 
-    public static RigbayHostOptions HostOptions() => new()
+    /// <summary>Test switch <c>--time-scale</c>: the metrics clock runs this many times faster than real time (1 = real). Only for screenshots, so a chart of five minutes can be shown after one.</summary>
+    public static double TimeScale { get; set; } = 1;
+
+    public static RigbayHostOptions HostOptions()
     {
-        ModulesRoot = ModulesRoot,
-        DataRoot = DataRoot,
-        HostVersion = Version,
-    };
+        var start = DateTimeOffset.Now;
+        var scale = TimeScale;
+        return new()
+        {
+            ModulesRoot = ModulesRoot,
+            DataRoot = DataRoot,
+            HostVersion = Version,
+            MetricsClock = scale > 1.0001 ? () => start + (DateTimeOffset.Now - start) * scale : null,
+        };
+    }
 
     public static Version Version { get; } = typeof(AppPaths).Assembly.GetName().Version is { } v ? new Version(v.Major, v.Minor, Math.Max(0, v.Build)) : new Version(0, 1, 1);
 }

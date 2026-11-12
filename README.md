@@ -7,9 +7,11 @@ own repository and can be installed, updated or removed from inside the app.
 Status: **pre-release (v0.1.1).** The host app, the module contract and the core run and are tested; the first modules (XTU profiles, PredatorSense,
 recorder, Steam access) are released separately. See Install below.
 
-![Rigbay dashboard with the demo modules, dark theme](tools/shots/hero-dark.png)
+![A module page with reading tiles and a trend chart, dark theme](tools/shots/hero-dark.png)
 
-<sub>Screenshots are rendered from the app window by `tools/shots.ps1` against the demo modules of this repository, not real hardware modules. Light theme and Vietnamese versions are in `tools/shots/` (for example `dashboard-light.png`, `dashboard-vi-dark.png`).</sub>
+![The trend chart live (animation)](tools/shots/visual-live.gif)
+
+<sub>Screenshots are rendered from the app window by `tools/shots.ps1` against the demo modules of this repository, not real hardware modules. The numbers are made up by the demo module. Light theme and Vietnamese versions are in `tools/shots/` (for example `visual-module-light.png`, `module-vi-dark.png`, `dashboard-light.png`, `dashboard-vi-dark.png`).</sub>
 
 ## Install
 
