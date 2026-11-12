@@ -32,7 +32,7 @@ signed in as an account that can create releases in the module repository and op
 ## 3. Checklist before the zip
 
 - [ ] The module's `main` HEAD is pushed and its GitHub Actions run for **that commit** is green (the script refuses otherwise).
-- [ ] `module.json`: `version` is the version to release and is not already released; `hostApi` is the range the module was built and tried against; `requires` says everything the module reads or writes (the registry's `declares` is copied from it, and the app refuses a module that declares more than the registry says).
+- [ ] `module.json`: `version` is the version to release and is not already released; `hostApi` is the range the module was built and tried against (`>=0.1.n <0.2` when it uses a member added in host API revision `n`, `docs/ABSTRACTIONS.md` 11; check that the host that has revision `n` is already released, because older hosts ignore the revision); `requires` says everything the module reads or writes (the registry's `declares` is copied from it, and the app refuses a module that declares more than the registry says).
 - [ ] The README says honestly what was verified and what was not (the release notes copy it). Do it before the release: the zip cannot change after the tag, and the README on `main` is what people read next to it.
 - [ ] The host pin (`external/rigbay`) is a commit on `rigbay-app/rigbay` `main` that a fresh clone can fetch (CI proves it).
 - [ ] No secrets, no personal paths, no vendor files in the repository (`docs/MODULE-REPOS.md`, "What you do by hand before the push"). The script also looks inside every file of the zip for the scratch folder, the user profile, the user name and the machine name.
@@ -151,7 +151,7 @@ nobody automated, and it is the one that proves the user experience.
 
 ## 9. Cutting v0.1.1 (a fix or a new version)
 
-1. In the module repository: fix, tests, bump `version` in `module.json` (and `<Version>` in `Directory.Build.props`, if it has one) to `0.1.1`; keep `hostApi` unless the contract changed. If `requires` changed, say so in the notes: a wider
+1. In the module repository: fix, tests, bump `version` in `module.json` (and `<Version>` in `Directory.Build.props`, if it has one) to `0.1.1`; keep `hostApi` unless the contract changed or the fix starts to use a newer member (then `>=0.1.n <0.2`). If `requires` changed, say so in the notes: a wider
    declaration makes the app turn the module off and ask again after the update. A normal commit, never a force-push.
 2. Push, wait for CI to be green on that commit. Update the README's "Verified and not verified" if it changed.
 3. `package-module.ps1 -Repo ... -CheckReproducible` (sections 3 and 4). The zip is named `<id>-0.1.1.zip`.

@@ -45,7 +45,7 @@ change any GitHub setting.)
 | `icon` | Optional. A `.svg` or `.png` on `raw.githubusercontent.com` or `github.com`. **Read and validated but not fetched in this version** (the host would have to download and sanitise an image from the network before drawing it); after install the module's own icon files are used. |
 | `versions` | At least one, at most 200, **oldest first, strictly ascending** semantic versions. |
 | `version` | Semantic Version 2.0; equal to the `version` of the `module.json` in the zip. |
-| `hostApi` | The host API range the release supports (`docs/ABSTRACTIONS.md` 11). A release whose range does not contain this host's API is not offered ("Needs host API ..."). |
+| `hostApi` | The host API range the release supports (`docs/ABSTRACTIONS.md` 11), the same text as the `module.json` in the zip. `major.minor` means any revision (`>=0.1 <0.2`); `major.minor.revision` needs a host of that revision or more (`>=0.1.2 <0.2`, for a module that uses a member added in revision 2). A release whose range does not contain this host's API is not offered ("Needs host API 0.1.2 or newer" when only the revision is too low, else "Needs host API ..."). **Hosts 0.1.0 and 0.1.1 ignore the revision** and would offer such a release anyway, so a module that needs a revision is released only after a host that has it. The entry needs no extra field. |
 | `zip` | `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.zip` where owner and repo are those of `repo` (case ignored); no query, no port, no user, no encoded dots or slashes. |
 | `sha256` | 64 lowercase hex digits; compared with the download **before** it is unpacked. |
 | `size` | 1 to 64 MB; the download must be exactly this long. |
@@ -57,7 +57,7 @@ Unknown fields are ignored by the app (a newer registry may add some) and refuse
 ## 2. How the app chooses a release
 
 For each module the app takes the newest release whose `hostApi` contains the host API and that is not a prerelease; when a module has only prereleases that
-fit, the newest of those. A module with no fitting release is listed as "Needs host API ..." with no Install button. An installed module is offered an
+fit, the newest of those. A module with no fitting release is listed as "Needs host API ..." with no Install button. The revision counts: a release of `>=0.1.3 <0.2` is not chosen by a host whose API is `0.1.2`, and an older release that fits is chosen instead. An installed module is offered an
 update when that release is newer than the installed version. A release with a lower version than the installed one is never an update.
 
 ## 3. The check (`rigbay-app/registry`, `.github/workflows/validate.yml`)

@@ -120,7 +120,7 @@ async Task<int> VerifyZip(string zipPath, string repo)
     if (!parsed.IsValid) return 1;
     var module = parsed.Document!.Modules[0];
     var version = module.Versions[0];
-    Check(version.SupportsHost(HostApi.Current), $"hostApi {version.HostApi} contains this host's API {HostApi.Current.Major}.{HostApi.Current.Minor}");
+    Check(version.SupportsHost(HostApi.Current), $"hostApi {version.HostApi} contains this host's API {HostApi.Current}");
 
     // --- install through the real ModuleInstaller (fake HTTP: the release address answers with this file)
     async Task<(bool ok, InstallErrorCode? code, string text)> TryInstall(string name, RegistryModule m, RegistryVersion v)
@@ -184,7 +184,7 @@ async Task<int> VerifyRegistry(string url, string? expect)
         Console.WriteLine();
         Console.WriteLine($"{m.Id} {v.Version}: {v.Zip}");
         Info($"registry says sha256 {v.Sha256}, size {v.Size}, hostApi {v.HostApi}, offered by this host: {v.SupportsHost(HostApi.Current)}");
-        Check(v.SupportsHost(HostApi.Current), $"{m.Id}: the release fits host API {HostApi.Current.Major}.{HostApi.Current.Minor}");
+        Check(v.SupportsHost(HostApi.Current), $"{m.Id}: the release fits host API {HostApi.Current}");
         var env = new Env(Path.Combine(scratch, m.Id), policy, null);   // the real network
         try
         {

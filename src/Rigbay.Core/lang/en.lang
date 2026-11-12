@@ -6,6 +6,7 @@
 
 core.reason.manifest-invalid = The module manifest is not valid: {0}
 core.reason.api-mismatch = Needs host API {0}, this host is API {1}
+core.reason.api-revision = Needs host API {0} or newer, this host is API {1}
 core.reason.abstractions-newer = Built for a newer Rigbay.Abstractions ({0}) than this host ({1})
 core.reason.load-failed = The module could not be loaded: {0}
 core.reason.fault = The module failed in {0}: {1}

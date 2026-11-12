@@ -176,7 +176,11 @@ public sealed class ModuleEntry
 
         if (!m.HostApi.Contains(HostApi.Current))
         {
-            SetState(ModuleLifecycle.Incompatible, ModuleReason.Host("core.reason.api-mismatch", m.HostApi.Text, HostApi.Current.ToString()));
+            // The range fits this major.minor but names a higher revision: say "or newer" instead of repeating the range.
+            if (m.HostApi.NeededRevision(HostApi.Current) is { } needed)
+                SetState(ModuleLifecycle.Incompatible, ModuleReason.Host("core.reason.api-revision", needed.ToString(), HostApi.Current.ToString()));
+            else
+                SetState(ModuleLifecycle.Incompatible, ModuleReason.Host("core.reason.api-mismatch", m.HostApi.Text, HostApi.Current.ToString()));
             Log.Warn($"refused: needs host API {m.HostApi}, this host is {HostApi.Current}");
             return;
         }

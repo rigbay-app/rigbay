@@ -58,7 +58,7 @@ folders as before.
 
 ## 4. What happens when you press Install
 
-1. **Before any request:** the module is not installed, no change to it is waiting, the release fits this host API (`hostApi` of the registry entry), and
+1. **Before any request:** the module is not installed, no change to it is waiting, the release fits this host API (`hostApi` of the registry entry, revision included), and
    the zip address is `https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.zip` of the entry's own repository. One change runs at a time.
 2. **Download** to `downloads\<op>.zip`, HTTPS only, from `github.com`; at most 3 redirects, each only to `github.com`, `objects.githubusercontent.com` or
    `release-assets.githubusercontent.com` over HTTPS (a redirect anywhere else, to plain HTTP, or a fourth one ends the download). Nothing is sent but
@@ -68,7 +68,7 @@ folders as before.
 3. **SHA-256** of the file equals the registry value, or the install ends here (`HashMismatch`), before the zip is opened.
 4. **Unpack** into a new staging folder named like the module (section 5).
 5. **Check the manifest** inside: valid by the loader's own reader; same `id` and `version` as the registry entry (said as "the zip holds module X, the
-   registry entry is Y"); its `hostApi` range contains this host's API; and what it declares (`requires.admin`, `network`, `registry`, `services`,
+   registry entry is Y"); its `hostApi` range contains this host's API (revision included: "needs host API 0.1.3 or newer, this is 0.1.2"); and what it declares (`requires.admin`, `network`, `registry`, `services`,
    `probePaths`) is **equal to or narrower than** the entry's `declares`. Anything wider ends the install (`DeclaresWider`, with what was extra).
 6. **Park:** `staging\<op>\<id>` is renamed to `ready\<id>`, a hash of the whole tree is recorded, and the change is written to `pending.json`. The modules folder
    has not been touched. The page shows **Restart required** (an amber bar with Restart now, a dot on Modules in the pane); the module's row says it

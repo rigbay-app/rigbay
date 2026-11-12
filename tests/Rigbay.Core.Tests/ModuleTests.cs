@@ -113,6 +113,39 @@ public class LoadingTests
     }
 
     [Fact]
+    public void A_module_that_needs_a_newer_revision_of_this_minor_is_refused_with_the_revision_named()
+    {
+        var needed = $"0.1.{HostApi.Revision + 1}";
+        using var env = new TestEnv();
+        env.AddModule("faulty", behavior: "ctor-throws",
+            editManifest: json => json.Replace(">=0.1 <0.2", $">={needed} <0.2"));
+        using var host = env.NewHost();
+        host.Discover();
+
+        var m = host.Modules.Single();
+        Assert.Equal(ModuleLifecycle.Incompatible, m.Lifecycle);
+        Assert.False(m.HasLoadedCode);
+        Assert.Equal(BayState.Unsupported, m.Bay.State);
+        var reason = m.ResolveReason(m.Bay.Reason!);
+        Assert.Equal($"Needs host API {needed} or newer, this host is API {HostApi.Current}", reason);
+        host.Languages.SetLanguage("vi");
+        Assert.Equal($"Cần API máy chủ {needed} trở lên, bản này là API {HostApi.Current}", m.ResolveReason(m.Bay.Reason!));
+        Assert.False(m.Enable());
+    }
+
+    [Fact]
+    public void A_module_that_needs_exactly_this_revision_still_loads()
+    {
+        using var env = new TestEnv();
+        env.AddModule("sample", editManifest: json => System.Text.RegularExpressions.Regex.Replace(json, @"""hostApi"":\s*""[^""]*""", $"\"hostApi\": \">=0.1.{HostApi.Revision} <0.2\""));
+        using var host = env.NewHost();
+        host.Discover();
+        var m = host.Modules.Single();
+        Assert.Equal(ModuleLifecycle.Off, m.Lifecycle);
+        Assert.Equal($">=0.1.{HostApi.Revision} <0.2", m.Manifest!.HostApi.Text);
+    }
+
+    [Fact]
     public void An_invalid_manifest_shows_every_problem_and_loads_nothing()
     {
         using var env = new TestEnv();

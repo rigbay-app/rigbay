@@ -250,6 +250,39 @@ public class InstallerTests : IDisposable
     }
 
     [Fact]
+    public async Task A_registry_release_that_needs_a_newer_revision_is_refused_before_any_download_and_says_so()
+    {
+        _env.HostApi = new Version(0, 1, 2); // a host of revision 2
+        var newer = M with { HostApi = ">=0.1.3 <0.2" };
+        var zip = newer.Zip();
+        var entry = _env.Entry(newer, zip);
+        var ex = await Fails(Install(entry), InstallErrorCode.IncompatibleHostApi);
+        Assert.Contains("needs host API 0.1.3 or newer, this is 0.1.2", ex.Message);
+        Assert.Empty(_env.Http.Requests);
+    }
+
+    [Fact]
+    public async Task A_manifest_that_needs_a_newer_revision_than_the_registry_said_is_refused()
+    {
+        _env.HostApi = new Version(0, 1, 2);
+        var zip = (M with { HostApi = ">=0.1.3 <0.2" }).Zip();
+        _env.ServeZip(M, zip);
+        var entry = _env.Entry(M, zip, v => RegistryEdit.Set(v, "sha256", ZipKit.Sha256(zip))); // the registry says ">=0.1 <0.2"
+        var ex = await Fails(Install(entry), InstallErrorCode.IncompatibleHostApi);
+        Assert.Contains("needs host API 0.1.3 or newer, this is 0.1.2", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_release_that_names_exactly_the_hosts_revision_installs()
+    {
+        _env.HostApi = new Version(0, 1, 3);
+        var exact = M with { HostApi = ">=0.1.3 <0.2" };
+        var zip = exact.Zip();
+        _env.ServeZip(exact, zip);
+        await Install(_env.Entry(exact, zip));
+    }
+
+    [Fact]
     public async Task A_registry_release_for_another_host_api_is_refused_before_any_download()
     {
         var other = M with { HostApi = ">=0.2 <0.3" };

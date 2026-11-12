@@ -59,6 +59,7 @@ renames the id, the namespace (`FanTools`), the folders and the texts, refuses t
 `module.json` is read before any code is loaded. The fields are in [ABSTRACTIONS.md](ABSTRACTIONS.md) section 2.1. The ones people get wrong:
 
 - `hostApi`: `">=0.1 <0.2"` while the host API is 0.x; any minor version of 0.x may break modules, so you rebuild for each.
+  If you use a member added after the first release (a revision of the host API: `ToastMessage.Origin` is `0.1.1`, the `ReadingRow` hints are `0.1.2`), declare `">=0.1.n <0.2"`; the list is in [ABSTRACTIONS.md](ABSTRACTIONS.md) section 11.
 - `group`: one of `power`, `cooling`, `network`, `display`, `monitoring`, `other`. You cannot add a group.
 - `requires`: **write down everything the module reads or writes**: `admin` (does the module depend on being elevated), `network` (ports, hosts), `registry`
   (keys, and whether read or write), `services` (Windows services it talks to), and `probePaths` for files it loads from another product's folder.

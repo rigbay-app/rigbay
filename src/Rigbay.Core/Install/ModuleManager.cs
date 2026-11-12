@@ -277,7 +277,7 @@ public sealed class ModuleManager
         {
             var newest = module.Newest;
             throw new InstallException(newest is null ? InstallErrorCode.NoVersion : InstallErrorCode.IncompatibleHostApi,
-                newest is null ? "the registry lists no release" : $"no release supports this Rigbay (latest {newest.Version} needs host API {newest.HostApi})");
+                newest is null ? "the registry lists no release" : $"no release supports this Rigbay (latest {newest.Version} {HostApiText.Needs(newest.HostApiRange, _hostApi)})");
         }
         return (module, version);
     }

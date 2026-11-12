@@ -177,11 +177,93 @@ public class ApiVersionTests
         Assert.False(string.IsNullOrEmpty(error));
     }
 
-    [Fact]
-    public void The_current_version_is_0_1_and_the_check_uses_it()
+    // The host's third number is a revision; a range that does not write one means any revision.
+    [Theory]
+    [InlineData(">=0.1 <0.2", "0.1.0", true)]
+    [InlineData(">=0.1 <0.2", "0.1.7", true)]
+    [InlineData(">=0.1 <0.2", "0.1", true)]
+    [InlineData(">=0.1.0 <0.2", "0.1.0", true)]
+    [InlineData(">=0.1.2 <0.2", "0.1.1", false)]
+    [InlineData(">=0.1.2 <0.2", "0.1.2", true)]
+    [InlineData(">=0.1.2 <0.2", "0.1.9", true)]
+    [InlineData(">=0.1.2 <0.2", "0.1", false)]
+    [InlineData(">=0.1.2 <0.2", "0.2.0", false)]
+    [InlineData(">=0.1.2 <0.2", "0.2.5", false)]
+    [InlineData(">=0.1.2", "0.2.0", true)]
+    [InlineData(">=0.1.2", "1.0.0", true)]
+    [InlineData("=0.1", "0.1.5", true)]
+    [InlineData("=0.1.2", "0.1.2", true)]
+    [InlineData("=0.1.2", "0.1.3", false)]
+    [InlineData("=0.1.2", "0.1.1", false)]
+    [InlineData(">0.1", "0.1.5", false)]
+    [InlineData(">0.1.2", "0.1.2", false)]
+    [InlineData(">0.1.2", "0.1.3", true)]
+    [InlineData(">0.1.2", "0.2.0", true)]
+    [InlineData("<=0.1", "0.1.9", true)]
+    [InlineData("<=0.1.2", "0.1.2", true)]
+    [InlineData("<=0.1.2", "0.1.3", false)]
+    [InlineData("<0.1.2", "0.1.1", true)]
+    [InlineData("<0.1.2", "0.1.2", false)]
+    [InlineData("<0.1.2", "0.0.9", true)]
+    [InlineData(">=0.1.1 <=0.1.3", "0.1.2", true)]
+    [InlineData(">=0.1.1 <=0.1.3", "0.1.4", false)]
+    [InlineData(">=0.1.02 <0.2", "0.1.2", true)]
+    [InlineData("0.1.2", "0.1.2", true)]
+    public void Revisions_count_only_when_the_range_writes_one(string range, string host, bool expected)
     {
-        Assert.Equal(new Version(0, 1), HostApi.Current);
+        Assert.True(ApiVersionRange.TryParse(range, out var parsed, out var error), error);
+        Assert.Equal(expected, parsed.Contains(Version.Parse(host)));
+    }
+
+    [Theory]
+    [InlineData(">=0.1.3 <0.2", "0.1.2", "0.1.3")]
+    [InlineData(">=0.1.3 <0.2", "0.1", "0.1.3")]
+    [InlineData(">=0.1.2 >=0.1.5 <0.2", "0.1.1", "0.1.5")]
+    [InlineData(">0.1.2 <0.2", "0.1.2", "0.1.3")]
+    [InlineData("=0.1.4", "0.1.2", "0.1.4")]
+    [InlineData(">=0.1.3 <0.2", "0.1.3", null)] // accepted: nothing needed
+    [InlineData("=0.1.1", "0.1.2", null)] // too new, not too old
+    [InlineData(">=0.2 <0.3", "0.1.2", null)] // another minor, not a revision problem
+    [InlineData(">=0.1.3 <0.1.5", "0.1.7", null)] // too new
+    [InlineData(">=0.1.3 <0.1.5", "0.2.0", null)]
+    [InlineData(">=0.2.1 <0.3", "0.1.2", null)] // a revision of another minor does not count
+    public void A_revision_that_is_too_low_is_named(string range, string host, string? expected)
+    {
+        Assert.True(ApiVersionRange.TryParse(range, out var parsed, out var error), error);
+        var needed = parsed.NeededRevision(Version.Parse(host));
+        Assert.Equal(expected is null ? null : Version.Parse(expected), needed);
+    }
+
+    [Theory]
+    [InlineData(">=0.1.")]
+    [InlineData(">=0..2")]
+    [InlineData(">=0.1.x")]
+    [InlineData(">=0.1.-1")]
+    [InlineData(">=0.1.2.0")]
+    [InlineData(">=0.1.99999999999")]
+    public void Malformed_revisions_are_refused(string range)
+    {
+        Assert.False(ApiVersionRange.TryParse(range, out _, out var error));
+        Assert.False(string.IsNullOrEmpty(error));
+    }
+
+    [Fact]
+    public void The_range_text_keeps_the_revision_as_written()
+    {
+        Assert.True(ApiVersionRange.TryParse("  >=0.1.2    <0.2 ", out var parsed, out _));
+        Assert.Equal(">=0.1.2 <0.2", parsed.Text);
+    }
+
+    [Fact]
+    public void The_current_version_is_0_1_with_the_revision_of_this_contract()
+    {
+        Assert.Equal(new Version(0, 1, HostApi.Revision), HostApi.Current);
+        Assert.Equal(2, HostApi.Revision); // 0.1.0 = released hosts 0.1.0 and 0.1.1, 1 = N1 (ToastMessage.Origin), 2 = V1 (ReadingRow hints)
+        Assert.Equal(HostApi.Revision, HostApi.RevisionOf(HostApi.Current));
+        Assert.Equal(0, HostApi.RevisionOf(new Version(0, 1)));
         Assert.True(HostApi.IsSupported(">=0.1 <0.2"));
+        Assert.True(HostApi.IsSupported($">=0.1.{HostApi.Revision} <0.2"));
+        Assert.False(HostApi.IsSupported($">=0.1.{HostApi.Revision + 1} <0.2"));
         Assert.False(HostApi.IsSupported(">=0.2"));
         Assert.False(HostApi.IsSupported("nonsense"));
         Assert.False(HostApi.IsSupported(null));
