@@ -567,6 +567,7 @@ static class ModulesPage
                 PrimaryButtonText = Host.T("modules.remove"), CloseButtonText = Host.T("approval.cancel"), DefaultButton = ContentDialogButton.None, PrimaryButtonStyle = Ui.Style("AccentButtonStyle"),
                 RequestedTheme = ((FrameworkElement)Host.Window!.Content).ActualTheme,
             };
+            FocusCancelOnOpen(dialog);
             if (await dialog.ShowAsync() == ContentDialogResult.Primary) await _m.RemoveAsync(e.Id);
             else Host.Window.RefreshPageKeepingView();   // the button was disabled at the click
         }
@@ -587,9 +588,26 @@ static class ModulesPage
                     PrimaryButtonText = Host.F("modules.update-to", update.Version), CloseButtonText = Host.T("approval.cancel"), DefaultButton = ContentDialogButton.None, PrimaryButtonStyle = Ui.Style("AccentButtonStyle"),
                     RequestedTheme = ((FrameworkElement)Host.Window!.Content).ActualTheme,
                 };
+                FocusCancelOnOpen(dialog);
                 if (await dialog.ShowAsync() != ContentDialogResult.Primary) { Host.Window.RefreshPageKeepingView(); return; }
             }
             await _m.UpdateAsync(e.Id);
+        }
+
+        /// <summary>
+        /// DL-1: the action wears the accent and Enter must still be safe. With no default button a dialog puts the focus on its first button (the
+        /// action), so the focus is moved to Cancel when it opens. The same rule as package C's Dialogs.Confirm; call that instead once both are on main.
+        /// </summary>
+        static void FocusCancelOnOpen(ContentDialog dialog)
+        {
+            void Try(int attempt)
+            {
+                var close = SelfTest.Find<Button>(dialog).FirstOrDefault(b => b.Name == "CloseButton" && b.Visibility == Visibility.Visible);
+                if (close != null && close.Focus(FocusState.Programmatic)) return;
+                if (attempt < 8) dialog.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => Try(attempt + 1));
+                else AppLog.Warn($"dialog '{dialog.Title}': Cancel could not take the focus");
+            }
+            dialog.Opened += (_, _) => Try(0);
         }
 
         static async Task Safe(Func<Task> work)
