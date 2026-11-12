@@ -30,6 +30,14 @@ static class SelfTest
         AppLog.Info(line);
     }
 
+    /// <summary>A check that was not run, with the reason; counted neither as passed nor as failed.</summary>
+    static void Skip(string name, string why)
+    {
+        var line = $"SELFTEST SKIP {name}: {why}";
+        Lines.Add(line);
+        AppLog.Info(line);
+    }
+
     public static async Task Run(MainWindow w)
     {
         try { await RunAll(w); }
@@ -162,12 +170,17 @@ static class SelfTest
         await InstallChecks(w);
 
         // ---------------------------------------------------------------- single instance
-        await SingleInstanceCheck(w);
+        // with --allow-multi another Rigbay may be running (the owner's own): a second start would show its window, so the check is not run
+        if (Host.Options.AllowMulti) Skip("single instance: the second start exits and shows the first", "--allow-multi: another Rigbay may own the single-instance lock");
+        else await SingleInstanceCheck(w);
 
         w.Navigate("log");
         await Settle(600);
-        var logBox = Find<TextBox>(w.PageContent).FirstOrDefault();
-        R("log page shows the host log", logBox?.Text.Contains("SELFTEST") == true && logBox.Text.Contains("module disabled"), $"{logBox?.Text.Length} characters; has SELFTEST lines and the fault lines");
+        // LG-1: the log is a list of lines (the level and source filters start at All)
+        LogPage.Level = LogPage.Filter.All; LogPage.Source = null;
+        w.Navigate("log"); await Settle(600);
+        var logLines = LogPage.Shown.Select(AppLog.FormatLine).ToList();
+        R("log page shows the host log", LogPage.LastList?.Items.Count == logLines.Count && logLines.Any(l => l.Contains("SELFTEST")) && logLines.Any(l => l.Contains("module disabled")), $"{logLines.Count} lines in the list; has SELFTEST lines and the fault lines");
         w.Navigate("dashboard");
     }
 
@@ -318,8 +331,11 @@ static class SelfTest
         var texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
         R("dashboard: readings carry labels (module descriptor, host text)", texts.Contains("Pump") && texts.Contains("CPU") && !texts.Contains("demo-fan.pump") && !texts.Contains("cpu.temp"), "labels: " + string.Join(" | ", texts.Where(t => t is "Pump" or "CPU" or "demo-fan.pump" or "cpu.temp")));
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "off" }); await Settle(500);
-        texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
-        R("dashboard: a withdrawn reading shows Not available", texts.Contains(na) && !core.Metrics.TryGetLatest(new MetricId("demo-fan.pump"), out _), $"text '{na}' present={texts.Contains(na)}");
+        // DB-2: a reading that is not available is left out (no "Not available" on the Dashboard); the page redraws after the bus says so
+        for (int i = 0; i < 12 && Find<TextBlock>(w.PageContent).Any(t => t.Text is "Pump"); i++) await Settle(250);
+        // only text that is drawn: a tile keeps a collapsed "Not available" for the moment its reading goes
+        texts = Find<TextBlock>(w.PageContent).Where(t => t.Visibility == Visibility.Visible && Ancestors(t).OfType<UIElement>().All(a => a.Visibility == Visibility.Visible)).Select(t => t.Text).ToList();
+        R("dashboard: a withdrawn reading is left out", !texts.Contains(na) && !texts.Contains("Pump") && texts.Contains("CPU") && !core.Metrics.TryGetLatest(new MetricId("demo-fan.pump"), out _), $"text '{na}' present={texts.Contains(na)}, label Pump present={texts.Contains("Pump")}, CPU present={texts.Contains("CPU")}");
         w.Navigate(fan); await Settle(500);
         R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(500);
@@ -582,6 +598,8 @@ static class SelfTest
                 listed.Split('\n').Any(l => l.StartsWith("demo-future") && (l.Contains("  enabled") || l.Contains("  disabled"))) && listed.Contains("demo-fan  "), listed.ReplaceLineEndings(" | "));
         }
         await Cmd("hardware verb refused without approval", new[] { "demo-fan", "max" }, 1);
+        // with --allow-multi this instance has no pipe; the pipe of that name belongs to another Rigbay (maybe the owner's own), which must not get commands
+        if (Host.Options.AllowMulti) { Skip("command: forwarded to the running instance over the pipe", "--allow-multi: the pipe belongs to another Rigbay"); return; }
         var piped = await InstanceServer.SendAsync(new[] { "cmd", "demo-fan", "status" });
         R("command: forwarded to the running instance over the pipe", piped is { Exit: 0 } && piped.Value.Output.Contains("mode="), $"{piped?.Exit} '{piped?.Output}'");
     }

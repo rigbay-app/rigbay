@@ -128,7 +128,64 @@ sealed class TrayHost
     public bool IsAdded => _added == 1;
     public uint TaskbarCreatedMessage => _taskbarCreated;
 
-    string Tip => "Rigbay";
+    /// <summary>The tooltip now on the icon: "Rigbay" and a line per running module that has something to say (TR-1).</summary>
+    public string Tip { get; private set; } = "Rigbay";
+
+    /// <summary>The longest tooltip the shell takes (szTip is 128 characters with the terminating zero).</summary>
+    public const int MaxTip = 127;
+
+    /// <summary>
+    /// "Rigbay", then the first two running modules that have a state line or a reading: "Balanced · CPU 82 °C", "Fans Auto · CPU fan 3,448 rpm".
+    /// A figure already said on an earlier line is not repeated. At most <see cref="MaxTip"/> characters.
+    /// </summary>
+    public static string BuildTip(RigbayHost core)
+    {
+        var lines = new List<string> { "Rigbay" };
+        var said = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var e in core.Modules)
+        {
+            if (e.Lifecycle != ModuleLifecycle.Running) continue;
+            var parts = new List<string>();
+            try
+            {
+                if (e.Page?.Summary?.StateLine is { } line && e.Localisation.Resolve(line.Value) is { Length: > 0 } state) parts.Add(state);
+                foreach (var r in e.GetSummaryReadings())
+                {
+                    if (!said.Add(r.Id.Value) || !core.Metrics.TryGetLatest(r.Id, out var latest) || !ReadingFormat.IsAvailable(latest)) continue;
+                    parts.Add(DashboardPage.ShortLabel(r) + " " + ReadingFormat.Format(core.Languages, latest, DashboardPage.DecimalsOf(r.FormatHint)));
+                }
+            }
+            catch (Exception ex) { AppLog.Warn("tray tip: " + e.Id + " could not be summarised", ex); }
+            if (parts.Count == 0) continue;
+            lines.Add(string.Join(" · ", parts));
+            if (lines.Count == 3) break;
+        }
+        var tip = string.Join("\n", lines);
+        return tip.Length <= MaxTip ? tip : tip[..(MaxTip - 1)] + "…";
+    }
+
+    Microsoft.UI.Dispatching.DispatcherQueueTimer? _tipTimer;
+
+    /// <summary>Puts a new tooltip on the icon when the text changed. UI thread.</summary>
+    public void UpdateTip()
+    {
+        string tip;
+        try { tip = BuildTip(_m); } catch (Exception ex) { AppLog.Warn("tray tip failed", ex); return; }
+        if (tip == Tip) return;
+        Tip = tip;
+        if (_added == 1 && _icon != 0) Native.TrayModify(_hwnd, _icon, Tip);
+    }
+
+    /// <summary>Keeps the tooltip current: every 5 s (readings move), and at once when <see cref="UpdateTip"/> is called for a module change.</summary>
+    public void StartTipUpdates()
+    {
+        if (_tipTimer != null) return;
+        _tipTimer = Host.Dq.CreateTimer();
+        _tipTimer.Interval = TimeSpan.FromSeconds(5);
+        _tipTimer.Tick += (_, _) => UpdateTip();
+        _tipTimer.Start();
+        UpdateTip();
+    }
 
     public bool Add()
     {
@@ -150,6 +207,7 @@ sealed class TrayHost
 
     public void Remove()
     {
+        _tipTimer?.Stop();
         if (_added == 1) Native.TrayRemove(_hwnd);
         _added = 0;
         if (_icon != 0) { Native.DestroyIcon(_icon); _icon = 0; }
