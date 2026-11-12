@@ -687,7 +687,7 @@ static class SelfTest
         core.SetLanguage("vi");
         await Settle(700);
         var dash = w.NavItems().FirstOrDefault(i => (i.Tag as string) == "dashboard")?.Content?.ToString();
-        R("language: host strings switch without restart", dash == "Bảng điều khiển", $"Dashboard item reads '{dash}'");
+        R("language: host strings switch without restart", dash == "Tổng quan", $"Dashboard item reads '{dash}'");
         R("language: module keys switch too", fan.Localisation.T("row.mode.header") == "Chế độ quạt" && w.SearchFor("quạt").Any(), $"'{fan.Localisation.T("row.mode.header")}'; search 'quạt' -> {w.SearchFor("quạt").Count()} hits");
         w.Navigate(fan);
         await Settle(700);

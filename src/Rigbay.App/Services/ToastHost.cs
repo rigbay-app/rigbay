@@ -134,6 +134,17 @@ sealed class ToastHost : IToastSink
     public void Show(string moduleId, string title, string body, ToastKind kind)
     {
         var name = Host.Core.Find(moduleId)?.DisplayName ?? moduleId;
-        Show(name + ": " + title, body, kind);
+        Show(TitleFor(name, title), body, kind);
+    }
+
+    /// <summary>
+    /// "Module: title", the title line of a notification and of the in-window message. A title that only repeats the module's name
+    /// ("Fan studio" from "Fan studio (demo)") is not said twice.
+    /// </summary>
+    public static string TitleFor(string moduleName, string title)
+    {
+        title = title.Trim();
+        if (title.Length == 0 || moduleName.StartsWith(title, StringComparison.CurrentCultureIgnoreCase)) return moduleName;
+        return moduleName + ": " + title;
     }
 }
