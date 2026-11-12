@@ -3,8 +3,10 @@
 # Every shot runs against neutral scratch folders (default C:\Rigbay-demo: a copy of the demo modules, one data folder per shot), so no
 # developer path, user name or machine name reaches a PNG: the Settings page and the log print the folders they use.
 # The app makes the scratch folders admin-only; remove them afterwards with tools\remove-elevated.ps1-style elevated delete.
+# -ShotMode rtb renders with RenderTargetBitmap (content and open dialogs, no Mica, no caption buttons) instead of PrintWindow: use it when
+# PrintWindow comes back black, which it does while the display is asleep.
 [CmdletBinding(PositionalBinding=$false)]
-param([string]$Out = '', [string]$Demo = 'C:\Rigbay-demo', [Parameter(ValueFromRemainingArguments)][string[]]$Names)
+param([string]$Out = '', [string]$Demo = 'C:\Rigbay-demo', [string]$ShotMode = '', [Parameter(ValueFromRemainingArguments)][string[]]$Names)
 $ErrorActionPreference = 'Stop'
 if (-not $Out) { $Out = Join-Path $PSScriptRoot 'shots' }   # not in the param default: $PSScriptRoot is empty there on Windows PowerShell 5.1
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -79,6 +81,12 @@ $jobs = @(
     @{ n = 'modules-probe-light';   a = '--theme', 'light', '--size', '1240x1150', '--script', "page:modules;expand:demo-devices;wait:500" },
     @{ n = 'requires-dark';         a = '--theme', 'dark',  '--script', "page:demo-devices;turn-on:demo-devices;wait:900" },
     @{ n = 'requires-light';        a = '--theme', 'light', '--script', "page:demo-devices;turn-on:demo-devices;wait:900" },
+    # the shortcut capture dialog and the in-window notice (review AX-1, AX-2)
+    @{ n = 'capture-dark';          a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;capture:row.hotkey.header;wait:900" },
+    @{ n = 'capture-light';         a = '--theme', 'light', '--script', "$fan;page:demo-fan;capture:row.hotkey.header;wait:900" },
+    @{ n = 'notice-dark';           a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;notice:demo-fan,success,toast.title,boost.on;wait:600" },
+    @{ n = 'notice-light';          a = '--theme', 'light', '--script', "$fan;page:demo-fan;notice:demo-fan,success,toast.title,boost.on;wait:600" },
+    @{ n = 'notice-error-dark';     a = '--theme', 'dark',  '--script', "$fan;page:demo-fan;notice:demo-fan,error,toast.title,cmd.refused;wait:600" },
     @{ n = 'refresh-1-dark';        a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;wait:500" },
     @{ n = 'refresh-2-added-dark';  a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:900;edit:row.add.header;wait:900" },
     @{ n = 'refresh-3-removed-dark';a = '--theme', 'dark',  '--script', "enable:demo-devices;page:demo-devices;expand-all;edit:row.add.header;wait:900;edit:row.remove.header;wait:600;edit:row.remove.header;wait:900" },
@@ -131,6 +139,7 @@ foreach ($j in $jobs) {
     Remove-Item $png -ErrorAction SilentlyContinue
     $run = @{ Wait = $true }
     $extra = @('--shot', $png, '--exit-after', '200', '--allow-multi') + $j.a
+    if ($ShotMode) { $extra += @('--shot-mode', $ShotMode) }
     # a fresh data folder per shot, so enabled/disabled choices never leak between states
     $data = Join-Path $Demo ('data-shot-' + $j.n)
     if (Test-Path $data) { Remove-Item $data -Recurse -Force }
