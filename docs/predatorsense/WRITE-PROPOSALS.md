@@ -147,7 +147,7 @@ and `B5-w4b-undo-run.txt` (W4a undo, recovery). Each holds exactly one `WRITE_AT
 | Testable? | **Weak.** No state read, no easy effect check at idle |
 | Order | last, and only if the owner wants MaxQ control; the first three tests teach more |
 
-### W3: performance / operation mode (Quiet, Default, Render, Edit, Extreme, Turbo) (rewritten after B7, cross-checked by B9 with Ghidra; **nothing here has been run**)
+### W3: performance / operation mode (Quiet, Default, Render, Edit, Extreme, Turbo) (rewritten after B7, cross-checked by B9 with Ghidra; **no write here has been run; the two reads W3-R1 and W3-R2 were run once each in B10**)
 
 B7 (`FINDINGS.md` section 15, static analysis only) decoded what the Acer service does for pipe command 53. The route a module can use is the WMI call the service itself makes;
 the pipe stays off limits (it checks the caller's image path, section 15.6). Every value below is copied from code (tag C); none was sent to the machine.
@@ -168,7 +168,7 @@ Misc calls); the service sleeps 30 ms after it. Mode numbers: Quiet 0, Default 1
 | NVIDIA Whisper mode via the admin agent (command 35, on only for Quiet) | not reproducible through WMI. `NV_WhisperMode20_Support` is 1 on this machine, so the Acer app turns Whisper on for Quiet and off for every other mode; a WMI-only change leaves Whisper as it was. Cosmetic for the mode test |
 | the Acer registry cache `CurrentOperationMode`, the agent's OSD, the AC/battery rules (agent and UI) | a Rigbay write leaves the Acer cache stale (the Acer UI shows the cached mode); do not write Acer's registry. The agent can reset the mode to Default on a power-source change, low battery or resume |
 
-**Reads that would come first (each needs its own owner gate, not opened):** `GetGamingMiscSetting(0x0B)` (current mode; layout unknown, probably mode in bits 8 to 15 (G)) and
+**Reads that came first (each needed its own owner gate; both were run once in B10, results in the table below and in `FINDINGS.md` 15.9; the text that follows is the original proposal):** `GetGamingMiscSetting(0x0B)` (current mode; layout unknown, probably mode in bits 8 to 15 (G)) and
 `GetGamingMiscSetting(0x0A)` (capability). Traced to the **service's own get handlers** (pipe 52 and 51), not to the UI. See "Reads that need their own approval". B9 checked whether any Acer code parses these answers: **none does** (the service passes
 the raw 64-bit value on; `PSAdminAgent` never reads `0x0A` or `0x0B`), so the layout can only be learned by running the read, and the first run should be treated as that: log the raw 64-bit answer, interpret nothing, change nothing.
 
@@ -178,10 +178,10 @@ package-power counter taken in the same minute. Stop at once on a non-zero statu
 
 | Step | Call | `gmInput` | Expected effect (the firmware's behaviour is **G**; the code does not show it) | Risk | Undo | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| W3-R1 | read `GetGamingMiscSetting` | `0x0B` | the current firmware mode | read; the MOF marks it read+write, but the service sends it as a get | n/a | needs a gate. Compare with the cache (`CurrentOperationMode` is 1 today) |
-| W3-R2 | read `GetGamingMiscSetting` | `0x0A` | capability word | same | n/a | needs a gate; may explain whether Render/Edit exist |
-| **W3a** | `SetGamingMiscSetting` | **`0x10B`** (Default) | restates the recorded state (the cache says Default) and what Acer itself uses as its reset value | lowest | itself | first write. Read W3-R1 before and after if approved. Judge by the call's status and by sensors staying in the baseline range |
-| **W3b** | `SetGamingMiscSetting` | **`0x0B`** (Quiet) | lower power/fan limits; possibly lower fan RPM at the same load | low (slower) | `0x10B` | Acer also sends Whisper mode (not reproduced). At most 20 s, then W3a |
+| W3-R1 | read `GetGamingMiscSetting` | `0x0B` | the current firmware mode | read; the MOF marks it read+write, but the service sends it as a get | n/a | **DONE in B10 (2026-11-12, owner-approved, once): raw `0x0B0100`, status 0, byte 1 = 1 = Default, matches the cache (`FINDINGS.md` 15.9).** Layout "status low byte, mode in bits 8 to 15" held for this one reading (G) |
+| W3-R2 | read `GetGamingMiscSetting` | `0x0A` | capability word | same | n/a | **DONE in B10 (2026-11-12, once): raw `0x0B3300`, status 0, byte 1 = `0x33`: bits 0, 1, 4, 5 set = Quiet, Default, Extreme, Turbo; Render (2) and Edit (3) clear (G)**, same as `Feature.ini`. Render/Edit stay not proposed |
+| **W3a** | `SetGamingMiscSetting` | **`0x10B`** (Default) | restates the recorded state (the cache says Default) and what Acer itself uses as its reset value | lowest | itself | first write. W3-R1 can now be read before and after (needs the owner's approval again): expect `0x0B0100` both times. Because W3a restates Default, an unchanged R1 shows only that nothing broke, **not** that the write took effect; judge by the call's status and by sensors staying in the baseline range |
+| **W3b** | `SetGamingMiscSetting` | **`0x0B`** (Quiet) | lower power/fan limits; possibly lower fan RPM at the same load | low (slower) | `0x10B` | Acer also sends Whisper mode (not reproduced). At most 20 s, then W3a. **The first step where R1 can show an effect:** read W3-R1 right after; if the layout holds, byte 1 goes 1 to 0 (G). R2 says Quiet is supported |
 | **W3c** | `SetGamingMiscSetting` | **`0x40B`** (Extreme) | higher CPU/GPU limits; fan RPM floor may rise | medium (hotter, louder) | `0x10B` | only after W3b. At most 20 s at idle; do not add a load test unless the owner asks. Acer's GPU level for Extreme (`0x205`, offsets 0/0) is a separate optional step |
 | **W3d** | `SetGamingMiscSetting` | **`0x50B`** (Turbo) | highest limits | highest of this group | `0x10B` | **recommended last and only if the owner wants it.** Acer's Turbo also adds NvAPI core +100 / memory +360 and `0x305`, which a WMI-only call does not do, so the result is not "Acer Turbo". Acer only allows Turbo-key use with AC and battery boost on |
 | W3e (optional) | `SetGamingMiscSetting` | `0x105`, `0x205`, `0x305` (GPU level 1, 2, 3), `0x05` (level 0) | GPU OC level through WMI | medium | `0x105` (Default level) | the second call the service makes. Never without the matching mode step and a separate approval |
@@ -234,7 +234,7 @@ undone with `0x10B`; each step needs its own approval. Custom speed, fan table, 
 | W4b fan Max | none | RPM indexes 2, 6, 9 rise | testable by **effect**. **Run in B5: status 0, RPM rose from about 2600 to 2700 to 5555 to 5900 within 2 s, undo W4a brought it back** |
 | W1 Cool Booster | read answered `0xE1`: unproven | RPM, maybe | testable by effect, state unproven |
 | W2 MaxQ | none | `nvidia-smi` under GPU load, not tried | weak |
-| W3 operation mode | **a firmware read exists in the service** (`GetGamingMiscSetting(0x0B)`, layout unknown, needs a gate) | sensors only (fan RPM, temperatures, RAPL package power, `nvidia-smi`); the firmware's effect per mode is unknown | **testable after the read gate**, by status plus sensors; the effect is not predicted by the code |
+| W3 operation mode | **a firmware read exists and was run once in B10** (`GetGamingMiscSetting(0x0B)` returned `0x0B0100`: status 0, mode 1 = Default, as the cache; any further read needs the owner's approval) | sensors only (fan RPM, temperatures, RAPL package power, `nvidia-smi`); the firmware's effect per mode is unknown | **testable after the read gate**, by status plus sensors; the effect is not predicted by the code |
 | Custom speed / table / OC / lighting | none | n/a | not proposed |
 
 ## Reads that need their own approval (not run, list for the coordinator)
@@ -244,8 +244,8 @@ Held by the coordinator after R2 (traced to the Acer UI's own read code, the own
 | Call | Input | Why | Where traced |
 | --- | --- | --- | --- |
 | `AcerGenericMethod.GetFunction` R3 | `0x80184` (hotkey 132 from the registry) | keyboard backlight brightness / off; uses the same method that just answered `0xE1` | 11.4 |
-| `AcerGamingFunction.GetGamingMiscSetting` W3-R1 | `0x0B` | the firmware's current operation mode; answer layout unknown, mode probably in bits 8 to 15 (G) | 15.5: the service's own handler for pipe 52 (the UI never calls it) |
-| `AcerGamingFunction.GetGamingMiscSetting` W3-R2 | `0x0A` | operation-mode capability; layout unknown | 15.5: the service's handler for pipe 51 |
+| `AcerGamingFunction.GetGamingMiscSetting` W3-R1 | `0x0B` | the firmware's current operation mode; **done once in B10: `0x0B0100`, mode in bits 8 to 15 = 1 (G)**. Any further run needs approval again | 15.5: the service's own handler for pipe 52 (the UI never calls it); 15.9 |
+| `AcerGamingFunction.GetGamingMiscSetting` W3-R2 | `0x0A` | operation-mode capability; **done once in B10: `0x0B3300`, mask of modes 0, 1, 4, 5 (G)** | 15.5: the service's handler for pipe 51; 15.9 |
 | `GetGamingSysInfo` | `2` | battery boost flag, bits 40 to 47 | 3.3 |
 | `GetGamingMiscSetting` | `2`, `9` | GPU mode support and capability | 3.3 |
 | `GetGamingLEDBehavior` | `1` | boost indicator, meaning guessed | 11.5 |

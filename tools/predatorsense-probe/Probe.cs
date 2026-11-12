@@ -122,7 +122,7 @@ namespace PredatorSenseProbe
 
         static int Main(string[] args)
         {
-            bool json = false, allowCall = false, help = false, bad = false;
+            bool json = false, allowCall = false, help = false, bad = false, selfTest = false;
             List<ReadCall> calls = new List<ReadCall>();
             for (int i = 0; i < args.Length; i++)
             {
@@ -145,13 +145,17 @@ namespace PredatorSenseProbe
                     string v = args[++i];
                     if (v == "2") calls.Add(new ReadCall("misc_get_2_gpu_mode", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 2, "gpumode"));
                     else if (v == "9") calls.Add(new ReadCall("misc_get_9_gpu_mode_capability", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 9, "gpucap"));
-                    else err = "--misc-get must be 2 or 9";
+                    else if (v == "10" || v == "0x0A" || v == "0x0a") calls.Add(new ReadCall("misc_get_0A_opmode_capability", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 0x0A, "opmodecap"));
+                    else if (v == "11" || v == "0x0B" || v == "0x0b") calls.Add(new ReadCall("misc_get_0B_opmode_current", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", 0x0B, "opmode"));
+                    else err = "--misc-get must be 2, 9, 10 (0x0A) or 11 (0x0B)";
                 }
+                else if (a == "--self-test-refusals") selfTest = true;
                 else if (a == "--led-behavior-get") calls.Add(new ReadCall("led_behavior_get_1", ClassGaming, "GetGamingLEDBehavior", "gmInput", "gmOutput", 1, "ledbehavior"));
                 else if (a == "-h" || a == "--help" || a == "/?") help = true;
                 else err = "Unknown argument: " + a;
                 if (err != null) { Console.Error.WriteLine(err); bad = true; }
             }
+            if (selfTest) return SelfTestRefusals();
             if (help || bad)
             {
                 Console.WriteLine("predatorsense-probe [--json] [--allow-call <read flags>]");
@@ -166,8 +170,10 @@ namespace PredatorSenseProbe
                 Console.WriteLine("    --r2                 AcerGenericMethod.GetFunction 0x207 (Cool Booster state)");
                 Console.WriteLine("    --r3                 AcerGenericMethod.GetFunction 0x80184 (keyboard backlight)");
                 Console.WriteLine("    --battery-boost      GetGamingSysInfo 0x2 (battery boost flag)");
-                Console.WriteLine("    --misc-get 2|9       GetGamingMiscSetting 2 (GPU mode) or 9 (GPU mode capability)");
+                Console.WriteLine("    --misc-get 2|9|10|11 GetGamingMiscSetting 2 (GPU mode), 9 (GPU mode capability), 10 = 0x0A (operation-mode capability),");
+                Console.WriteLine("                         11 = 0x0B (current operation mode)");
                 Console.WriteLine("    --led-behavior-get   GetGamingLEDBehavior 1");
+                Console.WriteLine("  --self-test-refusals   no WMI, no flags needed: checks that every other GetGamingMiscSetting input and every Set* is refused");
                 Console.WriteLine("  Anything else, and every Set* method, is refused in code.");
                 return bad ? 2 : 0;
             }
@@ -466,7 +472,8 @@ namespace PredatorSenseProbe
             if (c.Class == ClassGaming && c.Method == "GetGamingMiscSetting")
             {
                 if (c.Input == 2 || c.Input == 9) return null;                  // GPU mode, GPU mode capability
-                return "GetGamingMiscSetting input is not 2 or 9";
+                if (c.Input == 0x0A || c.Input == 0x0B) return null;            // operation-mode capability, current operation mode (B10, owner approved 2026-11-12)
+                return "GetGamingMiscSetting input is not 2, 9, 0x0A or 0x0B";
             }
             if (c.Class == ClassGaming && c.Method == "GetGamingLEDBehavior")
             {
@@ -474,6 +481,26 @@ namespace PredatorSenseProbe
                 return "GetGamingLEDBehavior input is not 1";
             }
             return "call is not on the approved read list";
+        }
+
+        // Offline check of the allowlist: builds ReadCall objects and asks Refusal(); touches no WMI.
+        static int SelfTestRefusals()
+        {
+            int fails = 0;
+            for (ulong i = 0; i <= 0x1FF; i++)
+            {
+                bool allowed = Refusal(new ReadCall("t", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", i, "")) == null;
+                bool expected = (i == 2 || i == 9 || i == 0x0A || i == 0x0B);
+                if (allowed != expected) { Console.WriteLine("FAIL GetGamingMiscSetting input 0x" + i.ToString("X") + " allowed=" + allowed); fails++; }
+            }
+            ulong[] big = new ulong[] { 0x10B, 0x20B, 0x40B, 0x50B, 0x105, 0x10000000BUL, 0xFFFFFFFFUL, 0xFFFFFFFFFFFFFFFFUL };
+            foreach (ulong v in big)
+                if (Refusal(new ReadCall("t", ClassGaming, "GetGamingMiscSetting", "gmInput", "gmOutput", v, "")) == null) { Console.WriteLine("FAIL large input 0x" + v.ToString("X") + " allowed"); fails++; }
+            foreach (string m in new string[] { "SetGamingMiscSetting", "SetGamingFanBehavior", "setGamingMiscSetting", "SetGamingLEDBehavior" })
+                if (Refusal(new ReadCall("t", ClassGaming, m, "gmInput", "gmOutput", 0x0B, "")) == null) { Console.WriteLine("FAIL " + m + " allowed"); fails++; }
+            if (Refusal(new ReadCall("t", ClassGeneric, "GetGamingMiscSetting", "gmInput", "gmOutput", 0x0B, "")) == null) { Console.WriteLine("FAIL wrong class allowed"); fails++; }
+            Console.WriteLine(fails == 0 ? "self-test-refusals: OK (GetGamingMiscSetting allows only 2, 9, 0x0A, 0x0B; Set* and every other input refused; no WMI touched)" : "self-test-refusals: " + fails + " FAILURES");
+            return fails == 0 ? 0 : 1;
         }
 
         static string Hex(ulong v) { return "0x" + v.ToString("X"); }
@@ -539,6 +566,8 @@ namespace PredatorSenseProbe
                     r.Set("backlight_off_if_bits40_47_eq_30", ((raw >> 40) & 0xFF) == 30);
                     break;
                 case "gpumode": r.Set("mode_bits8_15", (int)((raw >> 8) & 0xFF)); break;
+                case "opmode": r.Set("mode_bits8_15_if_layout_is_like_other_misc_reads", (int)((raw >> 8) & 0xFF)); r.Set("bits16_31", (int)((raw >> 16) & 0xFFFF)); r.Set("bits32_63", (long)(raw >> 32)); break;
+                case "opmodecap": r.Set("bits8_15", (int)((raw >> 8) & 0xFF)); r.Set("bits16_31", (int)((raw >> 16) & 0xFFFF)); r.Set("bits32_63", (long)(raw >> 32)); break;
                 case "gpucap": r.Set("cap_bit8", ((raw >> 8) & 1) == 1); r.Set("cap_bit9", ((raw >> 9) & 1) == 1); r.Set("cap_bit10", ((raw >> 10) & 1) == 1); break;
                 case "ledbehavior":
                     r.Set("bits8_9", (int)((raw >> 8) & 3));
