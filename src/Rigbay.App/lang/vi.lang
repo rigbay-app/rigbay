@@ -83,6 +83,10 @@ log.source = Nguồn
 log.source-all = Tất cả
 log.count = {0} trên {1} dòng
 log.empty = Không có dòng nào khớp bộ lọc này.
+log.line-error = Lỗi
+log.line-warning = Cảnh báo
+log.line-info = Thông tin
+log.line-debug = Gỡ lỗi
 
 # trang mô-đun
 module.enable = Bật {0}

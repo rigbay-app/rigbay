@@ -940,6 +940,8 @@ public sealed partial class MainWindow : Window
             var verb = i < 0 ? raw : raw[..i];
             var arg = i < 0 ? "" : raw[(i + 1)..];
             AppLog.Info("script: " + raw);
+            try
+            {
             switch (verb)
             {
                 case "enable": { var e = Host.Core.Find(arg); if (e != null) { AppState.Acknowledge(e); await Task.Run(() => e.Enable()); } break; }
@@ -1003,24 +1005,10 @@ public sealed partial class MainWindow : Window
                     break;
                 }
                 case "pane": Nav.IsPaneOpen = arg != "close"; break;   // pane:open | pane:close, what the menu button does
-                case "tab-order":   // tab-order: logs the controls of the open page that take focus, in the order Tab visits them, with their accessible names
+                case "tab-order":   // tab-order: logs the tab stops of the open page in visual-tree order (what Tab follows; no TabIndex is set anywhere), with their accessible names
                 {
-                    var stops = new List<string>();
-                    DependencyObject? from = null;
-                    for (int n = 0; n < 200; n++)
-                    {
-                        var next = from == null
-                            ? Microsoft.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(PageHost)
-                            : Microsoft.UI.Xaml.Input.FocusManager.FindNextElement(Microsoft.UI.Xaml.Input.FocusNavigationDirection.Next, new Microsoft.UI.Xaml.Input.FindNextElementOptions { SearchRoot = PageHost });
-                        if (next == null || ReferenceEquals(next, from)) break;
-                        if (next is Control c) { c.Focus(FocusState.Keyboard); }
-                        var name = next is UIElement u ? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.FromElement(u) ?? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(u) : null;
-                        var label = name?.GetName() ?? "";
-                        if (stops.Count > 0 && stops[0] == $"{next.GetType().Name} '{label}'" && n > 0) break;   // wrapped around
-                        stops.Add($"{next.GetType().Name} '{label}'");
-                        from = next;
-                    }
-                    AppLog.Info($"script: tab order on {_current}: " + string.Join(" > ", stops));
+                    var stops = TabStops(PageHost).Select(c => $"{c.GetType().Name} '{Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(c)?.GetName()}'").ToList();
+                    AppLog.Info($"script: tab order on {_current} ({stops.Count} stops): " + string.Join(" > ", stops));
                     break;
                 }
                 case "search":   // search:<text>: types into the search box and lists the results in the log
@@ -1057,7 +1045,22 @@ public sealed partial class MainWindow : Window
                 case "range": if (int.TryParse(arg, out var rm)) ModulePage.LastBlock?.Chart?.SelectRange(rm); break;   // range:<minutes> (1, 5 or 10) for the trend chart
                 case "hover": if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hf) && ModulePage.LastBlock?.Chart is { } hc) hc.HoverAt(hc.Plot.ActualWidth * hf); break;   // hover:<0..1> puts the crosshair at that share of the plot width (a screenshot of the tooltip)
             }
+            }
+            catch (Exception ex) { AppLog.Error("script step failed: " + raw, ex); }   // a test step that fails is logged; the run goes on and still quits
             await Task.Delay(250);
+        }
+    }
+
+    /// <summary>The controls Tab stops on inside <paramref name="root"/>, in visual-tree order; a list, a combo box or an expander header counts once.</summary>
+    internal static IEnumerable<Control> TabStops(DependencyObject root)
+    {
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is UIElement { Visibility: Visibility.Collapsed }) continue;
+            if (child is Control { IsTabStop: true, IsEnabled: true } c) { yield return c; if (c is ListViewBase or ComboBox or TextBox) continue; }
+            foreach (var d in TabStops(child)) yield return d;
         }
     }
 

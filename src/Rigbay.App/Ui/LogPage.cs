@@ -143,7 +143,13 @@ static class LogPage
             total = recent.Count;
             // the entries after the last one we drew (the in-memory list is a ring: find our last entry from the end)
             int from = 0;
-            if (lastSeen != null) { for (int i = recent.Count - 1; i >= 0; i--) if (ReferenceEquals(recent[i], lastSeen)) { from = i + 1; break; } }
+            if (lastSeen != null)
+            {
+                from = -1;
+                for (int i = recent.Count - 1; i >= 0; i--) if (ReferenceEquals(recent[i], lastSeen)) { from = i + 1; break; }
+                // more lines came than the memory keeps: our last one is gone, so draw the list again instead of guessing
+                if (from < 0) { Fill(); lastSeen = recent.Count > 0 ? recent[^1] : null; return; }
+            }
             bool follow = AtEnd();
             foreach (var e in recent.Skip(from))
             {
@@ -222,7 +228,7 @@ static class LogPage
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
 
-        string levelWord = e.Level switch { LogLevel.Error => Host.T("level.error"), LogLevel.Warn => Host.T("level.warn"), LogLevel.Debug => Host.T("level.debug"), _ => Host.T("level.info") };
+        string levelWord = e.Level switch { LogLevel.Error => Host.T("log.line-error"), LogLevel.Warn => Host.T("log.line-warning"), LogLevel.Debug => Host.T("log.line-debug"), _ => Host.T("log.line-info") };   // what a screen reader says first
         if (e.Level >= LogLevel.Warn)
         {
             bool error = e.Level >= LogLevel.Error;

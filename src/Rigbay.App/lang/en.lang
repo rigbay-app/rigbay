@@ -83,6 +83,10 @@ log.source = From
 log.source-all = Everything
 log.count = {0} of {1} lines
 log.empty = Nothing to show for this filter.
+log.line-error = Error
+log.line-warning = Warning
+log.line-info = Info
+log.line-debug = Debug
 
 # module page
 module.enable = Enable {0}
