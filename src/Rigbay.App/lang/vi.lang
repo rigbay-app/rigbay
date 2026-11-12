@@ -53,6 +53,40 @@ metric.battery.level = Pin
 metric.battery.rate = Tốc độ pin
 
 # --- WP-A keys --- (package A adds its new shell/dashboard keys here)
+search.placeholder-shortcut = {0} (Ctrl+F)
+search.none = Không có kết quả
+nav.modules-header = Đã cài
+shell.not-admin-title = Rigbay không chạy với quyền quản trị
+shell.not-admin-body = Các mô-đun thay đổi phần cứng hay cài đặt Windows sẽ không hoạt động. Hãy đóng Rigbay rồi mở lại với quyền quản trị.
+dash.now = Tình trạng máy
+dash.tile-open = Mở {0}
+modules.count-installed = Đã cài {0}
+modules.count-checked = kiểm tra danh sách lúc {0}
+modules.welcome-title = Rigbay điều khiển máy này qua các mô-đun
+modules.welcome-body = Quạt, giới hạn công suất, truy cập mạng, ghi số liệu: mỗi mô-đun thêm một việc, và bạn chọn những mô-đun máy này cần.
+modules.page-link = Mở trang
+modules.page-link-of = Mở trang của {0}
+modules.needs-host-revision = Cần Rigbay có host API {0} trở lên.
+settings.troubleshooting = Khắc phục sự cố
+settings.about-group = Giới thiệu
+settings.version-info = Thông tin phiên bản
+settings.version-info-desc = Dùng khi báo lỗi: phiên bản của Rigbay, môi trường chạy, Windows và từng mô-đun. Không có tên người dùng hay tên máy.
+settings.copy-version = Sao chép thông tin phiên bản
+settings.copied = Đã sao chép
+settings.hotkey-conflict-with = Trùng với {0}
+settings.hotkey-change-of = Đổi phím tắt của {0}
+log.filter = Hiển thị
+log.filter-all = Tất cả
+log.filter-warnings = Cảnh báo và lỗi
+log.filter-errors = Lỗi
+log.source = Nguồn
+log.source-all = Tất cả
+log.count = {0} trên {1} dòng
+log.empty = Không có dòng nào khớp bộ lọc này.
+log.line-error = Lỗi
+log.line-warning = Cảnh báo
+log.line-info = Thông tin
+log.line-debug = Gỡ lỗi
 
 # trang mô-đun
 module.enable = Bật {0}
