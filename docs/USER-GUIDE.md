@@ -50,11 +50,11 @@ do not need this: the app installs modules itself (section 3).
 
 ## 3. First run
 
-Start **Rigbay** from the Start menu and accept the Windows permission prompt. With no modules the dashboard says so, in one line each: where Rigbay looked, and that a
-module you install appears after one restart. The button **Open Modules** goes to the Modules page. (The first start opens that page by itself, once.)
+Start **Rigbay** from the Start menu and accept the Windows permission prompt. With no modules the dashboard says "No modules yet" and offers **Browse modules**, which
+opens the Modules page. (The first start opens that page by itself, once.)
 
-1. On the Modules page press **Get the module list**. Rigbay reads the list from `github.com/rigbay-app/registry`, only when you ask, and sends no account, machine
-   name or identifier. (**Check for module updates every day** in Settings is off by default.)
+1. On the Modules page press **Check for modules**. Rigbay reads the list from `github.com/rigbay-app/registry`, only when you ask, and sends no account, PC
+   name or ID. The same button checks for updates later. (**Check for modules every day** in Settings is off by default.)
 2. Each available module shows what it declares it uses and its size. Press **Install** on one. The download is checked against its SHA-256 before anything is unpacked.
 3. A bar says **Restart required**. Press **Restart now**. Installing, updating and removing a module always needs one restart, because a running module cannot be replaced.
 4. After the restart the module is in the list, **turned off**. A module never runs until you turn it on.
@@ -63,18 +63,22 @@ module you install appears after one restart. The button **Open Modules** goes t
 
 ## 4. Turning a module on
 
-Open the module's page and use the **Enable** switch. The first time, Rigbay shows what the module says it uses:
+Open the module's page and use the **Turn on** switch at the top (the Modules page has the same switch). The first time, Rigbay asks **Turn on _module_?** and
+lists what the module says it uses:
 
 ![Turn on dialog](../tools/shots/requires-dark.png)
 
-- **Administrator rights** — it needs them (Rigbay always has them).
-- **Network** — it opens ports or talks to servers; the addresses are listed.
-- **Registry** — it reads or writes these keys.
-- **Services** — it uses these Windows services.
-- **Reads files outside its folder** — it loads files from these places (for example another vendor's program).
+| Heading in the dialog | What it means |
+| --- | --- |
+| Administrator rights | The module depends on running as administrator (Rigbay always does). |
+| Network | It opens ports or talks to servers; the addresses are listed. |
+| Registry | It reads or writes these keys. |
+| Services | It uses these Windows services. |
+| Reads files outside its folder | It loads files from these places, for example another vendor's program. |
 
-This is **the module's own statement**. Rigbay shows it so you can decide; it does not enforce it, and a module runs inside Rigbay with the same rights as Rigbay
-(administrator). Turn on only modules you trust. If an update of a module declares more than the version you accepted, it stays off after the update and asks again.
+The module wrote this list itself. Rigbay shows it so you can decide; it does not enforce it, and a module runs inside Rigbay with the same rights as Rigbay
+(administrator). Turn on only modules you trust. **Turn on** is the highlighted button; keyboard focus starts on **Cancel**, so pressing Enter right away turns
+nothing on. If an update of a module declares more than the version you accepted, it stays off after the update and asks again.
 
 ## 5. When a module changes your hardware
 
@@ -82,9 +86,14 @@ A module may only change your hardware (fan mode, power limits, a Windows settin
 
 ![Hardware confirmation](../tools/shots/approval-dark.png)
 
-- The dialog names the module, says what it does, and shows the change as "Fan mode: Auto → Maximum".
-- **Apply** makes the change; **Cancel** changes nothing.
-- Afterwards Rigbay shows the value the module reports back and keeps a **Revert** button next to it. Reverting is asked about too.
+- The title is the change itself, as a question: **Set fan mode to Maximum?** Under it the module says what the change does to the machine. The small line at the
+  bottom names the module, the value now ("now Auto") and whether you can revert it.
+- The highlighted button names the change (**Set to Maximum**) and makes it; **Cancel** changes nothing. Keyboard focus starts on **Cancel**: Enter right away
+  changes nothing, Tab moves to the change. Esc cancels.
+- Afterwards Rigbay shows the value the module reports back and keeps a **Revert** link next to it. Reverting is asked about too, the same way:
+  **Revert fan mode to Auto?** with the button **Revert to Auto**.
+- When a module asks on its own (a shortcut, a tray item), the dialog may have a general title, **Change your hardware?** or **Change a Windows setting?**, with the
+  change written under it.
 - A change that cannot be undone from Rigbay says so in the dialog.
 - Command-line use (`Rigbay.App.exe <module> <verb>`) with no window open refuses every hardware change; there is nobody to ask.
 
@@ -94,15 +103,29 @@ Rigbay and its modules never write to the firmware unless you pressed Apply for 
 
 After a change you confirmed, Rigbay tells you the result where you are looking:
 
-- **You clicked it on the module's page, and the Rigbay window is open and in front:** a message appears at the top of the window and goes away by itself. No Windows notification.
+- **You clicked it on the module's page, and the Rigbay window is open and in front:** a message appears at the top of the window and goes away by itself (after
+  6 seconds, 12 for a problem). It stays while the mouse pointer is on it or keyboard focus is in it, and its close button closes it at once. Screen readers read it
+  out when it appears. No Windows notification.
 - **The window is hidden (in the tray), minimised or behind another window, or the change came from a hotkey, a tray item, a command or the automatic switching of the XTU module** (when you plug in or unplug, or after waking from sleep): a Windows notification.
 - **A change that failed, or was refused:** always a Windows notification (and the message in the window if it is open).
 
 If you never see a notification: Rigbay runs as administrator, so it shows them as balloons from its tray icon. Windows **Focus assist / Do not disturb** and **Settings > System > Notifications** can hold them back, and Rigbay cannot see that setting or change it. Turn Do not disturb off (or allow notifications) and try again; the line `tray balloon: Windows displayed it` in the Log page says Windows took the notification, and the `notice [...]` lines say what Rigbay decided to send. The tray icon must be present (it is added at start; if the taskbar was not ready it is retried for a minute).
 
+### Shortcuts
+
+A module row that ends in "shortcut" (for example a "Max fans shortcut") has a button with the keys, or **Not set**. Press it and Rigbay asks for the new keys:
+
+- Press the whole combination at once, for example Ctrl+Alt+F. It must include **Ctrl**, **Alt** or **Win**; a key on its own is not taken, and the dialog says so.
+  F12 cannot be used (Windows keeps it).
+- The keys appear as key caps. **Set** saves them, **Clear** removes the shortcut, **Cancel** (or Esc) keeps the old one.
+- Tab, Enter and Space pressed without Ctrl, Alt or Win work as in any dialog, so you can reach every button with the keyboard. Focus starts on **Cancel**.
+
+**Settings → Shortcuts** lists every module's shortcut and marks one that is used twice or taken by another app.
+
 ## 6. Start with Windows
 
-The installer creates the task unless you used `-NoTask`. **Settings → Start with Windows** switches it on or off at any time and shows whether the task is set. The task
+The installer creates the task unless you used `-NoTask`. **Settings → Start with Windows** ("Starts Rigbay in the tray when you sign in") switches it on or off at
+any time; the switch shows whether the task is set, and if Rigbay cannot change it the reason appears next to the switch. The task
 starts `Rigbay.App.exe --tray`: Rigbay starts hidden in the notification area. The close button of the window also hides to the tray; **Quit** is in the tray menu. Starting
 Rigbay a second time brings the first window forward.
 
