@@ -51,11 +51,17 @@
             <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1,1,1,0"
                     CornerRadius="8,8,0,0" Margin="0,0,12,0">
-                <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
-                    <Grid MaxWidth="1000" Padding="36,24,36,28" HorizontalAlignment="Stretch">
-                        <ContentPresenter x:Name="PageHost"/>
-                    </Grid>
-                </ScrollViewer>
+                <Grid>
+                    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto">
+                        <Grid MaxWidth="1000" Padding="36,24,36,28" HorizontalAlignment="Stretch">
+                            <ContentPresenter x:Name="PageHost"/>
+                        </Grid>
+                    </ScrollViewer>
+                    <!-- The result of a change the user just made on a page (docs/APP.md, Notifications): floats at the top, so it is
+                         seen without scrolling, and closes by itself. Failures stay longer. -->
+                    <InfoBar x:Name="NoticeBar" IsOpen="False" IsClosable="True" VerticalAlignment="Top" HorizontalAlignment="Center"
+                             MaxWidth="928" Margin="36,12,36,0"/>
+                </Grid>
             </Border>
         </NavigationView>
 

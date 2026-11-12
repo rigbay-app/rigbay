@@ -141,7 +141,7 @@ and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`,
   every day (off by default; asks github.com once a day, sends no identifier)**, open the log folder, and the hotkeys of all modules with conflicts marked.
 - **Search.** A runtime index of module names and descriptions and every row's header and description, in the current language.
 - **Tray, hotkeys, toast.** Tray menu: Open, one submenu per module that registered items, Quit. Hotkeys: `RegisterHotKey` on the
-  window, only for gestures nobody else claims; a gesture the OS refuses is flagged. Toasts through `AppNotificationManager`.
+  window, only for gestures nobody else claims; a gesture the OS refuses is flagged. Notifications: see "Notifications" below.
 - **Page refresh and literal text (A8, used since A7).** The app subscribes once to `RigbayHost.PageRefreshed`. When the open page
   belongs to that module it is rebuilt in place: scroll offset kept, open expanders kept (matched by header), focus given back to the
   control with the same type and name (a button that disables itself while it works has its focus remembered at click time), swapped
@@ -153,6 +153,51 @@ and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`,
 - **Fault boundary.** `Application.UnhandledException` is kept (`Handled = true`, logged); when the stack shows a module's code that
   module is marked faulted. Updates that come from a module thread go through `Ui.Post`, which runs inside that module's
   boundary. A module is never given a raw dispatcher.
+
+## Notifications (N1)
+
+**One rule for every module.** After a hardware change the user confirmed, the result is shown where they are looking.
+
+| The change came from | Window in use (visible, not minimised, in front) | Window hidden, minimised, in the tray or behind another one |
+|---|---|---|
+| A click on the module's page | A message at the top of the window (`InfoBar`, floats over the page, closes by itself after 6 s; 12 s for a failure). **No toast.** | A Windows notification |
+| A hotkey, tray item, command-line verb, auto-switch (power change, resume) | A Windows notification | A Windows notification |
+| Any failure or refusal (`ToastKind.Warning` or `Error`), whatever the origin | A Windows notification **and** the message in the window | A Windows notification |
+
+Quiet by design: one message per change; nothing for the periodic reading or a refresh; nothing when the user said no in the approval
+dialog (they know). A module that finds nothing to change when the user asked (the profile is already active) says so; the automatic
+rule stays silent in that case. Auto-switch applying limits by itself always raises a notification, because nobody clicked.
+
+How it is built: the module says what happened and what caused it, `host.Toast.Show(new ToastMessage(title, body, kind) { Origin = ToastOrigin.Page })`
+(default `Background`). `Rigbay.Core` (`NotificationPolicy.Decide`, a pure function with its own tests) chooses the place from the kind, the
+origin and `RigbayHost.WindowInUse` (the app keeps it from the window's visibility, minimised state and activation); the app draws the
+in-window message (`Services/InAppNotice.cs`, the bar `NoticeBar` in `MainWindow.xaml`) and the notification (`Services/ToastHost.cs`). Without a window
+(command-line mode, tests) everything is a notification. Every decision is a log line (`notice [kind, origin, window in use] -> toast / in-window`),
+and `ToastHost` logs what Windows did with it, so "no notification appeared" can be answered from `rigbay.log`.
+
+**Found on 2026-11-12: `AppNotificationManager` does nothing in an elevated process.** Rigbay's manifest asks for administrator rights, and
+in such a process `AppNotificationManager.IsSupported()` is false, `Setting` is `Unsupported`, `Register()` returns without an error, and
+`Show()` returns without an error and without a notification (the notification keeps `Id` 0; `GetAllAsync()` returns null). Checked with a
+scratch probe (the same package, 1.8.260921001) run elevated and with the app's own self-test. Until now the app counted such a call as "shown";
+that is why the owner saw nothing from 0.1.1 although the log said `toast: registered`. So an elevated Rigbay shows notifications as
+**balloons from its tray icon** (`Shell_NotifyIcon` with `NIF_INFO`), which Windows 10 and 11 draw as ordinary toast banners. This needs no
+registration and no app id. Windows reports back to the icon's callback: `NIN_BALLOONSHOW` when it takes the balloon and `NIN_BALLOONTIMEOUT`
+when it is gone; both are logged (`tray balloon: ...`). Clicking a balloon opens the window. The `AppNotificationManager` path is kept for a
+process that is not elevated.
+
+**What can still hide a notification, and what Rigbay cannot see.** Focus assist / Do not disturb, and the user's own notification settings,
+decide whether a banner pops up; a balloon sent during Focus assist goes quietly to the notification list (if at all). Rigbay cannot read that
+state reliably. That is also why the in-window message exists and why a failure is shown both ways. Rigbay does not change any Windows
+notification setting.
+
+**Verified, and not.** Verified: the routing for every case (unit tests with fake sinks), the in-window message (self-test, and a PNG of the
+window's own render), `Shell_NotifyIcon` accepting the balloon and Windows answering `NIN_BALLOONSHOW` (self-test, elevated, 4 runs). **Not verified:
+a banner on the screen.** On the author's machine, during the test runs, a banner-window detector (windows of the shell host, titles only; no screen
+capture) saw no banner, not even for a notification sent from a known-good classic app (Windows PowerShell's own app id), the balloon's
+`NIN_BALLOONTIMEOUT` followed `NIN_BALLOONSHOW` after about 30 ms, and the Focus assist state value read from Windows was 1 (not off; how
+to read that value was taken from community notes, not documentation). All of that fits "Focus assist or Do not disturb was on", which would
+hold back every banner on that machine, and it is not proof of it. Before relying on the notification, the owner should look at Settings >
+System > Notifications.
 
 ## Brand in the app (A11)
 
@@ -217,8 +262,8 @@ the PNGs (each one was looked at).
 A real logoff and logon (so also the 15 s delay and whether Explorer is ready; the tray icon is re-added on `TaskbarCreated` and
 retried for a minute, which is untested); 150 % and 200 % DPI; high contrast (the reading hues have a high-contrast entry that
 was never rendered); real mouse and keyboard clicks (the self-test drives the same code the controls call, and the approval
-dialog and the shortcut-capture dialog were seen only in a screenshot, never clicked); a toast actually appearing on screen
-(`Show` returned without error); the tray menu on screen (the menu model and callbacks are tested, not the native popup); contrast
+dialog and the shortcut-capture dialog were seen only in a screenshot, never clicked); a notification actually appearing on screen
+(the 2026-11-01 run took `Show` returning without error for a toast; it was not one, see "Notifications"); the tray menu on screen (the menu model and callbacks are tested, not the native popup); contrast
 measured as numbers (judged by eye on the PNGs); screen readers and keyboard-only use; the pane in the compact state beyond one
 screenshot; a machine without the Windows App Runtime; more than 8 modules; a module built against another Windows App SDK
 line; Windows 10.

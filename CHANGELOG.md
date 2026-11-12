@@ -3,6 +3,12 @@
 All notable changes to the Rigbay app (`rigbay-app/rigbay`). Modules are released from their own repositories and have their own history.
 Both releases are pre-releases (major version 0). The files are not code-signed.
 
+## Unreleased
+
+- **Every hardware change, refusal and failure now tells the user (N1).** One rule for all modules (`docs/APP.md`, "Notifications"): after a change the user confirmed, the result is shown where they are looking. A click on a module page with the window in front shows a message at the top of the window, no toast; a hidden or minimised window, a hotkey, a tray item, a command or the XTU auto-switch gives a Windows notification; a failure or refusal always does. New `ToastMessage.Origin` (additive; old modules keep working). XTU: apply, auto-switch on and off, profile per power source, auto-switch applying on a power change, busy and already-active. PredatorSense: fan mode (page, revert, hotkey, command-line verb) with the speed-check result in the message.
+- **Notifications from the elevated app really go out.** `AppNotificationManager` does nothing in an elevated process (`IsSupported()` is false, `Show` returns without a toast), so 0.1.1 showed no toast at all although the log said `toast: registered`. Rigbay now shows them as balloons from its tray icon and logs every decision and what Windows answered. Focus assist / Do not disturb can still hold them back; `docs/USER-GUIDE.md` says so.
+- `tools\selftest.ps1 -AllowMulti` runs the self-test next to an already running Rigbay (its "second start shows the first" check then reaches the running one, not its own).
+
 ## 0.1.1 (2026-11-02)
 
 Fixes for what the first-hour end-to-end run found against 0.1.0 (`docs/E2E.md`, section 6). No new features, no change to the module contract (host API stays 0.1).

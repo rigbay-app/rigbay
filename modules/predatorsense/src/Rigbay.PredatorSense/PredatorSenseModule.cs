@@ -262,6 +262,9 @@ public sealed partial class PredatorSenseModule : IModule
         try
         {
             var result = await fan.ApplyAsync(wanted, _host?.StopToken ?? CancellationToken.None).ConfigureAwait(false);
+            // The user chose it on the page and the host confirmed: the host shows the result in the window while they look at it,
+            // as a toast otherwise, and always as a toast when it failed.
+            if (_host is { } host) AnnounceFan(host, wanted, result, ToastOrigin.Page);
             ShowResult(result);
         }
         catch (OperationCanceledException) { }

@@ -124,6 +124,9 @@ module.xtu.reason.battery = Dùng pin
 module.xtu.toast.title = Profile XTU
 module.xtu.toast.title-failed = Profile XTU: chưa đổi
 module.xtu.toast.applied = Đã áp dụng {0}
+module.xtu.toast.auto-applied = Đã tự chuyển sang {0} ({1}).
+module.xtu.toast.auto-off = Đã tắt tự động chuyển. Giới hạn công suất CPU giữ nguyên như hiện tại.
+module.xtu.toast.auto-nothing = Đã lưu. Hiện chưa áp dụng gì.
 
 module.xtu.cmd.status = Hiện trạng dịch vụ, giới hạn đang dùng và các profile.
 module.xtu.cmd.list = Liệt kê profile và đánh dấu cái đang dùng.
