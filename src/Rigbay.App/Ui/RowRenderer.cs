@@ -357,6 +357,8 @@ sealed class RowRenderer
         host.Loaded += (_, _) => Look();
         Look();
         PrimaryRow = row;
+        // a page refresh that relabels the primary control (Start -> Stop) gives the focus to the new one (FocusKey)
+        FocusKey.MarkPrimary(host, below ?? (chrome as Panel)?.Children.LastOrDefault() ?? chrome);
         return host;
     }
 
@@ -527,7 +529,9 @@ sealed class RowRenderer
         TextBlock? word = null;
         if (place == Place.Primary)
         {
-            // the primary switch says its state in words, at its left (Windows Settings' Bluetooth card)
+            // the primary switch says its state in words, at its left (Windows Settings' Bluetooth card); outside a SettingsCard it takes the
+            // card's switch style, so it ends where the rows' switches end
+            Ui.CompactToggle(sw);
             word = Ui.Text("", "RbSecondaryText");
             var pair = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
             pair.Children.Add(word);
@@ -559,7 +563,10 @@ sealed class RowRenderer
         var editor = RowEditors.For(_e, c); var state = StateOf(c);
         var edit = Wire(c, editor, state, chrome, () => c.Value.Value, Label, Select);
         selector.Chosen += id => { if (!suppress) edit(id); };
-        return Finish(c, chrome.Panel, place, place == Place.Primary ? selector : null);
+        var built = Finish(c, chrome.Panel, place, place == Place.Primary ? selector : null);
+        // in a row card the segments give way to the drop-down before they squeeze the row's name (a 640 px window, a long Vietnamese name)
+        if (place == Place.Card && built is FrameworkElement card) card.SizeChanged += (_, e) => selector.SetRowWidth(e.NewSize.Width);
+        return built;
     }
 
     UIElement Number(NumberRow n, Place place)
@@ -884,6 +891,26 @@ sealed class ChoiceSelector : Grid
     public const int MaxRowLabel = 16, MaxPrimaryLabel = 20;
     /// <summary>Widest a segmented control in a row may be before it is a drop-down (it sits at the right of the row's text).</summary>
     public const double MaxRowWidth = 380;
+    /// <summary>
+    /// What a segmented control in a row leaves for the row's name at its left; with less room the row gets the drop-down. A card measures its
+    /// control with the whole card's width, so without this the segments took a 640 px window's card and squeezed a Vietnamese name ("Khoảng cách
+    /// giữa các dòng") into three lines of two words.
+    /// </summary>
+    public const double RowLabelRoom = 200;
+    const double RowPadding = 16;   // a card's padding at each side
+
+    double _rowWidth = double.NaN;
+
+    /// <summary>The width of the row card this choice sits in (NaN: not known, or a primary choice).</summary>
+    public double RowWidth => _rowWidth;
+
+    /// <summary>Tells a choice in a row how wide its card is, so it can keep <see cref="RowLabelRoom"/> for the row's name.</summary>
+    public void SetRowWidth(double width)
+    {
+        if (_rowWidth.Equals(width)) return;
+        _rowWidth = width;
+        InvalidateMeasure();
+    }
 
     const double Gap = 2, TrackPad = 3;
 
@@ -892,6 +919,7 @@ sealed class ChoiceSelector : Grid
     readonly Border? _track;
     readonly ComboBox _combo;
     readonly double _needed;
+    readonly bool _primary;
     bool _useSegments;
     bool _suppress;
     string? _selected;
@@ -915,6 +943,7 @@ sealed class ChoiceSelector : Grid
     public ChoiceSelector(IReadOnlyList<(string Id, string Label)> options, string name, bool primary)
     {
         _options = options.ToList();
+        _primary = primary;
         VerticalAlignment = VerticalAlignment.Center;
         HorizontalAlignment = primary ? HorizontalAlignment.Left : HorizontalAlignment.Right;
 
@@ -993,7 +1022,11 @@ sealed class ChoiceSelector : Grid
         // the segments when they fit the place this control gets, the drop-down when they do not (a narrow window)
         if (_track != null)
         {
-            bool fits = double.IsInfinity(available.Width) || available.Width >= _needed;
+            // a primary choice has its own line; in a row the segments also leave room for the row's name (the card measures its control with
+            // an unbounded width, so the room comes from the card's own width, RowWidth)
+            double room = available.Width;
+            if (!_primary && !double.IsNaN(_rowWidth)) room = Math.Min(room, _rowWidth - RowLabelRoom - 2 * RowPadding);
+            bool fits = double.IsInfinity(room) || room >= _needed;
             if (fits != _useSegments)
             {
                 _useSegments = fits;

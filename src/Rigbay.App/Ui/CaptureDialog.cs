@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
 using Rigbay.Abstractions;
+using Rigbay.Core;
 using Windows.System;
 
 namespace Rigbay.App;
@@ -112,11 +113,10 @@ static class CaptureDialog
     /// </summary>
     public static async Task ScriptAsync(string arg)
     {
-        var eq = arg.IndexOf('=');
-        var key = eq < 0 ? arg : arg[..eq];
+        var (key, chord) = RowStep.Parse(arg);   // '=' in the key doubled, like edit:
         var driver = Host.Window.LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == key);
         if (driver?.Row is not ShortcutRow row) { AppLog.Warn("script: no shortcut row '" + key + "' on this page"); return; }
-        HotkeyGesture? pressed = eq >= 0 && HotkeyGesture.TryParse(arg[(eq + 1)..], out var g) ? g : null;
+        HotkeyGesture? pressed = chord != null && HotkeyGesture.TryParse(chord, out var g) ? g : null;
         try { await AskCoreAsync(driver.Name, true, row.Value.Value, pressed); }
         catch (Exception ex) { AppLog.Error("script: capture dialog failed", ex); }
     }

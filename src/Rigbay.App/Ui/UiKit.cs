@@ -59,6 +59,31 @@ static class Ui
 
     public static void Tabular(TextBlock t) => Typography.SetNumeralAlignment(t, FontNumeralAlignment.Tabular);
 
+    static Style? _compactToggle;
+    static bool _compactToggleLoaded;
+
+    /// <summary>
+    /// Draws <paramref name="toggle"/> the way a <c>SettingsCard</c> draws its switches (the toolkit's <c>RightAlignedCompactToggleSwitchStyle</c>,
+    /// no room for content at its right), so a switch outside a card (the header card's, the primary one) ends at the same x as the switches and
+    /// buttons of the rows under it; the stock style leaves 12 px. Without that style the switch keeps the stock one.
+    /// </summary>
+    public static ToggleSwitch CompactToggle(ToggleSwitch toggle)
+    {
+        if (!_compactToggleLoaded)
+        {
+            _compactToggleLoaded = true;
+            try
+            {
+                var d = new ResourceDictionary { Source = new Uri("ms-appx:///CommunityToolkit.WinUI.Controls.SettingsControls/SettingsCard/SettingsCard.xaml") };
+                if (d.TryGetValue("RightAlignedCompactToggleSwitchStyle", out var s) && s is Style style) _compactToggle = style;
+                else AppLog.Warn("the toolkit's RightAlignedCompactToggleSwitchStyle was not found: switches outside cards keep the stock style");
+            }
+            catch (Exception ex) { AppLog.Warn("the toolkit's SettingsCard styles could not be loaded: " + ex.Message); }
+        }
+        if (_compactToggle != null) toggle.Style = _compactToggle;
+        return toggle;
+    }
+
     /// <summary>The bay mark for a state: filled green ready, filled red failed, filled amber needs attention, outline otherwise.</summary>
     public static Rectangle Bay(BayState state, double height = 18)
     {
@@ -286,15 +311,67 @@ sealed class PageScope : IDisposable
     }
 }
 
-/// <summary>Identifies the focused control by what it is, not where it is, so focus can be given back after a page rebuild.</summary>
+/// <summary>
+/// Identifies the focused control by what it is, not where it is, so focus can be given back after a page rebuild. A control inside the page's
+/// primary block (<see cref="MarkPrimary"/>) is looked for in the new primary block only, and when it is gone (a module swapped "Start" for "Stop"
+/// with a page refresh) the new primary control takes the focus: the user pressed the page's main control, so focus stays on the page's main control.
+/// The focus comes back the way it went (keyboard focus keeps its focus rectangle).
+/// </summary>
 sealed class FocusKey
 {
     readonly string _type, _name;
     readonly int _ordinal;
-    FocusKey(string type, string name, int ordinal) { _type = type; _name = name; _ordinal = ordinal; }
+    readonly FocusState _state;
+    FocusKey(string type, string name, int ordinal, bool inPrimary, FocusState state) { _type = type; _name = name; _ordinal = ordinal; InPrimary = inPrimary; _state = state; }
+
+    /// <summary>True when the control was inside the page's primary block.</summary>
+    public bool InPrimary { get; }
+
+    /// <summary>Test hook: the same key for a control that was named <paramref name="name"/> (what a module's relabelled button looks like).</summary>
+    public FocusKey Renamed(string name) => new(_type, name, _ordinal, InPrimary, _state);
 
     static FocusKey? _pending;
     static long _pendingAt;
+
+    // the page's primary block -> the element that holds its control (the control, the switch with its word, the segmented choice)
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DependencyObject, DependencyObject> Primaries = new();
+
+    /// <summary>Marks <paramref name="host"/> as the page's primary block and <paramref name="main"/> as what holds its control.</summary>
+    public static void MarkPrimary(DependencyObject host, DependencyObject main) => Primaries.AddOrUpdate(host, main);
+
+    /// <summary>The primary block on <paramref name="root"/>, or null.</summary>
+    public static DependencyObject? FindPrimary(DependencyObject root)
+    {
+        if (Primaries.TryGetValue(root, out _)) return root;
+        int n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < n; i++)
+            if (FindPrimary(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i)) is { } found) return found;
+        return null;
+    }
+
+    static DependencyObject? PrimaryAround(DependencyObject d, DependencyObject pageHost)
+    {
+        for (var p = d; p != null && !ReferenceEquals(p, pageHost); p = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(p))
+            if (Primaries.TryGetValue(p, out _)) return p;
+        return null;
+    }
+
+    /// <summary>The control of the primary block <paramref name="primary"/>: the selected segment of a choice, else the first enabled, visible control.</summary>
+    public static Control? PrimaryControl(DependencyObject primary)
+    {
+        if (!Primaries.TryGetValue(primary, out var main)) return null;
+        bool Shown(Control c)
+        {
+            for (DependencyObject? p = c; p != null; p = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(p))
+            {
+                if (p is UIElement { Visibility: Visibility.Collapsed }) return false;
+                if (ReferenceEquals(p, main)) break;
+            }
+            return c.IsEnabled;
+        }
+        var all = (main is Control { IsTabStop: true } self ? new[] { self } : Array.Empty<Control>()).Concat(Controls(main)).Where(Shown).ToList();
+        return all.FirstOrDefault(c => c is RadioButton { IsChecked: true }) ?? all.FirstOrDefault();
+    }
 
     /// <summary>Remembers the focused control now (a button calls this just before it disables itself); the next page refresh uses it.</summary>
     public static void RememberForRefresh(XamlRoot? root, DependencyObject pageHost)
@@ -303,7 +380,14 @@ sealed class FocusKey
         _pendingAt = Environment.TickCount64;
     }
 
-    /// <summary>The control remembered by <see cref="RememberForRefresh"/> if that was less than 10 s ago; clears it.</summary>
+    /// <summary>Test hook: <paramref name="key"/> is what the next page refresh gives the focus back to.</summary>
+    public static void RememberForRefresh(FocusKey key)
+    {
+        _pending = key;
+        _pendingAt = Environment.TickCount64;
+    }
+
+    /// <summary>The control remembered by <see cref="RememberForRefresh(XamlRoot?, DependencyObject)"/> if that was less than 10 s ago; clears it.</summary>
     public static FocusKey? TakePending()
     {
         var p = Environment.TickCount64 - _pendingAt < 10_000 ? _pending : null;
@@ -329,20 +413,31 @@ sealed class FocusKey
     {
         if (root == null || Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(root) is not Control focused || focused.FocusState == FocusState.Unfocused) return null;
         var type = focused.GetType().Name; var name = NameOf(focused);
-        if (name.Length == 0) return null;
-        // the same type and name can repeat (two "Apply" buttons): count the ones before it on the page
+        var primary = PrimaryAround(focused, pageHost);
+        if (name.Length == 0 && primary == null) return null;
+        // the same type and name can repeat (two "Apply" buttons): count the ones before it on the page (in the primary block: in the block)
         int ordinal = 0; bool found = false;
-        foreach (var c in Controls(pageHost)) { if (ReferenceEquals(c, focused)) { found = true; break; } if (c.GetType().Name == type && NameOf(c) == name) ordinal++; }
-        return found ? new FocusKey(type, name, ordinal) : null;
+        foreach (var c in Controls(primary ?? pageHost)) { if (ReferenceEquals(c, focused)) { found = true; break; } if (c.GetType().Name == type && NameOf(c) == name) ordinal++; }
+        return found ? new FocusKey(type, name, ordinal, primary != null, focused.FocusState) : null;
     }
 
-    public void Restore(DependencyObject pageHost)
+    /// <summary>Focuses the control this key names on the rebuilt page; returns it, or null when nothing took the focus.</summary>
+    public Control? Restore(DependencyObject pageHost)
     {
-        int seen = 0;
-        foreach (var c in Controls(pageHost))
+        var state = _state == FocusState.Unfocused ? FocusState.Programmatic : _state;
+        // a control of the primary block is looked for in the new primary block; the rest of the page is searched only when the page has none any more
+        var primary = InPrimary ? FindPrimary(pageHost) : null;
+        if (_name.Length > 0)
         {
-            if (c.GetType().Name != _type || NameOf(c) != _name) continue;
-            if (seen++ == _ordinal) { c.Focus(FocusState.Programmatic); return; }
+            int seen = 0;
+            foreach (var c in Controls(primary ?? pageHost))
+            {
+                if (c.GetType().Name != _type || NameOf(c) != _name) continue;
+                if (seen++ == _ordinal) return c.Focus(state) ? c : null;
+            }
         }
+        // the primary control was replaced by one with another label (Start -> Stop): the new primary control takes the focus
+        if (primary != null && PrimaryControl(primary) is { } main) return main.Focus(state) ? main : null;
+        return null;
     }
 }

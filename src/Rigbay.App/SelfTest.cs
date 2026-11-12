@@ -401,7 +401,18 @@ static class SelfTest
             && !chart.Comparing && Find<TextBlock>(chart.Plot).Any(t => t.Text == Host.T("chart.now")) && chart.TickLabels.Count >= 3 && chart.TickLabels[^1].EndsWith(" °C", StringComparison.Ordinal)
             && !Find<Microsoft.UI.Xaml.Shapes.Path>(chart.Plot).Any(),
             $"focus={chart?.FocusRow?.HeaderKey} series={chart?.SeriesDrawn} ticks={string.Join(" ", chart?.TickLabels ?? Array.Empty<string>())} span={chart?.ShownSeconds:0}s");
-        bool tip = chart != null && chart.HoverAt(chart.Plot.ActualWidth - 30);
+        {
+            // UF: the time axis says each moment once and puts no label where there is no data yet (a few seconds of history on a one-minute axis)
+            var hist = chart?.FocusRow is { } fr ? core.Metrics.History.Get(fr.Metric, TimeSpan.FromSeconds(chart.RangeSeconds)) : Array.Empty<HistoryPoint>();
+            double age = hist.Count > 0 ? (core.Metrics.History.Now - hist[0].Time).TotalSeconds : 0;
+            var times = chart?.TimeLabels ?? Array.Empty<string>();
+            var axis = chart?.TimeAxisShown;
+            var onPlot = chart == null ? new HashSet<string>() : Find<TextBlock>(chart.Plot).Select(t => t.Text).ToHashSet();
+            R("visual: the time axis labels are distinct, start at now, lie within the data and are all on the plot", axis != null && times.Count >= 1 && times[0] == Host.T("chart.now")
+                && times.Distinct().Count() == times.Count && axis.Ticks.All(t => (axis.CoversRange || t.SecondsAgo <= age + 0.5) && t.SecondsAgo <= axis.ShownSeconds) && times.All(onPlot.Contains),
+                $"labels={string.Join(", ", times)} data age={age:0.0}s span={axis?.ShownSeconds:0}s step={axis?.StepSeconds}s");
+        }
+        bool tip =chart != null && chart.HoverAt(chart.Plot.ActualWidth - 30);
         R("visual: hover shows a crosshair and a tooltip with the time and the value", tip && Find<Microsoft.UI.Xaml.Shapes.Line>(chart!.Plot).Count() > 3
             && Find<Border>(chart.Plot).SelectMany(b => Find<TextBlock>(b)).Any(t => t.Text.Length == 8 && t.Text[2] == ':'), "tooltip text found on the plot");
         chart?.HoverAt(null);
@@ -441,6 +452,25 @@ static class SelfTest
         R("visual: every chart has a single unit (no second axis)", plan.Charts.Count >= 3 && plan.Charts.All(c => c.Series.All(s => core.Metrics.UnitOf(s.Metric) == c.Unit)), string.Join("; ", plan.Charts.Select(c => $"{c.Id}[{c.Series.Count}]")));
         R("visual: tiles wrap into 4, 2 or 1 columns", TileStrip.Columns(4, 900) == 4 && TileStrip.Columns(4, 560) == 2 && TileStrip.Columns(4, 300) == 1 && TileStrip.Columns(3, 560) == 3 && TileStrip.Columns(1, 900) == 1,
             $"4@900={TileStrip.Columns(4, 900)} 4@560={TileStrip.Columns(4, 560)} 4@300={TileStrip.Columns(4, 300)} 3@560={TileStrip.Columns(3, 560)}");
+
+        {
+            // UF: a refresh that relabels the primary control (the Recorder's Start becomes Stop) gives the focus to the new primary control, and
+            // keyboard focus stays keyboard focus; here the selected segment of Fan studio's mode stands in, its label changed under the key
+            var oldPrimary = w.PageContent == null ? null : FocusKey.FindPrimary(w.PageContent);
+            var oldMain = oldPrimary == null ? null : FocusKey.PrimaryControl(oldPrimary);
+            bool took = oldMain?.Focus(FocusState.Keyboard) == true;
+            await Settle(200);
+            var key = w.PageContent == null ? null : FocusKey.Capture(w.Content.XamlRoot, w.PageContent);
+            if (key != null) FocusKey.RememberForRefresh(key.Renamed("Stop"));
+            w.RefreshPageKeepingView();
+            await Settle(400);
+            var now = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(w.Content.XamlRoot) as Control;
+            var newPrimary = w.PageContent == null ? null : FocusKey.FindPrimary(w.PageContent);
+            var newMain = newPrimary == null ? null : FocusKey.PrimaryControl(newPrimary);
+            R("refresh: a relabelled primary control keeps the focus on the page's primary control (keyboard focus stays keyboard focus)",
+                took && key is { InPrimary: true } && now != null && ReferenceEquals(now, newMain) && !ReferenceEquals(now, oldMain) && now.FocusState == FocusState.Keyboard,
+                $"focused before: {oldMain?.GetType().Name} '{(oldMain as ContentControl)?.Content}' (took={took}, in primary={key?.InPrimary}); after: {now?.GetType().Name} '{(now as ContentControl)?.Content}' {now?.FocusState} (new primary control: {ReferenceEquals(now, newMain)})");
+        }
 
         // a withdrawn reading loses its history and its line, and gets both back
         var pump = new MetricId("demo-fan.pump");
@@ -497,6 +527,26 @@ static class SelfTest
             "shield and info glyph after 'Fan mode'; the help text says what it changes, then the explanation");
         R("0.1.3: a segmented control gives way to a drop-down where it does not fit, and back", choice != null && Narrow(choice),
             $"needs {choice?.SegmentsWidth:0} px");
+        {
+            // UF: in a row the segments also leave the row's name its room (a 640 px window squeezed a Vietnamese name into three lines)
+            var row = r.Choices.Skip(1).FirstOrDefault(c => c.CanSegment && !double.IsNaN(c.RowWidth));   // a row on screen (its card has a width)
+            bool squeezed = false, roomy = false;
+            double cardWidth = row?.RowWidth ?? double.NaN;
+            if (row != null)
+            {
+                // the card measures its control with an unbounded width: what decides is the card's own width
+                var unbounded = new Windows.Foundation.Size(double.PositiveInfinity, 200);
+                row.SetRowWidth(row.SegmentsWidth + 40 + 32);
+                row.Measure(unbounded);
+                squeezed = !row.ShowsSegments && row.Combo.Visibility == Visibility.Visible;
+                row.SetRowWidth(row.SegmentsWidth + ChoiceSelector.RowLabelRoom + 32 + 10);
+                row.Measure(unbounded);
+                roomy = row.ShowsSegments && row.Combo.Visibility == Visibility.Collapsed;
+                row.SetRowWidth(cardWidth);
+            }
+            R("0.1.3: a row's segmented control is a drop-down when it would leave its name less than 200 px", row != null && !double.IsNaN(cardWidth) && squeezed && roomy,
+                $"row segments need {row?.SegmentsWidth:0} px, its card is {cardWidth:0} px; name room 40 px: drop-down={squeezed}; {ChoiceSelector.RowLabelRoom + 10:0} px: segments={roomy}");
+        }
 
         // an expander with a switch in its header and a live line
         var pump = Find<SettingsExpander>(w.PageContent).FirstOrDefault(x => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x) == "Pump");
