@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- XTU profiles, the real module runtime on a made-up XTU service (profiles in a scratch file, a fake client). See ..\Released.props. -->
+  <Import Project="..\Released.props" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Rigbay.Module.Xtu.Tests</AssemblyName>
+    <RootNamespace>Rigbay.Module.Xtu.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\modules\xtu\Rigbay.Module.Xtu\Rigbay.Module.Xtu.csproj" />
+    <Compile Include="..\..\..\..\modules\xtu\Rigbay.Module.Xtu.Tests\Fakes.cs" Link="Fakes.cs" />
+  </ItemGroup>
+</Project>

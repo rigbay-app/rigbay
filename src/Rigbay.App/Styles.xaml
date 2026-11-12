@@ -167,6 +167,19 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>
     </Style>
+    <!-- the selected tile (the chart draws its reading): a 1.5 px accent border over a faint accent tint; hover is a subtle fill -->
+    <Style x:Key="RbTileFrameSelected" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1.5"/>
+        <Setter Property="CornerRadius" Value="4"/>
+    </Style>
+    <Style x:Key="RbTileHover" TargetType="Border"><Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/></Style>
+    <Style x:Key="RbTileTint" TargetType="Border"><Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}"/></Style>
+    <!-- the state dot of the module page's header card; the state is also a word beside it -->
+    <Style x:Key="RbStateDotReady" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource SystemFillColorSuccessBrush}"/></Style>
+    <Style x:Key="RbStateDotFailed" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource SystemFillColorCriticalBrush}"/></Style>
+    <Style x:Key="RbStateDotAttention" TargetType="Ellipse"><Setter Property="Fill" Value="{ThemeResource SystemFillColorCautionBrush}"/></Style>
+    <Style x:Key="RbStateDotOutline" TargetType="Ellipse"><Setter Property="Stroke" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/><Setter Property="StrokeThickness" Value="1.5"/></Style>
     <Style x:Key="RbTileValue" TargetType="TextBlock" BasedOn="{StaticResource TitleLargeTextBlockStyle}">
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
     </Style>

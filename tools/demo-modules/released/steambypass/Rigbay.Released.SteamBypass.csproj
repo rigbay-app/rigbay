@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Steam access, the real module on the fakes of its tests: the Windows proxy setting is in memory, no socket is opened. See ..\Released.props. -->
+  <Import Project="..\Released.props" />
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Rigbay.SteamBypass.Tests</AssemblyName>
+    <RootNamespace>Rigbay.SteamBypass.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\modules\steambypass\src\Rigbay.SteamBypass\Rigbay.SteamBypass.csproj" />
+    <Compile Include="..\..\..\..\modules\steambypass\tests\Rigbay.SteamBypass.Tests\Fakes.cs" Link="Fakes.cs" />
+  </ItemGroup>
+</Project>

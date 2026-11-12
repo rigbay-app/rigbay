@@ -329,26 +329,39 @@ vocabulary, so the label should be the same anyway).
 
 ### 5.7 Readings made visual (V1)
 
-The host draws every `ReadingRow` three ways, from the host's own history of the metric (section 6, "History"); a module writes nothing for it:
+The host draws every `ReadingRow` from its own history of the metric (section 6, "History"); a module writes nothing for it. Since the UI review
+of November 2026 (package B) each reading is shown once as a number and once over time, never a third time as a row:
 
-1. **A sparkline** left of the number in the row: the last few minutes, in the metric's hue, no axes, with the newest reading marked by a dot. The
-   scale follows the data but never fills the height with noise: every unit has a smallest span (10 °C, 10 W, 20 %, 500 rpm, 400 MHz ...), so a
-   temperature that moves by one degree is a near-flat line.
-2. **Tiles** at the top of the module page (below the enable row): up to four, each with the name, the number big with its unit small, the sparkline,
-   and for a temperature or a percent (or a reading with `RangeMin` and `RangeMax`) a thin meter of where it sits in its range. A temperature at 90 °C
-   or more says "High" in words with an icon. Without hints the host picks: readings that are in `PageSummary.Readings` first, then one reading per kind in the order
-   temperature, power, usage, clock, fan speed, voltage, current, the rest (a count or a plain number only when nothing better is on the page).
-3. **One trend chart** under the tiles, with one tab per group: the readings of one group on **one axis** over the last 1, 5 or 10 minutes (default 5),
-   a faint time axis, a crosshair and tooltip (time and every line's value), and a legend with the latest values when a chart has two or more lines.
-   Without hints the groups are the units, so temperatures are together, power (a package reading and its limits) is together, usage is together. A
-   page with no reading rows gets none of this; a module that is off gets none (its rows stay greyed out as before).
+1. **Tiles** at the top of the module page, in the main card under the module's primary control (5.8): up to four, each with the name, the number
+   big with its unit small, a sparkline, and for a temperature or a percent (or a reading with `RangeMin` and `RangeMax`) a thin meter of where it
+   sits in its range, with a tick at the warning value (`Warn`, else 90 °C for a temperature). From the warning value on, the tile says "High" in
+   words with an icon. Without hints the host picks: readings that are in `PageSummary.Readings` first, then one reading per kind in the order
+   temperature, power, usage, clock, fan speed, voltage, current, the rest (a count or a plain number only when nothing better is on the page). **A tile
+   appears once its reading has a value** (published and not withdrawn) and goes when the module withdraws it, so a feature that is off shows no
+   "Not available" tiles above the switch that turns it on.
+2. **One trend chart** under the tiles. **The tiles are its tabs** (Task Manager's Performance page): it draws the selected tile's reading, one 2 px
+   line in the tile's own hue with no area under it, over the last 1, 5 or 10 minutes (default 5), with the limits of its group (`ChartRole.Reference`)
+   as dashed lines labelled at the line. **Compare** adds the other readings of the same group (one unit, **one axis**) in the categorical order, with a
+   legend that carries their latest values. Until the data covers the chosen range the time axis is the data's own span (at least a minute). The y
+   axis is in the current language's number format, scaled for a byte rate, and its top tick names the unit ("20 KB/s"). A crosshair and tooltip
+   (time and every line's value) follow the pointer or the arrow keys. The chart is not drawn until one of its lines has two points. Without hints the
+   groups are the units. The tile strip is one tab stop (the arrow keys, Home and End move the selection) and, for UI Automation, a list with one
+   selected item whose names carry the values. A page that has readings but no tile yet shows the chart of its first group with every line.
+3. **All readings**, folded at the end of the page: every reading of the groups as a compact 32 px line (name, sparkline, value), the table view of
+   the tiles and the chart. A `ReadingRow` in a group is drawn there and nowhere else as a row; one inside an expander, in an expander's
+   `HeaderRow` or as the `Primary` keeps its place. A sparkline is drawn from ten points of history on (a two-point stub reads as a glyph).
+
+Numbers are written in the current language's format with thousands grouped (`3,448 rpm`; Vietnamese `3.448 rpm`, `21,2 W`), and bytes and byte
+rates scale to KB, MB, GB (1024-based; one decimal under 100: `17.6 KB/s`, `176 KB/s`, `1.2 MB/s`), in the rows, the tiles, the chart, its tooltip
+and the Dashboard (`ReadingFormat.Parts`, `ReadingFormat.CultureFor`, `ReadingScale.TickLabels`). A page with no reading rows gets none of
+this; a module that is off gets no tiles and no chart (its rows stay greyed out).
 
 Optional, additive hints on `ReadingRow` (a row that sets none of them is drawn from its metric's unit; no module has to change):
 
 | Member | Meaning |
 | --- | --- |
-| `Tile` (`TileHint.Auto` / `Always` / `Never`) | Force a reading to be a tile, or keep it out of the tiles (it keeps its sparkline). At most four tiles in all. |
-| `ChartGroupKey` (module-relative key, or `""`) | Readings with the same key share one chart, and the key's text is the tab. Null groups by unit; `""` keeps the reading out of every chart. **One axis only:** a reading whose unit differs from the first one of its group stays out of that chart (it keeps its row and sparkline). At most six lines in a chart. |
+| `Tile` (`TileHint.Auto` / `Always` / `Never`) | Force a reading to be a tile, or keep it out of the tiles (it keeps its line in All readings and its place in its chart, reached with Compare). At most four tiles in all. |
+| `ChartGroupKey` (module-relative key, or `""`) | Readings with the same key share one chart, and the key's text names the chart in Compare. Null groups by unit; `""` keeps the reading out of every chart. **One axis only:** a reading whose unit differs from the first one of its group stays out of that chart (it keeps its row and sparkline). At most six lines in a chart. |
 | `RangeMin`, `RangeMax` | The natural range of the reading (for example 0 and 100 for a gauge-like temperature): sets the scale of the tile's meter and widens the chart axis to contain it. Validated: `RangeMin` must be below `RangeMax` (`PageValidator`). |
 
 Nothing is drawn, subscribed to or timed while the page is not on screen (window hidden to the tray or minimised): the page's live parts
@@ -841,6 +854,27 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after UB part 2 (UI review package B: the module page; no API change, host API stays `0.1.3`)
+
+No new member: everything below is how the host draws a page, so every module gets it, released ones included.
+
+- **Module page** (`docs/UI-DIRECTION.md` section 9). One **header card** (the module's tile, name, a state dot with the state word and the module's
+  live `PageSummary.StateLine`, the switch with its state word, the links small at the top right; the description only while the module is off; id,
+  version and author are on the Modules page). A row that writes wears a **shield after its name** (its tooltip and accessible help text say what it
+  changes) instead of the line "Changes your hardware. Rigbay asks before it applies." under every such row; the header card says once what the shield
+  means. A **`ValueRow` whose value says nothing** (empty, white space, or only a dash) is not drawn, and comes back when it has something to say; a group
+  with nothing left to show is not drawn (modules should publish `""` instead of "None"). A **failed module**: one sentence by the phase that failed
+  ("Battery guard stopped while starting."), "Restart and try again" (a restart loads it fresh; the module stays enabled), "View log", and the error
+  under Details, selectable.
+- **Readings** (5.7): the tiles are the chart's tabs; a reading is not a row of its own any more, every reading of the groups is a line in the folded
+  "All readings"; tiles only for readings that have a value; the chart draws one line in the reading's hue with no area, Compare for the rest of its
+  group, the time axis follows the data until it covers the range; sparklines from ten points on. Numbers in the current language's format, byte rates
+  scaled (`ReadingFormat.Parts`, `ReadingText`, `ReadingFormat.CultureFor`, `ReadingFormat.Scale`, `ReadingScale.TickLabels`, `ReadingScale.FormatTick(value, step, culture)`).
+  `ReadingPlan.Build` takes an optional `isLive` (tiles only for readings with a value).
+- **Short choices** in rows (2 to 4 options of at most 16 characters, at most 380 px) are segmented controls like the primary's; longer ones stay drop-downs.
+- **Demo.** `tools/demo-modules/released/build.ps1` builds XTU profiles, PredatorSense, Steam access and Recorder as they are in `modules/`, each
+  on the fake machine of its own unit tests, for pictures with made-up data (no hardware, no service, no Windows setting, no network).
 
 ### 0.1 after UB part 1 (UI review package B: host API `0.1.3`)
 

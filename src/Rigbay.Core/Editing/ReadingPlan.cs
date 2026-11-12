@@ -73,7 +73,12 @@ public sealed record ReadingPlan(IReadOnlyList<TilePlan> Tiles, IReadOnlyList<Ch
 
     /// <param name="page">The module's page.</param>
     /// <param name="unitOf">The unit of a metric (the bus knows it from the descriptor or the last sample); <see cref="MetricUnit.None"/> when unknown.</param>
-    public static ReadingPlan Build(PageModel page, Func<MetricId, MetricUnit> unitOf)
+    /// <param name="isLive">
+    /// Whether a metric has a value now (published this session and not withdrawn). When given, only such readings become tiles: a tile of a reading
+    /// that has never come, or that the module took back (a feature that is off), would only say "Not available" above the control that turns it on.
+    /// Null takes every reading (the plan of the page as written).
+    /// </param>
+    public static ReadingPlan Build(PageModel page, Func<MetricId, MetricUnit> unitOf, Func<MetricId, bool>? isLive = null)
     {
         var rows = new List<(ReadingRow Row, MetricUnit Unit)>();
         var seen = new HashSet<MetricId>();
@@ -82,7 +87,8 @@ public sealed record ReadingPlan(IReadOnlyList<TilePlan> Tiles, IReadOnlyList<Ch
         if (rows.Count == 0) return None;
 
         bool anyKind = rows.Any(x => !IsGeneric(x.Unit));
-        return new ReadingPlan(PickTiles(page, rows, anyKind), PickCharts(rows, anyKind));
+        var tileRows = isLive is null ? rows : rows.Where(x => isLive(x.Row.Metric)).ToList();
+        return new ReadingPlan(PickTiles(page, tileRows, anyKind), PickCharts(rows, anyKind));
     }
 
     private static IReadOnlyList<TilePlan> PickTiles(PageModel page, List<(ReadingRow Row, MetricUnit Unit)> rows, bool anyKind)
