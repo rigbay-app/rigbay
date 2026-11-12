@@ -946,6 +946,7 @@ Not taken this time: `nvidia-smi` and the RAPL counter (the brief limited the ba
   (Quiet, Normal, Extreme, Turbo = 1) and what the UI shows on this machine (O). The firmware's own capability word agrees with the Acer file, and it answers the open question of 15.7 and `WRITE-PROPOSALS.md` ("does the firmware accept Render and Edit?"):
   **the firmware does not advertise them, so `0x20B` and `0x30B` stay not proposed, now with a second source.** The mapping of bits to modes is an inference (no Acer code parses this value, 15.8.2 item 4); it fits all four set bits and both clear ones, but it remains **G**.
 - **Byte 2 = `0x0B` in both answers (unexplained).** It is not an echo of the input (R2 was sent `0x0A`). It could be a constant field, a version or a count (11?); no code says. Not used for anything.
+  **It is not a constant (O, P1 2026-11-13):** the module's own read of `0x0B` a few hours later returned `0xC0100` (byte 2 = `0x0C`, byte 1 still 1 = Default, status 0). Byte 2 changes over time for a reason nobody knows (a counter, a temperature step?); the module ignores it and decodes only the status and byte 1.
 - **Bits 24 to 63 are 0 in both**; no further field is visible.
 - The status byte is 0 in both, the same convention as the other reads; the `0xE1` seen once from `GetFunction(0x207)` (section 11) did not recur here.
 
