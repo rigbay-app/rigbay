@@ -722,6 +722,7 @@ public sealed partial class MainWindow : Window
             if (e.DisplayDescription.Length > 0) list.Add(new SearchItem(e.DisplayDescription, e.DisplayName, e) { Title = e.DisplayName, Detail = e.DisplayDescription });
             var cachedPage = e.LastPage;
             if (cachedPage == null) continue;
+            if (cachedPage.Primary is { } primary) AddRow(e, primary, "", null);   // host API 0.1.3: the module's main control, drawn under the page header
             foreach (var g in cachedPage.Groups)
             {
                 var groupTitle = g.HeaderKey.Length > 0 ? e.Localisation.T(g.HeaderKey) : "";
@@ -736,6 +737,7 @@ public sealed partial class MainWindow : Window
             {
                 var header = e.Localisation.T(row.HeaderKey);
                 var desc = row.DescriptionKey is { Length: > 0 } d ? e.Localisation.T(d) : "";
+                if (row.HelpKey is { Length: > 0 } hk) desc = (desc.Length > 0 ? desc + " " : "") + e.Localisation.T(hk);   // host API 0.1.3: the explanation behind the info glyph is searched like the description
                 var where = groupTitle.Length > 0 && groupTitle != e.DisplayName ? $"{e.DisplayName}  ·  {groupTitle}" : e.DisplayName;
                 list.Add(new SearchItem(header + (desc.Length > 0 ? " – " + desc : ""), $"{header}  ·  {e.DisplayName}", e)
                 {
