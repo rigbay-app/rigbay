@@ -126,6 +126,23 @@ static class Native
         return Shell_NotifyIconW(1, ref d);  // NIM_MODIFY
     }
 
+    /// <summary>
+    /// Shows a balloon (a toast banner on Windows 10 and 11) from the tray icon: NIM_MODIFY with NIF_INFO. Works for an elevated
+    /// process, which <c>AppNotificationManager</c> does not. <paramref name="infoFlags"/>: 1 info, 2 warning, 3 error (NIIF_*).
+    /// Windows sends NIN_BALLOONSHOW to the icon's callback when it actually displays it.
+    /// </summary>
+    public static bool TrayBalloon(nint hwnd, string title, string body, uint infoFlags)
+    {
+        var d = NewIcon(hwnd, "");
+        d.uFlags = 0x10;                     // NIF_INFO only: the icon and tip stay as they are
+        d.szInfoTitle = title.Length > 63 ? title[..62] + "…" : title;
+        d.szInfo = body.Length > 255 ? body[..254] + "…" : body;
+        d.dwInfoFlags = infoFlags;
+        return Shell_NotifyIconW(1, ref d);  // NIM_MODIFY
+    }
+
+    public const int NIN_BALLOONSHOW = 0x402, NIN_BALLOONHIDE = 0x403, NIN_BALLOONTIMEOUT = 0x404, NIN_BALLOONUSERCLICK = 0x405;
+
     public static bool TrayRemove(nint hwnd) { var d = NewIcon(hwnd, ""); return Shell_NotifyIconW(2, ref d); }
 
     static NOTIFYICONDATA NewIcon(nint hwnd, string tip) =>

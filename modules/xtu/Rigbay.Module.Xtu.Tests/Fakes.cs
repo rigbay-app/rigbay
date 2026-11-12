@@ -99,6 +99,8 @@ internal sealed class FakeClient : IXtuClient
     public XtuException? ReadError;
     public readonly List<XtuProfile> Applied = new();
     public XtuException? ApplyError;
+    /// <summary>When set, <see cref="Apply"/> waits for it (a slow write, so a second request meets a busy service).</summary>
+    public ManualResetEventSlim? ApplyGate;
     public readonly Queue<(Dictionary<uint, decimal> Values, bool JustOpened)> Monitor = new();
     public int MonitorResets;
     public int MonitorReads;
@@ -118,6 +120,7 @@ internal sealed class FakeClient : IXtuClient
 
     public ApplyOutcome Apply(XtuProfile profile)
     {
+        ApplyGate?.Wait(TimeSpan.FromSeconds(20));
         if (ApplyError is not null) throw ApplyError;
         Rules.Validate(profile);
         Applied.Add(profile);

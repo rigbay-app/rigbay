@@ -90,6 +90,16 @@ A module may only change your hardware (fan mode, power limits, a Windows settin
 
 Rigbay and its modules never write to the firmware unless you pressed Apply for that change.
 
+### Notifications
+
+After a change you confirmed, Rigbay tells you the result where you are looking:
+
+- **You clicked it on the module's page, and the Rigbay window is open and in front:** a message appears at the top of the window and goes away by itself. No Windows notification.
+- **The window is hidden (in the tray), minimised or behind another window, or the change came from a hotkey, a tray item, a command or the automatic switching of the XTU module** (when you plug in or unplug, or after waking from sleep): a Windows notification.
+- **A change that failed, or was refused:** always a Windows notification (and the message in the window if it is open).
+
+If you never see a notification: Rigbay runs as administrator, so it shows them as balloons from its tray icon. Windows **Focus assist / Do not disturb** and **Settings > System > Notifications** can hold them back, and Rigbay cannot see that setting or change it. Turn Do not disturb off (or allow notifications) and try again; the line `tray balloon: Windows displayed it` in the Log page says Windows took the notification, and the `notice [...]` lines say what Rigbay decided to send. The tray icon must be present (it is added at start; if the taskbar was not ready it is retried for a minute).
+
 ## 6. Start with Windows
 
 The installer creates the task unless you used `-NoTask`. **Settings → Start with Windows** switches it on or off at any time and shows whether the task is set. The task

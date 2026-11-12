@@ -97,20 +97,20 @@ Status: decoded, effect not observed. On this machine the registry says GPU OC i
 | `2` | GPU mode support: mode in bits 8..15; values 1, 2, 3 accepted |
 | `9` | GPU mode capability bits: bits 8, 9, 10 (after an SMBIOS version check) |
 
-## Operation mode (decoded in B7 by static analysis; **nothing run**)
+## Operation mode (decoded in B7 by static analysis, re-checked in B9 with Ghidra: same values; **nothing run**)
 
 UI enum Quiet 0, Default 1 (button/ini name "Normal"), Render 2, Edit 3, Extreme 4, Turbo 5. The UI sends the number as a `UInt32` in **service pipe command 53**
 (reply: always `0xFFFFFFFF`, the UI ignores it) and caches it in `Overclock\CurrentOperationMode`. The UI never sends command 51 or 52. The pipe is off limits.
-What `PSSvc.exe` does for 53 (this machine; code read with a home-made decoder, an independent Ghidra pass is still wanted):
+What `PSSvc.exe` does for 53 (this machine; B7's own decoder and B9's Ghidra agree on every value below; neither run anything):
 
 1. if registry `NV_WhisperMode20_Support` = 1: admin-agent pipe command 35 with `1` for Quiet, else `0` (not WMI).
 2. **`SetGamingMiscSetting` (id 22) `gmInput` = `(mode << 8) | 0x0B`** (`0x0B`, `0x10B`, `0x20B`, `0x30B`, `0x40B`, `0x50B`), then 30 ms.
 3. GPU step with `level` = 0 (Quiet), 1 (Default, Render, Edit), 2 (Extreme), 3 (Turbo): NvAPI P-state offsets from `PredatorSense.ini` (this GPU: all 0 except Turbo core +100, memory +360;
-   `SetPstates20` with 100 ms sleeps), then `SetGamingMiscSetting` `(level << 8) | 0x05` = `0x05`, `0x105`, `0x205`, `0x305` (when `Feature.ini [OverclockDetial]` `GPUOCWMIRule` and `GPUOCWMINewRule` are 1, as here).
-4. No CPU OC, no power plan, no registry write, no AC/battery check in the service; the UI and `PSAdminAgent` do those (writes of the cache, Default reset on power-source change/low battery/resume).
+   `SetPstates20`; the offset is absolute, `ini x 1000` kHz, and non-Turbo modes set it back to 0; a 100 ms sleep only after a failed try), then `SetGamingMiscSetting` `(level << 8) | 0x05` = `0x05`, `0x105`, `0x205`, `0x305` (when `Feature.ini [OverclockDetial]` `GPUOCWMIRule` and `GPUOCWMINewRule` are 1, as here).
+4. No CPU OC, no power plan, no registry write (one unused repair write), no AC/battery check, and no check of either WMI answer in the service; the UI and `PSAdminAgent` do those (writes of the cache, Default reset on power-source change/low battery/resume).
 
 Reads (service handlers for pipe 52 and 51; the UI never uses them): `GetGamingMiscSetting` (id 23, UInt32 in) `0x0B` = current mode, `0x0A` = capability. The service returns the raw 64-bit answer,
-so the layout is unknown; by analogy the mode is probably in bits 8 to 15 (G). **Never run.** Other Misc selectors seen: `0x05` GPU OC level, `0x07` CPU OC level / CPU OC support read,
+so the layout is unknown (B9: no Acer binary parses it; `PSAdminAgent` never reads `0x0A` or `0x0B`); by analogy the mode is probably in bits 8 to 15 (G). **Never run.** Other Misc selectors seen: `0x05` GPU OC level, `0x07` CPU OC level / CPU OC support read,
 `0x09` discrete-GPU capability read, `0x02` GPU mode. UI Turbo branch (AC + boost + fan Max): `SetGamingLEDBehavior(0x10001)` + `SetGamingMiscSetting(0x101)`, undo `(1)` + `(1)`.
 Turbo **key** with the UI closed (agent): `SetGamingFanBehavior(0x02AA001F)` all Max / `(0x0155001F)` all Auto, mask `0x1F` (all five slots).
 

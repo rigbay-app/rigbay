@@ -28,6 +28,10 @@ public sealed partial class MainWindow : Window
     int _frames;
 
     internal nint Hwnd;
+    internal InAppNotice InAppNotice;
+    volatile bool _foreground, _inUse;
+    /// <summary>True while the window is visible, not minimised and the foreground window; readable from any thread (see NotificationPolicy).</summary>
+    internal bool InUse => _inUse;
     internal RowRenderer? LastRenderer;
     internal List<SearchItem> SearchIndex = new();
     internal Options Opt => _opt;
@@ -84,7 +88,9 @@ public sealed partial class MainWindow : Window
             LeftColumn.Width = new GridLength(TitleBar.ActualWidth >= 1000 ? 280 : 130);
         };
         AppWindow.Closing += OnAppWindowClosing;
-        AppWindow.Changed += (_, a) => { if (a.DidVisibilityChange || a.DidPresenterChange) UpdatePageVisibility(); };
+        AppWindow.Changed += (_, a) => { if (a.DidVisibilityChange || a.DidPresenterChange) { UpdatePageVisibility(); UpdateInUse(); } };
+        Activated += (_, a) => { _foreground = a.WindowActivationState != WindowActivationState.Deactivated; UpdateInUse(); };
+        InAppNotice = new InAppNotice(NoticeBar, DispatcherQueue);
         Closed += (_, _) => AppLog.Info("window closed");
 
         Native.Subclass(Hwnd, WindowProc);
@@ -105,6 +111,8 @@ public sealed partial class MainWindow : Window
             };
             core.ApprovalPrompt = new ApprovalPrompt();
             core.ToastSink = Host.Toast;
+            core.InAppSink = InAppNotice;
+            core.WindowInUse = () => _inUse;
             core.ModulesDiscovered += () => Ui.Post(null, WatchEntries);
             core.ModuleFaulted += OnModuleFaulted;
             core.PageRefreshed += e => Ui.Post(null, () => OnPageRefreshed(e), "page refresh");
@@ -210,6 +218,12 @@ public sealed partial class MainWindow : Window
     /// Tells the modules whether their page is on screen: true for the module page that is open while the window is shown,
     /// false for the one that was left, and false for all when the window is hidden to the tray or minimised. UI thread only.
     /// </summary>
+    internal void UpdateInUse()
+    {
+        try { _inUse = _uiBuilt && _foreground && WindowShown; }
+        catch (Exception ex) { AppLog.Warn("window state check failed", ex); _inUse = false; }
+    }
+
     internal void UpdatePageVisibility()
     {
         // the page itself: nothing live (subscriptions, redraw timer) while the window is hidden or minimised
@@ -270,6 +284,7 @@ public sealed partial class MainWindow : Window
     {
         if (_uiBuilt) return;
         _uiBuilt = true;
+        UpdateInUse();
         Microsoft.UI.Xaml.Media.CompositionTarget.Rendered += (_, _) => { if (++_frames == 1) AppLog.Info("first frame rendered"); };
         ApplyTitleBarColors();
         ApplyBrandMark();

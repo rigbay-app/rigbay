@@ -507,6 +507,12 @@ observable `Visible`, `Enabled`, `Checked` (with `Checkable`) and an optional `I
 
 **Toast.** `host.Toast.Show(new ToastMessage(title, body, ToastKind.Warning))`. Interface only: the app supplies the
 implementation. Titles and bodies are `LocalisedText` (a module-relative key plus optional arguments).
+`ToastMessage.Origin` (`ToastOrigin.Background` by default, or `Page`) says what caused the change. Set `Page` for the result of
+something the user just confirmed on the module's page; the host then shows it inside the window while the user is looking at it and as a
+Windows notification otherwise. A hotkey, tray item, verb, automatic rule or timer keeps `Background` and always gets a notification. A
+`Warning` or `Error` is always a notification, whatever the origin. The rule, the table and the reason a toast is a tray balloon in an
+elevated app: `docs/APP.md`, "Notifications". Send one message per change, none for periodic readings, and none when the user
+declined a question.
 
 ## 10. Fault boundary, loading, logging
 

@@ -248,7 +248,7 @@ static class SelfTest
         await boost.Apply();
         await Settle();
         R("flow: approved button runs and offers revert", boost.CanRevert() && boost.Status().Contains("Boost is on"), $"status='{boost.Status()}'");
-        R("flow: module toast reaches the toast host", Host.Toast.Shown > toasts || !Host.Toast.Registered, $"Shown {toasts} -> {Host.Toast.Shown}; registered={Host.Toast.Registered}");
+        R("flow: module toast reaches the toast host", Host.Toast.Shown > toasts, $"Shown {toasts} -> {Host.Toast.Shown}; balloon mode={Host.Toast.UsesBalloon}");
         ApprovalPrompt.TestAnswer = false;
         asked = ApprovalPrompt.Asked;
         await boost.Revert();
@@ -543,9 +543,26 @@ static class SelfTest
         await Settle(600);
         R("tray: a menu item runs the module's callback", ApprovalPrompt.Asked > asked, $"approval asked {ApprovalPrompt.Asked - asked}x");
 
-        int shown = Host.Toast.Shown;
-        Host.Toast.Show("Rigbay self-test", "Toast from the elevated app");
-        R("toast: AppNotificationManager.Show", Host.Toast.Registered ? Host.Toast.Shown == shown + 1 : true, $"registered={Host.Toast.Registered}, shown {shown}->{Host.Toast.Shown}; on-screen appearance not checked");
+        int shown = Host.Toast.Shown, balloons = Host.Tray!.BalloonsDisplayed;
+        string mode = Host.Toast.UsesBalloon ? "tray balloon (the process is elevated, so AppNotificationManager is unsupported)" : "AppNotificationManager";
+        Host.Toast.Show("Rigbay self-test", "Notification from the elevated app");
+        R("toast: the notification is accepted by Windows", Host.Toast.Shown == shown + 1, $"mode={mode}; shown {shown}->{Host.Toast.Shown}; failed={Host.Toast.Failed}; AppNotificationManager.Setting={Host.Toast.Setting ?? "(not read)"}");
+        // Windows itself says when it put the balloon on screen (NIN_BALLOONSHOW to the icon's callback). It does not say so while
+        // Focus assist / Do not disturb holds notifications back, which is the one case this check cannot tell from a fault.
+        for (int i = 0; i < 24 && Host.Tray.BalloonsDisplayed == balloons; i++) await Settle(250);
+        R("toast: Windows reported the notification as displayed", !Host.Toast.UsesBalloon || Host.Tray.BalloonsDisplayed > balloons, $"NIN_BALLOONSHOW received {Host.Tray.BalloonsDisplayed - balloons}x within 6 s; if 0, Focus assist / Do not disturb may be holding it back");
+
+        // The in-window half of the notification rule (docs/APP.md): a message at the top of the window, closing by itself.
+        Host.Window.InAppNotice.Show("demo-fan", "Applied", "Message inside the window (self-test)", ToastKind.Success);
+        await Settle(500);
+        R("notice: a message appears at the top of the window", Host.Window.InAppNotice.IsOpen && Host.Window.InAppNotice.Last!.Contains("Message inside the window"), $"open={Host.Window.InAppNotice.IsOpen}, last='{Host.Window.InAppNotice.Last}'");
+        if (w.Opt.SelfTestOut is { } outPath)
+        {
+            var png = Path.ChangeExtension(outPath, ".notice.png");
+            try { w.Shoot(png); R("notice: the window renders with the message (own window, PrintWindow)", File.Exists(png) && new FileInfo(png).Length > 1000, png); }
+            catch (Exception ex) { R("notice: the window renders with the message (own window, PrintWindow)", false, ex.Message); }
+        }
+        R("notice: the window-in-use flag is tracked", Host.Core.WindowInUse is not null, $"inUse now={Host.Core.WindowInUse?.Invoke()}");
 
         var core = Host.Core;
         async Task Cmd(string name, string[] args, int exit, string? contains = null)

@@ -138,6 +138,9 @@ module.xtu.reason.battery = On battery
 module.xtu.toast.title = XTU profiles
 module.xtu.toast.title-failed = XTU profiles: no change
 module.xtu.toast.applied = Applied {0}
+module.xtu.toast.auto-applied = Switched to {0} automatically ({1}).
+module.xtu.toast.auto-off = Automatic switching is off. The CPU power limits stay as they are now.
+module.xtu.toast.auto-nothing = Saved. Nothing was applied right now.
 
 # --- command line
 module.xtu.cmd.status = Show the service state, the active limits and the profiles.

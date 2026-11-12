@@ -95,5 +95,6 @@ module.predatorsense.status.fan-mode = Chế độ quạt, Rigbay đặt lần c
 
 # Thông báo
 module.predatorsense.toast.fan-title = Chế độ quạt
-module.predatorsense.toast.fan-set = Đã đặt quạt thành {0}.
+module.predatorsense.toast.fan-set = Đã đặt quạt thành {0}. {1}
 module.predatorsense.toast.fan-failed = Chưa đổi. {0}
+module.predatorsense.toast.fan-unconfirmed = Chưa xác nhận quạt đã sang {0} hay chưa. {1}
