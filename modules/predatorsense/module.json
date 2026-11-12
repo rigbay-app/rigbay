@@ -2,9 +2,9 @@
   "manifestVersion": 1,
   "id": "predatorsense",
   "name": "PredatorSense",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Rigbay contributors",
-  "description": "Temperatures and fan speeds of an Acer Predator laptop, and the fan mode: Auto or Maximum.",
+  "description": "Temperatures, fan speeds and the performance mode of an Acer Predator laptop, and the fan mode: Auto or Maximum.",
   "entry": { "assembly": "Rigbay.PredatorSense.dll", "type": "Rigbay.PredatorSense.PredatorSenseModule" },
   "hostApi": ">=0.1.1 <0.2",
   "group": "cooling",
@@ -16,7 +16,7 @@
       "HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS (read, for the model name)"
     ],
     "services": [
-      "WMI root\\WMI AcerGamingFunction: sensor reads, and a fan mode write (Auto or Maximum) only when you ask",
+      "WMI root\\WMI AcerGamingFunction: sensor reads, two read-only performance-mode reads (GetGamingMiscSetting 0x0A and 0x0B), and a fan mode write (Auto or Maximum) only when you ask",
       "PSSvc (Acer PredatorSense service): looked up, never started, stopped or called"
     ]
   },

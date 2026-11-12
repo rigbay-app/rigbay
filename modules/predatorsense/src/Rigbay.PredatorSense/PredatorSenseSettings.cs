@@ -12,6 +12,9 @@ public sealed class PredatorSenseSettings
     /// <summary>Seconds between sensor reads while nobody watches them (page hidden, no subscriber). Not a setting.</summary>
     public const int IdlePollSeconds = 10;
 
+    /// <summary>Seconds between reads of the performance mode while the page is visible or its metric has a subscriber; it is not read at all otherwise. Not a setting.</summary>
+    public const int OpModePollSeconds = 10;
+
     /// <summary>Seconds between sensor reads while something watches them. One read takes about 11 ms.</summary>
     public int PollSeconds { get; set; } = 2;
 

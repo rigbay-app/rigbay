@@ -4,7 +4,7 @@
 
 # Hiện ở dòng bật/tắt (thay chữ trong manifest)
 module.predatorsense.name = PredatorSense
-module.predatorsense.description = Nhiệt độ và tốc độ quạt của laptop Acer Predator, và chế độ quạt: Tự động hoặc Tối đa.
+module.predatorsense.description = Nhiệt độ, tốc độ quạt và chế độ hiệu năng của laptop Acer Predator, và chế độ quạt: Tự động hoặc Tối đa.
 
 # Probe: vì sao máy này không được hỗ trợ
 module.predatorsense.probe.no-service = Máy này chưa cài dịch vụ Acer PredatorSense (PSSvc).
@@ -13,7 +13,7 @@ module.predatorsense.probe.check-failed = Không kiểm tra được máy này: 
 
 # Nhóm trên trang
 module.predatorsense.group.readings = Số đo
-module.predatorsense.group.cooling = Làm mát
+module.predatorsense.group.cooling = Làm mát và hiệu năng
 module.predatorsense.group.settings = Cài đặt
 
 # Số đo
@@ -24,11 +24,26 @@ module.predatorsense.sensor.cpu-fan = Quạt CPU
 module.predatorsense.sensor.gpu-fan1 = Quạt GPU 1
 module.predatorsense.sensor.gpu-fan2 = Quạt GPU 2
 module.predatorsense.row.cpu-temp.description = Cảm biến trong firmware Acer. Có thể cao hơn vùng nhiệt của Windows khoảng 10 °C: đó là hai cảm biến khác nhau.
+module.predatorsense.sensor.opmode = Chế độ hiệu năng
+module.predatorsense.sensor.opmode.description = Chế độ hiệu năng của laptop dưới dạng số: 0 Yên tĩnh, 1 Mặc định, 2 Render, 3 Edit, 4 Extreme, 5 Turbo.
 module.predatorsense.row.model.header = Máy
 module.predatorsense.row.model.description = Theo báo cáo của firmware
 module.predatorsense.model.unknown = Không rõ
 
 # Làm mát
+module.predatorsense.row.opmode.header = Chế độ hiệu năng
+module.predatorsense.row.opmode.description = Đọc từ laptop
+module.predatorsense.row.opmodes.header = Các chế độ laptop có
+module.predatorsense.row.opmodes.description = Đọc từ laptop
+module.predatorsense.info.opmode-note.header = Tạm thời hãy đổi trong PredatorSense
+module.predatorsense.info.opmode-note.description = Rigbay sẽ cho đổi sau khi đã thử có giám sát.
+module.predatorsense.opmode.quiet = Yên tĩnh
+module.predatorsense.opmode.default = Mặc định
+module.predatorsense.opmode.render = Render
+module.predatorsense.opmode.edit = Edit
+module.predatorsense.opmode.extreme = Extreme
+module.predatorsense.opmode.turbo = Turbo
+module.predatorsense.opmode.unknown = Không rõ
 module.predatorsense.row.fan-mode.header = Chế độ quạt
 module.predatorsense.row.fan-mode.description = Tối đa chạy mọi quạt hết tốc độ và rất ồn.
 module.predatorsense.fan.auto = Tự động
@@ -91,6 +106,7 @@ module.predatorsense.cmd.fan-done = Đã đặt chế độ quạt thành {0}. {
 module.predatorsense.status.model = Máy: {0}
 module.predatorsense.status.line = {0}: {1}
 module.predatorsense.status.not-available = không có
+module.predatorsense.status.opmode = Chế độ hiệu năng: {0}
 module.predatorsense.status.fan-mode = Chế độ quạt, Rigbay đặt lần cuối: {0}
 
 # Thông báo

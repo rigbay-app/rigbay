@@ -22,6 +22,12 @@ public sealed class GuardedAcerWmi : IAcerWmi
     }
 
     /// <inheritdoc />
+    public ulong ReadOperationMode() => _inner.ReadOperationMode();
+
+    /// <inheritdoc />
+    public ulong ReadSupportedOperationModes() => _inner.ReadSupportedOperationModes();
+
+    /// <inheritdoc />
     public uint SetFanBehavior(ulong value, TimeSpan? timeout = null)
     {
         WmiAllowList.RequireFanWrite(value);

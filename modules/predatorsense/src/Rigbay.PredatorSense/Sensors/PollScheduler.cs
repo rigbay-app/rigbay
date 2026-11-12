@@ -7,7 +7,7 @@ namespace Rigbay.PredatorSense.Sensors;
 /// </summary>
 public sealed class PollScheduler : IDisposable
 {
-    private readonly SensorPoller _poller;
+    private readonly Action _poll;
     private readonly Action<Exception> _onError;
     private readonly object _lock = new();
     private Timer? _timer;
@@ -19,8 +19,15 @@ public sealed class PollScheduler : IDisposable
 
     /// <summary>Creates the scheduler (not started).</summary>
     public PollScheduler(SensorPoller poller, TimeSpan fastInterval, TimeSpan idleInterval, Action<Exception> onError)
+        : this(() => poller.PollOnce(), fastInterval, idleInterval, onError) { }
+
+    /// <summary>
+    /// Creates a scheduler for any poll action. An <paramref name="idleInterval"/> of <see cref="Timeout.InfiniteTimeSpan"/> means "do not
+    /// poll at all while nobody watches" (the operation-mode read uses it); <see cref="PollSoon"/> still polls at once.
+    /// </summary>
+    public PollScheduler(Action poll, TimeSpan fastInterval, TimeSpan idleInterval, Action<Exception> onError)
     {
-        _poller = poller;
+        _poll = poll;
         _fast = fastInterval;
         _idle = idleInterval;
         _onError = onError;
@@ -84,7 +91,7 @@ public sealed class PollScheduler : IDisposable
     private void OnTimer(object? state)
     {
         lock (_lock) { if (_stopped) return; _running = true; }
-        try { _poller.PollOnce(); }
+        try { _poll(); }
         catch (Exception ex)
         {
             try { _onError(ex); } catch (Exception) { /* nothing left to do */ }

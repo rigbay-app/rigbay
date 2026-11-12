@@ -22,9 +22,10 @@ public sealed class AcerWmiException : Exception
 }
 
 /// <summary>
-/// The two things this module ever says to the laptop's firmware, and nothing else: read one sensor, set the fan mode.
-/// The module logic only uses this interface; <see cref="AcerWmi"/> is the real implementation over System.Management and
-/// the tests use a fake. Both methods throw <see cref="AcerWmiException"/> for an expected failure.
+/// The things this module ever says to the laptop's firmware, and nothing else: read one sensor, read the operation mode,
+/// read which operation modes exist, set the fan mode. The module logic only uses this interface; <see cref="AcerWmi"/> is the
+/// real implementation over System.Management and the tests use a fake. Every method throws <see cref="AcerWmiException"/>
+/// for an expected failure. The two operation-mode reads take no argument on purpose: nobody can pass another input.
 /// </summary>
 public interface IAcerWmi
 {
@@ -34,6 +35,18 @@ public interface IAcerWmi
     /// </summary>
     /// <param name="index">The sensor index.</param>
     ulong ReadSysInfo(int index);
+
+    /// <summary>
+    /// <c>AcerGamingFunction.GetGamingMiscSetting(0x0B)</c>: the current operation mode (read only; W3-R1). Returns the raw answer: status in
+    /// bits 0 to 7, the mode id in bits 8 to 15 (decode with <c>OperationModeDecoder</c>). Does not change anything.
+    /// </summary>
+    ulong ReadOperationMode();
+
+    /// <summary>
+    /// <c>AcerGamingFunction.GetGamingMiscSetting(0x0A)</c>: which operation modes the firmware has (read only; W3-R2). Returns the raw answer:
+    /// status in bits 0 to 7, a bit mask by mode id in bits 8 to 15. Does not change anything.
+    /// </summary>
+    ulong ReadSupportedOperationModes();
 
     /// <summary>
     /// <c>AcerGamingFunction.SetGamingFanBehavior</c> with exactly <paramref name="value"/>. Only the two values in

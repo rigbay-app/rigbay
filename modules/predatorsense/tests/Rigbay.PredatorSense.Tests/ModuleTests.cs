@@ -148,7 +148,7 @@ public class ModuleLifecycleTests
     public async Task Five_failed_polls_withdraw_the_readings_and_refuse_a_max_write()
     {
         using var rig = new ModuleRig(approve: true);
-        Assert.Empty(rig.Rows.OfType<InfoRow>());   // the "stale numbers" warning row is gone: withdrawn readings say it themselves
+        Assert.DoesNotContain(rig.Rows.OfType<InfoRow>(), r => r.Severity != Severity.Info);   // the "stale numbers" warning row is gone: withdrawn readings say it themselves (the one info row is the performance-mode note)
         Assert.Empty(rig.Host.MetricsBus.Withdrawn);
 
         rig.Wmi.ReadThrows = new AcerWmiException(AcerWmiFailure.Failed, "gone");
@@ -539,7 +539,7 @@ public class PollRateAndLabelTests
     {
         using var rig = new ModuleRig();
         var described = rig.Host.MetricsBus.Descriptors;
-        Assert.Equal(SensorMetrics.OrderBy(s => s), described.Select(d => d.Id.Value).OrderBy(s => s));
+        Assert.Equal(SensorMetrics.Append("predatorsense.opmode").OrderBy(s => s), described.Select(d => d.Id.Value).OrderBy(s => s));
         var published = rig.Host.MetricsBus.Snapshot().GroupBy(p => p.Id.Value).ToDictionary(g => g.Key, g => g.First().Unit);
 
         foreach (var lang in new[] { "en", "vi" })
@@ -548,6 +548,7 @@ public class PollRateAndLabelTests
             foreach (var d in described)
             {
                 Assert.True(table.ContainsKey("module.predatorsense." + d.LabelKey), $"{lang}: missing label key {d.LabelKey}");
+                if (d.Id.Value == "predatorsense.opmode") { Assert.Equal(MetricUnit.None, d.Unit); continue; }   // read only while watched: not published at start
                 Assert.Equal(published[d.Id.Value], d.Unit);   // the descriptor's unit is the unit actually published
             }
         }

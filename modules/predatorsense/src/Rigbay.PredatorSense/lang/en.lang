@@ -4,7 +4,7 @@
 
 # Shown on the enable row (override the manifest text)
 module.predatorsense.name = PredatorSense
-module.predatorsense.description = Temperatures and fan speeds of an Acer Predator laptop, and the fan mode: Auto or Maximum.
+module.predatorsense.description = Temperatures, fan speeds and the performance mode of an Acer Predator laptop, and the fan mode: Auto or Maximum.
 
 # Probe: why this machine is not supported
 module.predatorsense.probe.no-service = The Acer PredatorSense service (PSSvc) is not installed on this machine.
@@ -13,7 +13,7 @@ module.predatorsense.probe.check-failed = Could not check this machine: {0}
 
 # Page groups
 module.predatorsense.group.readings = Readings
-module.predatorsense.group.cooling = Cooling
+module.predatorsense.group.cooling = Cooling and performance
 module.predatorsense.group.settings = Settings
 
 # Readings
@@ -24,11 +24,26 @@ module.predatorsense.sensor.cpu-fan = CPU fan
 module.predatorsense.sensor.gpu-fan1 = GPU fan 1
 module.predatorsense.sensor.gpu-fan2 = GPU fan 2
 module.predatorsense.row.cpu-temp.description = The Acer firmware sensor. It can read about 10 °C above the Windows thermal zone: they are different sensors.
+module.predatorsense.sensor.opmode = Performance mode
+module.predatorsense.sensor.opmode.description = The laptop's performance mode as a number: 0 Quiet, 1 Default, 2 Render, 3 Edit, 4 Extreme, 5 Turbo.
 module.predatorsense.row.model.header = Machine
 module.predatorsense.row.model.description = As the firmware reports it
 module.predatorsense.model.unknown = Unknown
 
 # Cooling
+module.predatorsense.row.opmode.header = Performance mode
+module.predatorsense.row.opmode.description = Read from the laptop
+module.predatorsense.row.opmodes.header = Modes this laptop offers
+module.predatorsense.row.opmodes.description = Read from the laptop
+module.predatorsense.info.opmode-note.header = Change it in PredatorSense for now
+module.predatorsense.info.opmode-note.description = Rigbay will offer this after a supervised test.
+module.predatorsense.opmode.quiet = Quiet
+module.predatorsense.opmode.default = Default
+module.predatorsense.opmode.render = Render
+module.predatorsense.opmode.edit = Edit
+module.predatorsense.opmode.extreme = Extreme
+module.predatorsense.opmode.turbo = Turbo
+module.predatorsense.opmode.unknown = Unknown
 module.predatorsense.row.fan-mode.header = Fan mode
 module.predatorsense.row.fan-mode.description = Maximum runs all fans at full speed and is loud.
 module.predatorsense.fan.auto = Auto
@@ -91,6 +106,7 @@ module.predatorsense.cmd.fan-done = Fan mode set to {0}. {1}
 module.predatorsense.status.model = Machine: {0}
 module.predatorsense.status.line = {0}: {1}
 module.predatorsense.status.not-available = not available
+module.predatorsense.status.opmode = Performance mode: {0}
 module.predatorsense.status.fan-mode = Fan mode, last set by Rigbay: {0}
 
 # Notifications

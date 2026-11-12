@@ -17,6 +17,16 @@ internal sealed class FakeAcerWmi : IAcerWmi
         [1] = Raw(61), [2] = Raw(2564), [3] = Raw(44), [6] = Raw(2654), [9] = Raw(2663), [10] = Raw(52),
     };
 
+    /// <summary>Every operation-mode read in order: 0x0B (current mode) or 0x0A (supported modes). Nothing else can be recorded here.</summary>
+    public readonly List<uint> MiscReads = new();
+
+    /// <summary>Raw answer of the current-mode read. Default is what the real machine gave in B10: status 0, Default (1).</summary>
+    public ulong OperationModeAnswer = 0x0B0100;
+
+    /// <summary>Raw answer of the supported-modes read. Default is B10's: status 0, bits 0, 1, 4, 5.</summary>
+    public ulong SupportedModesAnswer = 0x0B3300;
+    public Exception? MiscReadThrows;
+
     public Exception? ReadThrows;
     public Exception? WriteThrows;
     public uint WriteAnswer;
@@ -41,6 +51,20 @@ internal sealed class FakeAcerWmi : IAcerWmi
         OnRead?.Invoke(index);
         if (ReadThrows is { } ex) throw ex;
         lock (Gate) return Sensors.TryGetValue(index, out var raw) ? raw : Raw(0);
+    }
+
+    public ulong ReadOperationMode()
+    {
+        lock (Gate) MiscReads.Add(0x0B);
+        if (MiscReadThrows is { } ex) throw ex;
+        lock (Gate) return OperationModeAnswer;
+    }
+
+    public ulong ReadSupportedOperationModes()
+    {
+        lock (Gate) MiscReads.Add(0x0A);
+        if (MiscReadThrows is { } ex) throw ex;
+        lock (Gate) return SupportedModesAnswer;
     }
 
     public uint SetFanBehavior(ulong value, TimeSpan? timeout = null)

@@ -48,6 +48,8 @@ public sealed partial class PredatorSenseModule
                 : loc.T("status.not-available");
             text.AppendLine(loc.F("status.line", label, value));
         }
+        // The performance mode is read on demand too (read only).
+        if (_opMode is { } opMode) text.AppendLine(loc.F("status.opmode", OpModeText(loc, opMode.ReadCurrent())));
         text.Append(loc.F("status.fan-mode", LastSetText(loc, _fan?.Last)));
         return snapshot.AnyAnswer ? CommandResult.Ok(text.ToString()) : CommandResult.Failed(text.ToString());
     }

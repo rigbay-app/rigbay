@@ -24,7 +24,28 @@ public sealed partial class PredatorSenseModule
         _lastSetText.Value = LastSetText(loc, fan.Last);
         _checkText.Value = _watching ? loc.T("check.watching") : _noPrevious ? loc.T("check.no-previous") : _result is null ? loc.T("check.none") : CheckText(loc, _result);
         _stateLine.Value = StateLine(poller.State, fan.Last);
+        if (_opMode is { } opMode)
+        {
+            _opModeText.Value = OpModeText(loc, opMode.Current);
+            _opModesText.Value = OpModesText(loc, opMode.Supported);
+        }
     }
+
+    /// <summary>The label of a performance mode, or "Unknown" for a mode that could not be read or understood.</summary>
+    internal static string OpModeText(ILocalisation loc, OperationMode? mode) => mode switch
+    {
+        OperationMode.Quiet => loc.T("opmode.quiet"),
+        OperationMode.Default => loc.T("opmode.default"),
+        OperationMode.Render => loc.T("opmode.render"),
+        OperationMode.Edit => loc.T("opmode.edit"),
+        OperationMode.Extreme => loc.T("opmode.extreme"),
+        OperationMode.Turbo => loc.T("opmode.turbo"),
+        _ => loc.T("opmode.unknown"),
+    };
+
+    /// <summary>The modes the firmware advertises as one line ("Quiet, Default, Extreme, Turbo"), or "Unknown".</summary>
+    internal static string OpModesText(ILocalisation loc, IReadOnlyList<OperationMode>? modes) =>
+        modes is null || modes.Count == 0 ? loc.T("opmode.unknown") : string.Join(", ", modes.Select(m => OpModeText(loc, m)));
 
     private static LocalisedText StateLine(ReadingsState state, LastSet? last) => state switch
     {
