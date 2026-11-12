@@ -21,6 +21,10 @@ namespace Rigbay.App;
 /// <para>A row's control can be drawn in three places (<see cref="Place"/>): in its own card (a group, the default), in the header of the
 /// expander that holds it (<see cref="ExpanderRow.HeaderRow"/>), or as the page's primary control (<see cref="PageModel.Primary"/>, large, in
 /// the card under the page header). The editor, the approval and Revert are the same in all three.</para>
+/// <para>What the page says once is not said on every row: a row that writes wears a small shield after its name (its tooltip and accessible help
+/// say what it changes) instead of a line of text, the page's header card explains the shield; a read-only value with nothing to say (empty, or a
+/// lone dash) is not drawn, and a group with nothing left is not drawn either; a reading is not a row of its own, its number is a tile and its
+/// line the chart above, and every reading is a compact line in the folded "All readings".</para>
 /// </summary>
 sealed class RowRenderer
 {
@@ -71,14 +75,107 @@ sealed class RowRenderer
     public UIElement RenderGroups(PageModel page)
     {
         var all = new StackPanel { Spacing = 0 };
+        var readings = new List<ReadingRow>();
         foreach (var group in page.Groups)
         {
-            all.Children.Add(new TextBlock { Text = L.T(group.HeaderKey), Style = Ui.Style("RbGroupHeader") });
+            var header = new TextBlock { Text = L.T(group.HeaderKey), Style = Ui.Style("RbGroupHeader") };
+            AutomationProperties.SetHeadingLevel(header, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level2);
             var box = new StackPanel { Spacing = 2 };
-            foreach (var row in group.Rows) box.Children.Add(Render(row));
+            foreach (var row in group.Rows)
+            {
+                // a reading is a tile and a line in the chart above; as a row it would say the same number a third time (VR-1)
+                if (row is ReadingRow r) { readings.Add(r); continue; }
+                box.Children.Add(Render(row));
+            }
+            if (box.Children.Count == 0) continue;   // a group of readings only: they are in the tiles, the chart and All readings
+            all.Children.Add(header);
             all.Children.Add(box);
+            FollowRows(header, box);
         }
+        if (readings.Count > 0) all.Children.Add(AllReadings(readings));
         return all;
+    }
+
+    /// <summary>A group's title and box are shown while one of its rows is (MP-4: a group whose rows have nothing to say is not drawn).</summary>
+    void FollowRows(UIElement header, StackPanel box)
+    {
+        void Update()
+        {
+            bool any = box.Children.Any(c => c.Visibility == Visibility.Visible);
+            var v = any ? Visibility.Visible : Visibility.Collapsed;
+            if (header.Visibility != v) header.Visibility = v;
+            if (box.Visibility != v) box.Visibility = v;
+        }
+        foreach (var child in box.Children)
+        {
+            var c = child;
+            long token = c.RegisterPropertyChangedCallback(UIElement.VisibilityProperty, (_, _) => Update());
+            _scope.Add(() => c.UnregisterPropertyChangedCallback(UIElement.VisibilityProperty, token));
+        }
+        Update();
+    }
+
+    /// <summary>
+    /// Every reading of the groups as a compact line (name, sparkline, value; 32 px each), folded: the table view of the tiles and the chart, and the
+    /// place of the readings that are not tiles.
+    /// </summary>
+    UIElement AllReadings(IReadOnlyList<ReadingRow> rows)
+    {
+        var list = new StackPanel { Spacing = 0 };
+        foreach (var r in rows) list.Children.Add(ReadingLine(r));
+        var x = new SettingsExpander
+        {
+            Header = Host.T("page.all-readings"),
+            Description = Host.F("page.all-readings-count", rows.Count),
+            IsExpanded = false,
+            Margin = new Thickness(0, 16, 0, 0),
+        };
+        AutomationProperties.SetName(x, Host.T("page.all-readings"));
+        x.Items.Add(new SettingsCard { Content = list, ContentAlignment = ContentAlignment.Vertical, HorizontalContentAlignment = HorizontalAlignment.Stretch });
+        AllReadingsExpander = x;
+        return x;
+    }
+
+    /// <summary>The value text of each line of All readings, by the reading's header (self-test).</summary>
+    public Dictionary<string, TextBlock> ReadingValues { get; } = new();
+
+    /// <summary>The All readings expander of the page (self-test), or null.</summary>
+    public SettingsExpander? AllReadingsExpander { get; private set; }
+
+    /// <summary>One reading as a 32 px line: its name (its description and help as the tooltip), a sparkline, the value in its hue.</summary>
+    UIElement ReadingLine(ReadingRow r)
+    {
+        var grid = new Grid { MinHeight = 32, ColumnSpacing = 14 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(96) });
+        var name = Ui.Text(L.T(r.HeaderKey), trim: true);
+        var tip = string.Join("\n", new[] { r.DescriptionKey, r.HelpKey }.Where(k => k is { Length: > 0 }).Select(k => L.T(k!)));
+        if (tip.Length > 0) ToolTipService.SetToolTip(name, tip);
+        grid.Children.Add(name);
+        var spark = new Sparkline(r.Metric, r.Color, 84, 20) { VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(spark, 1);
+        grid.Children.Add(spark);
+        var value = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right };
+        Ui.Tabular(value);
+        ReadingValues[name.Text] = value;
+        Grid.SetColumn(value, 2);
+        grid.Children.Add(value);
+        string styleKey = "";
+        void Show(MetricSample? s)
+        {
+            value.Text = ReadingFormat.Format(Host.Core.Languages, r, s);
+            var key = ReadingFormat.IsAvailable(s) ? ReadingStyle(r.Color, s!.Unit) : "RbSecondaryText";
+            if (key != styleKey) { styleKey = key; value.Style = Ui.Style(key); }
+            AutomationProperties.SetName(grid, name.Text + ", " + value.Text);
+        }
+        MetricSample? Latest() => Host.Core.Metrics.TryGetLatest(r.Metric, out var latest) ? latest : null;
+        Show(Latest());
+        _scope.Live(() => Host.Core.Metrics.Subscribe(s => Ui.Post(_e, () => { if (!_scope.Disposed && _scope.Active) Show(s); }), r.Metric), () => Show(Latest()));
+        _scope.Tick(spark.Redraw);
+        Sparklines.Add(spark);
+        RowsRendered++;
+        return grid;
     }
 
     public UIElement Render(Row row) => Render(row, Place.Card);
@@ -128,7 +225,9 @@ sealed class RowRenderer
     public static FontFamily Icons => _icons ??= new FontFamily("Segoe Fluent Icons,Segoe MDL2 Assets");
 
     /// <summary>Info glyph after a header whose row has a <see cref="Row.HelpKey"/>.</summary>
-    public const string InfoGlyph = "";
+    public const string InfoGlyph = "\uE946";
+    /// <summary>Shield glyph after the header of a row that writes (a <see cref="Row.HardwareEffect"/>).</summary>
+    public const string ShieldGlyph = "\uEA18";
 
     /// <summary>
     /// The header of a row: its text, and when the row has a <see cref="Row.HelpKey"/> a small info glyph after the text, set inline so a long
@@ -137,11 +236,15 @@ sealed class RowRenderer
     object HeaderOf(Row row, out string text, out string? help)
     {
         text = L.T(row.HeaderKey);
-        help = row.HelpKey is { Length: > 0 } hk ? L.T(hk) : null;
+        // a row that writes says so once, as a shield after its name; the sentence is its tooltip (MP-2)
+        string? note = row.ChangesHardware ? Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note") : null;
+        string? explain = row.HelpKey is { Length: > 0 } hk ? L.T(hk) : null;
+        help = note != null && explain != null ? note + "\n" + explain : note ?? explain;
         if (help == null) return text;
         var tb = new TextBlock { TextWrapping = TextWrapping.Wrap };
         tb.Inlines.Add(new Run { Text = text });
-        tb.Inlines.Add(new Run { Text = " " + InfoGlyph, FontFamily = Icons, FontSize = 12 });
+        if (note != null) tb.Inlines.Add(new Run { Text = "\u2002" + ShieldGlyph, FontFamily = Icons, FontSize = 12 });
+        if (explain != null) tb.Inlines.Add(new Run { Text = "\u2002" + InfoGlyph, FontFamily = Icons, FontSize = 12 });
         ToolTipService.SetToolTip(tb, help);
         AutomationProperties.SetName(tb, text);
         AutomationProperties.SetHelpText(tb, help);
@@ -165,22 +268,20 @@ sealed class RowRenderer
         return tb;
     }
 
-    /// <summary>The description area of a card: the description, the live line, the hardware note; a plain string (or null) when it is only the description.</summary>
-    object? DescriptionOf(Row row, bool hardwareNote)
+    /// <summary>The description area of a card: the description and the live line; a plain string (or null) when it is only the description.</summary>
+    object? DescriptionOf(Row row)
     {
         string? desc = row.DescriptionKey is { Length: > 0 } k ? L.T(k) : null;
-        if (row.Line is null && !(hardwareNote && row.ChangesHardware)) return desc;
+        if (row.Line is null) return desc;
         var stack = new StackPanel { Spacing = 0 };
         if (desc != null) stack.Children.Add(new TextBlock { Text = desc, TextWrapping = TextWrapping.Wrap });
-        if (row.Line is { } line) stack.Children.Add(LineText(line));
-        if (hardwareNote && row.ChangesHardware)
-            stack.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
+        stack.Children.Add(LineText(row.Line));
         return stack;
     }
 
     SettingsCard Card(Row row, UIElement content)
     {
-        var card = new SettingsCard { Header = HeaderOf(row, out var text, out var help), Description = DescriptionOf(row, hardwareNote: true)!, Content = content };
+        var card = new SettingsCard { Header = HeaderOf(row, out var text, out var help), Description = DescriptionOf(row)!, Content = content };
         // the card's accessible name is its header text, also when the header carries a glyph (search and tests find a row by it)
         AutomationProperties.SetName(card, text);
         if (help != null) AutomationProperties.SetHelpText(card, help);
@@ -220,7 +321,6 @@ sealed class RowRenderer
         var sub = new StackPanel { Spacing = 0 };
         if (row.DescriptionKey is { Length: > 0 } dk) sub.Children.Add(Ui.Text(L.T(dk), "RbSecondaryCaption", wrap: true));
         if (row.Line is { } line) sub.Children.Add(LineText(line, "RbSecondaryCaption"));
-        if (row.ChangesHardware) sub.Children.Add(Ui.Text(Host.T(row.HardwareEffect?.Kind == EffectKind.SystemSetting ? "row.system-note" : "row.hardware-note"), "RbSecondaryCaption", wrap: true));
         Grid.SetRow(sub, 1);
         grid.Children.Add(sub);
 
@@ -240,15 +340,18 @@ sealed class RowRenderer
         var host = new ContentControl { Content = grid, IsTabStop = false, HorizontalContentAlignment = HorizontalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch };
         AutomationProperties.SetName(host, text);
         if (help != null) AutomationProperties.SetHelpText(host, help);
-        void Enable(bool on)
+        // text does not grey out by itself outside a control template: follow the effective state (the row's, or the page's while the module is off)
+        void Look()
         {
-            host.IsEnabled = on;
-            // text does not grey out by itself outside a control template
+            bool on = host.IsEnabled;
             header.Style = Ui.Style(on ? "RbPrimaryHeader" : "RbPrimaryHeaderDisabled");
             sub.Opacity = on ? 1 : 0.6;
         }
-        Enable(row.Enabled.Value);
-        _scope.Bind(row.Enabled, _e, Enable);
+        host.IsEnabledChanged += (_, _) => Look();
+        host.IsEnabled = row.Enabled.Value;
+        _scope.Bind(row.Enabled, _e, v => host.IsEnabled = v);
+        host.Loaded += (_, _) => Look();
+        Look();
         PrimaryRow = row;
         return host;
     }
@@ -637,9 +740,20 @@ sealed class RowRenderer
     {
         var tb = new TextBlock { Text = v.Value.Value, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, IsTextSelectionEnabled = true, MaxWidth = 460 };   // read-only status text wraps, it is never cut (E2E-06)
         Ui.Tabular(tb);
-        _scope.Bind(v.Value, _e, s => tb.Text = s);
-        return Finish(v, tb, place);
+        var built = Finish(v, tb, place);
+        // a value that says nothing ("", a lone dash) is not drawn, and comes back when it has something to say (MP-4)
+        void Show(string s)
+        {
+            tb.Text = s;
+            built.Visibility = SaysNothing(s) ? Visibility.Collapsed : Visibility.Visible;
+        }
+        Show(v.Value.Value);
+        _scope.Bind(v.Value, _e, Show);
+        return built;
     }
+
+    /// <summary>True for a value that carries nothing: empty, white space, or only a dash ("-", "–", "—").</summary>
+    public static bool SaysNothing(string? s) => string.IsNullOrWhiteSpace(s) || s.Trim() is "-" or "–" or "—" or "--";
 
     UIElement Reading(ReadingRow r, Place place)
     {
@@ -696,7 +810,7 @@ sealed class RowRenderer
         var x = new SettingsExpander
         {
             Header = HeaderOf(ex, out var text, out var help),
-            Description = DescriptionOf(ex, hardwareNote: false) ?? "",
+            Description = DescriptionOf(ex) ?? "",
             IsExpanded = ex.IsExpanded,
         };
         AutomationProperties.SetName(x, text);

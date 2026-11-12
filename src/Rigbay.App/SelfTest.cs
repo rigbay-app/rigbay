@@ -152,8 +152,10 @@ static class SelfTest
         w.Navigate(fan);
         await Settle(800);
         var offCards = Find<SettingsCard>(w.PageContent).ToList();
-        R("module page: a turned-off module keeps its rows, greyed out", fan.Lifecycle == ModuleLifecycle.Off && offCards.Count >= 8 && offCards[0].IsEnabled && offCards.Skip(1).All(c => !c.IsEnabled),
-            $"state={fan.Lifecycle}; {offCards.Count} cards; enable row enabled={offCards[0].IsEnabled}; the {offCards.Count - 1} others disabled={offCards.Skip(1).All(c => !c.IsEnabled)}");
+        var offSwitch = Find<ToggleSwitch>(ModulePage.LastHeader!).FirstOrDefault();
+        R("module page: a turned-off module keeps its rows, greyed out; the header card's switch stays usable", fan.Lifecycle == ModuleLifecycle.Off && offCards.Count >= 7 && offCards.All(c => !c.IsEnabled)
+            && offSwitch is { IsEnabled: true, IsOn: false },
+            $"state={fan.Lifecycle}; {offCards.Count} cards, all disabled={offCards.All(c => !c.IsEnabled)}; header switch enabled={offSwitch?.IsEnabled} on={offSwitch?.IsOn}");
         R("module page: a turned-off module's hotkeys and tray items are gone", Host.Core.Hotkeys.Entries.All(h => h.ModuleId != "demo-fan") && Host.Core.Tray.Items.All(i => i.ModuleId != "demo-fan"), "removed by the core after Shutdown");
         enabled = await Task.Run(() => fan.Enable());
         R("module: turned on again after off (Initialize on the same instance)", enabled && fan.Lifecycle == ModuleLifecycle.Running && fan.Page != null, $"state={fan.Lifecycle}");
@@ -305,8 +307,9 @@ static class SelfTest
 
     // ================================================================ page visibility, unavailable readings, labels
 
-    static string ReadingText(DependencyObject root, string header) =>
-        Find<SettingsCard>(root).Where(c => c.Header?.ToString() == header).Select(c => (c.Content as TextBlock ?? (c.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault())?.Text).FirstOrDefault() ?? "(no card)";   // a reading row is a sparkline and the number
+    // a reading of a group is a line of "All readings" (UI review VR-1): its value follows the bus even while the expander is folded
+    static string ReadingText(MainWindow w, string header) =>
+        w.LastRenderer?.ReadingValues.TryGetValue(header, out var t) == true ? t.Text : "(no line)";
 
     static async Task VisibilityAndReadingChecks(MainWindow w, ModuleEntry fan)
     {
@@ -326,7 +329,7 @@ static class SelfTest
 
         // readings: a number, then "Not available" after the module withdraws it, then a number again
         var na = core.Languages.T("core.reading.unavailable");
-        var live = ReadingText(w.PageContent!, "Pump flow");
+        var live = ReadingText(w, "Pump flow");
         R("readings: page row shows the number with its unit", live.Length > 0 && live != na && live.Contains('%'), $"'{live}'");
         w.Navigate("dashboard"); await Settle(600);
         var texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
@@ -335,9 +338,9 @@ static class SelfTest
         texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
         R("dashboard: a withdrawn reading shows Not available", texts.Contains(na) && !core.Metrics.TryGetLatest(new MetricId("demo-fan.pump"), out _), $"text '{na}' present={texts.Contains(na)}");
         w.Navigate(fan); await Settle(500);
-        R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
+        R("readings: a reading page row shows Not available when withdrawn", ReadingText(w, "Pump flow") == na, $"'{ReadingText(w, "Pump flow")}'");
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "on" }); await Settle(500);
-        R("readings: a published value replaces Not available live", ReadingText(w.PageContent!, "Pump flow") is { } t2 && t2 != na && t2.Contains('%'), $"'{ReadingText(w.PageContent!, "Pump flow")}'");
+        R("readings: a published value replaces Not available live", ReadingText(w, "Pump flow") is { } t2 && t2 != na && t2.Contains('%'), $"'{ReadingText(w, "Pump flow")}'");
     }
 
 
@@ -350,26 +353,46 @@ static class SelfTest
         await Settle(5500);   // the history keeps one point per 2 s: a few seconds of the module's 1 Hz readings
 
         var readingRows = fan.Page!.EnumerateRows().OfType<ReadingRow>().ToList();
-        var sparks = w.LastRenderer!.Sparklines;
-        R("visual: every reading row has a sparkline left of its number", sparks.Count == readingRows.Count && sparks.Count >= 5 && sparks.All(s => s.IsLoaded),
-            $"{sparks.Count} sparklines for {readingRows.Count} reading rows");
-        var drawn = sparks.Where(s => s.PointsDrawn >= 2).ToList();
-        R("visual: the sparklines are drawn from the history (two or more points, a line and a live end dot)", drawn.Count >= 4 && drawn.All(s => s.Children.OfType<Microsoft.UI.Xaml.Shapes.Polyline>().Any() && s.Live),
+        var r = w.LastRenderer!;
+        var all = r.AllReadingsExpander;
+        if (all != null) { all.IsExpanded = true; await Settle(400); all.StartBringIntoView(); await Settle(2600); }   // the lines are realized when they are in view
+        var sparks = r.Sparklines;
+        R("visual: All readings lists every reading of the groups as a compact line with its sparkline (the table view)", all != null && sparks.Count == readingRows.Count && sparks.Count >= 5 && sparks.All(s => s.IsLoaded),
+            $"{sparks.Count} lines for {readingRows.Count} reading rows; expander={all != null}");
+        var drawn = sparks.Where(s => s.PointsDrawn >= Sparkline.MinPoints).ToList();
+        R("visual: the sparklines are drawn from the history (from ten points on, a line and a live end dot)", drawn.Count >= 4 && drawn.All(s => s.Children.OfType<Microsoft.UI.Xaml.Shapes.Polyline>().Any() && s.Live),
             $"{drawn.Count} of {sparks.Count} have points: " + string.Join(", ", sparks.Select(s => $"{s.Metric}={s.PointsDrawn}")));
+        var readingNames = readingRows.Select(x => fan.Localisation.T(x.HeaderKey)).ToHashSet();
+        R("visual: no reading is a row card of its own any more (VR-1: a tile, a line in the chart, a line in All readings)",
+            !Find<SettingsCard>(w.PageContent).Any(c => readingNames.Contains(Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(c))), "no SettingsCard named like a reading");
+        if (all != null) { all.IsExpanded = false; await Settle(300); }
 
         var block = ModulePage.LastBlock;
         var tiles = block?.TileList ?? Array.Empty<ReadingTile>();
         R("visual: reading tiles at the top of the page (2 to 4, one per kind)", block?.Tiles != null && tiles.Count is >= 2 and <= 4
             && tiles.Select(t => t.ValueText).All(t => t.Length > 0 && t != core.Languages.T("core.reading.unavailable")),
             $"{tiles.Count} tiles: " + string.Join(" | ", tiles.Select(t => t.ValueText)));
-        R("visual: a tile has its sparkline and a temperature or percent tile its meter", tiles.All(t => t.Spark.PointsDrawn >= 2) && tiles.Any(t => t.HasMeter && t.MeterShare > 0),
+        R("visual: a tile has its sparkline and a temperature or percent tile its meter", tiles.All(t => t.Spark.PointsDrawn >= Sparkline.MinPoints) && tiles.Any(t => t.HasMeter && t.MeterShare > 0),
             $"sparkline points: {string.Join(",", tiles.Select(t => t.Spark.PointsDrawn))}; meter shares: {string.Join(",", tiles.Select(t => t.MeterShare.ToString("0.00")))}");
-        R("visual: the tiles come before the rows", block != null && IndexIn(w.PageContent!, block) < IndexIn(w.PageContent!, Find<SettingsCard>(w.PageContent).Skip(1).First()),
-            "ReadingBlock is placed after the enable row and before the first group");
+        R("visual: the tiles come before the rows", block != null && IndexIn(w.PageContent!, block) < IndexIn(w.PageContent!, Find<SettingsCard>(w.PageContent).First()),
+            "ReadingBlock is in the main card, before the first group");
+
+        // the tiles are the chart's tabs: one list with one selected item for UI Automation (AX-4)
+        var strip = block?.Tiles;
+        var stripPeer = strip == null ? null : Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.FromElement(strip) ?? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(strip);
+        var selection = stripPeer?.GetPattern(Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Selection) as Microsoft.UI.Xaml.Automation.Provider.ISelectionProvider;
+        var tilePeer = tiles.Count > 0 ? Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(tiles[0]) : null;
+        R("visual: the tile strip is a list with one selected item, each tile a list item named with its value",
+            stripPeer?.GetAutomationControlType() == Microsoft.UI.Xaml.Automation.Peers.AutomationControlType.List && selection is { CanSelectMultiple: false } && selection.GetSelection().Length == 1
+            && strip!.SelectedIndex == 0 && tiles[0].IsSelected && tilePeer?.GetAutomationControlType() == Microsoft.UI.Xaml.Automation.Peers.AutomationControlType.ListItem
+            && tilePeer.GetName().Contains(tiles[0].ValueText.Split(' ')[0]),
+            $"type={stripPeer?.GetAutomationControlType()} selected={strip?.SelectedIndex} tile name='{tilePeer?.GetName()}'");
 
         var chart = block?.Chart;
-        R("visual: a trend chart with a time axis, one tab per group, lines drawn", chart != null && chart.HasData && chart.SeriesDrawn >= 1 && chart.GroupCount >= 3 && Find<TextBlock>(chart.Plot).Any(t => t.Text == Host.T("chart.now")),
-            $"groups={chart?.GroupCount} series drawn={chart?.SeriesDrawn} hasData={chart?.HasData} range={chart?.RangeSeconds}s");
+        R("visual: the chart draws the selected tile's reading, one line, no legend, a time axis, the unit on the top tick", chart != null && chart.HasData && chart.SeriesDrawn == 1 && chart.FocusRow == tiles[0].Row
+            && !chart.Comparing && Find<TextBlock>(chart.Plot).Any(t => t.Text == Host.T("chart.now")) && chart.TickLabels.Count >= 3 && chart.TickLabels[^1].EndsWith(" °C", StringComparison.Ordinal)
+            && !Find<Microsoft.UI.Xaml.Shapes.Path>(chart.Plot).Any(),
+            $"focus={chart?.FocusRow?.HeaderKey} series={chart?.SeriesDrawn} ticks={string.Join(" ", chart?.TickLabels ?? Array.Empty<string>())} span={chart?.ShownSeconds:0}s");
         bool tip = chart != null && chart.HoverAt(chart.Plot.ActualWidth - 30);
         R("visual: hover shows a crosshair and a tooltip with the time and the value", tip && Find<Microsoft.UI.Xaml.Shapes.Line>(chart!.Plot).Count() > 3
             && Find<Border>(chart.Plot).SelectMany(b => Find<TextBlock>(b)).Any(t => t.Text.Length == 8 && t.Text[2] == ':'), "tooltip text found on the plot");
@@ -382,11 +405,27 @@ static class SelfTest
         R("visual: keyboard: the plot takes focus and Left moves the crosshair back in time", focused && x0 != null && x1 != null && x1 < x0 && Find<Border>(chart!.Plot).Any(b => b.Style == Ui.Style("RbChartTip")),
             $"focus={focused} hover x {x0:0} -> {x1:0}");
         chart?.Plot.Focus(FocusState.Programmatic); chart?.HoverAt(null);
+
+        // another tile is the chart's next tab: power, with PL1 as a dashed reference
         chart?.SelectGroup(1);
         await Settle(400);
-        R("visual: another group is one click away (power: one line and PL1 as a dashed reference labelled at the line)", chart != null && chart.GroupIndex == 1 && chart.SeriesDrawn == 1 && chart.ReferencesDrawn == 1
-            && chart.ReferenceLabels.Single().StartsWith("PL1 limit ", StringComparison.Ordinal) && Find<Microsoft.UI.Xaml.Shapes.Polyline>(chart.Plot).Any(p => p.StrokeDashArray is { Count: > 0 }),
-            $"group={chart?.GroupIndex} series drawn={chart?.SeriesDrawn} references={chart?.ReferencesDrawn} labels={string.Join(" | ", chart?.ReferenceLabels ?? Array.Empty<string>())}");
+        R("visual: another tile is one click away (power: one line and PL1 as a dashed reference labelled at the line)", chart != null && strip?.SelectedIndex == 1 && tiles[1].IsSelected && !tiles[0].IsSelected
+            && chart.SeriesDrawn == 1 && chart.ReferencesDrawn == 1 && chart.ReferenceLabels.Single().StartsWith("PL1 limit ", StringComparison.Ordinal)
+            && Find<Microsoft.UI.Xaml.Shapes.Polyline>(chart.Plot).Any(p => p.StrokeDashArray is { Count: > 0 }),
+            $"selected={strip?.SelectedIndex} series drawn={chart?.SeriesDrawn} references={chart?.ReferencesDrawn} labels={string.Join(" | ", chart?.ReferenceLabels ?? Array.Empty<string>())}");
+
+        // Compare: the other readings of the same group (usage: CPU usage and the pump, both percent) in the categorical order, with a legend
+        int usage = tiles.ToList().FindIndex(t => t.Row.Metric == WellKnownMetrics.CpuUsage);
+        if (usage >= 0 && tilePeer != null && Microsoft.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer.CreatePeerForElement(tiles[usage])?.GetPattern(Microsoft.UI.Xaml.Automation.Peers.PatternInterface.SelectionItem) is Microsoft.UI.Xaml.Automation.Provider.ISelectionItemProvider item)
+            item.Select();   // the way a screen reader picks a tile
+        await Settle(400);
+        bool compareShown = chart?.CompareButton.Visibility == Visibility.Visible;
+        chart?.SetCompare(true);
+        await Settle(300);
+        R("visual: a tile picked through UI Automation is charted; Compare adds the same-kind readings with a legend", chart != null && usage >= 0 && strip?.SelectedIndex == usage && compareShown
+            && chart.Comparing && chart.SeriesDrawn == 2,
+            $"usage tile={usage} selected={strip?.SelectedIndex} compare shown={compareShown} series={chart?.SeriesDrawn}");
+        chart?.SetCompare(false);
         chart?.SelectGroup(0);
 
         // one axis, never two: every chart plan groups one unit only
@@ -445,8 +484,9 @@ static class SelfTest
             && ModulePage.LastBlock != null && IndexIn(w.PageContent!, choice) < IndexIn(w.PageContent!, ModulePage.LastBlock),
             $"primary={r.PrimaryRow?.HeaderKey} segments={choice?.ShowsSegments} items={choice?.Segments?.Items.Count} selected={choice?.Segments?.SelectedIndex}");
         R("0.1.3: the primary's help text is the tooltip and the accessible help of its header",
-            Find<TextBlock>(w.PageContent).Any(t => Microsoft.UI.Xaml.Automation.AutomationProperties.GetHelpText(t).StartsWith("Auto: the pretend device", StringComparison.Ordinal) && t.Text.Contains(RowRenderer.InfoGlyph)),
-            "info glyph after 'Fan mode'");
+            Find<TextBlock>(w.PageContent).Any(t => Microsoft.UI.Xaml.Automation.AutomationProperties.GetHelpText(t).Contains("Auto: the pretend device", StringComparison.Ordinal)
+                && Microsoft.UI.Xaml.Automation.AutomationProperties.GetHelpText(t).StartsWith(Host.T("row.hardware-note"), StringComparison.Ordinal) && t.Text.Contains(RowRenderer.InfoGlyph) && t.Text.Contains(RowRenderer.ShieldGlyph)),
+            "shield and info glyph after 'Fan mode'; the help text says what it changes, then the explanation");
         R("0.1.3: a segmented control gives way to a drop-down where it does not fit, and back", choice != null && Narrow(choice),
             $"needs {choice?.SegmentsWidth:0} px");
 
@@ -752,7 +792,11 @@ static class SelfTest
         R("fault: the culprit is found from the exception's stack", broken.Fault != null && App.ModuleOf(broken.Fault)?.Id == "demo-broken", $"ModuleOf(fault) -> {(broken.Fault == null ? "n/a" : App.ModuleOf(broken.Fault)?.Id)}");
         w.Navigate(broken);
         await Settle();
-        R("fault: the page of a failed module says why", Find<TextBlock>(w.PageContent).Any(t => t.Text.Contains("battery controller")), "reason text is on the page");
+        bool sentence = Find<TextBlock>(w.PageContent).Any(t => t.Text == "Battery guard (demo) stopped while starting.");
+        bool details = Find<SettingsExpander>(w.PageContent).Any(x => x.Items.OfType<SettingsCard>().Any(c => c.Content is TextBlock { IsTextSelectionEnabled: true } t && t.Text.Contains("battery controller")));
+        bool retry = Find<Button>(w.PageContent).Any(b => b.Content as string == Host.T("page.failed-retry"));
+        R("fault: the page of a failed module says what happened in one sentence, offers Restart and try again, and keeps the error under Details", sentence && details && retry,
+            $"sentence={sentence} details={details} retry={retry}");
 
         // RunOnUi action throws
         var ui = core.Find("demo-throw-ui")!;

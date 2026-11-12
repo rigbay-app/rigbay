@@ -66,7 +66,6 @@ page.invalid-problems = Cần sửa
 reason.invalid-one = 1 lỗi trong module.json
 reason.invalid-many = {0} lỗi trong module.json
 reason.cli-more = {0} (+{1} lỗi nữa, xem nhật ký)
-page.failed-title = Mô-đun này bị lỗi
 page.incompatible-title = Được build cho phiên bản host khác
 page.unsupported-title = Máy này không được hỗ trợ
 page.build-failed = Không vẽ được trang này
@@ -97,6 +96,22 @@ row.confirm-cancel = Hủy
 tile.warn-at = cảnh báo ở {0}
 tile.scale = thang {0} đến {1}
 chart.reference = {0}: {1}, mức giới hạn
+page.hardware-once = Các mục có dấu {0} thay đổi phần cứng của bạn. Rigbay hỏi trước mỗi lần thay đổi.
+page.system-once = Các mục có dấu {0} thay đổi một cài đặt của Windows. Rigbay hỏi trước mỗi lần thay đổi.
+page.mixed-once = Các mục có dấu {0} thay đổi phần cứng hoặc một cài đặt của Windows. Rigbay hỏi trước mỗi lần thay đổi.
+page.shield-word = hình khiên
+page.failed-start = {0} đã dừng khi đang khởi động.
+page.failed-page = {0} không dựng được trang của mình.
+page.failed-run = {0} đã ngừng hoạt động.
+page.failed-timeout = {0} không còn phản hồi.
+page.failed-generic = {0} đã dừng.
+page.failed-hint = Rigbay đã tắt nó. Những phần khác không bị ảnh hưởng.
+page.failed-retry = Khởi động lại và thử lại
+page.failed-details = Chi tiết
+page.all-readings = Tất cả số đo
+page.all-readings-count = {0} số đo, kèm diễn biến mấy phút gần nhất
+chart.compare = So sánh
+chart.tiles = Số đo. Mục đang chọn được vẽ trên biểu đồ.
 
 # xác nhận phần cứng và lần bật đầu
 approval.title = Thay đổi phần cứng của bạn?
@@ -250,11 +265,9 @@ settings.module-check-desc = Mặc định tắt. Hỏi github.com mỗi ngày m
 
 # hình ảnh số đo: ô số, đường xu hướng, biểu đồ
 tile.high = Cao
-chart.collecting = Đang thu thập số đo...
 chart.now = bây giờ
 chart.sec = -{0} giây
 chart.min = -{0} phút
-chart.groups = Biểu đồ
 chart.range = Khoảng thời gian
 chart.range-min = {0} phút
 chart.last = {0} gần nhất

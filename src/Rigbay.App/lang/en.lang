@@ -66,7 +66,6 @@ page.invalid-problems = What to fix
 reason.invalid-one = 1 problem in module.json
 reason.invalid-many = {0} problems in module.json
 reason.cli-more = {0} (+{1} more in the log)
-page.failed-title = This module failed
 page.incompatible-title = Built for another host version
 page.unsupported-title = Not supported on this machine
 page.build-failed = This page could not be drawn
@@ -97,6 +96,22 @@ row.confirm-cancel = Cancel
 tile.warn-at = warning at {0}
 tile.scale = scale {0} to {1}
 chart.reference = {0}: {1}, a limit
+page.hardware-once = Settings marked {0} change your hardware. Rigbay asks before each change.
+page.system-once = Settings marked {0} change a Windows setting. Rigbay asks before each change.
+page.mixed-once = Settings marked {0} change your hardware or a Windows setting. Rigbay asks before each change.
+page.shield-word = with a shield
+page.failed-start = {0} stopped while starting.
+page.failed-page = {0} could not build its page.
+page.failed-run = {0} stopped working.
+page.failed-timeout = {0} stopped answering.
+page.failed-generic = {0} stopped.
+page.failed-hint = Rigbay turned it off. Nothing else was affected.
+page.failed-retry = Restart and try again
+page.failed-details = Details
+page.all-readings = All readings
+page.all-readings-count = {0} readings, each with its last minutes
+chart.compare = Compare
+chart.tiles = Readings. The selected one is drawn in the chart.
 
 # hardware approval and first enable
 approval.title = Change your hardware?
@@ -250,11 +265,9 @@ settings.module-check-desc = Off by default. Asks github.com once a day; it send
 
 # reading visuals: tiles, sparklines, trend chart
 tile.high = High
-chart.collecting = Collecting readings...
 chart.now = now
 chart.sec = -{0} s
 chart.min = -{0} min
-chart.groups = Chart
 chart.range = Time range
 chart.range-min = {0} min
 chart.last = last {0}
