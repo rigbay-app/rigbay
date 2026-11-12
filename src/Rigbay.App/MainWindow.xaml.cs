@@ -134,7 +134,12 @@ public sealed partial class MainWindow : Window
                 if (_opt.Page != null) await RunScriptAsync("page:" + _opt.Page);
             }
             if (_opt.SelfTest) await SelfTest.Run(this);
-            if (_opt.Shot != null) { await Task.Delay(1400); if (_opt.ShotScale > 1.01) await ShootScaledAsync(_opt.Shot, _opt.ShotScale); else Shoot(_opt.Shot); }
+            if (_opt.Shot != null)
+            {
+                await Task.Delay(1400);
+                // --shot-mode rtb: RenderTargetBitmap at any scale, also when the display is asleep and PrintWindow returns black
+                if (_opt.ShotScale > 1.01 || _opt.ShotMode == "rtb") await ShootScaledAsync(_opt.Shot, Math.Max(1, _opt.ShotScale)); else Shoot(_opt.Shot);
+            }
             if (_opt.ExitAfterMs > 0) { await Task.Delay(_opt.ExitAfterMs); await QuitAsync(); }
         }
         catch (Exception ex)
@@ -706,6 +711,21 @@ public sealed partial class MainWindow : Window
                     _ = driver.Revert();
                     break;
                 }
+                case "capture":   // capture:<shortcut row header key> on the open module page: what the row's button does ("Press the new shortcut"); not awaited, so the dialog stays open for a screenshot
+                {
+                    var driver = LastRenderer?.Drivers.FirstOrDefault(d => d.Row.HeaderKey == arg && d.Row is ShortcutRow);
+                    if (driver == null) { AppLog.Warn("script: no shortcut row '" + arg + "' on this page"); break; }
+                    _ = CaptureDialog.AskAsync(driver.Name);
+                    break;
+                }
+                case "notice":   // notice:<module id>,<success|info|warning|error>,<title key>,<body key>: the in-window message, as that module's toast shows it while the window is in use
+                {
+                    var p = arg.Split(',', StringSplitOptions.TrimEntries);
+                    if (p.Length < 4 || Host.Core.Find(p[0]) is not { } ne) { AppLog.Warn("script: notice needs <module id>,<kind>,<title key>,<body key>: '" + arg + "'"); break; }
+                    var kind = p[1] switch { "warning" => ToastKind.Warning, "error" => ToastKind.Error, "info" => ToastKind.Info, _ => ToastKind.Success };
+                    InAppNotice.Show(ne.Id, ne.Localisation.T(p[2]), ne.Localisation.T(p[3]), kind);
+                    break;
+                }
                 case "turn-on": { var e = Host.Core.Find(arg); if (e != null) _ = ModulePage.ToggleAsync(e, true); break; }   // turn-on:id, like the switch; not awaited, so the "requires" dialog can stay open for a screenshot
                 case "expand": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => Equals(x.Tag, arg))) x.IsExpanded = true; break;   // expand:<module id> on the Modules page
                 case "expand-all": foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) x.IsExpanded = true; break;   // every expander on the open page
@@ -755,7 +775,8 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// A screenshot as if the display scale were <paramref name="scale"/> (150 %, 200 %): the window's own content is rendered with
     /// <c>RenderTargetBitmap</c> at that many pixels per DIP (vectors and the icons, which were picked for this scale, come out sharp),
-    /// flattened onto the theme's background (the Mica backdrop and the system caption buttons are not part of the content). Never the screen.
+    /// flattened onto the theme's background (the Mica backdrop and the system caption buttons are not part of the content). Open popups
+    /// (a dialog, a flyout) are rendered the same way and laid over it. Never the screen. Also the path of <c>--shot-mode rtb</c> at 1x.
     /// </summary>
     internal async Task ShootScaledAsync(string path, double scale)
     {
@@ -766,6 +787,8 @@ public sealed partial class MainWindow : Window
         var buffer = await rtb.GetPixelsAsync();   // BGRA8, premultiplied
         var pixels = new byte[buffer.Length];
         Windows.Storage.Streams.DataReader.FromBuffer(buffer).ReadBytes(pixels);
+        pw = rtb.PixelWidth; ph = rtb.PixelHeight;
+        await LayPopupsOverAsync(pixels, pw, ph, scale);
         var bg = Dark ? (R: (byte)0x20, G: (byte)0x20, B: (byte)0x20) : (R: (byte)0xF3, G: (byte)0xF3, B: (byte)0xF3);
         for (int i = 0; i + 3 < pixels.Length; i += 4)
         {
@@ -784,6 +807,36 @@ public sealed partial class MainWindow : Window
         using (var reader = new Windows.Storage.Streams.DataReader(stream)) { await reader.LoadAsync((uint)stream.Size); reader.ReadBytes(bytes); }
         await File.WriteAllBytesAsync(path, bytes);
         AppLog.Info($"shot (RenderTargetBitmap of the window content at {scale:0.##}x, {pw}x{ph}) -> {path}");
+    }
+
+    /// <summary>RenderTargetBitmap draws one element tree, so a dialog or flyout is missing from it: render each open popup at the same scale and blend it in (premultiplied BGRA8).</summary>
+    async Task LayPopupsOverAsync(byte[] pixels, int pw, int ph, double scale)
+    {
+        if (Root.XamlRoot is not { } root) return;
+        foreach (var popup in Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(root))
+        {
+            if (popup.Child is not FrameworkElement child || child.ActualWidth < 1 || child.ActualHeight < 1) continue;
+            var at = child.TransformToVisual(Root).TransformPoint(new Windows.Foundation.Point(0, 0));
+            var rtb = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
+            await rtb.RenderAsync(child, (int)Math.Round(child.ActualWidth * scale), (int)Math.Round(child.ActualHeight * scale));
+            var buffer = await rtb.GetPixelsAsync();
+            var src = new byte[buffer.Length];
+            Windows.Storage.Streams.DataReader.FromBuffer(buffer).ReadBytes(src);
+            int sw = rtb.PixelWidth, sh = rtb.PixelHeight, ox = (int)Math.Round(at.X * scale), oy = (int)Math.Round(at.Y * scale);
+            for (int y = 0; y < sh; y++)
+            {
+                int dy = y + oy;
+                if (dy < 0 || dy >= ph) continue;
+                for (int x = 0; x < sw; x++)
+                {
+                    int dx = x + ox;
+                    if (dx < 0 || dx >= pw) continue;
+                    int s = (y * sw + x) * 4, d = (dy * pw + dx) * 4, inv = 255 - src[s + 3];
+                    for (int c = 0; c < 4; c++) pixels[d + c] = (byte)Math.Min(255, src[s + c] + pixels[d + c] * inv / 255);
+                }
+            }
+            AppLog.Info($"shot: popup {child.GetType().Name} {sw}x{sh} at {ox},{oy} laid over the window");
+        }
     }
 
     internal void Shoot(string path)
