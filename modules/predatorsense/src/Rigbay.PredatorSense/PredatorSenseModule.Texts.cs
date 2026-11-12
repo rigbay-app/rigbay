@@ -36,7 +36,7 @@ public sealed partial class PredatorSenseModule
                 : supported is null || !supported.Contains(current.Value) ? LocalisedText.Of("opmode.line-now", OpModeText(loc, current))
                 : default;
             // The options are the modes the laptop offers, fixed when the page is built: build it again when that list changes.
-            if (_pageModes is { } shown && !SameModes(shown, supported))
+            if (_pageBuilt && !SameModes(_pageModes, supported))
             {
                 _pageModes = supported;
                 host.RequestPageRefresh();

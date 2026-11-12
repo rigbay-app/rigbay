@@ -48,7 +48,8 @@ public sealed partial class PredatorSenseModule : IModule
     private FanResult? _result;
     private bool _watching;
     private bool _noPrevious;
-    private volatile IReadOnlyList<OperationMode>? _pageModes;   // the modes the last page was built with
+    private volatile IReadOnlyList<OperationMode>? _pageModes;   // the modes the last page was built with (null: the laptop did not say)
+    private volatile bool _pageBuilt;
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public PredatorSenseModule() : this(new MachineInfo(), () => new AcerWmi(), null, null) { }

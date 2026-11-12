@@ -92,6 +92,7 @@ public sealed partial class PredatorSenseModule
     {
         var modes = _opMode?.Supported;
         _pageModes = modes;
+        _pageBuilt = true;
         if (modes is not { Count: > 0 })
             return new ValueRow("row.opmode.header", _opModeText) { DescriptionKey = "row.opmode.description", HelpKey = "row.opmode.help" };
         return new ChoiceRow("row.opmode.header", modes.Select(m => new ChoiceOption(OpModeId(m), OpModeKey(m))).ToList(), _opModeChoice)
