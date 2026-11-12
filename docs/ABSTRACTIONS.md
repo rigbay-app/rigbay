@@ -710,7 +710,15 @@ repository, rename, test in the app, release, registry) is [WRITING-A-MODULE.md]
        bool wanted = _host.PageVisible.Value || _host.Metrics.SubscriberCount(CpuTemp) > 0;
        if (wanted == _fast) return;
        _fast = wanted;
-       _timer.Change(wanted ? TimeSpan.Zero : Slow, wanted ? Fast : Slow); // zero: read now when somebody starts looking
+       if (wanted) _timer.Change(TimeSpan.Zero, Timeout.InfiniteTimeSpan); // read now when somebody starts looking
+   }
+
+   // the timer is one-shot (period Timeout.InfiniteTimeSpan) and re-armed at the end of each tick, so a slow read can
+   // never queue a second tick behind it (a periodic timer can, which made a test flaky in FL2)
+   private void Tick(object? _)
+   {
+       try { ReadAndPublish(); }
+       finally { _timer.Change(_fast ? Fast : Slow, Timeout.InfiniteTimeSpan); }
    }
    ```
 
