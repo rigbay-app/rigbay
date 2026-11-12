@@ -42,9 +42,21 @@ public class ModuleLifecycleTests
     [Fact]
     public void The_page_has_the_planned_shape()
     {
-        using var rig = new ModuleRig();
+        using var rig = new ModuleRig(approve: true);
         var page = rig.Page;
-        Assert.Equal(new[] { "group.bypass", "group.status", "group.check", "group.settings" }, page.Groups.Select(g => g.HeaderKey).ToArray());
+        // Review SA-1: the switch is the page's main control, with a live line; no Status group while the bypass is off, so no tile or row
+        // says "Not available"; the connection test is one row.
+        Assert.Same(rig.Switch, page.Primary);
+        Assert.NotNull(rig.Switch.Line);
+        Assert.NotNull(rig.Switch.HelpKey);
+        Assert.Equal(new[] { "group.test", "group.settings" }, page.Groups.Select(g => g.HeaderKey).ToArray());
+        Assert.Empty(page.EnumerateRows().OfType<ReadingRow>());
+        Assert.Single(page.Groups[0].Rows);
+        Assert.Same(rig.TestButton, page.Groups[0].Rows[0]);
+        Assert.Equal("", rig.TestLine);
+        Assert.False(page.EnumerateRows().OfType<ValueRow>().Any(r => r.Value.Value is "None" or "Not tested" or "Not available" or "-" or "–"));
+        foreach (var row in page.EnumerateRows().Where(r => r.DescriptionKey is not null))
+            Assert.InRange(rig.Host.Loc.T(row.DescriptionKey!).Length, 1, 70);   // the copy rule: a short fact, the rest in the help glyph
 
         // Only the two rows that change the Windows setting are marked, and the switch's effect text names the exact change.
         var marked = page.EnumerateRows().Where(r => r.ChangesHardware).Select(r => r.HeaderKey).ToArray();
@@ -62,12 +74,30 @@ public class ModuleLifecycleTests
         Assert.Equal(EffectKind.SystemSetting, rig.Switch.HardwareEffect!.Kind);
         Assert.Equal(EffectKind.SystemSetting, rig.AutoOn.HardwareEffect!.Kind);
 
-        Assert.Equal(new[] { "steam.proxy.active", "steam.proxy.errors" }, page.EnumerateRows().OfType<ReadingRow>().Select(r => r.Metric.Value).ToArray());
         Assert.Equal(new[] { "steam.proxy.active", "steam.proxy.errors" }, page.Summary!.Readings!.Select(m => m.Value).ToArray());
-        Assert.Equal(new[] { "check.store.title", "check.community.title", "check.static.title", "check.downloads.title" },
-            page.Groups[2].Rows.OfType<ValueRow>().Select(r => r.HeaderKey).ToArray());
-        Assert.Single(page.Groups[2].Rows.OfType<ButtonRow>());
         Assert.Empty(page.Links);
+
+        // On: the Status group comes, with the two readings (open connections a tile and a chart; the errors, a count that only grows, out of
+        // the chart) and the two warnings. The page asked the host for the rebuild, and the switch row is the same instance (Revert survives it).
+        int before = rig.Host.PageRefreshRequests;
+        var primary = rig.Switch;
+        rig.FlipSwitch(true);
+        Assert.True(rig.Host.PageRefreshRequests > before);
+        var on = rig.Page;
+        Assert.Same(primary, on.Primary);
+        Assert.Equal(new[] { "group.status", "group.test", "group.settings" }, on.Groups.Select(g => g.HeaderKey).ToArray());
+        var readings = on.EnumerateRows().OfType<ReadingRow>().ToArray();
+        Assert.Equal(new[] { "steam.proxy.active", "steam.proxy.errors" }, readings.Select(r => r.Metric.Value).ToArray());
+        Assert.Equal(TileHint.Always, readings[0].Tile);
+        Assert.Equal("chart.connections", readings[0].ChartGroupKey);
+        Assert.Equal("", readings[1].ChartGroupKey);
+        Assert.Equal(new[] { "info.port80.header", "info.steam-restart.header" }, on.Groups[0].Rows.OfType<InfoRow>().Select(r => r.HeaderKey).ToArray());
+
+        // Off again: the group goes.
+        before = rig.Host.PageRefreshRequests;
+        rig.FlipSwitch(false);
+        Assert.True(rig.Host.PageRefreshRequests > before);
+        Assert.Equal(new[] { "group.test", "group.settings" }, rig.Page.Groups.Select(g => g.HeaderKey).ToArray());
     }
 
     [Fact]
@@ -141,7 +171,7 @@ public class ModuleSwitchTests
         Assert.Null(rig.State.State);
         Assert.Equal(2, rig.Listeners.Disposed);
         Assert.Equal("Bypass off", rig.StateLine);
-        Assert.Equal("Not listening", rig.ValueOf("row.listening.header"));
+        Assert.False(rig.HasRow("row.listening.header"));   // the Status group is gone while the bypass is off
         Assert.Contains(new MetricId("steam.proxy.active"), rig.Host.MetricsBus.Withdrawn);
         Assert.Contains(new MetricId("steam.proxy.errors"), rig.Host.MetricsBus.Withdrawn);
     }
@@ -166,7 +196,7 @@ public class ModuleSwitchTests
         Assert.False(rig.Switch.Value.Value);
         Assert.Equal("http://corp.example/wpad.pac", rig.Proxy.Value);
         Assert.Equal(0, rig.Proxy.Writes);
-        Assert.Contains("Port 18081 is already in use", rig.ValueOf("row.problem.header"));
+        Assert.Contains("Port 18081 is already in use", rig.SwitchLine);
         Assert.Equal("Could not turn on", rig.StateLine);
         Assert.Contains(rig.Host.ToastService.Shown, t => t.Kind == ToastKind.Error);
     }
@@ -179,7 +209,7 @@ public class ModuleSwitchTests
         rig.Switch.Value.Value = true;
         Assert.True(Wait.Until(() => rig.Host.ToastService.Shown.Count > 0));
         Assert.True(Wait.Until(() => !rig.Switch.Value.Value));
-        Assert.Contains("denied by policy", rig.ValueOf("row.problem.header"));
+        Assert.Contains("denied by policy", rig.SwitchLine);
         Assert.True(Wait.Until(() => rig.Listeners.Disposed == 2));
     }
 
@@ -187,11 +217,10 @@ public class ModuleSwitchTests
     public void Port_80_busy_turns_on_with_a_warning_and_the_info_row_opens()
     {
         using var rig = new ModuleRig(arrange: r => r.Listeners.Taken.Add(80));
-        var infoBefore = rig.Rows.OfType<InfoRow>().Single(r => r.HeaderKey == "info.port80.header");
-        Assert.False(infoBefore.IsOpen.Value);
+        Assert.False(rig.HasRow("info.port80.header"));   // off: no Status group, no warning row
         rig.FlipSwitch(true);
         Assert.True(Wait.Until(() => rig.Rows.OfType<InfoRow>().Single(r => r.HeaderKey == "info.port80.header").IsOpen.Value));
-        Assert.Equal(Severity.Warning, infoBefore.Severity);
+        Assert.Equal(Severity.Warning, rig.Rows.OfType<InfoRow>().Single(r => r.HeaderKey == "info.port80.header").Severity);
         Assert.Equal("On, no game downloads · 0 open", rig.StateLine);
         Assert.Contains("port 80 is not available", rig.ValueOf("row.listening.header"));
         Assert.Contains(rig.Host.ToastService.Shown, t => t.Kind == ToastKind.Warning);
@@ -488,15 +517,21 @@ public class ModuleCommandTests
     }
 
     [Fact]
-    public async Task The_run_test_button_shows_each_result_on_its_row_and_reports_the_total()
+    public async Task The_run_test_button_lists_each_result_in_its_line_and_reports_the_total()
     {
         using var rig = new ModuleRig();
+        Assert.Equal("", rig.TestLine);   // nothing to say before a run
         rig.Probe.Failing.Add("downloads");
         var result = await rig.TestButton.InvokeAsync(CancellationToken.None);
         Assert.False(result.Succeeded);
         Assert.Equal("1 of 4 checks failed", rig.Host.Loc.Resolve(result.Message!.Value));
-        Assert.Equal("Reachable · HTTP 200 · 42 ms", rig.ValueOf("check.store.title"));
-        Assert.Equal("Blocked (connection reset)", rig.ValueOf("check.downloads.title"));
+        Assert.Equal(new[]
+        {
+            "Store: Reachable · HTTP 200 · 42 ms",
+            "Community: Reachable · HTTP 200 · 42 ms",
+            "Static content: Reachable · HTTP 200 · 42 ms",
+            "Game downloads: Blocked (connection reset)",
+        }, rig.TestLine.Split('\n'));
 
         rig.Probe.Failing.Clear();
         var ok = await rig.TestButton.InvokeAsync(CancellationToken.None);
@@ -512,7 +547,7 @@ public class ModuleCommandTests
         rig.Probe.Gate = gate.Task;
         var first = rig.Run("test");
         Assert.True(Wait.Until(() => rig.Probe.Calls.Count == 4));
-        Assert.Equal("Testing…", rig.ValueOf("check.store.title"));
+        Assert.StartsWith("Store: Testing…", rig.TestLine);
         var second = await rig.Run("test");
         Assert.Equal(1, second.ExitCode);
         Assert.Equal("A test is already running", second.Output);
@@ -585,7 +620,8 @@ public class ModuleSettingsTests
 
 public class ModuleSteamRowTests
 {
-    private static string Steam(ModuleRig rig) => rig.ValueOf("row.steam.header");
+    // What Steam does is the switch's live line now (review SA-1), not a row of its own.
+    private static string Steam(ModuleRig rig) => rig.SwitchLine;
 
     [Fact]
     public void The_steam_row_follows_the_five_states()
@@ -598,7 +634,7 @@ public class ModuleSteamRowTests
 
         rig.Steam.Running = new() { new SteamProcess(1, ModuleRig.T0.AddHours(-1)) };
         rig.Module.Tick();
-        Assert.Equal("Steam is running; the bypass is off", Steam(rig));
+        Assert.Equal("Steam is running without the bypass", Steam(rig));
 
         rig.FlipSwitch(true);
         rig.Now = ModuleRig.T0.AddSeconds(10);
@@ -678,13 +714,17 @@ public class ModuleLanguageTests
     [Fact]
     public void Vietnamese_renders_the_page_without_falling_back_to_keys()
     {
-        using var rig = new ModuleRig("vi");
-        Assert.Equal("Bypass đang tắt", rig.StateLine);
+        using var rig = new ModuleRig("vi", approve: true);
+        Assert.Equal("Vượt chặn đang tắt", rig.StateLine);
+        Assert.Equal("Steam chưa chạy", rig.SwitchLine);
+        rig.FlipSwitch(true);   // the Status group too
         foreach (var row in rig.Rows)
         {
             Assert.DoesNotContain("module.steam-bypass.", rig.Host.Loc.T(row.HeaderKey));
             if (row.DescriptionKey is not null) Assert.DoesNotContain("module.steam-bypass.", rig.Host.Loc.T(row.DescriptionKey));
+            if (row.HelpKey is not null) Assert.DoesNotContain("module.steam-bypass.", rig.Host.Loc.T(row.HelpKey));
         }
+        Assert.DoesNotContain("module.steam-bypass.", rig.Host.Loc.T("chart.connections"));
         Assert.Contains("AutoConfigURL", rig.Host.Loc.T("effect.bypass"));
     }
 
@@ -692,10 +732,12 @@ public class ModuleLanguageTests
     public void Switching_the_language_refreshes_the_texts()
     {
         using var rig = new ModuleRig();
-        Assert.Equal("Not listening", rig.ValueOf("row.listening.header"));
+        Assert.Equal("15 names, from steam-domains.txt", rig.ValueOf("row.domains.header"));
+        Assert.Equal("Steam is not running", rig.SwitchLine);
         rig.Host.Loc.Switch("vi");
-        Assert.Equal("Không lắng nghe", rig.ValueOf("row.listening.header"));
-        Assert.Equal("Bypass đang tắt", rig.StateLine);
+        Assert.Equal("15 tên, từ steam-domains.txt", rig.ValueOf("row.domains.header"));
+        Assert.Equal("Steam chưa chạy", rig.SwitchLine);
+        Assert.Equal("Vượt chặn đang tắt", rig.StateLine);
     }
 
     [Fact]

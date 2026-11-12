@@ -107,6 +107,6 @@ public class LanguageFileTests
         var en = FakeLocalisation.Load("en");
         Assert.Equal(@"Documents\Rigbay\logs (default)", en["module.recorder.row.folder.placeholder"]);
         Assert.Contains(@"D:\Logs", en["module.recorder.error.folder-absolute"]);
-        Assert.Contains(@"Documents\Rigbay\logs", FakeLocalisation.Load("vi")["module.recorder.row.open-folder.description"]);
+        Assert.Contains(@"Documents\Rigbay\logs", FakeLocalisation.Load("vi")["module.recorder.row.folder.placeholder"]);
     }
 }

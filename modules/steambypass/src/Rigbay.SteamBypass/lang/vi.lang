@@ -7,73 +7,62 @@ module.steam-bypass.name = Truy cập Steam
 module.steam-bypass.description = Giúp vào được Steam trên mạng bị chặn, qua proxy cục bộ, DNS over HTTPS và file PAC.
 
 # Dòng trạng thái trên Dashboard
-module.steam-bypass.state.off = Bypass đang tắt
+module.steam-bypass.state.off = Vượt chặn đang tắt
 module.steam-bypass.state.failed = Không bật được
-module.steam-bypass.state.on = Bypass đang bật · {0} kết nối
+module.steam-bypass.state.on = Đang vượt chặn · {0} kết nối
 module.steam-bypass.state.on-no-downloads = Đang bật, không tải game được · {0} kết nối
 module.steam-bypass.metric.active = Kết nối proxy Steam
 module.steam-bypass.metric.errors = Lỗi proxy Steam
 
-# Nhóm trên trang
-module.steam-bypass.group.bypass = Bypass
+# Trang: công tắc là điều khiển chính; nhóm Trạng thái chỉ có khi đang vượt chặn
 module.steam-bypass.group.status = Trạng thái
-module.steam-bypass.group.check = Kiểm tra kết nối
+module.steam-bypass.group.test = Khắc phục sự cố
 module.steam-bypass.group.settings = Cài đặt
 
 # Công tắc và thứ nó thay đổi
-module.steam-bypass.row.bypass.header = Bypass Steam
-module.steam-bypass.row.bypass.description = Đưa Steam vượt qua chỗ mạng chặn. Khi bật, nó đổi cài đặt proxy của Windows.
-module.steam-bypass.effect.bypass = Đổi cài đặt proxy của tài khoản Windows này. Bật bypass sẽ đặt địa chỉ script proxy tự động (AutoConfigURL, người dùng hiện tại) thành http://127.0.0.1:18081/proxy.pac và mở một proxy cục bộ ở 127.0.0.1, cổng 18081 và 80. Chỉ địa chỉ Steam đi qua nó. Tắt bypass sẽ trả lại giá trị cũ và dừng proxy.
-module.steam-bypass.effect.bypass-revert = Hoàn tác lần đổi vừa rồi: sau khi bật, giá trị proxy Windows đã lưu được trả lại và proxy dừng; sau khi tắt, bypass được bật lại như mô tả ở trên.
-module.steam-bypass.detail.turn-on = Bypass Steam: Tắt → Bật
-module.steam-bypass.detail.turn-off = Bypass Steam: Bật → Tắt
+module.steam-bypass.row.bypass.header = Vượt chặn Steam
+module.steam-bypass.row.bypass.description = Chỉ đưa địa chỉ Steam qua một proxy trên máy này.
+module.steam-bypass.row.bypass.help = Khi bật, cài đặt proxy của tài khoản Windows này trỏ tới proxy cục bộ của Rigbay (127.0.0.1). Chỉ địa chỉ Steam đi qua nó, và được tra bằng DNS over HTTPS. Tắt đi thì cài đặt cũ được trả lại.
+module.steam-bypass.effect.bypass = Đổi cài đặt proxy của tài khoản Windows này. Bật vượt chặn sẽ đặt địa chỉ script proxy tự động (AutoConfigURL, người dùng hiện tại) thành http://127.0.0.1:18081/proxy.pac và mở một proxy cục bộ ở 127.0.0.1, cổng 18081 và 80. Chỉ địa chỉ Steam đi qua nó. Tắt vượt chặn sẽ trả lại giá trị cũ và dừng proxy.
+module.steam-bypass.effect.bypass-revert = Hoàn tác lần đổi vừa rồi: sau khi bật, giá trị proxy Windows đã lưu được trả lại và proxy dừng; sau khi tắt, vượt chặn được bật lại như mô tả ở trên.
+module.steam-bypass.detail.turn-on = Vượt chặn Steam: Tắt → Bật
+module.steam-bypass.detail.turn-off = Vượt chặn Steam: Bật → Tắt
 module.steam-bypass.info.port80.header = Không tải game được
-module.steam-bypass.info.port80.description = Một chương trình khác đang dùng cổng 80 trên máy này. Vào Steam bằng trình duyệt vẫn được, nhưng trình tải của Steam cần 127.0.0.1:80. Hãy đóng chương trình đó rồi tắt và bật lại bypass.
+module.steam-bypass.info.port80.description = Một chương trình khác đang dùng cổng 80 trên máy này. Vào Steam bằng trình duyệt vẫn được, nhưng trình tải của Steam cần 127.0.0.1:80. Hãy đóng chương trình đó rồi tắt và bật lại vượt chặn.
 module.steam-bypass.info.steam-restart.header = Hãy khởi động lại Steam
-module.steam-bypass.info.steam-restart.description = Steam được mở trước khi bật bypass và chỉ đọc cài đặt proxy lúc khởi động. Hãy thoát hẳn Steam rồi mở lại.
+module.steam-bypass.info.steam-restart.description = Steam được mở trước khi bật vượt chặn và chỉ đọc cài đặt proxy lúc khởi động. Hãy thoát hẳn Steam rồi mở lại.
 
-# Trạng thái
-module.steam-bypass.row.listening.header = Đang lắng nghe
-module.steam-bypass.row.listening.description = Chỉ trên máy này (127.0.0.1)
+# Steam đang làm gì: dòng trạng thái dưới công tắc và lệnh status
+module.steam-bypass.steam.not-running = Steam chưa chạy
+module.steam-bypass.steam.bypass-off = Steam đang chạy, không qua vượt chặn
+module.steam-bypass.steam.starting = Đang chờ Steam kết nối
+module.steam-bypass.steam.using = Steam đang đi qua vượt chặn
+module.steam-bypass.steam.needs-restart = Steam được mở trước khi vượt chặn: hãy khởi động lại nó
+
+# Trạng thái (chỉ khi đang vượt chặn)
 module.steam-bypass.row.active.header = Kết nối đang mở
-module.steam-bypass.row.active.description = Các kết nối đang đi qua proxy lúc này
-module.steam-bypass.row.errors.header = Lỗi
-module.steam-bypass.row.errors.description = Số kết nối thất bại từ lúc Rigbay khởi động
-module.steam-bypass.row.steam.header = Steam
-module.steam-bypass.row.steam.description = Ứng dụng Steam có đang dùng bypass không
-module.steam-bypass.row.problem.header = Sự cố gần nhất
-module.steam-bypass.row.domains.header = Tên miền Steam
-module.steam-bypass.row.domains.description = Chỉ những tên này (và tên miền con) đi qua bypass và được tra bằng DNS over HTTPS
+module.steam-bypass.row.errors.header = Kết nối thất bại
+module.steam-bypass.row.errors.description = Từ lúc Rigbay khởi động
+module.steam-bypass.chart.connections = Kết nối đang mở
+module.steam-bypass.row.listening.header = Đang lắng nghe ở
 module.steam-bypass.listen.off = Không lắng nghe
 module.steam-bypass.listen.on = 127.0.0.1:{0} (proxy), 127.0.0.1:{1} (tải game)
 module.steam-bypass.listen.on-no-downloads = 127.0.0.1:{0} (proxy); cổng 80 không dùng được
-module.steam-bypass.steam.not-running = Steam chưa chạy
-module.steam-bypass.steam.bypass-off = Steam đang chạy; bypass đang tắt
-module.steam-bypass.steam.starting = Đang chờ Steam kết nối
-module.steam-bypass.steam.using = Steam đang dùng bypass
-module.steam-bypass.steam.needs-restart = Steam được mở trước bypass: hãy khởi động lại nó
-module.steam-bypass.problem.none = Không có
 module.steam-bypass.problem.address-in-use = Cổng 18081 đang bị dùng. Có phải ứng dụng Steam Bypass đang chạy? Hãy đóng nó trước.
 module.steam-bypass.problem.setting = Không ghi được cài đặt proxy của Windows: {0}
 module.steam-bypass.problem.listen = Proxy không khởi động được: {0}
 module.steam-bypass.problem.restore = Không trả lại được cài đặt proxy của Windows: {0}
-module.steam-bypass.problem.unexpected = Có lỗi khi đổi trạng thái bypass: {0}
-module.steam-bypass.domains.value = {0} tên, từ {1}
-module.steam-bypass.domains.built-in = danh sách có sẵn
+module.steam-bypass.problem.unexpected = Có lỗi khi bật hoặc tắt vượt chặn: {0}
 
-# Kiểm tra kết nối
-module.steam-bypass.check.store.title = Cửa hàng
-module.steam-bypass.check.store.sub = store.steampowered.com
-module.steam-bypass.check.community.title = Cộng đồng
-module.steam-bypass.check.community.sub = steamcommunity.com
-module.steam-bypass.check.static.title = Nội dung tĩnh
-module.steam-bypass.check.static.sub = store.cloudflare.steamstatic.com
-module.steam-bypass.check.downloads.title = Tải game
-module.steam-bypass.check.downloads.sub = máy chủ cache steamcontent.com, qua 127.0.0.1:80
+# Thử kết nối: một dòng, sau mỗi lần thử nó liệt kê bốn kết quả
 module.steam-bypass.row.test.header = Thử kết nối
-module.steam-bypass.row.test.description = Gọi bốn địa chỉ ở trên. Khi bypass tắt, yêu cầu đi thẳng ra ngoài, nên bạn thấy mạng có chặn Steam hay không.
+module.steam-bypass.row.test.description = Cửa hàng, Cộng đồng, nội dung tĩnh và tải game
+module.steam-bypass.row.test.help = Gọi bốn địa chỉ của Steam. Khi đang vượt chặn, yêu cầu đi qua nó; khi tắt, yêu cầu đi thẳng ra ngoài, nên bạn thấy mạng có chặn Steam hay không.
 module.steam-bypass.button.test = Chạy thử
-module.steam-bypass.check.idle = Chưa thử
+module.steam-bypass.check.store.title = Cửa hàng
+module.steam-bypass.check.community.title = Cộng đồng
+module.steam-bypass.check.static.title = Nội dung tĩnh
+module.steam-bypass.check.downloads.title = Tải game
 module.steam-bypass.check.running = Đang thử…
 module.steam-bypass.check.ok = Vào được · HTTP {0} · {1} ms
 module.steam-bypass.check.refused = Kết nối bị từ chối
@@ -87,38 +76,42 @@ module.steam-bypass.test.busy = Đang có một lần thử chạy
 module.steam-bypass.test.line = {0}: {1}
 
 # Cài đặt
-module.steam-bypass.row.auto-on.header = Bật khi Rigbay khởi động
-module.steam-bypass.row.auto-on.description = Bypass tự bật mỗi lần module này khởi động.
-module.steam-bypass.effect.auto-on = Từ giờ, mỗi lần module này khởi động nó sẽ tự bật bypass, không hỏi lại. Việc đó đặt địa chỉ script proxy (AutoConfigURL) của tài khoản Windows này thành http://127.0.0.1:18081/proxy.pac và mở proxy cục bộ ở 127.0.0.1, cổng 18081 và 80. Tắt module hoặc đóng Rigbay sẽ trả lại giá trị cũ.
+module.steam-bypass.row.auto-on.header = Bật cùng Rigbay
+module.steam-bypass.row.auto-on.help = Vượt chặn tự bật mỗi lần module này khởi động, không hỏi lại. Tắt module hoặc đóng Rigbay sẽ trả lại cài đặt Windows.
+module.steam-bypass.effect.auto-on = Từ giờ, mỗi lần module này khởi động nó sẽ tự bật vượt chặn, không hỏi lại. Việc đó đặt địa chỉ script proxy (AutoConfigURL) của tài khoản Windows này thành http://127.0.0.1:18081/proxy.pac và mở proxy cục bộ ở 127.0.0.1, cổng 18081 và 80. Tắt module hoặc đóng Rigbay sẽ trả lại giá trị cũ.
+module.steam-bypass.row.domains.header = Tên miền Steam
+module.steam-bypass.row.domains.help = Chỉ những tên này (và tên miền con) đi qua vượt chặn và được tra bằng DNS over HTTPS.
+module.steam-bypass.domains.value = {0} tên, từ {1}
+module.steam-bypass.domains.built-in = danh sách có sẵn
 
 # Thông báo
 module.steam-bypass.toast.title = Truy cập Steam
-module.steam-bypass.toast.failed = Không bật được bypass. {0}
-module.steam-bypass.toast.no-downloads = Bypass đã bật nhưng cổng 80 đang bị dùng: không tải game được.
-module.steam-bypass.toast.restore-failed = Không trả lại được cài đặt proxy của Windows. Hãy thử tắt bypass lần nữa.
+module.steam-bypass.toast.failed = Không bật được vượt chặn. {0}
+module.steam-bypass.toast.no-downloads = Vượt chặn đã bật nhưng cổng 80 đang bị dùng: không tải game được.
+module.steam-bypass.toast.restore-failed = Không trả lại được cài đặt proxy của Windows. Hãy thử tắt vượt chặn lần nữa.
 module.steam-bypass.toast.busy = Đang có một thay đổi khác. Lần bật/tắt vừa rồi đã bị bỏ qua.
 
 # Dòng lệnh: rigbay steam-bypass status | on | off | test
-module.steam-bypass.cmd.status = Cho biết bypass bật hay tắt, đang lắng nghe ở đâu, số kết nối và Steam
-module.steam-bypass.cmd.on = Bật bypass (hỏi trước: nó đổi cài đặt proxy của Windows)
-module.steam-bypass.cmd.off = Tắt bypass và trả lại cài đặt proxy của Windows (hỏi trước)
+module.steam-bypass.cmd.status = Cho biết vượt chặn đang bật hay tắt, đang lắng nghe ở đâu, số kết nối và Steam
+module.steam-bypass.cmd.on = Bật vượt chặn (hỏi trước: nó đổi cài đặt proxy của Windows)
+module.steam-bypass.cmd.off = Tắt vượt chặn và trả lại cài đặt proxy của Windows (hỏi trước)
 module.steam-bypass.cmd.test = Chạy bốn bước kiểm tra kết nối
 module.steam-bypass.cmd.not-running = Module Truy cập Steam đang không chạy.
 module.steam-bypass.cmd.not-confirmed = Chưa được xác nhận. Không có gì bị đổi.
-module.steam-bypass.cmd.already-on = Bypass đã bật rồi.
-module.steam-bypass.cmd.already-off = Bypass đã tắt rồi.
-module.steam-bypass.cmd.turned-on = Bypass đã bật.
-module.steam-bypass.cmd.turned-on-no-downloads = Bypass đã bật nhưng cổng 80 đang bị dùng: không tải game được.
-module.steam-bypass.cmd.turned-off = Bypass đã tắt và cài đặt proxy của Windows đã được trả lại.
+module.steam-bypass.cmd.already-on = Vượt chặn đã bật rồi.
+module.steam-bypass.cmd.already-off = Vượt chặn đã tắt rồi.
+module.steam-bypass.cmd.turned-on = Vượt chặn đã bật.
+module.steam-bypass.cmd.turned-on-no-downloads = Vượt chặn đã bật nhưng cổng 80 đang bị dùng: không tải game được.
+module.steam-bypass.cmd.turned-off = Vượt chặn đã tắt và cài đặt proxy của Windows đã được trả lại.
 module.steam-bypass.cmd.busy = Đang có một thay đổi khác. Không có gì bị đổi.
 module.steam-bypass.cmd.on-usage = Cách dùng: rigbay steam-bypass on
 module.steam-bypass.cmd.off-usage = Cách dùng: rigbay steam-bypass off
 module.steam-bypass.cmd.test-usage = Cách dùng: rigbay steam-bypass test
-module.steam-bypass.status.on-since = Bypass: đang bật từ {0}
-module.steam-bypass.status.off = Bypass: đang tắt
+module.steam-bypass.status.on-since = Vượt chặn: đang bật từ {0}
+module.steam-bypass.status.off = Vượt chặn: đang tắt
 module.steam-bypass.status.listening = Đang lắng nghe: {0}
 module.steam-bypass.status.connections = Kết nối: {0} đang mở, {1} tổng cộng, {2} lỗi, {3} bị từ chối
 module.steam-bypass.status.steam = Steam: {0}
 module.steam-bypass.status.windows = Cài đặt proxy của Windows: {0}
-module.steam-bypass.status.windows-ours = đang trỏ tới bypass
-module.steam-bypass.status.windows-not-ours = không do bypass đặt
+module.steam-bypass.status.windows-ours = đang trỏ tới vượt chặn
+module.steam-bypass.status.windows-not-ours = không do vượt chặn đặt

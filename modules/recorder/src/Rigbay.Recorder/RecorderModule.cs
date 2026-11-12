@@ -24,15 +24,12 @@ public sealed partial class RecorderModule : IModule
     private readonly ObservableValue<string> _folder = new("");
     private readonly ObservableValue<bool> _idle = new(true);
     private readonly ObservableValue<bool> _recording = new(false);
-    private readonly ObservableValue<string> _stateText = new("");
-    private readonly ObservableValue<string> _fileText = new("");
-    private readonly ObservableValue<string> _rowsText = new("");
-    private readonly ObservableValue<string> _sizeText = new("");
-    private readonly ObservableValue<string> _elapsedText = new("");
-    private readonly ObservableValue<string> _messageText = new("");
-    private readonly ObservableValue<string> _pickedText = new("");
+    private readonly ObservableValue<LocalisedText> _primaryLine = new(default);   // under Start or Stop: the running file, or how the last one ended
+    private readonly ObservableValue<LocalisedText> _folderLine = new(default);    // where the files go
+    private readonly ObservableValue<LocalisedText> _pickedLine = new(default);    // "12 of 40"
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.idle"));
     private readonly Dictionary<string, ObservableValue<bool>> _picks = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ObservableValue<LocalisedText>> _sourceLines = new(StringComparer.Ordinal);
     private readonly object _uiGate = new();
 
     private IHostServices? _host;
@@ -45,6 +42,7 @@ public sealed partial class RecorderModule : IModule
     private TrayItem? _trayStop;
     private LocalisedText? _lastNotice;
     private HashSet<string> _pageMetrics = new(StringComparer.Ordinal);
+    private Dictionary<string, List<string>> _pageSources = new(StringComparer.Ordinal);
 
     /// <summary>Creates the module for the real machine. Does nothing but set fields.</summary>
     public RecorderModule() : this(null, new SystemShell(), DefaultLogsFolder) { }
@@ -189,6 +187,7 @@ public sealed partial class RecorderModule : IModule
     {
         _recording.Value = recording;
         _idle.Value = !recording;
+        RefreshPageIfRecordingChanged(recording);   // the main button is Start or Stop
         if (_trayStart is { } start) start.Visible.Value = !recording;
         if (_trayStop is { } stop) stop.Visible.Value = recording;
         if (recording) StartClock(); else StopClock();
@@ -255,30 +254,23 @@ public sealed partial class RecorderModule : IModule
         if (host is null || engine is null) return;
         var loc = host.Localisation;
         var st = engine.Status();
-        var last = engine.LastSummary;
-        const string none = "–";
 
         if (st.Recording)
         {
-            _stateText.Value = loc.T("state.recording");
-            _stateLine.Value = LocalisedText.Of("state.recording-line", CsvFormat.Clock(st.Elapsed));
-            _fileText.Value = Path.GetFileName(st.Path ?? "");
-            _rowsText.Value = st.Rows.ToString("N0", CultureInfo.InvariantCulture);
-            _sizeText.Value = CsvFormat.Size(st.Bytes);
-            _elapsedText.Value = st.Duration is { } limit
+            string elapsed = st.Duration is { } limit
                 ? loc.F("status.elapsed-of", CsvFormat.Clock(st.Elapsed), CsvFormat.Clock(limit))
                 : CsvFormat.Clock(st.Elapsed);
+            _stateLine.Value = LocalisedText.Of("state.recording-line", CsvFormat.Clock(st.Elapsed));
+            _primaryLine.Value = LocalisedText.Of("line.recording", Path.GetFileName(st.Path ?? ""), elapsed,
+                st.Rows.ToString("N0", CultureInfo.InvariantCulture), CsvFormat.Size(st.Bytes));
         }
         else
         {
-            _stateText.Value = loc.T("state.idle");
             _stateLine.Value = LocalisedText.Of("state.idle");
-            _fileText.Value = last is null ? none : Path.GetFileName(last.Path);
-            _rowsText.Value = last is null ? none : last.Rows.ToString("N0", CultureInfo.InvariantCulture);
-            _sizeText.Value = last is null ? none : CsvFormat.Size(last.Bytes);
-            _elapsedText.Value = last is null ? none : CsvFormat.Clock(last.Ended - last.Started);
+            // How the last recording ended, or why one could not start; nothing before the first one (no row of dashes).
+            _primaryLine.Value = _lastNotice ?? default;
         }
-        _messageText.Value = _lastNotice is { } notice ? loc.Resolve(notice) : none;
+        _folderLine.Value = string.IsNullOrWhiteSpace(_settings.Folder) ? LocalisedText.Of("row.folder.placeholder") : new LocalisedText(Text.Literal(_settings.Folder));
         UpdatePickedText();
     }
 
@@ -302,6 +294,7 @@ public sealed partial class RecorderModule : IModule
     {
         _settings.Folder = (_folder.Value ?? "").Trim();
         SaveSettings();
+        RefreshTexts();   // the folder's line
         _host?.RequestPageRefresh();   // the History group lists another folder
     }
 

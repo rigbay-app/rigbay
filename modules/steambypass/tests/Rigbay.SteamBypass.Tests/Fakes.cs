@@ -107,8 +107,10 @@ internal sealed class FakeLocalisation : ILocalisation
     public string T(string key) =>
         ThrowFor is { } fail && fail(key) ? throw new InvalidOperationException("text lookup failed for " + key) : Lookup(key);
 
+    // A literal (Text.Literal) is shown as it is, as the host does.
     private string Lookup(string key) =>
-        _current.TryGetValue(Prefix + key, out var v) ? v : _english.TryGetValue(Prefix + key, out var e) ? e : Prefix + key;
+        Text.IsLiteral(key) ? Text.Unwrap(key)
+        : _current.TryGetValue(Prefix + key, out var v) ? v : _english.TryGetValue(Prefix + key, out var e) ? e : Prefix + key;
 
     public string F(string key, params object[] args) => string.Format(CultureInfo.InvariantCulture, T(key), args);
 

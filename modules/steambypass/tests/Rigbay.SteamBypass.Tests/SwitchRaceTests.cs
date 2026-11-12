@@ -303,7 +303,7 @@ public class SwitchRaceTests
         rig.Switch.Value.Value = true;
         AssertConsistent(rig, Corp, expectedOn: false);
         Assert.Contains(rig.Host.LogSink.Entries, e => e.Level == LogLevel.Error && e.Message.Contains("Switching the bypass failed"));
-        Assert.Contains("Something went wrong", rig.ValueOf("row.problem.header"));
+        Assert.Contains("Something went wrong", rig.SwitchLine);
 
         rig.Proxy.WriteThrows = null;
         rig.Host.ToastService.Throws = null;

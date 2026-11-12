@@ -46,6 +46,15 @@ internal sealed class Rig
         return (T)expander.Children.Single(c => c.HeaderKey == header);
     }
 
+    /// <summary>A tunnel's row: the expander with the switch in its header and the live line.</summary>
+    public ExpanderRow Tunnel(string tunnel = Name) =>
+        (ExpanderRow)Page().Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.Single(r => r.HeaderKey == Text.Literal(tunnel));
+    /// <summary>The on switch in a tunnel's header.</summary>
+    public ToggleRow Switch(string tunnel = Name) => (ToggleRow)Tunnel(tunnel).HeaderRow!;
+    /// <summary>A tunnel's live line as the host resolves it now.</summary>
+    public string Line(string tunnel = Name) => LineOf(Tunnel(tunnel));
+    public string LineOf(Row row) => row.Line is { } line ? Host.Loc.Resolve(line.Value) : "";
+
     public string Words(HardwareEffect effect) => Host.Loc.T(effect.DescriptionKey);
     public string Words(LocalisedText? text) => text is { } t ? Host.Loc.Resolve(t) : "";
     public string[] Toasts() => Host.ToastService.All().Select(t => Host.Loc.Resolve(t.Body)).ToArray();
@@ -181,7 +190,7 @@ public class ModuleTests
         var toast = rig.Host.ToastService.All().Single();
         Assert.Equal(ToastKind.Error, toast.Kind);
         Assert.Contains("did not start", rig.Words(toast.Body));
-        Assert.Contains("did not start", rig.Row<ValueRow>("row.problem.header").Value.Value);
+        Assert.Contains("did not start", rig.Line());   // the problem is in the tunnel's own line, readable while it is closed
         Assert.False(rig.Host.TrayService.Item("toggle-example-tunnel").Checked.Value);
     }
 
@@ -191,7 +200,8 @@ public class ModuleTests
     public async Task The_page_switch_is_marked_as_a_system_change_so_the_host_asks_and_the_module_does_not_ask_twice()
     {
         var rig = new Rig().Start();
-        var row = rig.Row<ToggleRow>("row.on.header");
+        var row = rig.Switch();
+        Assert.Equal(Text.Literal(Rig.Name), row.HeaderKey);   // the approval reads "example-tunnel: Off → On"
         Assert.Equal(EffectKind.SystemSetting, row.HardwareEffect!.Kind);
         Assert.False(row.HardwareEffect.SafeRevert);   // a revert is asked about too
         Assert.Contains("example-tunnel", rig.Words(row.HardwareEffect));
@@ -215,29 +225,35 @@ public class ModuleTests
     {
         var rig = new Rig().Start();
         rig.W.Tools.OnInstall = _ => new ToolRun(5);
-        var row = rig.Row<ToggleRow>("row.on.header");
+        var row = rig.Switch();
 
         row.Value.Value = true;
         await rig.Idle();
 
         Assert.False(row.Value.Value);
         Assert.Equal(ToastKind.Error, rig.Host.ToastService.All().Single().Kind);
-        Assert.Contains("exit code 5", rig.Row<ValueRow>("row.problem.header").Value.Value);
+        Assert.StartsWith("Off\n", rig.Line());
+        Assert.Contains("exit code 5", rig.Line());
     }
 
     [Fact]
-    public void The_page_lists_each_tunnel_with_status_options_and_a_hotkey_row()
+    public void The_page_lists_each_tunnel_with_its_switch_and_state_in_the_header_and_only_settings_inside()
     {
         var rig = new Rig().Running().Start();
         var page = rig.Page();
-        var headers = ((ExpanderRow)page.Groups.Single(g => g.HeaderKey == "group.tunnels").Rows.OfType<ExpanderRow>().Single()).Children.Select(c => c.HeaderKey).ToArray();
-        Assert.Contains("row.on.header", headers);
-        Assert.Contains("row.handshake.header", headers);
-        Assert.Contains("row.start.header", headers);
-        Assert.Contains("row.autooff.header", headers);
-        Assert.Contains("row.port.header", headers);
-        Assert.Contains("row.public.header", headers);
-        Assert.Contains("row.hotkey.header", headers);
+        // Review TN-1: the switch and the state are in the closed row; inside are the settings, then the facts of a tunnel that is on.
+        var tunnel = rig.Tunnel();
+        Assert.False(tunnel.IsExpanded);
+        Assert.IsType<ToggleRow>(tunnel.HeaderRow);
+        Assert.NotNull(tunnel.Line);
+        Assert.NotNull(tunnel.HelpKey);
+        Assert.Equal("On", rig.Line());
+        Assert.Equal(new[] { "row.start.header", "row.autooff.header", "row.public.header", "row.port.header", "row.hotkey.header", "row.endpoint.header", "row.transfer.header" },
+            tunnel.Children.Select(c => c.HeaderKey).ToArray());
+        // no reading rows: a tile named "Receiving" could not say which tunnel it is (the rates are in each tunnel's line)
+        Assert.Empty(page.EnumerateRows().OfType<ReadingRow>());
+        foreach (var row in page.EnumerateRows().Where(r => r is not InfoRow && r.DescriptionKey is not null && !Text.IsLiteral(r.DescriptionKey)))   // a message may say more
+            Assert.InRange(rig.Host.Loc.T(row.DescriptionKey!).Length, 1, 70);   // the copy rule: a short fact, the rest in the help glyph
         Assert.Equal("1 of 1 on", rig.Host.Loc.Resolve(page.Summary!.StateLine!.Value));
         Assert.Contains(page.Links, l => l.Url == "https://www.wireguard.com/install/");
     }
@@ -283,7 +299,7 @@ public class ModuleTests
     public async Task A_tunnel_turned_on_in_the_WireGuard_app_shows_up_on_the_page()
     {
         var rig = new Rig().Start();
-        var on = rig.Row<ToggleRow>("row.on.header");
+        var on = rig.Switch();
         Assert.False(on.Value.Value);
         rig.Running();   // the official app activated it
         await rig.Module.PollOnceAsync();
@@ -305,7 +321,7 @@ public class ModuleTests
         rig.Host.PageVisibleValue.Value = true;
         await rig.Module.PollOnceAsync();
         Assert.Equal(new[] { WgField.LatestHandshakes, WgField.Transfer, WgField.Endpoints }, rig.W.Tools.Shows.Select(s => s.Field).ToArray());
-        Assert.Equal("On, connected (handshake 1 s ago)", rig.Row<ValueRow>("row.status.header").Value.Value);
+        Assert.Equal("Connected · handshake 1 s ago", rig.Line());
         Assert.Equal(Rig.Endpoint, rig.Row<ValueRow>("row.endpoint.header").Value.Value);
         Assert.Equal("Received 1000 B, sent 500 B", rig.Row<ValueRow>("row.transfer.header").Value.Value);
     }
@@ -339,12 +355,15 @@ public class ModuleTests
         Assert.True(bus.Has("tunnel.example-tunnel.rx_rate"));
         Assert.Equal(MetricUnit.BytesPerSecond, bus.Latest["tunnel.example-tunnel.rx_rate"].Unit);
         Assert.InRange(bus.Latest["tunnel.example-tunnel.handshake_age"].Value, 0, 5);
+        Assert.Matches(@"^Connected · handshake \d+ s ago · ↓ [\d.]+ (B|KB)/s ↑ [\d.]+ (B|KB)/s$", rig.Line());   // the rates, scaled, in the tunnel's line
 
         rig.W.Services.Remove(Rig.Name);   // turned off elsewhere
         await rig.Module.PollOnceAsync();
         Assert.False(bus.Has("tunnel.example-tunnel.rx_rate"));
         Assert.False(bus.Has("tunnel.example-tunnel.handshake_age"));
-        Assert.Equal("Off", rig.Row<ValueRow>("row.status.header").Value.Value);
+        Assert.Equal("Off", rig.Line());
+        Assert.Equal("", rig.Tunnel().Children.OfType<ValueRow>().Single(r => r.HeaderKey == "row.endpoint.header").Value.Value);   // left out by the host
+        Assert.Equal("", rig.Tunnel().Children.OfType<ValueRow>().Single(r => r.HeaderKey == "row.transfer.header").Value.Value);
     }
 
     [Fact]
@@ -376,7 +395,7 @@ public class ModuleTests
     {
         var rig = new Rig().Start();
         rig.Host.ApprovalService.Answer = true;
-        rig.Row<NumberRow>("row.autooff.header").Value.Value = 2;   // the host asked when the option was set
+        rig.Row<ChoiceRow>("row.autooff.header").Value.Value = "2";   // the host asked when the option was set
         rig.Host.TrayService.Item("toggle-example-tunnel").Invoke();
         await rig.Idle();
         int asked = rig.Host.ApprovalService.Count;
@@ -402,7 +421,7 @@ public class ModuleTests
         rig.W.Clock.Now = rig.W.Clock.Now.AddDays(30);
         await rig.Module.PollOnceAsync();
         Assert.True(rig.W.Services.Of(Rig.Name).IsRunning);
-        Assert.Equal(0, rig.Row<NumberRow>("row.autooff.header").Value.Value);
+        Assert.Equal("0", rig.Row<ChoiceRow>("row.autooff.header").Value.Value);
         Assert.DoesNotContain(rig.W.Tools.Calls, c => c == "uninstall");
     }
 
@@ -410,7 +429,7 @@ public class ModuleTests
     public async Task Auto_off_counts_from_the_moment_it_is_set_for_a_tunnel_that_is_already_on()
     {
         var rig = new Rig().Running().Start();
-        rig.Row<NumberRow>("row.autooff.header").Value.Value = 1;
+        rig.Row<ChoiceRow>("row.autooff.header").Value.Value = "1";
         rig.W.Clock.Now = rig.W.Clock.Now.AddMinutes(61);
         await rig.Module.PollOnceAsync();
         await rig.Idle();
@@ -418,19 +437,39 @@ public class ModuleTests
     }
 
     [Fact]
-    public void The_hours_are_kept_within_zero_and_a_week()
+    public void The_turn_off_time_is_a_choice_and_stays_within_zero_and_a_week()
     {
         var rig = new Rig().Start();
-        var row = rig.Row<NumberRow>("row.autooff.header");
-        Assert.Equal(0, row.Minimum);
-        Assert.Equal(168, row.Maximum);
-        row.Value.Value = 500;
-        Assert.Equal(168, row.Value.Value);
-        row.Value.Value = -3;
-        Assert.Equal(0, row.Value.Value);
-        Assert.NotNull(row.Validate!(1.5));
-        Assert.Null(row.Validate(2));
+        var row = rig.Row<ChoiceRow>("row.autooff.header");
+        // Review TN-2: a list, not a number box where 0 means never
+        Assert.Equal(new[] { "0", "1", "2", "4", "8", "24" }, row.Options.Select(o => o.Id).ToArray());
+        Assert.Equal("Never", rig.Host.Loc.T(row.Options[0].LabelKey));
+        Assert.Equal("24 hours", rig.Host.Loc.T(row.Options[^1].LabelKey));
+        row.Value.Value = "500";   // not from the host, which only sets offered ids: still kept within a week
+        Assert.Equal("168", row.Value.Value);
+        row.Value.Value = "-3";
+        Assert.Equal("0", row.Value.Value);
+        row.Value.Value = "x";
+        Assert.Equal("0", row.Value.Value);
         Assert.Equal(EffectKind.SystemSetting, row.HardwareEffect!.Kind);   // setting it is asked about: it lets Rigbay turn the tunnel off by itself
+    }
+
+    [Fact]
+    public void A_turn_off_time_from_the_old_number_box_stays_offered_and_the_rows_survive_a_rebuilt_page()
+    {
+        var rig = new Rig();
+        var stored = new TunnelSettings();
+        stored.Tunnels[Rig.Name] = new TunnelOptions { AutoOffHours = 3 };   // 0.1.0 took any whole number of hours
+        rig.Host.SettingsStore.Stored = stored;
+        rig.Start();
+        var row = rig.Row<ChoiceRow>("row.autooff.header");
+        Assert.Equal("3", row.Value.Value);
+        Assert.Equal(new[] { "0", "1", "2", "3", "4", "8", "24" }, row.Options.Select(o => o.Id).ToArray());
+        Assert.Equal("3 hours", rig.Host.Loc.T(row.Options[3].LabelKey));
+
+        // the same row instances on the next page, so the host keeps a row's "Applied" status and its Revert link
+        Assert.Same(rig.Switch(), rig.Switch());
+        Assert.Same(row, rig.Row<ChoiceRow>("row.autooff.header"));
     }
 
     [Fact]
@@ -469,15 +508,15 @@ public class ModuleTests
         rig.W.Network.Adapters[Rig.Name] = new[] { System.Net.IPAddress.Parse("10.9.0.2") };
         rig.Row<NumberRow>("row.port.header").Value.Value = 3389;
         await rig.Idle();
-        Assert.Equal("Port 3389: nothing is listening", rig.Row<ValueRow>("row.local.header").Value.Value);
+        Assert.Equal("Port 3389: nothing is listening", rig.LineOf(rig.Row<NumberRow>("row.port.header")));   // under the port it checks
 
         rig.W.Network.Listening.Add(3389);
         await rig.Module.PollOnceAsync();
-        Assert.Equal("Port 3389: something is listening", rig.Row<ValueRow>("row.local.header").Value.Value);
+        Assert.Equal("Port 3389: something is listening", rig.LineOf(rig.Row<NumberRow>("row.port.header")));
 
         rig.W.Services.Remove(Rig.Name);
         await rig.Module.PollOnceAsync();
-        Assert.Equal("The tunnel is off", rig.Row<ValueRow>("row.local.header").Value.Value);
+        Assert.Equal("The tunnel is off", rig.LineOf(rig.Row<NumberRow>("row.port.header")));
     }
 
     [Fact]
@@ -648,7 +687,9 @@ public class ModuleTests
         rig.Host.Loc.Switch("vi");
         await rig.Idle();
         Assert.True(rig.Host.PageRefreshRequests > before);
-        Assert.Equal("Bật", rig.Row<ValueRow>("row.status.header").Value.Value);
+        Assert.Equal("Bật", rig.Line());
+        Assert.Equal("Tự tắt sau", rig.Host.Loc.T(rig.Row<ChoiceRow>("row.autooff.header").HeaderKey));
+        Assert.Contains("Bật hoặc tắt tunnel WireGuard example-tunnel".Replace("tunnel WireGuard", "đường hầm WireGuard"), rig.Words(rig.Switch().HardwareEffect!));   // made again in the new language
     }
 
     [Fact]

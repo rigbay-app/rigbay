@@ -51,6 +51,13 @@ internal sealed class ModuleRig : IDisposable
     public static string Text(ValueRow row) => row.Value.Value;
     public string Value(string headerKey) => Row<ValueRow>(headerKey).Value.Value;
 
+    /// <summary>The live line under the main button (Start or Stop), as the host resolves it now.</summary>
+    public string PrimaryLine => Host.Loc.Resolve(Page().Primary!.Line!.Value);
+    /// <summary>The dashboard's state line, as the host resolves it now.</summary>
+    public string StateText => Host.Loc.Resolve(Page().Summary!.StateLine!.Value);
+    /// <summary>"12 of 40": the line of the Selected metrics row.</summary>
+    public string PickedLine => Host.Loc.Resolve(Row<ButtonRow>("row.picked.header").Line!.Value);
+
     public ActionResult Press(string headerKey) => Invoke(Row<ButtonRow>(headerKey));
 
     public static ActionResult Invoke(ButtonRow row) => row.InvokeAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -166,9 +173,11 @@ public class ModuleLifecycleTests
     public void The_language_switch_changes_the_texts_the_page_shows()
     {
         using var rig = new ModuleRig();
-        Assert.Equal("Idle", rig.Value("row.state.header"));
+        Assert.Equal("Not recording", rig.StateText);
+        Assert.Equal("Start recording", rig.Host.Loc.T(((ButtonRow)rig.Page().Primary!).ButtonKey));
         rig.Host.Loc.Switch("vi");
-        Assert.Equal("Đang nghỉ", rig.Value("row.state.header"));
+        Assert.Equal("Đang dừng", rig.StateText);
+        Assert.Equal("Bắt đầu ghi", rig.Host.Loc.T(((ButtonRow)rig.Page().Primary!).ButtonKey));
     }
 
     [Fact]
@@ -235,22 +244,34 @@ public class PageTests
     }
 
     [Fact]
-    public void The_page_has_a_recording_group_a_metrics_group_and_a_history_group()
+    public void The_page_has_the_main_button_first_then_options_metrics_and_history()
     {
         using var rig = new ModuleRig();
         rig.PublishSome();
         var page = rig.Page();
-        Assert.Equal(new[] { "group.recording", "group.metrics", "group.history" }, page.Groups.Select(g => g.HeaderKey).ToArray());
+        // Review RC-1: one big button whose label is its state, with a live line; no status rows of dashes.
+        var primary = Assert.IsType<ButtonRow>(page.Primary);
+        Assert.Equal("row.start.header", primary.HeaderKey);
+        Assert.Equal("row.start.button", primary.ButtonKey);
+        Assert.NotNull(primary.Line);
+        Assert.Equal("", rig.PrimaryLine);   // nothing to say before the first recording
+        Assert.Equal(new[] { "group.options", "group.metrics", "group.history" }, page.Groups.Select(g => g.HeaderKey).ToArray());
         Assert.Null(page.Summary!.Readings);   // the bay shows the state line only
         Assert.Equal("state.idle", page.Summary.StateLine!.Value.Key);
+        Assert.Empty(page.EnumerateRows().OfType<ValueRow>());
+        Assert.DoesNotContain(page.EnumerateRows(), r => r.HeaderKey == "row.stop.header");
 
-        var recording = page.Groups[0].Rows;
-        Assert.IsType<ButtonRow>(recording[0]);   // Start first
-        Assert.Equal("row.start.header", recording[0].HeaderKey);
-        Assert.Equal("row.stop.header", recording[1].HeaderKey);
-        foreach (var header in new[] { "row.period.header", "row.duration.header", "row.folder.header", "row.open-folder.header", "row.state.header", "row.rows.header", "row.size.header", "row.elapsed.header", "row.message.header" })
-            Assert.Contains(recording, r => r.HeaderKey == header);
-        Assert.Contains(recording, r => r is ShortcutRow);
+        var options = page.Groups[0].Rows;
+        Assert.Equal(new[] { "row.period.header", "row.duration.header", "row.folder.header" }, options.Take(3).Select(r => r.HeaderKey).ToArray());
+        Assert.Contains(options, r => r is ShortcutRow);
+        // the folder in one row: Open in its header, where the files go in its line, the path inside
+        var folder = Assert.IsType<ExpanderRow>(options[2]);
+        Assert.Equal("row.open-folder.header", Assert.IsType<ButtonRow>(folder.HeaderRow).HeaderKey);
+        Assert.Equal("row.folder-path.header", Assert.IsType<TextRow>(Assert.Single(folder.Children)).HeaderKey);
+        Assert.Equal(@"Documents\Rigbay\logs (default)", rig.Host.Loc.Resolve(folder.Line!.Value));
+
+        foreach (var row in page.EnumerateRows().Where(r => r.DescriptionKey is not null && !Text.IsLiteral(r.DescriptionKey)))
+            Assert.InRange(rig.Host.Loc.T(row.DescriptionKey!).Length, 1, 70);   // the copy rule: a short fact, the rest in the help glyph
     }
 
     [Fact]
@@ -276,19 +297,23 @@ public class PageTests
     }
 
     [Fact]
-    public void Start_and_stop_swap_which_button_is_enabled()
+    public void Start_and_stop_take_turns_as_the_main_button()
     {
         using var rig = new ModuleRig();
         rig.PublishSome();
-        var start = rig.Row<ButtonRow>("row.start.header");
-        var stop = rig.Row<ButtonRow>("row.stop.header");
+        var start = Assert.IsType<ButtonRow>(rig.Page().Primary);
+        Assert.Equal("row.start.header", start.HeaderKey);
         Assert.True(start.Enabled.Value);
-        Assert.False(stop.Enabled.Value);
+        int refreshes = rig.Host.PageRefreshRequests;
 
         var result = ModuleRig.Invoke(start);
         Assert.True(result.Succeeded);
         Assert.Matches(@"^rigbay-log-.*\.csv$", (string)result.Message!.Value.Args![0]);
         Assert.True(rig.WaitUntilFrozen());
+        Assert.True(rig.Host.PageRefreshRequests > refreshes);   // the host is asked to draw Stop in its place
+        var stop = Assert.IsType<ButtonRow>(rig.Page().Primary);
+        Assert.Equal("row.stop.header", stop.HeaderKey);
+        Assert.Equal("row.stop.button", stop.ButtonKey);
         Assert.False(start.Enabled.Value);
         Assert.True(stop.Enabled.Value);
         Assert.False(rig.Host.TrayService.Item("start").Visible.Value);
@@ -296,6 +321,7 @@ public class PageTests
 
         var stopped = ModuleRig.Invoke(stop);
         Assert.True(stopped.Succeeded);
+        Assert.Same(start, rig.Page().Primary);   // the same row instance comes back, so the host keeps its state
         Assert.True(start.Enabled.Value);
         Assert.False(stop.Enabled.Value);
         Assert.True(rig.Host.TrayService.Item("start").Visible.Value);
@@ -307,23 +333,21 @@ public class PageTests
     }
 
     [Fact]
-    public void The_status_rows_and_the_dashboard_line_follow_the_recording()
+    public void The_main_line_and_the_dashboard_line_follow_the_recording()
     {
         using var rig = new ModuleRig();
         rig.PublishSome();
-        Assert.Equal("–", rig.Value("row.rows.header"));
-        Assert.Equal("–", rig.Value("row.message.header"));
+        Assert.Equal("", rig.PrimaryLine);   // no row of dashes before the first recording
 
         var summary = rig.Page().Summary!;
         Assert.True(rig.Module.StartRecording(rig.Module.RequestFromSettings()).Started);
         Assert.True(rig.WaitUntilFrozen());
         rig.Module.RefreshTexts();
 
-        Assert.Equal("Recording", rig.Value("row.state.header"));
-        Assert.Equal("4", rig.Value("row.rows.header"));
-        Assert.Equal(CsvFormat.Size(new FileInfo(rig.Folder.Csvs.Single()).Length), rig.Value("row.size.header"));
-        Assert.Matches(@"^rigbay-log-.*\.csv$", rig.Value("row.file.header"));
-        Assert.Equal("00:00:03", rig.Value("row.elapsed.header"));
+        // file · elapsed · rows · size, in the line under Stop
+        var size = CsvFormat.Size(new FileInfo(rig.Folder.Csvs.Single()).Length);
+        Assert.Matches(@"^rigbay-log-.*\.csv · 00:00:03 · 4 rows · " + System.Text.RegularExpressions.Regex.Escape(size) + "$", rig.PrimaryLine);
+        Assert.Equal("Recording 00:00:03", rig.StateText);
         Assert.Equal("state.recording-line", summary.StateLine!.Value.Key);
         Assert.Equal("00:00:03", summary.StateLine.Value.Args![0]);
 
@@ -333,10 +357,9 @@ public class PageTests
         Assert.Equal(published.OrderBy(v => v).ToList(), published);   // counts up, never back
 
         rig.Module.Engine!.Stop();
-        Assert.Equal("Idle", rig.Value("row.state.header"));
-        Assert.Equal("4", rig.Value("row.rows.header"));                     // the last recording stays visible
-        Assert.Equal("00:00:03", rig.Value("row.elapsed.header"));
-        Assert.StartsWith("Stopped. rigbay-log-", rig.Value("row.message.header"));
+        Assert.Equal("Not recording", rig.StateText);
+        Assert.StartsWith("Stopped. rigbay-log-", rig.PrimaryLine);         // how the last recording ended stays in the line
+        Assert.EndsWith("was saved with 4 rows.", rig.PrimaryLine);
         Assert.Equal("state.idle", summary.StateLine.Value.Key);
         Assert.Contains(new MetricId("recorder.rows"), rig.Bus.Withdrawn);
         Assert.True(rig.Host.PageRefreshRequests >= 1);   // the History group has a new entry
@@ -356,7 +379,7 @@ public class PageTests
         Assert.Equal(ToastKind.Success, toast.Kind);
         Assert.Equal("toast.ended", toast.Body.Key);
         Assert.Equal(60L, toast.Body.Args![1]);
-        Assert.StartsWith("Time limit reached.", rig.Value("row.message.header"));
+        Assert.StartsWith("Time limit reached.", rig.PrimaryLine);
 
         var history = rig.Page().Groups[2].Rows;
         var entry = Assert.IsType<ButtonRow>(Assert.Single(history));
@@ -400,14 +423,14 @@ public class PageTests
         var none = rig.Press("row.start.header");
         Assert.False(none.Succeeded);
         Assert.Equal("start.no-metrics", none.Message!.Value.Key);
-        Assert.StartsWith("There is nothing to record", rig.Value("row.message.header"));
+        Assert.StartsWith("There is nothing to record", rig.PrimaryLine);
 
         rig.PublishSome();
         rig.Disk.Free = 20L * 1024 * 1024;
         var full = rig.Press("row.start.header");
         Assert.False(full.Succeeded);
         Assert.Equal("start.disk-low", full.Message!.Value.Key);
-        Assert.Equal("Not enough free space on that drive: 20 MB free, at least 200 MB needed.", rig.Value("row.message.header"));
+        Assert.Equal("Not enough free space on that drive: 20 MB free, at least 200 MB needed.", rig.PrimaryLine);
         Assert.Empty(rig.Folder.Csvs);
         Assert.False(rig.Module.Engine!.IsRecording);
     }
@@ -424,8 +447,8 @@ public class PageTests
         var toast = Assert.Single(rig.Host.ToastService.Shown);
         Assert.Equal(ToastKind.Warning, toast.Kind);
         Assert.Equal("toast.disk-low", toast.Body.Key);
-        Assert.StartsWith("Stopped because less than 50 MB was free (10 MB).", rig.Value("row.message.header"));
-        Assert.Equal("3", rig.Value("row.rows.header"));
+        Assert.StartsWith("Stopped because less than 50 MB was free (10 MB).", rig.PrimaryLine);
+        Assert.EndsWith("was saved with 3 rows.", rig.PrimaryLine);
     }
 
     [Fact]
@@ -446,7 +469,7 @@ public class PageTests
         var toast = Assert.Single(rig.Host.ToastService.Shown);
         Assert.Equal(ToastKind.Error, toast.Kind);
         Assert.Equal("toast.write-error", toast.Body.Key);
-        Assert.Contains("could not be written", rig.Value("row.message.header"));
+        Assert.Contains("could not be written", rig.PrimaryLine);
     }
 }
 
@@ -458,7 +481,7 @@ public class SettingsAndPickerTests
         using var rig = new ModuleRig();
         rig.SetChoice("row.period.header", "5");
         rig.SetChoice("row.duration.header", "30");
-        rig.Row<TextRow>("row.folder.header").Value.Value = @"D:\Elsewhere\Logs";
+        rig.Row<TextRow>("row.folder-path.header").Value.Value = @"D:\Elsewhere\Logs";
         var saved = Assert.IsType<RecorderSettings>(rig.Host.SettingsStore.Stored);
         Assert.Equal(5, saved.PeriodSeconds);
         Assert.Equal(30, saved.DurationMinutes);
@@ -467,7 +490,7 @@ public class SettingsAndPickerTests
         rig.Restart(rig.NewModule());
         Assert.Equal("5", rig.Row<ChoiceRow>("row.period.header").Value.Value);
         Assert.Equal("30", rig.Row<ChoiceRow>("row.duration.header").Value.Value);
-        Assert.Equal(@"D:\Elsewhere\Logs", rig.Row<TextRow>("row.folder.header").Value.Value);
+        Assert.Equal(@"D:\Elsewhere\Logs", rig.Row<TextRow>("row.folder-path.header").Value.Value);
     }
 
     [Fact]
@@ -487,7 +510,7 @@ public class SettingsAndPickerTests
     public void The_folder_row_wants_a_full_path_or_nothing_and_waits_for_Apply()
     {
         using var rig = new ModuleRig();
-        var folder = rig.Row<TextRow>("row.folder.header");
+        var folder = rig.Row<TextRow>("row.folder-path.header");
         Assert.Equal(ApplyMode.ApplyRevert, folder.Apply);
         Assert.Null(folder.Validate!(""));
         Assert.Null(folder.Validate!(@"D:\Logs"));
@@ -503,7 +526,7 @@ public class SettingsAndPickerTests
         using var rig = new ModuleRig();
         rig.PublishSome();
         var other = Path.Combine(rig.Folder.Path, "chosen", "deeper");
-        rig.Row<TextRow>("row.folder.header").Value.Value = other;
+        rig.Row<TextRow>("row.folder-path.header").Value.Value = other;
         Assert.True(rig.Module.StartRecording(rig.Module.RequestFromSettings()).Started);
         Assert.True(rig.WaitUntilFrozen());
         rig.Module.Engine!.Stop();
@@ -517,7 +540,7 @@ public class SettingsAndPickerTests
     {
         using var rig = new ModuleRig();
         var target = Path.Combine(rig.Folder.Path, "not-yet");
-        rig.Row<TextRow>("row.folder.header").Value.Value = target;
+        rig.Row<TextRow>("row.folder-path.header").Value.Value = target;
         Assert.True(rig.Press("row.open-folder.header").Succeeded);
         Assert.Equal(target, Assert.Single(rig.Shell.Folders));
         Assert.True(Directory.Exists(target));
@@ -548,7 +571,8 @@ public class SettingsAndPickerTests
         Assert.Equal(new[] { "=a.x", "=z.a", "=z.b" }, toggles.Select(t => t.HeaderKey).ToArray());   // nobody described them: the id
         Assert.Equal("=a.x · %", toggles[0].DescriptionKey);
         Assert.Equal("=z.a · °C", toggles[1].DescriptionKey);
-        Assert.Equal("3 of 3", rig.Value("row.picked.header"));
+        Assert.Equal(new[] { "1 of 1", "2 of 2" }, groups.Select(g => rig.Host.Loc.Resolve(g.Line!.Value)).ToArray());   // each source says its count while closed
+        Assert.Equal("3 of 3", rig.PickedLine);
     }
 
     [Fact]
@@ -569,7 +593,7 @@ public class SettingsAndPickerTests
         var toggle = rig.Page().Groups[1].Rows.OfType<ExpanderRow>().SelectMany(g => g.Children).OfType<ToggleRow>().Single(t => t.HeaderKey == "=z.a");
         toggle.Value.Value = false;
         Assert.Equal(new[] { "z.a" }, ((RecorderSettings)rig.Host.SettingsStore.Stored!).ExcludedMetrics.ToArray());
-        Assert.Equal("2 of 3", rig.Value("row.picked.header"));
+        Assert.Equal("2 of 3", rig.PickedLine);
 
         rig.Bus.PublishFrom("alpha", "a.new", 1);   // a metric nobody has seen yet
         Assert.True(rig.Module.StartRecording(rig.Module.RequestFromSettings()).Started);
@@ -598,13 +622,13 @@ public class SettingsAndPickerTests
         var toggles = rig.Page().Groups[1].Rows.OfType<ExpanderRow>().SelectMany(g => g.Children).OfType<ToggleRow>().ToList();
         Assert.All(toggles, t => Assert.False(t.Value.Value));
         Assert.Equal(new[] { "a.x", "z.a", "z.b" }, ((RecorderSettings)rig.Host.SettingsStore.Stored!).ExcludedMetrics.OrderBy(x => x).ToArray());
-        Assert.Equal("0 of 3", rig.Value("row.picked.header"));
+        Assert.Equal("0 of 3", rig.PickedLine);
 
         var nothing = rig.Press("row.start.header");
         Assert.False(nothing.Succeeded);
         Assert.Equal("start.no-metrics", nothing.Message!.Value.Key);
 
-        Assert.True(rig.Press("row.pick-all.header").Succeeded);
+        Assert.True(rig.Press("row.picked.header").Succeeded);   // "Select all" sits on the count's row
         Assert.All(toggles, t => Assert.True(t.Value.Value));
         Assert.Empty(((RecorderSettings)rig.Host.SettingsStore.Stored!).ExcludedMetrics);
         Assert.True(rig.Press("row.start.header").Succeeded);

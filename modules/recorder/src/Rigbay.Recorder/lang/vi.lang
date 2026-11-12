@@ -6,49 +6,39 @@
 module.recorder.name = Ghi dữ liệu
 module.recorder.description = Ghi mọi số đo mà các mô-đun khác công bố vào một tệp CSV, kèm một tệp bên cạnh mô tả từng cột.
 
-# Trạng thái: dòng trên bảng điều khiển và hàng trạng thái
-module.recorder.state.idle = Đang nghỉ
-module.recorder.state.recording = Đang ghi
+# Trạng thái: dòng trên bảng điều khiển
+module.recorder.state.idle = Đang dừng
 module.recorder.state.recording-line = Đang ghi {0}
 
 # Số đo riêng của module
 module.recorder.metric.rows = Số dòng đã ghi
 module.recorder.metric.rows.description = Số dòng lần ghi đang chạy đã ghi vào tệp. Không có số liệu khi không ghi.
 
-# Nhóm trên trang
-module.recorder.group.recording = Ghi
+# Trang: nút chính là Bắt đầu hoặc Dừng (dòng bên dưới cho biết tệp, thời gian, số dòng và dung lượng, hoặc lần ghi trước kết thúc thế nào)
+module.recorder.group.options = Tùy chọn
 module.recorder.group.metrics = Số đo cần ghi
 module.recorder.group.history = Lịch sử
 
 # Bắt đầu và dừng
-module.recorder.row.start.header = Bắt đầu ghi
-module.recorder.row.start.description = Ghi các số đo bạn chọn bên dưới vào một tệp CSV mới. Không thay đổi gì trên máy.
-module.recorder.row.start.button = Bắt đầu
-module.recorder.row.stop.header = Dừng ghi
-module.recorder.row.stop.description = Đóng tệp lại. Không xóa gì cả.
-module.recorder.row.stop.button = Dừng
+module.recorder.row.start.header = Đang dừng
+module.recorder.row.start.description = Ghi các số đo đã chọn vào một tệp CSV mới.
+module.recorder.row.start.help = Mỗi số đo được chọn bên dưới thành một cột, kèm một tệp .meta.json bên cạnh mô tả từng cột. Không thay đổi gì trên máy.
+module.recorder.row.start.button = Bắt đầu ghi
+module.recorder.row.stop.header = Đang ghi
+module.recorder.row.stop.button = Dừng ghi
 module.recorder.start.ok = Đang ghi vào {0}
-
-# Trạng thái
-module.recorder.row.state.header = Trạng thái
-module.recorder.row.rows.header = Số dòng đã ghi
-module.recorder.row.size.header = Dung lượng tệp
-module.recorder.row.elapsed.header = Đã chạy
-module.recorder.row.file.header = Tệp
-module.recorder.row.message.header = Thông báo gần nhất
-module.recorder.row.message.description = Vì sao lần ghi trước kết thúc, hoặc vì sao chưa bắt đầu được
+module.recorder.line.recording = {0} · {1} · {2} dòng · {3}
 module.recorder.status.elapsed-of = {0} / {1}
 module.recorder.status.picked = {0} / {1}
 
 # Tùy chọn
 module.recorder.row.period.header = Khoảng cách giữa các dòng
-module.recorder.row.period.description = Hầu hết nguồn làm mới khoảng một lần mỗi giây, nên chu kỳ ngắn hơn chỉ lặp lại giá trị.
+module.recorder.row.period.help = Hầu hết nguồn làm mới khoảng một lần mỗi giây, nên chu kỳ ngắn hơn chỉ lặp lại giá trị.
 module.recorder.period.1 = 1 giây
 module.recorder.period.2 = 2 giây
 module.recorder.period.5 = 5 giây
 module.recorder.period.10 = 10 giây
 module.recorder.row.duration.header = Tự dừng sau
-module.recorder.row.duration.description = Lần ghi tự kết thúc và tệp được đóng lại.
 module.recorder.duration.0 = Không giới hạn
 module.recorder.duration.1 = 1 phút
 module.recorder.duration.5 = 5 phút
@@ -61,24 +51,21 @@ module.recorder.duration.240 = 4 giờ
 module.recorder.row.folder.header = Thư mục
 # Dấu gạch chéo ngược viết là \\ trong tệp ngôn ngữ (một dấu đơn bị bỏ, D:\Logs sẽ hiện thành D:Logs)
 module.recorder.row.folder.placeholder = Documents\\Rigbay\\logs (mặc định)
+module.recorder.row.folder-path.header = Đường dẫn thư mục
 module.recorder.error.folder-absolute = Nhập đường dẫn đầy đủ như D:\\Logs, hoặc để trống.
 module.recorder.row.open-folder.header = Mở thư mục
-module.recorder.row.open-folder.description = Hiện các bản ghi trong File Explorer. Để trống thư mục để dùng Documents\\Rigbay\\logs.
 module.recorder.row.open-folder.button = Mở
 module.recorder.row.hotkey.header = Phím tắt bắt đầu và dừng
-module.recorder.row.hotkey.description = Tắt cho đến khi bạn đặt phím. Bắt đầu ghi với các cài đặt ở trên, hoặc dừng lần ghi đang chạy.
+module.recorder.row.hotkey.description = Bắt đầu ghi, hoặc dừng lần ghi đang chạy.
 
 # Chọn số đo
 module.recorder.row.no-metrics.header = Chưa có số đo nào
 module.recorder.row.no-metrics.description = Chưa có mô-đun nào công bố số đo. Hãy bật một mô-đun đọc cảm biến, rồi mở lại trang này.
 module.recorder.row.picked.header = Số đo đã chọn
-module.recorder.row.picked.description = Tập số đo được chốt khi bắt đầu ghi. Số đo mà mô-đun công bố sau đó chỉ được liệt kê trong .meta.json, không có trong tệp.
-module.recorder.row.pick-all.header = Ghi tất cả
-module.recorder.row.pick-all.description = Bật mọi số đo bên dưới.
-module.recorder.row.pick-all.button = Tất cả
+module.recorder.row.picked.help = Tập số đo được chốt khi bắt đầu ghi. Số đo mà mô-đun công bố sau đó chỉ được liệt kê trong .meta.json, không có trong tệp.
+module.recorder.row.pick-all.button = Chọn tất cả
 module.recorder.row.pick-none.header = Bỏ chọn tất cả
-module.recorder.row.pick-none.description = Tắt mọi số đo bên dưới để bạn chọn vài số đo.
-module.recorder.row.pick-none.button = Không
+module.recorder.row.pick-none.button = Bỏ chọn
 
 # Lịch sử
 module.recorder.row.history-empty.header = Chưa có bản ghi nào

@@ -26,9 +26,10 @@ public sealed partial class SteamBypassModule
         _listenText.Value = on ? ListenText(loc, engine) : loc.T("listen.off");
         _port80Warning.Value = on && engine.DownloadsError is not null;
         _steamRestartHint.Value = on && _steamState == SteamState.NeedsRestart;
-        _steamText.Value = SteamText(loc, _steamState);
-        _problemText.Value = _problem ?? loc.T("problem.none");
         _domainsText.Value = loc.F("domains.value", _domains.Domains.Count, _domains.Source == "built-in" ? loc.T("domains.built-in") : Path.GetFileName(_domains.Source));
+
+        // The switch's live line: what went wrong when something did, else what Steam is doing.
+        _bypassLine.Value = _problem is { } problem ? new LocalisedText(Text.Literal(problem)) : LocalisedText.Of(SteamKey(_steamState));
 
         _stateLine.Value = !on
             ? (controller.LastError is not null ? LocalisedText.Of("state.failed") : LocalisedText.Of("state.off"))
@@ -36,22 +37,42 @@ public sealed partial class SteamBypassModule
                 ? LocalisedText.Of("state.on-no-downloads", counters.Active)
                 : LocalisedText.Of("state.on", counters.Active);
 
+        RefreshTestLine();
+        _knownOn = on;
+        RefreshPageIfOnChanged(on);
+    }
+
+    /// <summary>
+    /// The test row's live line: nothing before the first run; one line per check while it runs ("Store: Testing…") and after it ("Store:
+    /// Reachable · HTTP 200 · 340 ms"), so the four results are read without four rows that say "Not tested" the rest of the time.
+    /// </summary>
+    private void RefreshTestLine()
+    {
+        var loc = _host?.Localisation;
+        if (loc is null) return;
         lock (_checkGate)
         {
-            foreach (var spec in CheckSpec.All)
-                if (_checkResults.TryGetValue(spec.Id, out var result)) _checkTexts[spec.Id].Value = FormatCheck(loc, result);
-                else if (!_checksRunning) _checkTexts[spec.Id].Value = loc.T("check.idle");
+            if (_checkResults.Count == 0 && !_checksRunning)
+            {
+                _testLine.Value = default;
+                return;
+            }
+            var lines = CheckSpec.All.Select(spec => loc.F("test.line", loc.T(spec.TitleKey),
+                _checkResults.TryGetValue(spec.Id, out var result) ? FormatCheck(loc, result) : loc.T("check.running")));
+            _testLine.Value = new LocalisedText(Text.Literal(string.Join("\n", lines)));
         }
     }
 
-    private static string SteamText(ILocalisation loc, SteamState state) => state switch
+    private static string SteamKey(SteamState state) => state switch
     {
-        SteamState.RunningBypassOff => loc.T("steam.bypass-off"),
-        SteamState.Starting => loc.T("steam.starting"),
-        SteamState.Using => loc.T("steam.using"),
-        SteamState.NeedsRestart => loc.T("steam.needs-restart"),
-        _ => loc.T("steam.not-running"),
+        SteamState.RunningBypassOff => "steam.bypass-off",
+        SteamState.Starting => "steam.starting",
+        SteamState.Using => "steam.using",
+        SteamState.NeedsRestart => "steam.needs-restart",
+        _ => "steam.not-running",
     };
+
+    private static string SteamText(ILocalisation loc, SteamState state) => loc.T(SteamKey(state));
 
     /// <summary>One line for a check: "Reachable · HTTP 200 · 340 ms" or the reason it failed.</summary>
     internal static string FormatCheck(ILocalisation loc, CheckResult result)
@@ -68,7 +89,7 @@ public sealed partial class SteamBypassModule
     }
 
     /// <summary>
-    /// Runs the four checks in parallel and shows each result on its row as it arrives. With the bypass on, the three web checks go through
+    /// Runs the four checks in parallel and shows each result in the test row's line as it arrives. With the bypass on, the three web checks go through
     /// the proxy; with it off they go direct, so the result says whether the network blocks Steam. Only one run at a time.
     /// </summary>
     internal async Task<CheckRun> RunChecksAsync(CancellationToken ct)
@@ -88,7 +109,7 @@ public sealed partial class SteamBypassModule
                 _checksRunning = true;
                 owner = true;
                 _checkResults.Clear();
-                foreach (var spec in CheckSpec.All) _checkTexts[spec.Id].Value = host.Localisation.T("check.running");
+                RefreshTestLine();
             }
             int? proxyPort = controller.IsOn ? controller.Engine.ProxyPort : null;
             var tasks = CheckSpec.All.Select(async spec =>
@@ -100,7 +121,7 @@ public sealed partial class SteamBypassModule
                 lock (_checkGate)
                 {
                     _checkResults[spec.Id] = result;
-                    _checkTexts[spec.Id].Value = FormatCheck(host.Localisation, result);
+                    RefreshTestLine();
                 }
                 return result;
             }).ToArray();
@@ -114,13 +135,19 @@ public sealed partial class SteamBypassModule
             lock (_checkGate)
             {
                 _checkResults.Clear();
-                foreach (var spec in CheckSpec.All) _checkTexts[spec.Id].Value = host.Localisation.T("check.idle");
+                _checksRunning = false;
+                RefreshTestLine();
             }
             throw;
         }
         finally
         {
-            if (owner) lock (_checkGate) _checksRunning = false;
+            if (owner)
+                lock (_checkGate)
+                {
+                    _checksRunning = false;
+                    RefreshTestLine();
+                }
         }
     }
 

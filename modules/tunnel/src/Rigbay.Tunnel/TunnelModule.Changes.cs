@@ -156,8 +156,7 @@ public sealed partial class TunnelModule
     private void SetProblem(TunnelUi ui, string? text)
     {
         ui.ProblemText = text;
-        var host = _host;
-        ui.Problem.Value = text ?? host?.Localisation.T("problem.none") ?? "";
+        if (_host is { } host) UpdateLine(host.Localisation, ui, _deps!.Clock.Now);   // the problem is in the tunnel's line
     }
 
     /// <summary>Puts every switch, text and tray check right after a change (the list is read again).</summary>
@@ -218,8 +217,10 @@ public sealed partial class TunnelModule
     private void OnAutoOffChanged(TunnelUi ui)
     {
         if (_ownChange) return;
-        int hours = (int)Math.Clamp(Math.Round(ui.AutoOffHours.Value), 0, 168);
-        if (hours != ui.AutoOffHours.Value) SetOwn(ui.AutoOffHours, hours);
+        // The host sets one of the offered ids; anything else (a hand-edited value) is brought into 0 to 168 hours.
+        int hours = int.TryParse(ui.AutoOff.Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var h) ? Math.Clamp(h, 0, 168) : 0;
+        var id = hours.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (id != ui.AutoOff.Value) SetOwn(ui.AutoOff, id);
         var options = OptionsFor(ui.Name, create: true)!;
         options.AutoOffHours = hours;
         // The count starts now when the tunnel is on already; it stops when the option is off.

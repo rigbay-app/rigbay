@@ -6,20 +6,19 @@ namespace Rigbay.SteamBypass.Check;
 
 /// <summary>One of the four checks of the connection test.</summary>
 /// <param name="Id">Short id.</param>
-/// <param name="TitleKey">Language key of the row title.</param>
-/// <param name="SubKey">Language key of the row description (the address).</param>
+/// <param name="TitleKey">Language key of the check's name (a line of the test row, a line of the test verb).</param>
 /// <param name="Url">What is requested.</param>
 /// <param name="HostHeader">A Host header to send instead of the URL's host, or null.</param>
 /// <param name="UseProxy">True: through the bypass proxy when the bypass is on. False: always direct (the loopback download port).</param>
-internal sealed record CheckSpec(string Id, string TitleKey, string SubKey, Uri Url, string? HostHeader, bool UseProxy)
+internal sealed record CheckSpec(string Id, string TitleKey, Uri Url, string? HostHeader, bool UseProxy)
 {
     /// <summary>The four checks of the standalone app: store, community, static content (all through the proxy) and game downloads (the loopback port 80).</summary>
     public static readonly IReadOnlyList<CheckSpec> All = new[]
     {
-        new CheckSpec("store", "check.store.title", "check.store.sub", new Uri("https://store.steampowered.com/"), null, true),
-        new CheckSpec("community", "check.community.title", "check.community.sub", new Uri("https://steamcommunity.com/"), null, true),
-        new CheckSpec("static", "check.static.title", "check.static.sub", new Uri("https://store.cloudflare.steamstatic.com/"), null, true),
-        new CheckSpec("downloads", "check.downloads.title", "check.downloads.sub", new Uri("http://127.0.0.1/"), "cache8-hkg1.steamcontent.com", false),
+        new CheckSpec("store", "check.store.title", new Uri("https://store.steampowered.com/"), null, true),
+        new CheckSpec("community", "check.community.title", new Uri("https://steamcommunity.com/"), null, true),
+        new CheckSpec("static", "check.static.title", new Uri("https://store.cloudflare.steamstatic.com/"), null, true),
+        new CheckSpec("downloads", "check.downloads.title", new Uri("http://127.0.0.1/"), "cache8-hkg1.steamcontent.com", false),
     };
 }
 

@@ -14,15 +14,15 @@ module.steam-bypass.state.on-no-downloads = On, no game downloads · {0} open
 module.steam-bypass.metric.active = Steam proxy connections
 module.steam-bypass.metric.errors = Steam proxy errors
 
-# Page groups
-module.steam-bypass.group.bypass = Bypass
+# Page: the switch is the page's main control; the Status group is there only while the bypass is on
 module.steam-bypass.group.status = Status
-module.steam-bypass.group.check = Connection check
+module.steam-bypass.group.test = Troubleshoot
 module.steam-bypass.group.settings = Settings
 
 # The switch and what it changes
 module.steam-bypass.row.bypass.header = Steam bypass
-module.steam-bypass.row.bypass.description = Gets Steam through the network block. Changes your Windows proxy setting while it is on.
+module.steam-bypass.row.bypass.description = Sends only Steam addresses through a proxy on this PC.
+module.steam-bypass.row.bypass.help = While it is on, this Windows account's proxy setting points at Rigbay's local proxy (127.0.0.1). Only Steam addresses go through it, looked up over DNS over HTTPS. Turning it off puts the previous setting back.
 module.steam-bypass.effect.bypass = Changes this Windows account's proxy setting. Turning the bypass on sets the automatic proxy script address (AutoConfigURL, current user) to http://127.0.0.1:18081/proxy.pac and starts a local proxy on 127.0.0.1, ports 18081 and 80. Only Steam addresses go through it. Turning it off puts back the value that was there before and stops the proxy.
 module.steam-bypass.effect.bypass-revert = Undoes the last change: after "on", the saved Windows proxy value is put back and the proxy stops; after "off", the bypass is turned on again as described above.
 module.steam-bypass.detail.turn-on = Steam bypass: Off → On
@@ -32,48 +32,37 @@ module.steam-bypass.info.port80.description = Another program uses port 80 on th
 module.steam-bypass.info.steam-restart.header = Restart Steam
 module.steam-bypass.info.steam-restart.description = Steam was opened before the bypass and reads the proxy setting only when it starts. Close Steam completely and open it again.
 
-# Status
-module.steam-bypass.row.listening.header = Listening
-module.steam-bypass.row.listening.description = Only on this computer (127.0.0.1)
-module.steam-bypass.row.active.header = Open connections
-module.steam-bypass.row.active.description = Connections going through the proxy right now
-module.steam-bypass.row.errors.header = Errors
-module.steam-bypass.row.errors.description = Connections that failed since Rigbay started
-module.steam-bypass.row.steam.header = Steam
-module.steam-bypass.row.steam.description = Whether the Steam client uses the bypass
-module.steam-bypass.row.problem.header = Last problem
-module.steam-bypass.row.domains.header = Steam domains
-module.steam-bypass.row.domains.description = Only these names (and their subdomains) are sent through the bypass and looked up over DNS over HTTPS
-module.steam-bypass.listen.off = Not listening
-module.steam-bypass.listen.on = 127.0.0.1:{0} (proxy), 127.0.0.1:{1} (downloads)
-module.steam-bypass.listen.on-no-downloads = 127.0.0.1:{0} (proxy); port 80 is not available
+# What Steam is doing: the switch's live line and the status verb
 module.steam-bypass.steam.not-running = Steam is not running
-module.steam-bypass.steam.bypass-off = Steam is running; the bypass is off
+module.steam-bypass.steam.bypass-off = Steam is running without the bypass
 module.steam-bypass.steam.starting = Waiting for Steam to connect
 module.steam-bypass.steam.using = Steam is using the bypass
 module.steam-bypass.steam.needs-restart = Steam was opened before the bypass: restart it
-module.steam-bypass.problem.none = None
+
+# Status (only while the bypass is on)
+module.steam-bypass.row.active.header = Open connections
+module.steam-bypass.row.errors.header = Failed connections
+module.steam-bypass.row.errors.description = Since Rigbay started
+module.steam-bypass.chart.connections = Open connections
+module.steam-bypass.row.listening.header = Listening on
+module.steam-bypass.listen.off = Not listening
+module.steam-bypass.listen.on = 127.0.0.1:{0} (proxy), 127.0.0.1:{1} (downloads)
+module.steam-bypass.listen.on-no-downloads = 127.0.0.1:{0} (proxy); port 80 is not available
 module.steam-bypass.problem.address-in-use = Port 18081 is already in use. Is the Steam Bypass app running? Close it first.
 module.steam-bypass.problem.setting = The Windows proxy setting could not be written: {0}
 module.steam-bypass.problem.listen = The proxy could not start: {0}
 module.steam-bypass.problem.restore = The Windows proxy setting could not be put back: {0}
 module.steam-bypass.problem.unexpected = Something went wrong while changing the bypass: {0}
-module.steam-bypass.domains.value = {0} names, from {1}
-module.steam-bypass.domains.built-in = the built-in list
 
-# Connection check
-module.steam-bypass.check.store.title = Store
-module.steam-bypass.check.store.sub = store.steampowered.com
-module.steam-bypass.check.community.title = Community
-module.steam-bypass.check.community.sub = steamcommunity.com
-module.steam-bypass.check.static.title = Static content
-module.steam-bypass.check.static.sub = store.cloudflare.steamstatic.com
-module.steam-bypass.check.downloads.title = Game downloads
-module.steam-bypass.check.downloads.sub = steamcontent.com cache servers, through 127.0.0.1:80
+# Connection test: one row, its live line lists the four checks after a run
 module.steam-bypass.row.test.header = Test the connection
-module.steam-bypass.row.test.description = Asks the four addresses above. With the bypass off the requests go straight out, so you see whether your network blocks Steam.
+module.steam-bypass.row.test.description = Store, Community, static content and game downloads
+module.steam-bypass.row.test.help = Asks four Steam addresses. With the bypass on, the requests go through it; with it off, they go straight out, so you see whether your network blocks Steam.
 module.steam-bypass.button.test = Run test
-module.steam-bypass.check.idle = Not tested
+module.steam-bypass.check.store.title = Store
+module.steam-bypass.check.community.title = Community
+module.steam-bypass.check.static.title = Static content
+module.steam-bypass.check.downloads.title = Game downloads
 module.steam-bypass.check.running = Testing…
 module.steam-bypass.check.ok = Reachable · HTTP {0} · {1} ms
 module.steam-bypass.check.refused = Connection refused
@@ -87,9 +76,13 @@ module.steam-bypass.test.busy = A test is already running
 module.steam-bypass.test.line = {0}: {1}
 
 # Settings
-module.steam-bypass.row.auto-on.header = Turn on when Rigbay starts
-module.steam-bypass.row.auto-on.description = The bypass starts by itself every time this module starts.
+module.steam-bypass.row.auto-on.header = Turn on with Rigbay
+module.steam-bypass.row.auto-on.help = The bypass turns on by itself every time this module starts, without asking again. Turning the module off or closing Rigbay puts the Windows setting back.
 module.steam-bypass.effect.auto-on = From now on, every time this module starts it turns the bypass on by itself, without asking again. That sets this Windows account's proxy script address (AutoConfigURL) to http://127.0.0.1:18081/proxy.pac and starts a local proxy on 127.0.0.1, ports 18081 and 80. Turning the module off or closing Rigbay puts the previous value back.
+module.steam-bypass.row.domains.header = Steam domains
+module.steam-bypass.row.domains.help = Only these names (and their subdomains) go through the bypass and are looked up over DNS over HTTPS.
+module.steam-bypass.domains.value = {0} names, from {1}
+module.steam-bypass.domains.built-in = the built-in list
 
 # Messages
 module.steam-bypass.toast.title = Steam access
