@@ -93,6 +93,10 @@ row.custom-threw = The module failed while building this control: {0}
 row.custom-unavailable = The module is not available.
 
 # --- WP-B keys --- (package B adds its new module-page keys here)
+row.confirm-cancel = Cancel
+tile.warn-at = warning at {0}
+tile.scale = scale {0} to {1}
+chart.reference = {0}: {1}, a limit
 
 # hardware approval and first enable
 approval.title = Change your hardware?

@@ -30,6 +30,19 @@ static class SelfTest
         AppLog.Info(line);
     }
 
+    /// <summary>
+    /// A check that is not run, with the reason: neither a pass nor a failure. Used under --allow-multi for the checks that would reach another
+    /// Rigbay running on the machine (the owner's real one): its pipe and its single-instance mutex.
+    /// </summary>
+    static void Skip(string name, string why)
+    {
+        var line = $"SELFTEST SKIP {name}: {why}";
+        Lines.Add(line);
+        AppLog.Info(line);
+    }
+
+    const string SiblingReason = "--allow-multi: this instance has no pipe server and no single-instance mutex, so the check would reach another Rigbay running on this machine";
+
     public static async Task Run(MainWindow w)
     {
         try { await RunAll(w); }
@@ -132,6 +145,7 @@ static class SelfTest
         await FlowChecks(w, fan);
         await VisibilityAndReadingChecks(w, fan);
         await VisualReadingChecks(w, fan);
+        await PageModelAdditionChecks(w, fan);
 
         // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
         await Task.Run(() => fan.Disable());
@@ -370,8 +384,9 @@ static class SelfTest
         chart?.Plot.Focus(FocusState.Programmatic); chart?.HoverAt(null);
         chart?.SelectGroup(1);
         await Settle(400);
-        R("visual: another group is one click away (power: two lines, so a legend)", chart != null && chart.GroupIndex == 1 && chart.SeriesDrawn == 2 && Find<Microsoft.UI.Xaml.Shapes.Rectangle>(chart).Count() >= 2,
-            $"group={chart?.GroupIndex} series drawn={chart?.SeriesDrawn}");
+        R("visual: another group is one click away (power: one line and PL1 as a dashed reference labelled at the line)", chart != null && chart.GroupIndex == 1 && chart.SeriesDrawn == 1 && chart.ReferencesDrawn == 1
+            && chart.ReferenceLabels.Single().StartsWith("PL1 limit ", StringComparison.Ordinal) && Find<Microsoft.UI.Xaml.Shapes.Polyline>(chart.Plot).Any(p => p.StrokeDashArray is { Count: > 0 }),
+            $"group={chart?.GroupIndex} series drawn={chart?.SeriesDrawn} references={chart?.ReferencesDrawn} labels={string.Join(" | ", chart?.ReferenceLabels ?? Array.Empty<string>())}");
         chart?.SelectGroup(0);
 
         // one axis, never two: every chart plan groups one unit only
@@ -412,6 +427,74 @@ static class SelfTest
         w.Navigate("settings"); await Settle(300);
         R("visual: a page without readings gets no tiles and no chart", Find<ReadingTile>(w.PageContent).Count() == 0 && Find<TrendChart>(w.PageContent).Count() == 0, "settings page");
         w.Navigate(fan); await Settle(300);
+    }
+
+    // ================================================================ host API 0.1.3: primary control, header rows, live lines, warn, secondary, confirm
+
+    static async Task PageModelAdditionChecks(MainWindow w, ModuleEntry fan)
+    {
+        w.Navigate(fan);
+        await Settle(2500);
+        var r = w.LastRenderer!;
+        var page = fan.Page!;
+
+        // the primary: drawn large, before the tiles, a short choice as segments with one tab stop
+        var choice = r.Choices.FirstOrDefault();
+        R("0.1.3: the primary row is drawn first, a 3-option choice as a segmented control (RadioButtons), nothing extra in the groups",
+            r.PrimaryRow == page.Primary && choice is { ShowsSegments: true, Segments.Items.Count: 3 } && choice.Segments!.SelectedIndex == 0
+            && ModulePage.LastBlock != null && IndexIn(w.PageContent!, choice) < IndexIn(w.PageContent!, ModulePage.LastBlock),
+            $"primary={r.PrimaryRow?.HeaderKey} segments={choice?.ShowsSegments} items={choice?.Segments?.Items.Count} selected={choice?.Segments?.SelectedIndex}");
+        R("0.1.3: the primary's help text is the tooltip and the accessible help of its header",
+            Find<TextBlock>(w.PageContent).Any(t => Microsoft.UI.Xaml.Automation.AutomationProperties.GetHelpText(t).StartsWith("Auto: the pretend device", StringComparison.Ordinal) && t.Text.Contains(RowRenderer.InfoGlyph)),
+            "info glyph after 'Fan mode'");
+        R("0.1.3: a segmented control gives way to a drop-down where it does not fit, and back", choice != null && Narrow(choice),
+            $"needs {choice?.SegmentsWidth:0} px");
+
+        // an expander with a switch in its header and a live line
+        var pump = Find<SettingsExpander>(w.PageContent).FirstOrDefault(x => Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(x) == "Pump");
+        var pumpSwitch = pump?.Content is ContentControl cc ? Find<ToggleSwitch>(cc).FirstOrDefault() : null;
+        bool lineOn = pump != null && Find<TextBlock>(pump).Any(t => t.Text.StartsWith("On · flow ", StringComparison.Ordinal) && t.Visibility == Visibility.Visible);
+        R("0.1.3: an expander shows its header control and its live line while closed", pump is { IsExpanded: false } && pumpSwitch is { IsOn: true } && lineOn,
+            $"expander={pump != null} switch={pumpSwitch?.IsOn} line on={lineOn}");
+        if (pumpSwitch != null)
+        {
+            pumpSwitch.IsOn = false;
+            await Settle(1500);
+            bool lineOff = Find<TextBlock>(pump!).Any(t => t.Text == "Off" && t.Visibility == Visibility.Visible);
+            R("0.1.3: the header switch drives the row and the line follows the module", lineOff && page.EnumerateRows().OfType<ToggleRow>().First(t => t.HeaderKey == "row.pump-on.header").Value.Value == false, $"line off={lineOff}");
+            pumpSwitch.IsOn = true;
+            await Settle(400);
+        }
+
+        // the temperature tile: warning tick at the module's value, its fan as the second figure, both in the accessible name
+        var tile = ModulePage.LastBlock?.TileList.FirstOrDefault(t => t.Row.Metric == WellKnownMetrics.CpuTemp);
+        var name = tile == null ? "" : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(tile);
+        R("0.1.3: a tile carries the warning tick (Warn = 85 of 0 to 100) and the second figure", tile is { WarnValue: 85 } && Math.Abs((tile.WarnShare ?? 0) - 0.85) < 1e-9
+            && tile.SecondaryText.StartsWith("fan ", StringComparison.Ordinal) && tile.SecondaryText.EndsWith(" rpm", StringComparison.Ordinal) && name.Contains("warning at 85 °C") && name.Contains(tile.SecondaryText),
+            $"warn={tile?.WarnValue} share={tile?.WarnShare} second='{tile?.SecondaryText}' name='{name}'");
+        R("0.1.3: a reference is never a tile", ModulePage.LastBlock?.TileList.All(t => t.Row.ChartRole == ChartRole.Series) == true, "PL1 has no tile");
+
+        // a button that asks first: "no" runs nothing, the question names the expander it sits in
+        var deletes = r.Drivers.Where(d => d.Row.HeaderKey == "row.delete-curve.header").ToList();
+        ApprovalPrompt.TestAnswer = false;
+        int before = page.EnumerateRows().OfType<ExpanderRow>().Count(x => Rigbay.Abstractions.Text.IsLiteral(x.HeaderKey));
+        if (deletes.Count > 0) await deletes[0].Edit(null);
+        await Settle(600);
+        int after = fan.Page!.EnumerateRows().OfType<ExpanderRow>().Count(x => Rigbay.Abstractions.Text.IsLiteral(x.HeaderKey));
+        R("0.1.3: a ConfirmKey button asks first, names its object, and a no runs nothing", deletes.Count == 2 && RowRenderer.LastConfirmQuestion == "Delete Quiet nights?" && after == before && deletes[0].Status() == Host.T("row.cancelled"),
+            $"buttons={deletes.Count} question='{RowRenderer.LastConfirmQuestion}' curves {before} -> {after} status='{(deletes.Count > 0 ? deletes[0].Status() : "")}'");
+        ApprovalPrompt.TestAnswer = false;
+    }
+
+    /// <summary>Gives the segmented control less room than it needs: it must show the drop-down; given the room back, the segments again.</summary>
+    static bool Narrow(ChoiceSelector choice)
+    {
+        choice.Measure(new Windows.Foundation.Size(choice.SegmentsWidth - 40, 200));
+        bool combo = !choice.ShowsSegments && choice.Combo.Visibility == Visibility.Visible;
+        choice.Measure(new Windows.Foundation.Size(choice.SegmentsWidth + 40, 200));
+        bool back = choice.ShowsSegments && choice.Combo.Visibility == Visibility.Collapsed;
+        choice.InvalidateMeasure();
+        return combo && back;
     }
 
     static int IndexIn(DependencyObject root, DependencyObject target)
@@ -582,6 +665,7 @@ static class SelfTest
                 listed.Split('\n').Any(l => l.StartsWith("demo-future") && (l.Contains("  enabled") || l.Contains("  disabled"))) && listed.Contains("demo-fan  "), listed.ReplaceLineEndings(" | "));
         }
         await Cmd("hardware verb refused without approval", new[] { "demo-fan", "max" }, 1);
+        if (Host.Options.AllowMulti) { Skip("command: forwarded to the running instance over the pipe", SiblingReason); return; }
         var piped = await InstanceServer.SendAsync(new[] { "cmd", "demo-fan", "status" });
         R("command: forwarded to the running instance over the pipe", piped is { Exit: 0 } && piped.Value.Output.Contains("mode="), $"{piped?.Exit} '{piped?.Output}'");
     }
@@ -728,6 +812,7 @@ static class SelfTest
 
     static async Task SingleInstanceCheck(MainWindow w)
     {
+        if (Host.Options.AllowMulti) { Skip("single instance: the second start exits and shows the first", SiblingReason); return; }
         int requests = w.ShowRequests;
         var psi = new ProcessStartInfo(Environment.ProcessPath!, $"--data \"{Host.Core.Paths.DataRoot}\" --modules \"{AppPaths.ModulesRoot}\"") { UseShellExecute = false };
         using var second = Process.Start(psi)!;

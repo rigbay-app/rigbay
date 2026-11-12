@@ -10,6 +10,13 @@ public static class PageValidator
         var problems = new List<string>();
         if (page.Groups is null) { problems.Add("Groups is null"); return problems; }
 
+        // host API 0.1.3: the main control of the page is one value row, drawn large under the header
+        if (page.Primary is { } primary)
+        {
+            if (primary is ExpanderRow or InfoRow or CustomRow) problems.Add($"Primary must be a value row (a toggle, a choice, a button ...), not a {primary.GetType().Name}");
+            else CheckRow(primary, "Primary", problems, depth: 0);
+        }
+
         int g = 0;
         foreach (var group in page.Groups)
         {
@@ -54,10 +61,19 @@ public static class PageValidator
             case ValueRow r when r.Value is null: problems.Add($"ValueRow '{r.HeaderKey}': Value is null"); break;
             case ReadingRow r when r.Metric.Value.Length == 0: problems.Add($"ReadingRow '{r.HeaderKey}': no metric"); break;
             case ReadingRow r when r.RangeMin is { } lo && r.RangeMax is { } hi && !(lo < hi && double.IsFinite(lo) && double.IsFinite(hi)): problems.Add($"ReadingRow '{r.HeaderKey}': RangeMin must be below RangeMax"); break;
+            case ReadingRow r when r.Warn is { } w && !double.IsFinite(w): problems.Add($"ReadingRow '{r.HeaderKey}': Warn must be a finite number"); break;
+            case ReadingRow r when r.Secondary is { } sec && (sec.LabelKey is null || sec.Metrics is null || sec.Metrics.Count == 0 || sec.Metrics.Any(m => m.Value is not { Length: > 0 })):
+                problems.Add($"ReadingRow '{r.HeaderKey}': Secondary needs a LabelKey (may be empty) and one or two metrics"); break;
             case CustomRow r when string.IsNullOrWhiteSpace(r.ControlId): problems.Add("a CustomRow has no ControlId"); break;
             case ExpanderRow r:
                 if (r.Children is null) problems.Add($"ExpanderRow '{r.HeaderKey}': Children is null");
                 else foreach (var child in r.Children) CheckRow(child, r.HeaderKey, problems, depth + 1);
+                // host API 0.1.3: a control in the expander's own header
+                if (r.HeaderRow is { } head)
+                {
+                    if (head is not (ToggleRow or ChoiceRow or ButtonRow or ValueRow or ReadingRow)) problems.Add($"ExpanderRow '{r.HeaderKey}': HeaderRow must be a toggle, a choice, a button, a value or a reading, not a {head.GetType().Name}");
+                    else CheckRow(head, r.HeaderKey, problems, depth + 1);
+                }
                 break;
         }
     }

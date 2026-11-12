@@ -93,6 +93,10 @@ row.custom-threw = Mô-đun lỗi khi tạo điều khiển này: {0}
 row.custom-unavailable = Mô-đun không khả dụng.
 
 # --- WP-B keys --- (package B adds its new module-page keys here)
+row.confirm-cancel = Hủy
+tile.warn-at = cảnh báo ở {0}
+tile.scale = thang {0} đến {1}
+chart.reference = {0}: {1}, mức giới hạn
 
 # xác nhận phần cứng và lần bật đầu
 approval.title = Thay đổi phần cứng của bạn?

@@ -170,5 +170,98 @@
     <Style x:Key="RbTileValue" TargetType="TextBlock" BasedOn="{StaticResource TitleLargeTextBlockStyle}">
         <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
     </Style>
+    <!-- a limit or a target in a chart (ReadingRow.ChartRole = Reference): 1 px in secondary ink, dashed 4/3 (set in code: a dash array in a style setter is ignored) -->
+    <Style x:Key="RbChartReference" TargetType="Polyline">
+        <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
+        <Setter Property="StrokeThickness" Value="1"/>
+    </Style>
+    <!-- the warning value on a tile meter (ReadingRow.Warn): a 1 px tick across the track -->
+    <Style x:Key="RbMeterTick" TargetType="Rectangle"><Setter Property="Fill" Value="{ThemeResource TextFillColorSecondaryBrush}"/></Style>
+
+    <!--
+      The module page's main control (PageModel.Primary): its card, its header, and the segmented control a short choice becomes. The segmented
+      control is the stock RadioButtons (one tab stop, arrow keys, "2 of 3" for a screen reader) with each RadioButton drawn as a segment:
+      a recessed track, the selected segment raised with a short accent bar under its label.
+    -->
+    <Style x:Key="RbHeroCard" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{ThemeResource OverlayCornerRadius}"/>
+        <Setter Property="Padding" Value="16,14,16,16"/>
+    </Style>
+    <Style x:Key="RbPrimaryHeader" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="RbPrimaryHeaderDisabled" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorDisabledBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="RbSegmentTrack" TargetType="Border">
+        <Setter Property="Background" Value="{ThemeResource ControlAltFillColorSecondaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}"/>
+    </Style>
+    <Style x:Key="RbSegment" TargetType="RadioButton">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="Padding" Value="12,0,12,1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="CornerRadius" Value="3"/>
+        <Setter Property="UseSystemFocusVisuals" Value="True"/>
+        <Setter Property="FocusVisualMargin" Value="-1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid x:Name="RootGrid" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal"/>
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters><Setter Target="RootGrid.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}"/></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters><Setter Target="RootGrid.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}"/></VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource TextFillColorDisabledBrush}"/>
+                                        <Setter Target="Bar.Fill" Value="{ThemeResource AccentFillColorDisabledBrush}"/>
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="CheckStates">
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter Target="Raised.Opacity" Value="1"/>
+                                        <Setter Target="Bar.Opacity" Value="1"/>
+                                        <Setter Target="Label.FontWeight" Value="SemiBold"/>
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Unchecked"/>
+                                <VisualState x:Name="Indeterminate"/>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name="Raised" Opacity="0" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlElevationBorderBrush}" BorderThickness="1" CornerRadius="{TemplateBinding CornerRadius}"/>
+                        <ContentPresenter x:Name="Label" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Foreground="{TemplateBinding Foreground}"
+                                          Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          TextWrapping="NoWrap" FontSize="{TemplateBinding FontSize}"/>
+                        <Rectangle x:Name="Bar" Opacity="0" Width="16" Height="3" RadiusX="1.5" RadiusY="1.5" Margin="0,0,0,3" VerticalAlignment="Bottom" HorizontalAlignment="Center" Fill="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="RbSegmentLarge" TargetType="RadioButton" BasedOn="{StaticResource RbSegment}">
+        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="Padding" Value="14,0,14,2"/>
+    </Style>
 
 </ResourceDictionary>
