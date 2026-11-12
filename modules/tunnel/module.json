@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "tunnel",
+  "name": "Remote tunnel",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Turns WireGuard tunnels on and off from Rigbay (page, tray, hotkey, command line) and shows their status.",
+  "entry": { "assembly": "Rigbay.Tunnel.dll", "type": "Rigbay.Tunnel.TunnelModule" },
+  "hostApi": ">=0.1 <0.2",
+  "group": "network",
+  "requires": {
+    "admin": true,
+    "network": ["reads the addresses of the tunnel adapter and the local TCP listeners (only for the optional local-service check); nothing is sent"],
+    "registry": [],
+    "services": ["WireGuardTunnel$<name>: installed and removed through wireguard.exe, start type changed (only when you ask)"]
+  },
+  "probePaths": ["%ProgramFiles%\\WireGuard"],
+  "languages": "lang",
+  "icon": "icon.svg",
+  "homepage": "https://github.com/rigbay-app/module-tunnel"
+}

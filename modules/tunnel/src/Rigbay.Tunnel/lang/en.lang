@@ -1,0 +1,133 @@
+# Remote tunnel: English (the reference). Every key starts with module.<id>.
+@code = en
+@name = English
+
+module.tunnel.name = Remote tunnel
+module.tunnel.description = Turns WireGuard tunnels on and off from Rigbay (page, tray, hotkey, command line) and shows their status.
+
+# --- probe (why the module is unsupported)
+module.tunnel.probe.no-wireguard = WireGuard for Windows is not installed. Install it from https://www.wireguard.com/install/ and restart Rigbay.
+module.tunnel.probe.not-signed = WireGuard was found in its folder but wireguard.exe or wg.exe is not signed by WireGuard LLC, so Rigbay will not run it. Reinstall WireGuard from https://www.wireguard.com/install/.
+
+# --- dashboard
+module.tunnel.state.none = No tunnels
+module.tunnel.state.line = {0} of {1} on
+
+# --- page
+module.tunnel.group.info = Status
+module.tunnel.group.tunnels = Tunnels
+module.tunnel.info.store-unreadable.header = WireGuard's tunnel list cannot be read
+module.tunnel.info.store-unreadable.description = Rigbay could not list the tunnels in WireGuard's folder. Rigbay must run as administrator, and WireGuard must be installed in its default folder.
+module.tunnel.info.no-tunnels.header = No tunnels yet
+module.tunnel.info.no-tunnels.description = Add a tunnel in the WireGuard app (Add Tunnel, then import a file or create an empty one). Rigbay lists the names only and never reads a tunnel's configuration.
+module.tunnel.link.wireguard = WireGuard for Windows
+module.tunnel.link.public = Public address of {0}
+
+module.tunnel.row.on.header = On
+module.tunnel.row.on.description = Starts or removes the tunnel's Windows service, the same as Activate and Deactivate in the WireGuard app. Rigbay asks first.
+module.tunnel.row.status.header = Status
+module.tunnel.row.problem.header = Problem
+module.tunnel.row.endpoint.header = Server
+module.tunnel.row.endpoint.description = The address the tunnel talks to, as WireGuard reports it.
+module.tunnel.row.transfer.header = Transferred
+module.tunnel.row.transfer.description = Bytes received and sent since the tunnel was turned on.
+module.tunnel.row.handshake.header = Last handshake
+module.tunnel.row.handshake.description = Seconds since the last handshake with the server. Connected means younger than 3 minutes.
+module.tunnel.row.rx.header = Receiving
+module.tunnel.row.tx.header = Sending
+module.tunnel.row.start.header = Start with Windows
+module.tunnel.row.start.description = Sets the start type of the tunnel's service. Only while the tunnel is on: turning it off removes its service, as in the WireGuard app, and this setting with it.
+module.tunnel.row.autooff.header = Turn off automatically after (hours)
+module.tunnel.row.autooff.description = A safety: Rigbay turns the tunnel off this many hours after it was turned on, without asking again, and tells you. 0 means never.
+module.tunnel.row.port.header = Check a local service (port)
+module.tunnel.row.port.description = A TCP port, for example a remote-control app. Rigbay shows whether something listens on it at the tunnel's address. 0 means no check.
+module.tunnel.row.local.header = Local service
+module.tunnel.row.public.header = Public address
+module.tunnel.row.public.description = Free text for you, for example the address you connect to from outside. Shown as a link below when it starts with http or https. Stored only on this PC.
+module.tunnel.row.public.placeholder = Optional
+module.tunnel.row.hotkey.header = Hotkey
+module.tunnel.row.hotkey.description = Turns the tunnel on or off. Rigbay asks before it changes anything.
+module.tunnel.validate.whole = Use a whole number.
+
+# --- what Rigbay asks before it changes anything (the first two are the exact action texts)
+module.tunnel.effect.turn-on = Turn on tunnel {0}
+module.tunnel.effect.turn-off = Turn off tunnel {0}
+module.tunnel.detail.turn-on = Rigbay starts the Windows service of this WireGuard tunnel, the same as the WireGuard app does. Remote access through it begins.
+module.tunnel.detail.turn-off = Rigbay stops and removes the Windows service of this WireGuard tunnel, the same as the WireGuard app does. Remote access through it ends.
+module.tunnel.effect.page-toggle = Turns the WireGuard tunnel {0} on or off by starting or removing its Windows service. Remote access through it begins or ends.
+module.tunnel.effect.start = Changes how Windows starts the service of tunnel {0}: automatically at boot, or only when asked.
+module.tunnel.effect.autooff = From now on Rigbay turns tunnel {0} off by itself after this many hours, without asking again.
+module.tunnel.hotkey.toggle = Turn tunnel {0} on or off
+
+# --- metrics
+module.tunnel.metric.rx = {0}: received
+module.tunnel.metric.rx.description = Bytes per second received through the tunnel.
+module.tunnel.metric.tx = {0}: sent
+module.tunnel.metric.tx.description = Bytes per second sent through the tunnel.
+module.tunnel.metric.handshake = {0}: handshake age
+module.tunnel.metric.handshake.description = Seconds since the last handshake with the server.
+
+# --- status texts
+module.tunnel.word.on = on
+module.tunnel.word.off = off
+module.tunnel.value.none = -
+module.tunnel.status.off = Off
+module.tunnel.status.on = On
+module.tunnel.status.no-handshake = On, no handshake yet
+module.tunnel.status.connected = On, connected (handshake {0} ago)
+module.tunnel.status.stale = On, last handshake {0} ago (not connected)
+module.tunnel.transfer.value = Received {0}, sent {1}
+module.tunnel.local.none = Not checked
+module.tunnel.local.tunnel-off = The tunnel is off
+module.tunnel.local.no-address = The tunnel has no address yet
+module.tunnel.local.listening = Port {0}: something is listening
+module.tunnel.local.not-listening = Port {0}: nothing is listening
+module.tunnel.age.seconds = {0} s
+module.tunnel.age.minutes = {0} min
+module.tunnel.age.hours = {0} h
+
+# --- notifications
+module.tunnel.toast.title = Remote tunnel
+module.tunnel.toast.on = Tunnel {0} is on.
+module.tunnel.toast.on-connected = Tunnel {0} is on and connected.
+module.tunnel.toast.off = Tunnel {0} is off.
+module.tunnel.toast.auto-off = Tunnel {0} was turned off automatically after {1} hours.
+module.tunnel.toast.no-handshake = Tunnel {0} is on, but the server is not answering. Check the internet connection or the server.
+module.tunnel.toast.busy = Another tunnel change is in progress. Nothing was changed.
+module.tunnel.toast.failed = {0}
+
+# --- problems, in plain words
+module.tunnel.err.unknown = There is no tunnel named {0} in WireGuard.
+module.tunnel.err.config-missing = The configuration of tunnel {0} is not in WireGuard's store any more. Add it again in the WireGuard app.
+module.tunnel.err.timeout = WireGuard did not finish in time for tunnel {0}. Look at the tunnel in the WireGuard app.
+module.tunnel.err.install-not-run = Rigbay could not run WireGuard for tunnel {0}. Check that WireGuard is installed and not blocked.
+module.tunnel.err.install-failed = WireGuard did not start tunnel {0} (exit code {1}). Open the WireGuard app and read its Log tab.
+module.tunnel.err.service-failed = The service of tunnel {0} did not start: {1}. Open the WireGuard app and read its Log tab.
+module.tunnel.err.uninstall-failed = WireGuard did not turn tunnel {0} off (exit code {1}). Open the WireGuard app and read its Log tab.
+module.tunnel.err.no-handshake = Tunnel {0} is on, but the server is not answering. Check the internet connection or the server.
+module.tunnel.err.start-type = Windows would not change how tunnel {0} starts: {1}
+module.tunnel.err.store-unreadable = Rigbay could not read WireGuard's tunnel list. Rigbay must run as administrator and WireGuard must be installed in its default folder.
+
+# --- command line: rigbay tunnel <verb>
+module.tunnel.cmd.list = Lists the tunnels and whether each is on.
+module.tunnel.cmd.status = Shows each tunnel's state, last handshake, server, and traffic (one tunnel when a name is given).
+module.tunnel.cmd.on = Turns a tunnel on (asks first, then waits up to 30 seconds for the server to answer).
+module.tunnel.cmd.off = Turns a tunnel off (asks first).
+module.tunnel.cmd.list-usage = Usage: rigbay tunnel list
+module.tunnel.cmd.status-usage = Usage: rigbay tunnel status [name]
+module.tunnel.cmd.on-usage = Usage: rigbay tunnel on <name>
+module.tunnel.cmd.off-usage = Usage: rigbay tunnel off <name>
+module.tunnel.cmd.no-tunnels = There are no tunnels in WireGuard. Add one in the WireGuard app.
+module.tunnel.cmd.list-line = {0}: {1}
+module.tunnel.cmd.status-line = {0}: {1}
+module.tunnel.cmd.status-endpoint =   server {0}
+module.tunnel.cmd.status-transfer =   received {0}, sent {1}
+module.tunnel.cmd.not-running = The Remote tunnel module is not running.
+module.tunnel.cmd.already-on = Tunnel {0} is already on. Nothing was changed.
+module.tunnel.cmd.already-off = Tunnel {0} is already off. Nothing was changed.
+module.tunnel.cmd.busy = Another tunnel change is in progress. Nothing was changed.
+module.tunnel.cmd.not-confirmed = Not confirmed (or Rigbay has no window to ask in). Nothing was changed.
+module.tunnel.cmd.turned-on = Tunnel {0} is on. Rigbay could not read the handshake, so it cannot say whether the server answers.
+module.tunnel.cmd.turned-on-connected = Tunnel {0} is on and connected.
+module.tunnel.cmd.turned-off = Tunnel {0} is off.
+module.tunnel.cmd.turned-off-meanwhile = Tunnel {0} was turned off before the server answered.
