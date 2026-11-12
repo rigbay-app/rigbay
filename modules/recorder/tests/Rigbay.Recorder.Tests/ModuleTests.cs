@@ -651,7 +651,8 @@ public class SettingsAndPickerTests
         Assert.All(toggles, t => Assert.False(t.Enabled.Value));
         Assert.False(period.Enabled.Value);
         rig.Module.Engine!.Stop();
-        Assert.All(toggles, t => Assert.True(t.Enabled.Value));
+        // Stop ends the recording on the engine's own thread; the picker is enabled again when the engine reports the end (CI saw the check run first).
+        Assert.True(Wait.Until(() => toggles.All(t => t.Enabled.Value), 30000), "the picker is enabled again after the recording ended");
     }
 
     [Fact]
