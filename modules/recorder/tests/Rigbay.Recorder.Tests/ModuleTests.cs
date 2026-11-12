@@ -135,10 +135,13 @@ public class ModuleLifecycleTests
         Assert.True(rig.Module.StartRecording(rig.Module.RequestFromSettings()).Started);
         Assert.True(rig.WaitUntilFrozen());
         var csv = rig.Folder.Csvs.Single();
+        var engine = rig.Module.Engine!;
 
         rig.Module.Shutdown();
 
         Assert.Null(rig.Module.Engine);
+        // Shutdown waits four seconds at most for the engine's own task to close the file; on a loaded CI runner that can take longer (CI saw the file still open on adff815).
+        Assert.True(Wait.Until(() => engine.LastSummary is not null, 30000), "the engine reported the end of the recording");
         using (new FileStream(csv, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }   // closed
         var meta = JsonDocument.Parse(Files.ReadBytes(Path.ChangeExtension(csv, null) + ".meta.json")).RootElement;
         Assert.Equal("module-stopped", meta.GetProperty("stop_reason").GetString());

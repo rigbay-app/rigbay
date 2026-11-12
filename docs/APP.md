@@ -449,3 +449,11 @@ for 11 sparklines, 4 tiles and a chart (our drawing code itself is about 6.6 ms 
 High contrast (written and reviewed, no high contrast theme was switched on); the real XTU or PredatorSense page (this ran on the demo modules; adopting hints in those modules is the follow-up after N1 merges); a real mouse hover (the tooltip was driven by the same code path, and by `hover:` for the PNGs); a screen reader reading the chart name; real 150 % / 200 % monitors (`--shot-scale` renders only);
 Windows "Animation effects" off (the code reads `UISettings.AnimationsEnabled`, the setting was not toggled); a 10-minute-old history on a real 1 Hz source (the PNGs use `--time-scale 6`, so their lines have a point every 6 s); the two self-test checks `command: forwarded to the running instance over the pipe` and `single instance` fail
 when another Rigbay is already running (one was, on this machine), because the pipe and the mutex belong to it; they are not touched by V1.
+
+## 0.1.2: the release (task R3, 2026-11-13)
+
+What the shell looks like since the UI review (packages A, B, C and the module pages): see "What it does" above. Three changes that older text of this file may still describe differently: the **status line** at the bottom is gone (versions are under Settings > Troubleshooting); a module's **green dot** is gone from the navigation pane (a dot means a failed module, an update or a restart, never "running"); the **Log** page is a filtered list (level and source) with an icon on warning and error lines, and its Copy button gives the lines in the log file's format.
+
+The app version is `<Version>` in `Directory.Build.props` (0.1.2); host API 0.1.3 (`HostApi.Revision` 3). Modules whose `hostApi` is `>=0.1.3 <0.2` (the 0.1.2 module releases) need a host that has revision 3. Hosts 0.1.0 and 0.1.1 ignore the revision and would offer them, so they are released only after this host and say "needs Rigbay 0.1.2 or newer".
+
+Not verified in 0.1.2: high contrast, Narrator, a real 150 % and 200 % display scale, a notification banner or tray balloon on a real screen, Windows 10, a real sign-in after the upgrade of the installed copy; the README pictures are the earlier renders (`tools\shots`).
