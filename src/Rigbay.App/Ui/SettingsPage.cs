@@ -51,10 +51,9 @@ static class SettingsPage
         };
         general.Children.Add(new SettingsCard { Header = Host.T("settings.theme"), Content = theme });
 
-        // start with Windows: the switch says on or off; a line beside it only when something went wrong (SE-2)
-        var startStatus = Ui.Text("", "RbErrorText", trim: true);
+        // start with Windows
+        var startStatus = Ui.Text("", "RbSecondaryCaption", trim: true);
         startStatus.MaxWidth = 280;
-        startStatus.Visibility = Visibility.Collapsed;
         var start = new ToggleSwitch { OnContent = "", OffContent = "", MinWidth = 0, IsEnabled = false };
         AutomationProperties.SetName(start, Host.T("settings.start"));
         bool suppress = false;
@@ -62,13 +61,7 @@ static class SettingsPage
         {
             bool exists = await Task.Run(StartupTask.Exists);
             suppress = true; start.IsOn = exists; start.IsEnabled = true; suppress = false;
-        }
-        void ShowStartError(string? message)
-        {
-            startStatus.Text = message ?? "";
-            startStatus.Visibility = string.IsNullOrEmpty(message) ? Visibility.Collapsed : Visibility.Visible;
-            ToolTipService.SetToolTip(startStatus, message);
-            AutomationProperties.SetHelpText(start, message ?? "");
+            startStatus.Text = exists ? Host.T("settings.start-on") : "";
         }
         _ = RefreshStart();
         start.Toggled += async (_, _) =>
@@ -77,8 +70,9 @@ static class SettingsPage
             start.IsEnabled = false;
             var on = start.IsOn;
             var (ok, msg) = await Task.Run(() => on ? StartupTask.Create() : StartupTask.Delete());
+            if (!ok) { startStatus.Style = Ui.Style("RbErrorText"); startStatus.Text = msg; }
             await RefreshStart();
-            ShowStartError(ok ? null : msg);
+            if (!ok) { startStatus.Style = Ui.Style("RbErrorText"); startStatus.Text = msg; } else startStatus.Style = Ui.Style("RbSecondaryCaption");
         };
         var startPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Children = { startStatus, start } };
         general.Children.Add(new SettingsCard { Header = Host.T("settings.start"), Description = Host.T("settings.start-desc"), Content = startPanel });

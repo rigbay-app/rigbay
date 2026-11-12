@@ -349,11 +349,15 @@ sealed class DispatcherQueueTimerHolder
 
 /// <summary>
 /// The tiles of "This PC now": as many columns as fit (each at least <see cref="MinTileWidth"/>), rows balanced (five tiles that fit four
-/// across are 3 + 2, not 4 + 1), and the tiles of a shorter last row widened to the full width, so no row ends in a hole.
+/// across are 3 + 2, not 4 + 1), the tiles of a shorter last row widened to the width of the row (up to <see cref="MaxTileWidth"/>), so no row
+/// ends in a hole and one or two readings do not turn into bands.
 /// </summary>
 sealed class DashStrip : Panel
 {
     public const double MinTileWidth = 156;
+
+    /// <summary>A tile never gets wider than this: one or two readings stay tiles, not bands across the page.</summary>
+    public const double MaxTileWidth = 300;
     public double Gap { get; set; } = 8;
 
     /// <summary>Columns for <paramref name="count"/> tiles in <paramref name="width"/>: the fewest rows that fit, then as few columns as fill them.</summary>
@@ -379,7 +383,7 @@ sealed class DashStrip : Panel
         double total = 0;
         foreach (var (start, count) in Rows(n, cols))
         {
-            double w = double.IsInfinity(available.Width) ? MinTileWidth : (available.Width - Gap * (count - 1)) / count;
+            double w = double.IsInfinity(available.Width) ? MinTileWidth : Math.Min(MaxTileWidth, (available.Width - Gap * (count - 1)) / count);
             double rowH = 0;
             for (int i = start; i < start + count; i++) { Children[i].Measure(new Size(w, double.PositiveInfinity)); rowH = Math.Max(rowH, Children[i].DesiredSize.Height); }
             total += rowH + (start + count < n ? Gap : 0);
@@ -395,7 +399,7 @@ sealed class DashStrip : Panel
         double y = 0;
         foreach (var (start, count) in Rows(n, cols))
         {
-            double w = (final.Width - Gap * (count - 1)) / count;
+            double w = Math.Min(MaxTileWidth, (final.Width - Gap * (count - 1)) / count);
             double rowH = 0;
             for (int i = start; i < start + count; i++) rowH = Math.Max(rowH, Children[i].DesiredSize.Height);
             for (int i = start; i < start + count; i++) Children[i].Arrange(new Rect((i - start) * (w + Gap), y, w, rowH));

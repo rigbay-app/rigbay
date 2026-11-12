@@ -811,6 +811,8 @@ public sealed partial class MainWindow : Window
     {
         string s => s == text,
         TextBlock t => t.Text == text,
+        // a header drawn as a panel (text and a glyph) carries the header text as its accessible name
+        UIElement u when Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(u) == text => true,
         DependencyObject d => SelfTest.Find<TextBlock>(d).Any(t => t.Text == text),
         _ => false,
     };
@@ -1029,7 +1031,6 @@ public sealed partial class MainWindow : Window
                     AppLog.Info($"script: search opened '{hit.Title}' on {hit.Target}; row found={LastRevealed != null}; focus on {focused?.GetType().Name} '{(focused == null ? "" : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(focused))}'");
                     break;
                 }
-                case "notice": InAppNotice.Show(arg.Length > 0 ? arg : "Rigbay", "Applied", "Fan mode is now Maximum. Revert is on the page.", ToastKind.Success); break;   // notice:<name> shows the in-window message (AX-3 shots)
                 case "log-filter":   // log-filter:all|warnings|errors on the Log page
                     LogPage.Level = arg switch { "errors" => LogPage.Filter.Errors, "warnings" => LogPage.Filter.Warnings, _ => LogPage.Filter.All };
                     ShowCurrent();

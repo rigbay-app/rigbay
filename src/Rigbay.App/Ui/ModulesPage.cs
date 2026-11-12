@@ -281,6 +281,7 @@ static class ModulesPage
             {
                 var open = new HyperlinkButton { Content = Host.T("modules.page-link"), Padding = new Thickness(6, 4, 6, 4) };
                 AutomationProperties.SetName(open, Host.F("modules.page-link-of", e.DisplayName));
+                ToolTipService.SetToolTip(open, Host.T("modules.open-page"));
                 open.Click += (_, _) => Host.Window.Navigate(e);
                 right.Children.Add(open);
             }
