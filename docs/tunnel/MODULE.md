@@ -179,3 +179,13 @@ with a tunnel on and connected (handshake age, server, transferred, live rates f
 - The local-service check was exercised with a fake adapter and fake listeners; the real adapter lookup and listener table were only run for "does not throw".
 - `tools\selftest.ps1` (the host's own self-test) was run with a sibling worker's Rigbay running on the same machine: 132 passed, 4 failed (hotkey registration, command over the pipe, single instance: they need to be the only instance); none concerns this module.
 - `ToastMessage.Origin` (in-window message for page clicks, N1) is not used: the pinned host does not have it yet.
+
+## Published (2026-11-12)
+
+- Repository: <https://github.com/rigbay-app/module-tunnel> (public, MIT; CI green on commit 724b37d: build 0 warnings, 117 tests; fresh clone with submodule built and tested before the push).
+- Release: <https://github.com/rigbay-app/module-tunnel/releases/tag/v0.1.0> (pre-release), asset `tunnel-0.1.0.zip`, 71886 bytes, SHA-256 `a396a78e3d111062c1d520c62a227f5df7cbe4e0ebbdad25d7574190c3120beb`
+  (packaged by `tools\package-module.ps1 -CheckReproducible`, 10 files, verified with `tools\verify-module-zip`; the asset was downloaded again and the hash compared: equal).
+- Registry (`rigbay-app/registry`): PR #4 added the entry and was merged, but its `declares.outsideFiles` had lost the backslash (`%ProgramFiles%WireGuard`; a Bash heredoc collapses `\`),
+  which `verify-module-zip registry` caught as `DeclaresWider`. A published release may not be edited, so PR #5 removed the entry (reason in the PR) and PR #6 added it again, built by a script
+  from the `module.json` inside the downloaded zip. After #6: `verify-module-zip registry --expect ...,tunnel` passes for the tunnel (download, SHA-256, size, declares, install swap, real loader).
+  Lesson: never type a backslash through a shell heredoc when making a registry entry; take every string from the zip's `module.json`.
