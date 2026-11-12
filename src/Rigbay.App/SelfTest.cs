@@ -333,7 +333,8 @@ static class SelfTest
         await core.ExecuteCommandAsync(new[] { "demo-fan", "sensor", "off" }); await Settle(500);
         // DB-2: a reading that is not available is left out (no "Not available" on the Dashboard); the page redraws after the bus says so
         for (int i = 0; i < 12 && Find<TextBlock>(w.PageContent).Any(t => t.Text is "Pump"); i++) await Settle(250);
-        texts = Find<TextBlock>(w.PageContent).Select(t => t.Text).ToList();
+        // only text that is drawn: a tile keeps a collapsed "Not available" for the moment its reading goes
+        texts = Find<TextBlock>(w.PageContent).Where(t => t.Visibility == Visibility.Visible && Ancestors(t).OfType<UIElement>().All(a => a.Visibility == Visibility.Visible)).Select(t => t.Text).ToList();
         R("dashboard: a withdrawn reading is left out", !texts.Contains(na) && !texts.Contains("Pump") && texts.Contains("CPU") && !core.Metrics.TryGetLatest(new MetricId("demo-fan.pump"), out _), $"text '{na}' present={texts.Contains(na)}, label Pump present={texts.Contains("Pump")}, CPU present={texts.Contains("CPU")}");
         w.Navigate(fan); await Settle(500);
         R("readings: a reading page row shows Not available when withdrawn", ReadingText(w.PageContent!, "Pump flow") == na, $"'{ReadingText(w.PageContent!, "Pump flow")}'");
