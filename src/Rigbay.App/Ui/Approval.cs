@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Rigbay.Abstractions;
 using Rigbay.Core;
@@ -171,19 +172,44 @@ static class Dialogs
     }
 
     /// <summary>
-    /// Puts keyboard focus on the dialog's Close button (Cancel). The button is part of the dialog's template, which is not always
-    /// realised yet when <c>Opened</c> fires (seen with the capture dialog); then it tries again on the next few dispatcher turns,
-    /// before the dialog's own choice (the first enabled button) would stand.
+    /// Puts keyboard focus on the dialog's Close button (Cancel). When <c>Opened</c> fires, the button is not always realised yet,
+    /// and the dialog sets its own initial focus (the first enabled button) a moment later; both were seen in renders (3 of 56
+    /// dialogs ended with focus on the primary button). So it checks every 30 ms, for at most 1.5 s, until focus has stayed on
+    /// Cancel for three checks in a row.
     /// </summary>
-    public static void FocusClose(ContentDialog dialog, int attempt = 0)
+    public static void FocusClose(ContentDialog dialog)
     {
-        if (Find(dialog, "CloseButton") is Button { Visibility: Visibility.Visible } close && close.Focus(FocusState.Programmatic))
+        var timer = dialog.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(30);
+        timer.IsRepeating = true;
+        int ticks = 0, settled = 0, moves = 0;
+        void Stop() { timer.Stop(); dialog.Closed -= OnClosed; }
+        void OnClosed(ContentDialog s, ContentDialogClosedEventArgs a) => Stop();
+        dialog.Closed += OnClosed;
+        timer.Tick += (_, _) =>
         {
-            AppLog.Info($"dialog '{dialog.Title}': focus on {close.Content}{(attempt > 0 ? $" (try {attempt + 1})" : "")}");
-            return;
-        }
-        if (attempt < 8 && dialog.DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => FocusClose(dialog, attempt + 1))) return;
-        AppLog.Warn($"dialog '{dialog.Title}': the Close button could not take focus");
+            ticks++;
+            if (Find(dialog, "CloseButton") is Button { Visibility: Visibility.Visible } close && dialog.XamlRoot is { } root)
+            {
+                if (ReferenceEquals(FocusManager.GetFocusedElement(root), close))
+                {
+                    if (++settled >= 3)
+                    {
+                        Stop();
+                        AppLog.Info($"dialog '{dialog.Title}': focus on {close.Content}{(moves > 1 ? $" ({moves} tries)" : "")}");
+                        return;
+                    }
+                }
+                else { settled = 0; moves++; close.Focus(FocusState.Programmatic); }
+            }
+            if (ticks >= 50)
+            {
+                Stop();
+                var on = dialog.XamlRoot is { } r ? FocusManager.GetFocusedElement(r) : null;
+                AppLog.Warn($"dialog '{dialog.Title}': the Close button could not keep focus (focus on {(on as ContentControl)?.Content ?? on?.GetType().Name ?? "nothing"})");
+            }
+        };
+        timer.Start();
     }
 
     static FrameworkElement? Find(DependencyObject root, string name)
