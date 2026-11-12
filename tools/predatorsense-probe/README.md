@@ -23,7 +23,8 @@ first exception or non-zero status.
 | `--r2` | `AcerGenericMethod.GetFunction` `0x207` (Cool Booster state) |
 | `--r3` | `AcerGenericMethod.GetFunction` `0x80184` (keyboard backlight; hotkey number 132 is machine specific) |
 | `--battery-boost` | `GetGamingSysInfo` `0x2` |
-| `--misc-get 2\|9` | `AcerGamingFunction.GetGamingMiscSetting` `2` or `9` (GPU mode support / capability) |
+| `--misc-get 2\|9\|10\|11` | `AcerGamingFunction.GetGamingMiscSetting` `2` or `9` (GPU mode support / capability), `10` = `0x0A` (operation-mode capability), `11` = `0x0B` (current operation mode; B10, owner-approved 2026-11-12) |
+| `--self-test-refusals` | no WMI, no `--allow-call`: checks that every other `GetGamingMiscSetting` input (0 to 0x1FF, the mode-write values, large values), every `Set*` name and a wrong class is refused |
 | `--led-behavior-get` | `AcerGamingFunction.GetGamingLEDBehavior` `1` |
 
 `Refusal()` in `Probe.cs` is the allowlist (exact class, method and input). Anything else, any method whose name starts with `Set`, a repeated call and a run

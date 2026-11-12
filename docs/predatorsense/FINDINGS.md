@@ -786,8 +786,8 @@ cache values now equal the reset values (mode 1, fan 0, CPU 0, GPU 0) fits the a
 
 | Source | Exists? | Notes |
 | --- | --- | --- |
-| **Firmware: `GetGamingMiscSetting` (id 23) with input `0x0B`** | **yes in the service** (pipe 52 handler `0x1D110`), never used by the UI | C: the service sends exactly `0x0B` and returns the raw 64-bit answer to the pipe caller without parsing it (so the layout is unknown to me). By analogy with the selectors it parses itself (`0x07`: value in bits 8 to 15; the GPU-mode read in 3.3) the mode is probably in bits 8 to 15 with the status in the low byte (**G**). Never run |
-| **Firmware: `GetGamingMiscSetting` input `0x0A`** | yes (pipe 51 handler `0x1CFC0`), never used by the UI | "operation-mode capability"; layout unknown. Never run |
+| **Firmware: `GetGamingMiscSetting` (id 23) with input `0x0B`** | **yes in the service** (pipe 52 handler `0x1D110`), never used by the UI | C: the service sends exactly `0x0B` and returns the raw 64-bit answer to the pipe caller without parsing it (so the layout is unknown to me). By analogy with the selectors it parses itself (`0x07`: value in bits 8 to 15; the GPU-mode read in 3.3) the mode is probably in bits 8 to 15 with the status in the low byte (**G**). **Run once in B10 (2026-11-12): answer `0x0B0100`, status 0, byte 1 = 1 = Default, matching the cache (section 15.9)** |
+| **Firmware: `GetGamingMiscSetting` input `0x0A`** | yes (pipe 51 handler `0x1CFC0`), never used by the UI | "operation-mode capability"; layout unknown. **Run once in B10 (2026-11-12): answer `0x0B3300`, status 0, byte 1 = `0x33`, bits 0, 1, 4, 5 set = Quiet, Default, Extreme, Turbo (section 15.9)** |
 | Registry `Overclock\CurrentOperationMode` | yes | the UI's and agent's record, written on click even if the service failed; **not** updated by the UI's unplug fallback; not live state |
 | `ProfilePool\currentsetting.ini` | yes | agent's record |
 | NvAPI P-state offsets | yes, but it needs NvAPI, not WMI | would show only the GPU part; 0 in every mode except Turbo here |
@@ -905,3 +905,53 @@ W3c (`0x40B`), W3d (`0x50B`); each still needs its own owner gate, and Ghidra do
 #### 15.8.5 Kept or deleted
 
 **Deleted, nothing kept:** the Ghidra project, my scripts and outputs, the extracted Ghidra and JDK folders, the downloaded zips (`D:\Documents\Projects\_tools\ghidra-scratch`, and the then empty `_tools`), and the per-user settings folder Ghidra created under `%APPDATA%\ghidra` during the run. The SHA-256 values above are the record. A later pass has to download and verify again.
+
+### 15.9 First reads (task B10, 2026-11-12): `GetGamingMiscSetting(0x0B)` and `(0x0A)`, run once each
+
+**Approval.** The owner, in chat on 2026-11-12, answering "do you agree that I open a gate for these two read-only calls?" with "ok, do everything you can". Scope applied literally: exactly these two calls, once each, elevated, in this order, nothing else
+(no `Set*`, no other input, no retry loop). **No write was made**, no pipe was opened, no registry value was written, no service was touched.
+
+**Tool.** `tools/predatorsense-probe` got two more inputs on its code allow-list (`--misc-get 11` = `0x0B`, `--misc-get 10` = `0x0A`; the list for `GetGamingMiscSetting` is now exactly 2, 9, 0x0A, 0x0B) and an offline `--self-test-refusals` that
+asks the allow-list about every input 0 to 0x1FF, the mode-write values (`0x10B`, `0x20B`, `0x40B`, `0x50B`, `0x105`), large values, four `Set*` names and the wrong class, without touching WMI: it passed. A repeated call and an input of 12 were also refused on the command line. Build with `build.ps1`: clean.
+Each call ran in its own elevated process (`Start-Process -Verb RunAs`, output to a file, the process exited by itself, none left running), so there is one log per call. Compact log: `B10-w3-reads-run.txt`.
+
+**Baseline** (only reads done before: `GetGamingSysInfo` 1, 2, 3, 6, 9, 10, as in B4/B5, plus the registry cache and the power state), taken 12 s before R1 and 11 s after R2:
+
+| | before (23:43:57) | after (23:44:28) |
+| --- | --- | --- |
+| CPU temperature (1) | 74 C | 62 C |
+| CPU fan (2) | 2884 | 2912 |
+| system temperature (3) | 38 C | 38 C |
+| GPU1 fan (6) | 3061 | 3030 |
+| GPU2 fan (9) | 3043 | 3043 |
+| GPU1 temperature (10) | 49 C | 48 C |
+| cache `CurrentOperationMode` | 1 | 1 |
+| AC / battery | online, 100 % (Windows status 2) | online, 100 % |
+
+Nothing moved beyond the normal jitter of Auto fans and a CPU temperature that swings at idle (62 to 75 in B5). Every status was 0. All fan values are in the Auto range of B4/B5 (about 2600 to 3100 RPM).
+Not taken this time: `nvidia-smi` and the RAPL counter (the brief limited the baseline to reads already done).
+
+**The two answers** (raw 64-bit value; status = low byte; each call returned within 0.3 s of process time, no error, no exception):
+
+| Call | Input | Raw answer | Status | Byte 1 (bits 8 to 15) | Byte 2 (bits 16 to 23) | Bits 24 to 63 |
+| --- | --- | --- | --- | --- | --- | --- |
+| W3-R1 (23:44:10 local) | `0x0B` | **`0x0B0100`** | 0 | `0x01` = 1 | `0x0B` | 0 |
+| W3-R2 (23:44:16 local) | `0x0A` | **`0x0B3300`** | 0 | `0x33` = 0b00110011 = 51 | `0x0B` | 0 |
+
+**Reading.**
+
+- **R1 contains the mode (G, one observation).** Status 0 and byte 1 = 1, which is the mode id of Default in the service's mapping (Quiet 0, Default 1, Render 2, Edit 3, Extreme 4, Turbo 5, section 15.1) and equals the Acer cache `CurrentOperationMode` = 1 (O). So the guess "status in the low byte, mode in bits 8 to 15"
+  (the layout of the other Misc reads) held for this call. What one reading cannot show: that byte 1 changes when the mode changes (it equals the cache, and 1 could also be a constant). It is a match, not yet a proof; a read taken in another mode would be one (see below).
+- **R2 lists the supported modes as a bit mask (G, fairly strong).** Byte 1 = `0x33`: bits 0, 1, 4 and 5 are set, bits 2, 3, 6 and 7 are clear. With bit N meaning "mode id N is available" that is **Quiet, Default, Extreme, Turbo present; Render and Edit absent**, which is exactly what `Feature.ini [OperationModeSupport]` offers
+  (Quiet, Normal, Extreme, Turbo = 1) and what the UI shows on this machine (O). The firmware's own capability word agrees with the Acer file, and it answers the open question of 15.7 and `WRITE-PROPOSALS.md` ("does the firmware accept Render and Edit?"):
+  **the firmware does not advertise them, so `0x20B` and `0x30B` stay not proposed, now with a second source.** The mapping of bits to modes is an inference (no Acer code parses this value, 15.8.2 item 4); it fits all four set bits and both clear ones, but it remains **G**.
+- **Byte 2 = `0x0B` in both answers (unexplained).** It is not an echo of the input (R2 was sent `0x0A`). It could be a constant field, a version or a count (11?); no code says. Not used for anything.
+- **Bits 24 to 63 are 0 in both**; no further field is visible.
+- The status byte is 0 in both, the same convention as the other reads; the `0xE1` seen once from `GetFunction(0x207)` (section 11) did not recur here.
+
+**Can W3a be read back?** Yes: the read works and is cheap, so W3-R1 before and after is now part of the W3a plan (each run needs the owner's approval again, or the owner may allow repeating that one read). But W3a (`0x10B`, Default) restates the current mode, so R1 should read `0x0B0100` both times:
+it can show that the call did not disturb anything and that the mode stayed 1, **not that the write took effect.** The first step that can show an effect through R1 is W3b (`0x0B`, Quiet): if the layout holds, byte 1 goes to 0 (answer `0x0B0000`) and returns to 1 after the undo `0x10B`.
+That is a prediction (G). If byte 1 stays 1 after W3b, either the layout guess is wrong or the firmware did not take the value, and the fan and temperature sensors decide. An unchanged reading after W3a is no objection to W3b.
+
+**Still not known.** What the firmware does for each mode (fans, power limits); whether it keeps a mode across reboot or sleep; what byte 2 means; how R1 answers in a non-Default mode (needs a mode change, which is a write); whether the mask is bit-per-mode-id or something that merely looks like it.
+**Tags:** raw answers, statuses and baseline values O; "R1 holds the mode" G (one match); "R2 is a mode mask" G.
