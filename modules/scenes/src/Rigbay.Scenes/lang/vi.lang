@@ -1,0 +1,175 @@
+# Kịch bản game (Game scenes): tiếng Việt. Giữ nguyên {0}, {1}; có thể đổi thứ tự.
+@code = vi
+@name = Tiếng Việt
+
+module.scenes.name = Kịch bản game
+module.scenes.description = Khi một game bạn chọn đang chạy, tự chạy các lệnh của module khác mà bạn đã duyệt một lần, và trả mọi thứ về như cũ khi game kết thúc.
+
+# --- probe
+module.scenes.probe.not-windows = Kịch bản game cần Windows.
+
+# --- plan
+module.scenes.plan.name = Kịch bản game "{0}"
+module.scenes.default-name = Kịch bản {0}
+
+# --- page
+module.scenes.group.scenes = Kịch bản
+module.scenes.row.add.header = Thêm kịch bản
+module.scenes.row.add.description = Kịch bản mới ở trạng thái tắt cho đến khi bạn duyệt.
+module.scenes.button.add = Thêm
+module.scenes.info.how.header = Kịch bản hoạt động thế nào
+module.scenes.info.how.description = Bạn duyệt mỗi kịch bản một lần; sau đó nó tự chạy.
+module.scenes.info.how.help = Kịch bản là danh sách lệnh của các module khác cùng các chương trình kích hoạt nó. Khi bạn bật, Rigbay hỏi một câu liệt kê từng bước: lệnh, nó thay đổi gì và hoàn tác ra sao. Sau khi bạn duyệt, các bước chạy mỗi khi một trong các chương trình khởi động, mỗi lần chạy đều có thông báo, và các bước được hoàn tác vài giây sau khi chương trình cuối cùng đã đóng. Đổi bất cứ thứ gì trong kịch bản (chương trình, bước, tham số) thì nó hỏi lại. Khi có kịch bản đang bật, Rigbay xem danh sách chương trình đang chạy mỗi 5 giây.
+module.scenes.info.empty.header = Chưa có kịch bản
+module.scenes.info.empty.description = Thêm một kịch bản, chọn chương trình và các bước.
+module.scenes.info.attention.header = Cần chú ý
+module.scenes.row.enabled.header = Chạy khi chương trình khởi động
+module.scenes.row.last.header = Lần chạy gần nhất
+module.scenes.row.name.header = Tên
+module.scenes.row.games.header = Chương trình
+module.scenes.row.games.placeholder = game.exe, khac.exe
+module.scenes.row.games.help = Tên tệp của các chương trình kích hoạt kịch bản này, cách nhau bằng dấu phẩy (game.exe). Không phân biệt hoa thường. Đường dẫn đầy đủ (D:\\Games\\game.exe) chỉ khớp đúng tệp đó. Kịch bản chạy khi bất kỳ chương trình nào đang chạy và được hoàn tác vài giây sau khi chương trình cuối cùng đã đóng.
+module.scenes.row.pick.header = Thêm chương trình đang chạy
+module.scenes.row.pick.help = Liệt kê các chương trình đang có cửa sổ. Hãy mở game trước rồi chọn ở đây.
+module.scenes.opt.pick-program = Chọn chương trình
+module.scenes.row.refresh.header = Xem lại
+module.scenes.button.refresh = Làm mới danh sách
+
+# --- steps
+module.scenes.opt.step-keep = Giữ nguyên
+module.scenes.opt.step-up = Lên trên
+module.scenes.opt.step-down = Xuống dưới
+module.scenes.opt.step-remove = Xóa
+module.scenes.step.undo-recorded = Trả về giá trị trước đó (module báo lại)
+module.scenes.step.undo-fixed = Hoàn tác bằng: {0}
+module.scenes.step.undo-none = Không hoàn tác
+module.scenes.row.add-module.header = Bước mới: module
+module.scenes.opt.pick-module = Chọn module
+module.scenes.row.add-command.header = Bước mới: lệnh
+module.scenes.opt.pick-command = Chọn lệnh
+module.scenes.row.add-args.header = Tham số
+module.scenes.row.add-args.placeholder = ví dụ: Gaming
+module.scenes.row.add-args.help = Tham số chính xác, cách nhau bằng dấu cách; từ có dấu cách thì đặt trong "dấu nháy kép". Chúng là một phần của thứ bạn duyệt.
+module.scenes.row.add-undo.header = Hoàn tác bằng
+module.scenes.row.add-undo.help = Giá trị trước đó: module báo cho Rigbay biết giá trị cũ và Rigbay đặt lại. Một lệnh: bạn viết lệnh hoàn tác bước này (steam-bypass off). Không gì cả: bước đó giữ nguyên khi game đóng.
+module.scenes.opt.undo-none = Không gì cả
+module.scenes.opt.undo-recorded = Giá trị trước đó
+module.scenes.opt.undo-fixed = Một lệnh
+module.scenes.row.add-undo-line.header = Lệnh hoàn tác
+module.scenes.row.add-undo-line.placeholder = module lệnh tham số
+module.scenes.row.add-step.header = Thêm bước này
+module.scenes.row.add-step.description = Thêm bước sẽ hủy lần duyệt kịch bản.
+module.scenes.button.add-step = Thêm bước
+
+# --- buttons
+module.scenes.row.approve.header = Duyệt kịch bản
+module.scenes.row.approve.description = Hiện mọi bước trong một câu hỏi.
+module.scenes.button.approve = Duyệt
+module.scenes.row.run.header = Chạy ngay
+module.scenes.row.run.description = Chạy thử: chạy các bước một lần, không cần game.
+module.scenes.button.run = Chạy
+module.scenes.row.stop.header = Dừng
+module.scenes.row.stop.description = Hoàn tác ngay những gì kịch bản đã đổi.
+module.scenes.button.stop = Dừng
+module.scenes.row.revoke.header = Thu hồi lần duyệt
+module.scenes.row.revoke.description = Tắt kịch bản và rút lại lần duyệt.
+module.scenes.button.revoke = Thu hồi
+module.scenes.row.delete.header = Xóa kịch bản
+module.scenes.button.delete = Xóa
+module.scenes.confirm.delete = Xóa {0}?
+
+# --- state
+module.scenes.line.off = Tắt
+module.scenes.line.incomplete = Chưa đủ: {0}
+module.scenes.line.needs-approval = Cần bạn duyệt
+module.scenes.line.changed = Đã đổi kể từ khi bạn duyệt: {0}
+module.scenes.line.untrusted = Việc duyệt đang tắt: {0}
+module.scenes.line.unavailable = Chưa thể bắt đầu: {0}
+module.scenes.line.armed = Đang chờ {0}
+module.scenes.line.running = Đang chạy từ {0} cho {1}
+module.scenes.line.running-manual = Đang chạy từ {0} (chạy thử)
+module.scenes.line.closing = {0} đã đóng; sắp trả mọi thứ về như cũ
+module.scenes.line.waiting = Chờ {0} kết thúc trước
+module.scenes.line.undo-failed = Không hoàn tác hết được
+module.scenes.line.blocked = Không chạy: {0}
+
+module.scenes.attention.bad-game = "{0}" không phải tên chương trình (dùng game.exe hoặc đường dẫn đầy đủ tới tệp .exe).
+module.scenes.attention.undo-failed = Một số thay đổi chưa hoàn tác được (lần chạy {0}). {1} Bấm Dừng để thử lại, hoặc chạy: rigbay plans undo {0}
+module.scenes.attention.blocked = Không chạy: {0}. {1}
+module.scenes.attention.stopped = Bạn đã dừng nó. Nó sẽ chạy lại lần sau khi chương trình khởi động.
+module.scenes.attention.problem = {0}
+module.scenes.attention.declined = Bạn chưa duyệt nên nó vẫn tắt.
+module.scenes.attention.untrusted = Rigbay không tin được nơi lưu các lần duyệt nên không thể duyệt gì: {0}
+module.scenes.attention.unavailable = Chưa thể duyệt: {0}
+
+module.scenes.problem.noname = Hãy đặt tên cho kịch bản.
+module.scenes.problem.badid = Mã của kịch bản không hợp lệ.
+module.scenes.problem.nogames = Thêm ít nhất một chương trình.
+module.scenes.problem.toomanygames = Một kịch bản có tối đa 8 chương trình.
+module.scenes.problem.badgame = Có tên chương trình không hợp lệ.
+module.scenes.problem.nosteps = Thêm ít nhất một bước.
+module.scenes.problem.toomanysteps = Một kịch bản có tối đa 8 bước.
+module.scenes.problem.badstep = Có một bước không hợp lệ.
+module.scenes.problem.badundo = Có bước có cách hoàn tác không hợp lệ.
+
+module.scenes.block.needsapproval = lần duyệt không còn hiệu lực
+module.scenes.block.changed = nó đã đổi kể từ khi bạn duyệt
+module.scenes.block.ratelimited = nó đã bắt đầu quá nhiều lần trong giờ qua
+module.scenes.block.toomanyruns = đã có bốn kịch bản đang chạy
+module.scenes.block.invalid = một module hoặc lệnh nó cần không có sẵn
+module.scenes.block.failed = một bước thất bại (các bước trước đã được hoàn tác)
+module.scenes.block.stopped = bạn đã dừng nó
+module.scenes.block.cancelled = nó đã bị hủy
+module.scenes.toast.not-run = Kịch bản không chạy: {0}.
+
+module.scenes.last.none = Chưa chạy lần nào
+module.scenes.last.ran = {0}: đã chạy {1} rồi hoàn tác
+module.scenes.last.failed = {0}: một bước thất bại; các bước trước đã được hoàn tác. {1}
+module.scenes.last.refused = {0}: không chạy. {1}
+module.scenes.last.undo-failed = {0}: một số thay đổi chưa hoàn tác được. {1}
+module.scenes.duration.s = {0} giây
+module.scenes.duration.min = {0} phút
+module.scenes.duration.h = {0} giờ {1} phút
+
+# --- lệnh
+module.scenes.verb.usage = Cách dùng: {0}
+module.scenes.verb.changes = Thay đổi: {0}
+module.scenes.verb.unknown-effect = Module không nói nó thay đổi gì
+module.scenes.verb.undo = Tự báo được cách hoàn tác ({0})
+module.scenes.verb.no-undo = Không có cách hoàn tác riêng
+module.scenes.verb.preview = Hiện đúng giá trị trong câu hỏi
+module.scenes.verb.no-preview = Module tự quyết định giá trị cụ thể
+
+# --- thông báo cạnh nút
+module.scenes.err.pick-command = Hãy chọn module và lệnh trước.
+module.scenes.err.bad-args = Tham số không hợp lệ (tối đa 16, mỗi cái tối đa 256 ký tự, đóng đủ dấu nháy).
+module.scenes.err.no-recorded-undo = Lệnh này không tự báo được cách hoàn tác. Hãy viết một lệnh hoàn tác, hoặc chọn Không gì cả.
+module.scenes.err.bad-undo = Viết lệnh hoàn tác dạng: module lệnh tham số.
+module.scenes.err.gone = Kịch bản không còn.
+module.scenes.err.too-many-steps = Một kịch bản có tối đa 8 bước.
+module.scenes.err.cannot-delete = Kịch bản vẫn đang chạy và chưa hoàn tác được nên được giữ lại. Bấm Dừng, hoặc chạy: rigbay plans undo
+module.scenes.msg.step-added = Đã thêm: {0}. Hãy duyệt lại kịch bản.
+module.scenes.msg.approved = Đã duyệt.
+module.scenes.msg.not-approved = Chưa duyệt. Lý do nằm dưới tên kịch bản.
+module.scenes.msg.running = Đang chạy.
+module.scenes.msg.not-run = Không chạy: {0}.
+module.scenes.msg.stopped = Đã hoàn tác.
+module.scenes.msg.not-stopped = Một số thay đổi chưa hoàn tác được.
+module.scenes.msg.revoked = Đã rút lại lần duyệt.
+
+# --- tóm tắt và lệnh
+module.scenes.summary.none = Chưa có kịch bản
+module.scenes.summary.idle = {0} kịch bản, chưa cái nào sẵn sàng
+module.scenes.summary.armed = Bật {0}/{1}, đang chờ game
+module.scenes.summary.running = Đang chạy: {1}
+module.scenes.cmd.list = Liệt kê các kịch bản và trạng thái.
+module.scenes.cmd.list.usage = scenes list
+module.scenes.cmd.list.none = Chưa có kịch bản.
+module.scenes.cmd.list.line = {0} · {1} · {2} · chương trình: {3} · {4} bước
+module.scenes.cmd.status = Cho biết bao nhiêu kịch bản đang bật và cái nào đang chạy.
+module.scenes.cmd.status.usage = scenes status
+module.scenes.cmd.status.head = {0} kịch bản, {1} đang bật và đã duyệt; danh sách tiến trình: {2}
+module.scenes.cmd.status.polling = đọc mỗi 5 giây
+module.scenes.cmd.status.not-polling = không đọc (chưa bật cái nào)
+module.scenes.cmd.status.run = Đang chạy: {0} từ {1} ({2}), lần chạy {3}
+module.scenes.cmd.status.manual = chạy thử

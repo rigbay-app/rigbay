@@ -1,0 +1,175 @@
+# Game scenes: English (the reference). Every key starts with module.<id>.
+@code = en
+@name = English
+
+module.scenes.name = Game scenes
+module.scenes.description = When a game you chose runs, runs other modules' commands you approved once, and puts things back when it ends.
+
+# --- probe
+module.scenes.probe.not-windows = Game scenes needs Windows.
+
+# --- the plan the host shows in its question and in notifications ("Let <this> run these steps by itself?")
+module.scenes.plan.name = Game scene "{0}"
+module.scenes.default-name = Scene {0}
+
+# --- page
+module.scenes.group.scenes = Scenes
+module.scenes.row.add.header = Add a scene
+module.scenes.row.add.description = A new scene is off until you approve it.
+module.scenes.button.add = Add
+module.scenes.info.how.header = How a scene works
+module.scenes.info.how.description = You approve each scene once; it then runs by itself.
+module.scenes.info.how.help = A scene is a list of commands of other modules plus the programs that start it. When you switch it on, Rigbay asks one question that lists every step: the command, what it changes and how it is put back. After you approve, the steps run each time one of the programs starts, a notification shows each run, and the steps are put back a few seconds after the last program has ended. Change anything in the scene (a program, a step, an argument) and it asks again. While a scene is on, Rigbay looks at the running programs every 5 seconds.
+module.scenes.info.empty.header = No scenes yet
+module.scenes.info.empty.description = Add one, choose its program and its steps.
+module.scenes.info.attention.header = Needs attention
+module.scenes.row.enabled.header = Run when game starts
+module.scenes.row.last.header = Last run
+module.scenes.row.name.header = Name
+module.scenes.row.games.header = Programs
+module.scenes.row.games.placeholder = game.exe, other.exe
+module.scenes.row.games.help = The file names of the programs that start this scene, separated by commas (game.exe). Case does not matter. A full path (D:\\Games\\game.exe) matches only that file. The scene runs while any of them runs and is put back a few seconds after the last one has ended.
+module.scenes.row.pick.header = Add a running program
+module.scenes.row.pick.help = Lists the programs that have a window now. Start the game first, then pick it here.
+module.scenes.opt.pick-program = Choose a program
+module.scenes.row.refresh.header = Look again
+module.scenes.button.refresh = Refresh list
+
+# --- steps
+module.scenes.opt.step-keep = Keep
+module.scenes.opt.step-up = Move up
+module.scenes.opt.step-down = Move down
+module.scenes.opt.step-remove = Remove
+module.scenes.step.undo-recorded = Put back to the value it had before (the module reports it)
+module.scenes.step.undo-fixed = Put back with: {0}
+module.scenes.step.undo-none = Not put back
+module.scenes.row.add-module.header = New step: module
+module.scenes.opt.pick-module = Choose a module
+module.scenes.row.add-command.header = New step: command
+module.scenes.opt.pick-command = Choose a command
+module.scenes.row.add-args.header = Arguments
+module.scenes.row.add-args.placeholder = e.g. Gaming
+module.scenes.row.add-args.help = The exact arguments, separated by spaces; put a word with spaces in "double quotes". They are part of what you approve.
+module.scenes.row.add-undo.header = Put back by
+module.scenes.row.add-undo.help = Recorded: the module tells Rigbay what the value was, and Rigbay sets it back. A command: you write the command that undoes this one (steam-bypass off). Nothing: the step stays when the game ends.
+module.scenes.opt.undo-none = Nothing
+module.scenes.opt.undo-recorded = The value it had before
+module.scenes.opt.undo-fixed = A command
+module.scenes.row.add-undo-line.header = Undo command
+module.scenes.row.add-undo-line.placeholder = module verb arguments
+module.scenes.row.add-step.header = Add this step
+module.scenes.row.add-step.description = Adding a step ends the approval of the scene.
+module.scenes.button.add-step = Add step
+
+# --- buttons
+module.scenes.row.approve.header = Approve the scene
+module.scenes.row.approve.description = Shows every step in one question.
+module.scenes.button.approve = Approve
+module.scenes.row.run.header = Run now
+module.scenes.row.run.description = A test: runs the steps once, without the game.
+module.scenes.button.run = Run
+module.scenes.row.stop.header = Stop
+module.scenes.row.stop.description = Puts back what the scene changed, now.
+module.scenes.button.stop = Stop
+module.scenes.row.revoke.header = Revoke approval
+module.scenes.row.revoke.description = Switches the scene off and withdraws the approval.
+module.scenes.button.revoke = Revoke
+module.scenes.row.delete.header = Delete the scene
+module.scenes.button.delete = Delete
+module.scenes.confirm.delete = Delete {0}?
+
+# --- state under the scene's name
+module.scenes.line.off = Off
+module.scenes.line.incomplete = Not complete: {0}
+module.scenes.line.needs-approval = Needs your approval
+module.scenes.line.changed = Changed since you approved it: {0}
+module.scenes.line.untrusted = Approvals are off: {0}
+module.scenes.line.unavailable = Cannot start yet: {0}
+module.scenes.line.armed = Waiting for {0}
+module.scenes.line.running = Running since {0} for {1}
+module.scenes.line.running-manual = Running since {0} (test)
+module.scenes.line.closing = {0} has ended; putting things back soon
+module.scenes.line.waiting = Waiting for {0} to end first
+module.scenes.line.undo-failed = Could not put everything back
+module.scenes.line.blocked = Did not run: {0}
+
+module.scenes.attention.bad-game = "{0}" is not a program name (use game.exe or a full path to an .exe).
+module.scenes.attention.undo-failed = Some changes could not be put back (run {0}). {1} Press Stop to try again, or run: rigbay plans undo {0}
+module.scenes.attention.blocked = Did not run: {0}. {1}
+module.scenes.attention.stopped = You stopped it. It runs again the next time the program starts.
+module.scenes.attention.problem = {0}
+module.scenes.attention.declined = You did not approve it, so it stays off.
+module.scenes.attention.untrusted = Rigbay cannot trust its approval store, so nothing can be approved: {0}
+module.scenes.attention.unavailable = It cannot be approved yet: {0}
+
+module.scenes.problem.noname = Give the scene a name.
+module.scenes.problem.badid = The scene's id is not valid.
+module.scenes.problem.nogames = Add at least one program.
+module.scenes.problem.toomanygames = A scene can have at most 8 programs.
+module.scenes.problem.badgame = A program name is not valid.
+module.scenes.problem.nosteps = Add at least one step.
+module.scenes.problem.toomanysteps = A scene can have at most 8 steps.
+module.scenes.problem.badstep = A step is not valid.
+module.scenes.problem.badundo = The undo of a step is not valid.
+
+module.scenes.block.needsapproval = its approval is not in force any more
+module.scenes.block.changed = it changed since you approved it
+module.scenes.block.ratelimited = it was started too often in the last hour
+module.scenes.block.toomanyruns = four scenes are running already
+module.scenes.block.invalid = a module or command it needs is not available
+module.scenes.block.failed = a step failed (the earlier steps were put back)
+module.scenes.block.stopped = you stopped it
+module.scenes.block.cancelled = it was cancelled
+module.scenes.toast.not-run = The scene did not run: {0}.
+
+module.scenes.last.none = Never ran
+module.scenes.last.ran = {0}: ran for {1} and was put back
+module.scenes.last.failed = {0}: a step failed; the earlier steps were put back. {1}
+module.scenes.last.refused = {0}: did not run. {1}
+module.scenes.last.undo-failed = {0}: some changes could not be put back. {1}
+module.scenes.duration.s = {0} s
+module.scenes.duration.min = {0} min
+module.scenes.duration.h = {0} h {1} min
+
+# --- what a command says about itself, shown under the chosen command
+module.scenes.verb.usage = Usage: {0}
+module.scenes.verb.changes = Changes: {0}
+module.scenes.verb.unknown-effect = The module did not say what it changes
+module.scenes.verb.undo = Can report its own undo ({0})
+module.scenes.verb.no-undo = No undo of its own
+module.scenes.verb.preview = Shows the exact values in the question
+module.scenes.verb.no-preview = The module decides the exact values
+
+# --- messages next to buttons
+module.scenes.err.pick-command = Choose a module and a command first.
+module.scenes.err.bad-args = The arguments are not valid (at most 16, each up to 256 characters, quotes closed).
+module.scenes.err.no-recorded-undo = This command cannot report its own undo. Write one, or choose Nothing.
+module.scenes.err.bad-undo = Write the undo as: module verb arguments.
+module.scenes.err.gone = The scene is gone.
+module.scenes.err.too-many-steps = A scene can have at most 8 steps.
+module.scenes.err.cannot-delete = The scene is still running and could not be put back, so it was kept. Press Stop, or run: rigbay plans undo
+module.scenes.msg.step-added = Added: {0}. Approve the scene again.
+module.scenes.msg.approved = Approved.
+module.scenes.msg.not-approved = Not approved. The reason is under the scene's name.
+module.scenes.msg.running = Running.
+module.scenes.msg.not-run = Did not run: {0}.
+module.scenes.msg.stopped = Put back.
+module.scenes.msg.not-stopped = Some changes could not be put back.
+module.scenes.msg.revoked = Approval withdrawn.
+
+# --- summary and verbs
+module.scenes.summary.none = No scenes
+module.scenes.summary.idle = {0} scene(s), none ready
+module.scenes.summary.armed = {0} of {1} on, waiting for a game
+module.scenes.summary.running = Running: {1}
+module.scenes.cmd.list = Lists the scenes and their state.
+module.scenes.cmd.list.usage = scenes list
+module.scenes.cmd.list.none = No scenes.
+module.scenes.cmd.list.line = {0} · {1} · {2} · programs: {3} · {4} step(s)
+module.scenes.cmd.status = Shows how many scenes are on and which run now.
+module.scenes.cmd.status.usage = scenes status
+module.scenes.cmd.status.head = {0} scene(s), {1} on and approved; process list: {2}
+module.scenes.cmd.status.polling = read every 5 s
+module.scenes.cmd.status.not-polling = not read (nothing is on)
+module.scenes.cmd.status.run = Running: {0} since {1} ({2}), run {3}
+module.scenes.cmd.status.manual = test run

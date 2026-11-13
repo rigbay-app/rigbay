@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "scenes",
+  "name": "Game scenes",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "When a game you chose runs, runs other modules' commands you approved once, and puts things back when it ends.",
+  "entry": { "assembly": "Rigbay.Scenes.dll", "type": "Rigbay.Scenes.ScenesModule" },
+  "hostApi": ">=0.1.4 <0.2",
+  "group": "power",
+  "requires": {
+    "admin": false,
+    "network": [],
+    "registry": [],
+    "services": []
+  },
+  "probePaths": [],
+  "languages": "lang",
+  "icon": "icon.svg",
+  "homepage": "https://github.com/rigbay-app/module-scenes"
+}

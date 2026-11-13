@@ -19,6 +19,7 @@ try {
         @('modules/gpu/src/Rigbay.Gpu/lang', 'gpu', 'modules/gpu/src/Rigbay.Gpu'),
         @('modules/powerrules/src/Rigbay.PowerRules/lang', 'power-rules', 'modules/powerrules/src/Rigbay.PowerRules'),
         @('modules/watch/src/Rigbay.Watch/lang', 'watch', 'modules/watch/src/Rigbay.Watch'),
+        @('modules/scenes/src/Rigbay.Scenes/lang', 'scenes', 'modules/scenes/src/Rigbay.Scenes'),
         @('tools/demo-modules/modules/demo-devices/lang', 'demo-devices', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-fan/lang', 'demo-fan', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-lighting/lang', 'demo-lighting', 'tools/demo-modules'),
