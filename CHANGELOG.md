@@ -3,6 +3,18 @@
 All notable changes to the Rigbay app (`rigbay-app/rigbay`). Modules are released from their own repositories and have their own history.
 All releases are pre-releases (major version 0). The files are not code-signed.
 
+## 0.1.4 (2026-11-13)
+
+A small feature release. No change to the module contract (host API stays 0.1.3), so the modules you already have keep working and need nothing from this release.
+
+- **Choose what the tray tooltip shows.** Point at the Rigbay icon and a small text says how the PC is. By default (**Settings > Tray > Tray tooltip > Automatic**) it is what it was: "Rigbay" and the first two running modules. Choose **Custom** to pick the items yourself: any module's state line or any reading, your own short label for each, new lines, a preview that shows exactly what the icon will show (Windows allows 127 characters, items that do not fit are left out from the end and Settings says so). Right-clicking a reading on a module page also offers **Show in tray tooltip**. An item whose module is off, or that has no reading right now, is left out without a word and stays in your list.
+- **A GPU module is available in Modules.** It is a separate download (Modules > Check for modules > GPU, release 0.1.0). It reads the NVIDIA GPU through the driver's NVML library, read only: load, power, clocks, memory, temperature and why the clocks are held down. It reads only while a page or another reader needs it, so a laptop GPU can still sleep. It was tried on one machine (RTX 3060 Laptop, idle) and not on battery, under load or on other GPUs. It is not installed by this update.
+- Documentation: the user guide describes the tray tooltip and the GPU module.
+
+### Not verified in 0.1.4
+
+The tooltip text on a real tray at other display scales, with a screen reader or in high contrast; the tray menu item on a real screen at a busy desktop. The GPU module under load, on battery with the GPU asleep, and on other GPUs. The files are not signed.
+
 ## 0.1.3 (2026-11-13)
 
 A small release: Rigbay uses much less memory while it sits in the tray, and module calls no longer wait for a busy thread pool. No change to the module contract (host API stays 0.1.3), so no module needs a new release for this app; only the Recorder has a fix of its own (Recorder 0.1.2).

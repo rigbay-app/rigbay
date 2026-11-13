@@ -16,8 +16,8 @@ network fix, ...) that you install and turn on yourself.
 
 ## 2. Install
 
-1. Download `Rigbay-0.1.3-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
-   notes: `Get-FileHash .\Rigbay-0.1.3-win-x64.zip -Algorithm SHA256`.
+1. Download `Rigbay-0.1.4-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
+   notes: `Get-FileHash .\Rigbay-0.1.4-win-x64.zip -Algorithm SHA256`.
 2. Extract the whole zip to a folder, for example your Downloads. Do not extract into `C:\Program Files` yourself.
 3. Open **Windows PowerShell as administrator** (right-click Start, "Terminal (Admin)"), go to that folder and run:
 
@@ -171,7 +171,7 @@ A module that changed a Windows setting (the Steam module sets a proxy script ad
 
 ## 10. Troubleshooting
 
-**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.3` the app starts and the
+**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.4` the app starts and the
 trouble is the window: the Windows App Runtime 1.8 is probably missing or broken. Run `install.ps1` again (it checks) or
 `winget install --id Microsoft.WindowsAppRuntime.1.8 -e`. If `--version` itself fails, install the .NET 10 runtime: `winget install --id Microsoft.DotNet.Runtime.10 -e`.
 
@@ -190,6 +190,8 @@ The module only undoes what it set itself, so it will not remove the old app's s
 **PredatorSense module.** Needs an Acer Predator laptop with Acer PredatorSense installed (its service `PSSvc` present) and the firmware's `AcerGamingFunction` WMI class.
 The module reads temperatures and fan speeds and can set the fan mode to Auto or Maximum, after you confirm. It was tried on one machine only (Predator Triton 500 SE); on
 another model the page says "not supported" or shows the reason. PredatorSense itself may re-apply its own mode after sleep or a restart; that was not tested.
+
+**GPU module.** Needs an NVIDIA GPU and its driver (the driver's `nvml.dll`). It only reads: load, power, clocks, memory, temperature and why the clocks are held down; it changes nothing. It reads only while its page is open or something else (the Dashboard, the recorder, the tray tooltip) is showing one of its readings, so a laptop GPU can still sleep. It is a separate download (Modules > Check for modules). It was tried on one machine (RTX 3060 Laptop, idle); battery, load and other GPUs were not tried, and the memory in use differs from `nvidia-smi` by a few hundred MiB.
 
 **XTU module.** Needs an Intel CPU and **Intel Extreme Tuning Utility** installed, with its service (`XTU3SERVICE`) running; the module talks to that service and brings no
 Intel files. Without it the module says why it is not supported. Changing power limits is a hardware change and is confirmed each time. The old standalone XTU
