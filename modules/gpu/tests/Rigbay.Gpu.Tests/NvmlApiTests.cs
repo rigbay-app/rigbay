@@ -168,13 +168,14 @@ public class NvmlApiTests
     [Fact]
     public void The_serial_wrapper_lets_one_thread_in_at_a_time_and_the_bare_fake_does_not()
     {
-        var bare = new FakeNvml { Delay = 15 };
-        Parallel.For(0, 6, k => bare.GetPowerUsage(Device, out var ignored));
+        // Dedicated threads released together by a barrier: Parallel.For may run every iteration on one thread on a busy two-core runner (CI, 2026-11-13).
+        var bare = new FakeNvml { Delay = 100 };
+        RunTogether(4, _ => bare.GetPowerUsage(Device, out var ignored));
         Assert.True(bare.MaxInside > 1, "the fake must be able to see an overlap, or the next check proves nothing");
 
         var gpu = new FakeNvml { Delay = 3 };
         var serial = new SerialNvml(gpu);
-        Parallel.For(0, 8, i =>
+        RunTogether(8, i =>
         {
             for (int n = 0; n < 5; n++)
             {
@@ -185,5 +186,14 @@ public class NvmlApiTests
         });
         Assert.Equal(1, gpu.MaxInside);
         Assert.True(gpu.ReadCalls >= 80);
+    }
+
+    /// <summary>Runs <paramref name="body"/> on <paramref name="count"/> threads of their own that all start at the same moment, and waits for them.</summary>
+    private static void RunTogether(int count, Action<int> body)
+    {
+        using var start = new Barrier(count);
+        var threads = Enumerable.Range(0, count).Select(i => new Thread(() => { start.SignalAndWait(); body(i); }) { IsBackground = true }).ToArray();
+        foreach (var t in threads) t.Start();
+        foreach (var t in threads) Assert.True(t.Join(TimeSpan.FromSeconds(30)), "a worker thread did not finish");
     }
 }

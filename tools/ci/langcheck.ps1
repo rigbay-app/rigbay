@@ -20,7 +20,9 @@ try {
         @('modules/powerrules/src/Rigbay.PowerRules/lang', 'power-rules', 'modules/powerrules/src/Rigbay.PowerRules'),
         @('tools/demo-modules/modules/demo-devices/lang', 'demo-devices', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-fan/lang', 'demo-fan', 'tools/demo-modules'),
-        @('tools/demo-modules/modules/demo-lighting/lang', 'demo-lighting', 'tools/demo-modules')
+        @('tools/demo-modules/modules/demo-lighting/lang', 'demo-lighting', 'tools/demo-modules'),
+        @('tools/demo-modules/modules-fragile/demo-plan-owner/lang', 'demo-plan-owner', 'tools/demo-modules'),
+        @('tools/demo-modules/modules-fragile/demo-plan-target/lang', 'demo-plan-target', 'tools/demo-modules')
     )
     # every folder with .lang files must be in the list above, so a new module cannot slip past the check
     $known = $sets | ForEach-Object { (Resolve-Path $_[0]).Path }
