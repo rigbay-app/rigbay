@@ -17,7 +17,8 @@
 param(
     [Parameter(Mandatory)][string]$ZipDir,
     [string]$Work,
-    [switch]$Unelevated   # run only the non-elevated part (start this one from a normal shell)
+    [switch]$Unelevated,   # run only the non-elevated part (start this one from a normal shell)
+    [switch]$NoRunningInstance   # elevated part without sections 4 and 5's started copy: install.ps1 and uninstall.ps1 then never run --uninstall-cleanup, which talks to the pipe of whichever Rigbay owns it (the owner's, if it runs)
 )
 $ErrorActionPreference = 'Continue'   # schtasks.exe and the scripts under test write to stderr on purpose
 $ZipDir = (Resolve-Path $ZipDir).Path
@@ -89,11 +90,12 @@ if (-not $Unelevated) {
     Check 'install: program folder, data folder, shortcut, Installed apps entry and the task all exist' ($snap.Root -and $snap.Data -and $snap.Lnk -and $snap.Key -and $snap.Task) (Snap $b)
     $exe = Join-Path $b.Root 'Rigbay.App.exe'
     $ver = (& $exe --version 2>&1 | Out-String).Trim()
-    Check 'install: the installed exe says "Rigbay 0.1.3"' ($ver -eq 'Rigbay 0.1.3') $ver
+    $zipVer = (Get-Item $exeSrc).VersionInfo.ProductVersion
+    Check "install: the installed exe says ""Rigbay $zipVer"" (the version of the zip's exe)" ($ver -eq "Rigbay $zipVer") $ver
     $same = (Get-FileHash $exe).Hash -eq (Get-FileHash $exeSrc).Hash
     Check 'install: the installed exe is byte-equal to the one in the zip' $same
     $uk = Get-ItemProperty (Join-Path $b.Key 'Rigbay') -ErrorAction SilentlyContinue
-    Check 'install: the Installed apps entry has name, version 0.1.3 and an uninstall command' ($uk -and $uk.DisplayName -eq 'Rigbay' -and $uk.DisplayVersion -eq '0.1.3' -and $uk.UninstallString) ($uk | Out-String)
+    Check 'install: the Installed apps entry has name, the version of the zip and an uninstall command' ($uk -and $uk.DisplayName -eq 'Rigbay' -and $uk.DisplayVersion -eq $zipVer -and $uk.UninstallString) ($uk | Out-String)
     # admin-only modules folder: only Administrators and SYSTEM may have an allow entry, none inherited
     $modules = Join-Path $b.Data 'modules'
     $acl = Get-Acl $modules
@@ -133,6 +135,12 @@ if (-not $Unelevated) {
     New-Item -ItemType Directory $b.User -Force | Out-Null
     Set-Content (Join-Path $b.User 'settings.json') '{"kept":true}'
     Set-Content (Join-Path $b.Root 'stale-from-old-version.txt') 'old file'
+    if ($NoRunningInstance) {
+        Write-Host 'SKIP upgrade over a RUNNING instance: -NoRunningInstance (the installer would call --uninstall-cleanup on whichever Rigbay owns the pipe)'
+        $r = Install $b
+        Check 'upgrade (nothing running): exit 0' ($r.Code -eq 0) "code=$($r.Code)`n$($r.Out)"
+    }
+    else {
     $app = Start-Process $exe -ArgumentList @('--data', "`"$($b.User)`"", '--modules', "`"$modules`"", '--task-name', "$tag-run", '--allow-multi') -PassThru
     Start-Sleep -Seconds 6
     $alive = -not $app.HasExited
@@ -141,6 +149,7 @@ if (-not $Unelevated) {
     Start-Sleep -Milliseconds 500
     $stillThere = @(Get-Process -Id $app.Id -ErrorAction SilentlyContinue).Count
     Check 'upgrade: exit 0 and the running instance was quit by the installer' ($r.Code -eq 0 -and $stillThere -eq 0) "code=$($r.Code) running=$stillThere`n$($r.Out)"
+    }
     Check 'upgrade: the modules folder and its content, and the settings, are kept' ((Test-Path (Join-Path $marker 'x.txt')) -and (Test-Path (Join-Path $b.User 'settings.json'))) ''
     Check 'upgrade: the exe is still the zip''s, the task, shortcut and entry still exist' (((Get-FileHash $exe).Hash -eq (Get-FileHash $exeSrc).Hash) -and (Snapshot $b).Task -and (Snapshot $b).Lnk -and (Snapshot $b).Key) (Snap $b)
 
@@ -149,12 +158,20 @@ if (-not $Unelevated) {
     $before = Snap $b
     $r = Uninstall $b @('-WhatIf')
     Check 'uninstall -WhatIf: exit 0, nothing changed' ($r.Code -eq 0 -and (Snap $b) -eq $before -and (Test-Path $modules)) "code=$($r.Code) $(Snap $b)"
+    if ($NoRunningInstance) {
+        Write-Host 'SKIP uninstall with a RUNNING instance: -NoRunningInstance'
+        $r = Uninstall $b
+        $s = Snapshot $b
+        Check 'uninstall (nothing running): exit 0, folder, shortcut, entry and task removed' ($r.Code -eq 0 -and -not $s.Root -and -not $s.Lnk -and -not $s.Key -and -not $s.Task) "code=$($r.Code) $(Snap $b)`n$($r.Out)"
+    }
+    else {
     $app = Start-Process $exe -ArgumentList @('--data', "`"$($b.User)`"", '--modules', "`"$modules`"", '--task-name', $b.Task, '--allow-multi') -PassThru
     Start-Sleep -Seconds 6
     $r = Uninstall $b
     Start-Sleep -Milliseconds 500
     $s = Snapshot $b
     Check 'uninstall (with a running instance): exit 0, instance gone, folder, shortcut, entry and task removed' ($r.Code -eq 0 -and @(Get-Process -Id $app.Id -ErrorAction SilentlyContinue).Count -eq 0 -and -not $s.Root -and -not $s.Lnk -and -not $s.Key -and -not $s.Task) "code=$($r.Code) $(Snap $b)`n$($r.Out)"
+    }
     Check 'uninstall: modules and settings are kept' ((Test-Path (Join-Path $marker 'x.txt')) -and (Test-Path (Join-Path $b.User 'settings.json'))) ''
     $r = Install $b
     Check 'reinstall after uninstall: exit 0, everything back, the old modules still there' ($r.Code -eq 0 -and (Snapshot $b).Root -and (Snapshot $b).Task -and (Test-Path (Join-Path $marker 'x.txt'))) "code=$($r.Code)`n$($r.Out)"
