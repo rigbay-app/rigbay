@@ -1,0 +1,70 @@
+# GPU module: English (the reference). Every key starts with module.gpu.
+@code = en
+@name = English
+
+# Shown on the enable row (the same sentence as the manifest)
+module.gpu.name = GPU
+module.gpu.description = Reads the NVIDIA GPU (load, power, clocks, memory, temperature, throttle reason) through NVML. Read only.
+
+# Probe: why this machine is not supported
+module.gpu.probe.no-dll = No NVIDIA driver found: nvml.dll is not in the Windows system folder.
+module.gpu.probe.dll-not-loaded = Windows could not load the NVIDIA library nvml.dll.
+module.gpu.probe.init-failed = The NVIDIA driver did not start its management library: {0}
+module.gpu.probe.no-device = The NVIDIA driver reports no GPU.
+module.gpu.probe.check-failed = Could not check this machine: {0}
+
+# Page groups and chart names
+module.gpu.group.readings = Readings
+module.gpu.group.state = State
+module.gpu.group.settings = Settings
+module.gpu.chart.load = Load
+module.gpu.chart.power = Power
+module.gpu.chart.temperature = Temperature
+module.gpu.chart.clocks = Clocks
+module.gpu.chart.memory = Memory
+
+# Readings (also the names of the metrics on the bus)
+module.gpu.metric.usage = GPU load
+module.gpu.metric.memctl = Memory controller load
+module.gpu.metric.memctl.description = How busy the video memory interface is, not how full the memory is.
+module.gpu.metric.power = GPU power
+module.gpu.metric.power-limit = Power limit
+module.gpu.metric.clock = GPU clock
+module.gpu.metric.mem-clock = Memory clock
+module.gpu.metric.mem-used = Memory in use
+module.gpu.metric.mem-total = Memory total
+module.gpu.metric.temp = GPU core temperature
+module.gpu.metric.temp.description = From the GPU itself, through NVML. PredatorSense reports the laptop's own sensor as GPU temperature.
+module.gpu.metric.pstate = Performance state
+module.gpu.metric.pstate.description = 0 is the fastest state; 8 and up are idle states.
+module.gpu.metric.throttle = Clock limit reasons
+module.gpu.metric.throttle.description = A bit mask of why the clocks are held down. 0 means nothing holds them.
+
+# Why the clocks are held down (lower case: they are written after "P0 · 72 W · ")
+module.gpu.reason.power-brake = power brake
+module.gpu.reason.hw-slowdown = hardware slowdown
+module.gpu.reason.thermal = thermal limit
+module.gpu.reason.power-cap = power cap
+module.gpu.reason.sync-boost = sync boost
+module.gpu.reason.app-clocks = app clock setting
+module.gpu.reason.display-clocks = display clock setting
+module.gpu.reason.idle = idle
+
+# The state line under the module's name
+module.gpu.state.starting = Not read yet
+module.gpu.state.reading = Reading
+module.gpu.state.degraded = No answer from the GPU
+module.gpu.state.unavailable = NVIDIA driver not available
+
+# Rows
+module.gpu.row.device.header = Graphics card
+module.gpu.row.limit.header = Clock limit
+module.gpu.row.limit.none = Not limited
+module.gpu.row.limit.help = Why the GPU holds its clocks down right now, as the NVIDIA driver reports it: power cap, thermal limit, idle and so on.
+module.gpu.row.poll.header = Read every
+module.gpu.row.poll.description = While this page is open or something uses the readings.
+module.gpu.row.poll.help = Rigbay asks the GPU only while this page is open, or while the Dashboard, the recorder or the tray tooltip uses the readings. At other times it does not touch the GPU, so a laptop can let it sleep.
+
+# Command line: rigbay gpu status
+module.gpu.cmd.status = Read the GPU once and print the readings
+module.gpu.cmd.status-usage = Usage: rigbay gpu status
