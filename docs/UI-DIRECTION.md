@@ -217,3 +217,17 @@ so the light amber, aqua and magenta under 3:1 never carry identity alone.
 Kept on purpose: the tile (not a round gauge, section 8), the approval and Revert flow, the 1/5/10 minute range, the crosshair. Not done: big
 "cards" for each option of a primary choice (Sketch 3's two large Auto/Maximum cards need a per-option description the page model does not have; the
 segmented control at 38 px is the big picker), and an observable button label (a module swaps `ButtonKey` with a page refresh).
+
+## 10. Lessons from the second PowerToys study (November 2026)
+
+The second study (`docs/research/POWERTOYS-2026-11.md`, section 2) read PowerToys' runner, Settings and Quick Access. These are the lessons Rigbay
+adopts; each is size S. Not adopted, with reasons in the study: an OOBE window, a Quick Access flyout in its own process, Group Policy.
+
+| Lesson | Rule for Rigbay |
+| --- | --- |
+| Search ignores accents | The query and the index are folded the same way: lower case, Unicode form KD, combining marks dropped, `đ` mapped to `d`. "nhiet do" finds "Nhiệt độ". A match at the start of a word ranks before one inside a word. |
+| A shortcut is checked with Windows while it is captured | The capture dialog tries the chord with the OS before Set is pressed (register, then release at once) and says "Windows or another app already uses this shortcut" next to Set. While any shortcut conflict exists, the Dashboard header says "1 shortcut conflict" and opens Settings > Hotkeys; when there is none, nothing is shown. |
+| What changed, once | After the host or a module changed version, one bar at the top of the Dashboard names the new version and links to its release notes; it closes for good with its close button. No window and no download at start-up. |
+| The tray carries the main controls | Each running module's tray submenu shows its `PageModel.Primary`: a short choice as radio items with the current one marked, a toggle as a check item, a button as an item. The same approval and Revert apply; an approval opens the window. Left click still opens the window. |
+| Landmarks and ids for UI Automation | The pane is a navigation landmark, the page the main landmark, the search box a search landmark. Every control the self-test drives has an `AutomationId`, so tests do not depend on English names. "Copied" and "Applied" are announced with `RaiseNotificationEvent`. |
+| One hint the first time a module is on | The first time a module is turned on, a `TeachingTip` points at its main control: what it does, that Rigbay asks before each hardware change, where Revert is. Once per module, remembered in `app.json`. |
