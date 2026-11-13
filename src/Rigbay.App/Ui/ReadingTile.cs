@@ -167,7 +167,13 @@ sealed class ReadingTile : UserControl
         KeyDown += (_, a) => { if (a.Key is Windows.System.VirtualKey.Space or Windows.System.VirtualKey.Enter) { SelectMe(focus: true); a.Handled = true; } };
 
         AutomationProperties.SetName(this, _name);
-        ContextFlyout = TrayTipEditor.TileMenu(e.Id, row.Metric.Value);   // "Show in tray tooltip"
+        // "Show in tray tooltip": the menu is made when it is asked for (right click, menu key), so a tile that is never right-clicked holds no flyout
+        ContextRequested += (_, a) =>
+        {
+            var menu = TrayTipMenu();
+            if (a.TryGetPosition(this, out var at)) menu.ShowAt(this, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = at }); else menu.ShowAt(this);
+            a.Handled = true;
+        };
 
         Show(Host.Core.Metrics.TryGetLatest(row.Metric, out var latest) ? latest : null);
         scope.Live(
@@ -182,6 +188,9 @@ sealed class ReadingTile : UserControl
         }
         scope.Tick(_spark.Redraw);
     }
+
+    /// <summary>The right-click menu: "Show in tray tooltip" (a new one each time).</summary>
+    internal MenuFlyout TrayTipMenu() => TrayTipEditor.TileMenu(_e.Id, _row.Metric.Value);
 
     void SelectMe(bool focus)
     {

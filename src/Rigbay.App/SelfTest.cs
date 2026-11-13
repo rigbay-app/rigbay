@@ -504,7 +504,16 @@ static class SelfTest
             // a reading tile offers "Show in tray tooltip"
             w.Navigate(fan); await Settle(900);
             var tile = Find<ReadingTile>(w.PageContent).FirstOrDefault();
-            R("tray tooltip: a reading tile has the 'Show in tray tooltip' menu", tile?.ContextFlyout is MenuFlyout { Items.Count: 1 } mf && mf.Items[0] is ToggleMenuFlyoutItem, tile == null ? "no tile" : tile.ContextFlyout?.GetType().Name ?? "no flyout");
+            var menu = tile?.TrayTipMenu();
+            R("tray tooltip: a reading tile has the 'Show in tray tooltip' menu", menu is { Items.Count: 1 } && menu.Items[0] is ToggleMenuFlyoutItem, tile == null ? "no tile" : menu?.GetType().Name ?? "no menu");
+            // what a click on it does, from Automatic: Custom starts from what Automatic shows, then the reading is added and taken out again
+            AppState.Settings.TrayTip = new TrayTipSettings();
+            bool pumpShownBefore = TrayTipEditor.ShownInTip("demo-fan.pump");
+            TrayTipEditor.SetInTip("demo-fan", "demo-fan.pump", true);
+            bool addedOk = AppState.Settings.TrayTip.IsCustom && AppState.Settings.TrayTip.Contains("demo-fan.pump") && tray.Tip.Contains("Pump ") && TrayTipEditor.ShownInTip("demo-fan.pump");
+            string withPump = tray.Tip;
+            TrayTipEditor.SetInTip("demo-fan", "demo-fan.pump", false);
+            R("tray tooltip: Show in tray tooltip turns Custom on from what Automatic shows, adds the reading and takes it out again", addedOk && !AppState.Settings.TrayTip.Contains("demo-fan.pump") && !tray.Tip.Contains("Pump ") && AppState.Settings.TrayTip.Items.Count > 0, $"before shown={pumpShownBefore}; with '{withPump.ReplaceLineEndings(" | ")}'; after '{tray.Tip.ReplaceLineEndings(" | ")}'");
 
             // an app.json from before the setting reads as Automatic
             var dir = Path.Combine(Path.GetTempPath(), "rigbay-tip-" + Guid.NewGuid().ToString("N")[..8]);

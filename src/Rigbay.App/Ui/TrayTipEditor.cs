@@ -185,30 +185,36 @@ static class TrayTipEditor
     {
         var item = new ToggleMenuFlyoutItem { Text = Host.T("tile.show-in-tray-tip") };
         var menu = new MenuFlyout { Items = { item } };
-        TrayTipSettings Seeded()
-        {
-            var seeded = new TrayTipSettings { Mode = TrayTipSettings.Custom };
-            seeded.SeedFrom(Host.Tray?.TipSource ?? new TrayTipSource(Host.Core));
-            return seeded;
-        }
         menu.Opening += (_, _) =>
         {
             item.Text = Host.T("tile.show-in-tray-tip");
-            var s = AppState.Settings.TrayTip;
-            item.IsChecked = s.IsCustom ? s.Contains(metricId) : Seeded().Contains(metricId);
+            item.IsChecked = ShownInTip(metricId);
         };
-        item.Click += (_, _) =>
-        {
-            var s = AppState.Settings.TrayTip;
-            if (!s.IsCustom)
-            {
-                s.Mode = TrayTipSettings.Custom;
-                if (s.Items.Count == 0) s.SeedFrom(Host.Tray?.TipSource ?? new TrayTipSource(Host.Core));
-            }
-            if (item.IsChecked) s.Add(metricId, moduleId); else s.Remove(metricId);
-            Apply();
-        };
+        item.Click += (_, _) => SetInTip(moduleId, metricId, item.IsChecked);
         return menu;
+    }
+
+    /// <summary>Whether the custom list has the metric; while the tooltip is Automatic, whether Automatic shows it now.</summary>
+    internal static bool ShownInTip(string metricId)
+    {
+        var s = AppState.Settings.TrayTip;
+        if (s.IsCustom) return s.Contains(metricId);
+        var seeded = new TrayTipSettings { Mode = TrayTipSettings.Custom };
+        seeded.SeedFrom(Host.Tray?.TipSource ?? new TrayTipSource(Host.Core));
+        return seeded.Contains(metricId);
+    }
+
+    /// <summary>What a click on "Show in tray tooltip" does: Custom is turned on (from what Automatic shows) when it was not, then the metric is added or taken out. Saved and on the icon at once.</summary>
+    internal static void SetInTip(string moduleId, string metricId, bool on)
+    {
+        var s = AppState.Settings.TrayTip;
+        if (!s.IsCustom)
+        {
+            s.Mode = TrayTipSettings.Custom;
+            if (s.Items.Count == 0) s.SeedFrom(Host.Tray?.TipSource ?? new TrayTipSource(Host.Core));
+        }
+        if (on) s.Add(metricId, moduleId); else s.Remove(metricId);
+        Apply();
     }
 
     enum FocusPart { Label, Up, Down, Remove }
