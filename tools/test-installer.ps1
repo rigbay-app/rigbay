@@ -78,7 +78,7 @@ if (-not $Unelevated) {
     $before = Snap $a
     $r = Install $a @('-WhatIf')
     Check 'install -WhatIf: exit 0, nothing created (folder, data, shortcut, key, task)' ($r.Code -eq 0 -and (Snap $a) -eq $before -and -not (Test-Path $a.Root)) "code=$($r.Code) snapshot=$(Snap $a)"
-    Check 'install -WhatIf: names the steps it would take' ($r.Out -match 'What if' -and $r.Out -match 'Rigbay 0\.1\.1') ($r.Out.Substring(0, [Math]::Min(300, $r.Out.Length)))
+    Check 'install -WhatIf: names the steps it would take' ($r.Out -match 'What if' -and $r.Out -match ('Rigbay ' + [regex]::Escape((Get-Item $exeSrc).VersionInfo.ProductVersion))) ($r.Out.Substring(0, [Math]::Min(300, $r.Out.Length)))
 
     # ------------------------------------------------------------------------------------------------ 2. install
     Section '2. install'
