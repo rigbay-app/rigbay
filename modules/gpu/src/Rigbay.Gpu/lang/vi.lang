@@ -1,0 +1,62 @@
+# GPU: tiếng Việt. Giữ nguyên {0}; có thể đổi thứ tự.
+@code = vi
+@name = Tiếng Việt
+
+module.gpu.name = GPU
+module.gpu.description = Đọc GPU NVIDIA (tải, công suất, xung nhịp, bộ nhớ, nhiệt độ, lý do giảm xung) qua NVML. Chỉ đọc.
+
+module.gpu.probe.no-dll = Không tìm thấy driver NVIDIA: nvml.dll không có trong thư mục hệ thống Windows.
+module.gpu.probe.dll-not-loaded = Windows không nạp được thư viện NVIDIA nvml.dll.
+module.gpu.probe.init-failed = Driver NVIDIA không khởi động được thư viện quản lý: {0}
+module.gpu.probe.no-device = Driver NVIDIA không báo GPU nào.
+module.gpu.probe.check-failed = Không kiểm tra được máy này: {0}
+
+module.gpu.group.readings = Số đo
+module.gpu.group.state = Trạng thái
+module.gpu.group.settings = Cài đặt
+module.gpu.chart.load = Tải
+module.gpu.chart.power = Công suất
+module.gpu.chart.temperature = Nhiệt độ
+module.gpu.chart.clocks = Xung nhịp
+module.gpu.chart.memory = Bộ nhớ
+
+module.gpu.metric.usage = Tải GPU
+module.gpu.metric.memctl = Tải bộ điều khiển bộ nhớ
+module.gpu.metric.memctl.description = Mức bận của đường truyền tới bộ nhớ video, không phải bộ nhớ đã đầy bao nhiêu.
+module.gpu.metric.power = Công suất GPU
+module.gpu.metric.power-limit = Giới hạn công suất
+module.gpu.metric.clock = Xung nhịp GPU
+module.gpu.metric.mem-clock = Xung nhịp bộ nhớ
+module.gpu.metric.mem-used = Bộ nhớ đã dùng
+module.gpu.metric.mem-total = Tổng bộ nhớ
+module.gpu.metric.temp = Nhiệt độ lõi GPU
+module.gpu.metric.temp.description = Đọc từ chính GPU qua NVML. PredatorSense báo cảm biến riêng của laptop làm nhiệt độ GPU.
+module.gpu.metric.pstate = Trạng thái hiệu năng
+module.gpu.metric.pstate.description = 0 là nhanh nhất; từ 8 trở lên là trạng thái nghỉ.
+module.gpu.metric.throttle = Lý do giảm xung
+module.gpu.metric.throttle.description = Mặt nạ bit cho biết vì sao xung bị giữ thấp. 0 nghĩa là không có gì giữ.
+
+module.gpu.reason.power-brake = phanh công suất
+module.gpu.reason.hw-slowdown = phần cứng giảm tốc
+module.gpu.reason.thermal = giới hạn nhiệt
+module.gpu.reason.power-cap = trần công suất
+module.gpu.reason.sync-boost = đồng bộ boost
+module.gpu.reason.app-clocks = xung do ứng dụng đặt
+module.gpu.reason.display-clocks = xung do màn hình đặt
+module.gpu.reason.idle = nghỉ
+
+module.gpu.state.starting = Chưa đọc
+module.gpu.state.reading = Đang đọc
+module.gpu.state.degraded = GPU không trả lời
+module.gpu.state.unavailable = Không dùng được driver NVIDIA
+
+module.gpu.row.device.header = Card đồ họa
+module.gpu.row.limit.header = Giới hạn xung
+module.gpu.row.limit.none = Không bị giới hạn
+module.gpu.row.limit.help = Lý do GPU đang giữ xung thấp, theo báo cáo của driver NVIDIA: trần công suất, giới hạn nhiệt, đang nghỉ...
+module.gpu.row.poll.header = Đọc mỗi
+module.gpu.row.poll.description = Khi trang này đang mở hoặc có nơi dùng số đo.
+module.gpu.row.poll.help = Rigbay chỉ hỏi GPU khi trang này đang mở, hoặc khi Tổng quan, trình ghi hay chú giải ở khay hệ thống đang dùng số đo. Lúc khác nó không chạm vào GPU, nên laptop có thể cho GPU ngủ.
+
+module.gpu.cmd.status = Đọc GPU một lần và in các số đo
+module.gpu.cmd.status-usage = Cách dùng: rigbay gpu status
