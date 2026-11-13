@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "power-rules",
+  "name": "Power-source rules",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Changes the internal panel's refresh rate and the Windows power mode when the PC goes on battery or is plugged in.",
+  "entry": { "assembly": "Rigbay.PowerRules.dll", "type": "Rigbay.PowerRules.PowerRulesModule" },
+  "hostApi": ">=0.1.3 <0.2",
+  "group": "power",
+  "requires": {
+    "admin": false,
+    "network": [],
+    "registry": [],
+    "services": []
+  },
+  "probePaths": [],
+  "languages": "lang",
+  "icon": "icon.svg",
+  "homepage": "https://github.com/rigbay-app/module-power-rules"
+}

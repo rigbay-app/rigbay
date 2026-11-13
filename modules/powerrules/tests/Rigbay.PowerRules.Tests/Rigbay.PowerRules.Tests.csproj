@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.PowerRules\Rigbay.PowerRules.csproj" />
+    <None Include="..\..\module.json;..\..\icon*.svg" CopyToOutputDirectory="PreserveNewest" LinkBase="module" />
+    <None Include="..\..\src\Rigbay.PowerRules\lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+    <!-- the module's own source, for the tests that scan it (what the code can and cannot call) -->
+    <None Include="..\..\src\Rigbay.PowerRules\**\*.cs" Exclude="..\..\src\Rigbay.PowerRules\obj\**;..\..\src\Rigbay.PowerRules\bin\**" CopyToOutputDirectory="PreserveNewest" LinkBase="source" />
+  </ItemGroup>
+
+</Project>
