@@ -6,7 +6,7 @@ description: Working knowledge of the Rigbay Steam access module (modules/steamb
 # Steam access module: codebase guide
 
 Module id `steam-bypass`, group `network`, `modules/steambypass/src/Rigbay.SteamBypass` (net8.0) with tests in
-`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (269 at the last run, version 0.1.2 unreleased, host API `>=0.1.3`). It is the port of the standalone app `minhdevtree/steam-bypass`
+`modules/steambypass/tests/Rigbay.SteamBypass.Tests` (269 at the last run, version 0.1.3 unreleased, host API `>=0.1.4`; 0.1.3 = background demand through `SteamBypassModule.Demand` = `host.Evaluate(ids, 1 s, 10 s)`, and `CommandInfo` on the four verbs: status/test ReadOnly, on/off Writes + SystemSetting `BypassEffect`, preview "Steam bypass on/off", `UndoVerb` the opposite verb, `UndoArgs` = empty list only when the run changed something). It is the port of the standalone app `minhdevtree/steam-bypass`
 (`D:\Documents\Projects\steam-bypass`, read only for us; its skill `.claude/skills/steam-bypass` and `references/blocking-evidence.md` hold the
 measurements: what the ISP blocks, what passes the filter, how to re-measure). User docs, evidence and the live test request:
 `docs/steambypass/MODULE.md`. Method index: `references/code-map.md`.

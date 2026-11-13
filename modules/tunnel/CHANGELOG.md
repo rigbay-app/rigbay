@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2 (Unreleased)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`). What the module runs and reads (`requires`) does not change.
+
+- **Background demand.** The poll rate is `MetricDemand.Evaluate` (fast 2 s, idle 15 s) over the `rx_rate`, `tx_rate` and `handshake_age` metrics of every tunnel. A reader that asks through
+  `SubscribeBackground` (Watch) makes the module ask `wg.exe` for the counters and publish the metrics with the page closed, at min(15 s, max(2 s, asked interval)); a faster demand looks at once.
+  Idle still only lists the services every 15 s. With nobody asking nothing changes.
+- **Verb metadata.** `list` and `status` are read-only. `on` and `off` are system-setting writes (`effect.verb-on`, `effect.verb-off`) previewed as "Turn on/off tunnel <name>" from the argument alone
+  (`preview.turn-on`, `preview.turn-off`), with the opposite verb as `UndoVerb`; a run that changed the tunnel returns its stored name as `UndoArgs`, one that found it already there returns none.
+  Behaviour, limits and the owner's question are unchanged.
+
 ## 0.1.1 (Unreleased)
 
 The page from the November 2026 UI review (`docs/ui-review/REVIEW-2026-11.md` in the Rigbay repository, findings TN-1, TN-2, LC-1, LC-2). What the

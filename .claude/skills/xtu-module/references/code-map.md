@@ -19,7 +19,7 @@ Names are exact, line numbers left out on purpose. Everything is `internal` exce
 | `System.cs` | `XtuPaths` (ProgramData folder only), `ISystemProbe` and `WindowsSystemProbe` (CPU vendor from the registry, `ServiceController`, `Pipe` via `PipeCheck`, `ServiceVersion` from the service image path, Fast Startup flag, `GetSystemPowerStatus`), `ProbeLogic`, `WindowsPowerEnvironment` (`SystemEvents.PowerModeChanged`, all exceptions caught) |
 | `Commands.cs` | `XtuCommands`: `status` (same lines as the old CLI), `list`, `apply <name>` |
 | `Settings.cs` | `XtuSettings` (the settings object the host serialises) |
-| `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`/`MonitorWanted`/`MonitorFailed`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |
+| `Runtime.cs` | `XtuRuntime` lifecycle: `Start`, `StartTimers`, `Dispose`, `LoadProfiles`, `Refresh`, `StatusTick`, `MonitorLoop`/`MonitorOnce`/`MonitorDemand`/`MonitorWanted`/`MonitorFailed`, `ApplyByNameAsync`, `OnApplyCompleted`/`Announce`, `AutoCheck`, `OnPowerChanged`/`OnResumed`, `Guard`, `RequestPageRefresh` |
 | `Page.cs` | `XtuRuntime` page side: observable values, `ShowState`, `OnProfileChosen`, `OnAutoSettingChanged`, `RegisterProfileEntries`/`GuardBinding` (hotkeys and tray), `BuildPage`, `NewProfileRow`/`CreateAsync`, `CustomProfileRow`/`DeleteAsync`, `ReloadAsync` |
 
 ## Threads

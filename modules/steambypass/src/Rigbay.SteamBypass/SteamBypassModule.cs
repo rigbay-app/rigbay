@@ -46,7 +46,8 @@ public sealed partial class SteamBypassModule : IModule
     private ISteamProbe? _steam;
     private SteamBypassSettings _settings = new();
     private Timer? _timer;
-    private bool _fast;
+    private TimeSpan _pollInterval = SlowPoll;
+    private readonly object _pollGate = new();
     private SteamState _steamState = SteamState.NotRunning;
     private volatile string? _problem;
     private bool _checksRunning;
@@ -103,9 +104,9 @@ public sealed partial class SteamBypassModule : IModule
         _exitHandler = (_, _) => controller.RestoreOnExit();
         AppDomain.CurrentDomain.ProcessExit += _exitHandler;
 
-        _fast = IsWatched(host);
+        _pollInterval = Demand(host).Interval;
         RefreshTexts();
-        _timer = new Timer(_ => Tick(), null, _fast ? FastPoll : SlowPoll, _fast ? FastPoll : SlowPoll);
+        _timer = new Timer(_ => Tick(), null, _pollInterval, _pollInterval);
 
         // The change is claimed here, before Initialize returns, so a flip right after start is refused instead of racing the auto-on.
         if (_settings.AutoOn && TryBeginChange(wanted: true, out _) is { } autoTicket) RunBackground(() => AutoTurnOn(autoTicket));
@@ -392,27 +393,34 @@ public sealed partial class SteamBypassModule : IModule
 
     // ------------------------------------------------------------------ polling
 
-    /// <summary>True when somebody can see the numbers: the page is on screen, or a metric of this module has a subscriber.</summary>
-    internal static bool IsWatched(IHostServices host) =>
-        host.PageVisible.Value || host.Metrics.SubscriberCount(ActiveMetric) > 0 || host.Metrics.SubscriberCount(ErrorsMetric) > 0;
+    /// <summary>
+    /// How often the numbers are refreshed now (host API 0.1.4, <see cref="MetricDemand"/>): every second while the page is on screen or a metric of this module has a
+    /// subscriber; every 10 s when nobody looks; and when only a background reader asks (Watch) at min(10 s, max(1 s, asked interval)): never slower than the idle rate,
+    /// since the idle timer already runs, and never faster than the fast rate.
+    /// </summary>
+    internal static DemandState Demand(IHostServices host) => host.Evaluate(new[] { ActiveMetric, ErrorsMetric }, FastPoll, SlowPoll);
 
     private void OnWatchSignal()
     {
         var host = _host;
         var timer = _timer;
         if (host is null || timer is null) return;
-        bool watched = IsWatched(host);
-        if (watched == _fast) return;
-        _fast = watched;
-        try { timer.Change(watched ? TimeSpan.Zero : SlowPoll, watched ? FastPoll : SlowPoll); }
-        catch (ObjectDisposedException) { }
+        lock (_pollGate)
+        {
+            var interval = Demand(host).Interval;
+            if (interval == _pollInterval) return;
+            bool sooner = interval < _pollInterval;   // somebody started to look or asks for it faster: read at once, then at the new rate
+            _pollInterval = interval;
+            try { timer.Change(sooner ? TimeSpan.Zero : interval, interval); }
+            catch (ObjectDisposedException) { }
+        }
     }
 
     /// <summary>The last problem text shown on the page, or null (tests).</summary>
     internal string? LastFailureForTests => _problem;
 
     /// <summary>The interval the numbers are refreshed at now (tests).</summary>
-    internal TimeSpan CurrentPollInterval => _fast ? FastPoll : SlowPoll;
+    internal TimeSpan CurrentPollInterval { get { lock (_pollGate) return _pollInterval; } }
 
     /// <summary>One tick: refresh the numbers, the Steam row and the metrics. Public to the tests, which call it instead of waiting for the timer.</summary>
     internal void Tick()

@@ -169,7 +169,7 @@ public class HygieneTests
         Assert.Equal("gpu", m.GetProperty("id").GetString());
         Assert.Matches(@"^\d+\.\d+\.\d+$", m.GetProperty("version").GetString());
         Assert.Equal("monitoring", m.GetProperty("group").GetString());
-        Assert.Equal(">=0.1.3 <0.2", m.GetProperty("hostApi").GetString());   // PageModel.Summary readings, ReadingRow.ChartRole.Reference
+        Assert.Equal(">=0.1.4 <0.2", m.GetProperty("hostApi").GetString());   // MetricDemand and CommandInfo (host API revision 4)
         Assert.Equal("GPU", m.GetProperty("name").GetString());
         Assert.InRange(m.GetProperty("description").GetString()!.Length, 1, 200);
         Assert.Equal(typeof(GpuModule).FullName, m.GetProperty("entry").GetProperty("type").GetString());

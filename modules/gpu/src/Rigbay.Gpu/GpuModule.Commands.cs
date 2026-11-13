@@ -6,7 +6,8 @@ namespace Rigbay.Gpu;
 
 public sealed partial class GpuModule
 {
-    private void RegisterCommands(IHostServices host) => host.Commands.Register("status", "cmd.status", StatusCommandAsync);
+    private void RegisterCommands(IHostServices host) =>
+        host.Commands.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly, UsageKey = "cmd.status-usage" }, StatusCommandAsync);
 
     /// <summary>
     /// <c>rigbay gpu status</c>: reads the GPU once now (the person asked, so the GPU is woken for it) and prints the readings, one per line.

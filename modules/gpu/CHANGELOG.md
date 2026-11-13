@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1 (not released)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`).
+
+- **Background demand.** The decision "page visible or reader => fast, else not at all" is now `MetricDemand.Evaluate` (idle = do not poll). A reader that asks through
+  `SubscribeBackground` (Watch) makes the module read at max(poll rate, asked interval) while the page is closed; a subscriber or the page still means the poll rate.
+  The change is re-evaluated when the page is shown or left, a subscriber or a background demand comes or goes, and when the poll rate setting changes. With
+  nobody asking nothing changes. A background demand keeps the NVIDIA GPU awake (README, "When it reads").
+- **`rigbay gpu status` is declared read-only** (`CommandInfo`, `VerbAccess.ReadOnly`), so another module (Game scenes) can list it and call it. Behaviour unchanged.
+
 ## 0.1.0 (not released)
 
 First version. Reads the first NVIDIA GPU through NVML (`nvml.dll` from the Windows system folder) and publishes eleven readings on the metrics bus: GPU

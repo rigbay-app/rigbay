@@ -108,6 +108,8 @@ module.xtu.value.no = No
 # --- approval text (hotkey, tray and command; the page rows are confirmed by the host)
 module.xtu.approve.detail = {0}: PL1 {1} W, PL2 {2} W, window {3} s. Now: {4}.
 module.xtu.approve.detail-pl2-off = {0}: PL1 {1} W, PL2 off, window {3} s. Now: {4}.
+module.xtu.preview.apply = {0}: PL1 {1} W · PL2 {2} W · {3} s
+module.xtu.preview.apply-pl2-off = {0}: PL1 {1} W · PL2 off · {3} s
 
 # --- messages
 module.xtu.msg.applied = Applied: PL1 {0} W · PL2 {1} W · {2} s

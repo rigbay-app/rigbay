@@ -26,11 +26,30 @@ public sealed partial class SteamBypassModule
 
     private void RegisterCommands(IHostServices host)
     {
-        host.Commands.Register("status", "cmd.status", _ => StatusCommand(host));
-        host.Commands.Register("on", "cmd.on", ctx => ChangeCommandAsync(host, ctx, wanted: true));
-        host.Commands.Register("off", "cmd.off", ctx => ChangeCommandAsync(host, ctx, wanted: false));
-        host.Commands.Register("test", "cmd.test", ctx => TestCommandAsync(host, ctx));
+        // Host API 0.1.4: say what each verb does. status only reads. test runs the four connection checks (it opens connections and changes no setting on this
+        // machine, the same as the Test button), so it is read-only. on and off change the Windows proxy setting of the current user (a system setting, not hardware).
+        host.Commands.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly }, _ => StatusCommand(host));
+        host.Commands.Register(new CommandInfo("on", "cmd.on")
+        {
+            Access = VerbAccess.Writes,
+            Effect = BypassEffect,
+            UsageKey = "cmd.on-usage",
+            Preview = _ => LocalisedText.Of("preview.on"),
+            UndoVerb = "off",
+        }, ctx => ChangeCommandAsync(host, ctx, wanted: true));
+        host.Commands.Register(new CommandInfo("off", "cmd.off")
+        {
+            Access = VerbAccess.Writes,
+            Effect = BypassEffect,
+            UsageKey = "cmd.off-usage",
+            Preview = _ => LocalisedText.Of("preview.off"),
+            UndoVerb = "on",
+        }, ctx => ChangeCommandAsync(host, ctx, wanted: false));
+        host.Commands.Register(new CommandInfo("test", "cmd.test") { Access = VerbAccess.ReadOnly, UsageKey = "cmd.test-usage" }, ctx => TestCommandAsync(host, ctx));
     }
+
+    /// <summary>What the owner is told, and the kind of question the verbs ask with (the host answers inside a plan only a question of this kind). One value for the page, the switch and the verbs.</summary>
+    internal static readonly HardwareEffect BypassEffect = new("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" };
 
     // ------------------------------------------------------------------ rigbay steam-bypass status
 
@@ -69,14 +88,18 @@ public sealed partial class SteamBypassModule
             case ChangeStatus.Busy: return CommandResult.Failed(loc.T("cmd.busy"));
         }
 
+        // A run that changed something reports the way back: the opposite verb, which takes no arguments, so the list is empty (not null). An "already on/off" run
+        // changed nothing and reports none, so a plan that finds the bypass on already does not turn it off at its end. This is why the verbs report their undo instead of
+        // leaving it to a fixed "steam-bypass off": a fixed undo would also switch off a bypass the owner had on before the game started.
+        var undo = Array.Empty<string>();
         if (wanted)
         {
             var on = answer.On!;
             if (!on.Ok) return CommandResult.Failed(ProblemText(loc, on));
-            return CommandResult.Ok(loc.T(on.DownloadsAvailable ? "cmd.turned-on" : "cmd.turned-on-no-downloads"));
+            return CommandResult.Ok(loc.T(on.DownloadsAvailable ? "cmd.turned-on" : "cmd.turned-on-no-downloads")) with { UndoArgs = undo };
         }
         var off = answer.Off!;
-        return off.Ok ? CommandResult.Ok(loc.T("cmd.turned-off")) : CommandResult.Failed(loc.F("problem.restore", off.Error ?? ""));
+        return off.Ok ? CommandResult.Ok(loc.T("cmd.turned-off")) with { UndoArgs = undo } : CommandResult.Failed(loc.F("problem.restore", off.Error ?? ""));
     }
 
     /// <summary>
@@ -93,7 +116,7 @@ public sealed partial class SteamBypassModule
         if (ChangeInProgress) return new ChangeAnswer(ChangeStatus.Busy, null, null);   // do not ask the user about a change that cannot be made now
         if (AlreadyThere(controller, wanted)) return new ChangeAnswer(ChangeStatus.AlreadyThere, null, null);
 
-        var effect = new HardwareEffect("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" };
+        var effect = BypassEffect;
         var detail = LocalisedText.Of(wanted ? "detail.turn-on" : "detail.turn-off");
         bool approved = await host.Approval.ConfirmAsync(effect, detail, ct).ConfigureAwait(false);
         if (!approved)

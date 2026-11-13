@@ -22,7 +22,7 @@ public class ManifestTests
         Assert.Equal("recorder", m.GetProperty("id").GetString());
         Assert.Matches(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", m.GetProperty("version").GetString());
         Assert.Equal("monitoring", m.GetProperty("group").GetString());
-        Assert.Equal(">=0.1.3 <0.2", m.GetProperty("hostApi").GetString());   // the page uses PageModel.Primary, Row.Line, HelpKey, HeaderRow
+        Assert.Equal(">=0.1.4 <0.2", m.GetProperty("hostApi").GetString());   // CommandInfo (host API revision 4); the page uses PageModel.Primary, Row.Line, HelpKey, HeaderRow
         Assert.Equal(typeof(RecorderModule).Assembly.GetName().Version!.ToString(3), m.GetProperty("version").GetString());   // module.json and the DLL agree
         Assert.InRange(m.GetProperty("description").GetString()!.Length, 1, 200);
         Assert.InRange(m.GetProperty("name").GetString()!.Length, 1, 60);

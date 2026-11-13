@@ -19,6 +19,7 @@ public sealed partial class GpuModule : IModule
     private GpuSettings _settings = new();
     private bool _languageHooked;
     private bool _opened;
+    private readonly object _demandLock = new();
     private readonly ObservableValue<double> _pollSeconds = new(GpuSettings.DefaultPollSeconds);
     private readonly ObservableValue<LocalisedText> _stateLine = new(LocalisedText.Of("state.starting"));
     private readonly ObservableValue<string> _deviceText = new("");
@@ -94,7 +95,9 @@ public sealed partial class GpuModule : IModule
         host.Metrics.SubscribersChanged += OnWatchSignal;
 
         var scheduler = new PollScheduler(() => poller.PollOnce(), TimeSpan.FromSeconds(_settings.PollSeconds), ex => host.Log.Error("Polling the GPU failed", ex));
-        scheduler.Watched = IsWatched(host);
+        var demand = Demand(host, _settings.PollSeconds);
+        scheduler.Watched = demand.Kind != DemandKind.Idle;
+        scheduler.Interval = IntervalOf(demand, _settings.PollSeconds);
         _scheduler = scheduler;
         RefreshTexts();
         if (_deps.AutoPoll) scheduler.Start(TimeSpan.Zero);
@@ -139,34 +142,43 @@ public sealed partial class GpuModule : IModule
     // ------------------------------------------------------------------ who is looking
 
     /// <summary>
-    /// True when somebody wants the readings: the module's page is on screen, or one of its metrics has a reader (the Dashboard, a recorder, the
-    /// tray tooltip, another module). Otherwise NVML is not called at all.
+    /// How the module should read right now (host API 0.1.4, <see cref="MetricDemand"/>): <see cref="DemandKind.Fast"/> when its page is on screen or a
+    /// reader of one of its metrics exists (the Dashboard, a recorder, the tray tooltip, another module), at the user's poll rate;
+    /// <see cref="DemandKind.Background"/> when only a background reader asks (Watch), at max(poll rate, the asked interval); otherwise
+    /// <see cref="DemandKind.Idle"/>: NVML is not called at all (idle is "do not poll"). A background demand keeps the GPU awake, which on a
+    /// laptop with Optimus means the NVIDIA chip stays powered; see the README.
     /// </summary>
-    internal static bool IsWatched(IHostServices host)
-    {
-        if (host.PageVisible.Value) return true;
-        foreach (var metric in GpuMetrics.All)
-            if (host.Metrics.SubscriberCount(metric.Id) > 0) return true;
-        return false;
-    }
+    internal static DemandState Demand(IHostServices host, int pollSeconds) =>
+        host.Evaluate(GpuMetrics.All.Select(m => m.Id), TimeSpan.FromSeconds(pollSeconds), Timeout.InfiniteTimeSpan);
 
-    /// <summary>The page was shown or left, or somebody (un)subscribed. Runs on the thread that changed it: it flips the scheduler and asks for a poll when somebody started to look.</summary>
+    /// <summary>The scheduler's interval for a decision: the asked one, or the user's poll rate while idle (it is stored for when somebody looks).</summary>
+    private static TimeSpan IntervalOf(DemandState demand, int pollSeconds) =>
+        demand.Kind == DemandKind.Idle ? TimeSpan.FromSeconds(pollSeconds) : demand.Interval;
+
+    /// <summary>The page was shown or left, somebody (un)subscribed, a background demand came or went, or the poll rate changed. Runs on the thread that changed it: it sets the scheduler and asks for a poll when somebody started to look or wants it faster.</summary>
     private void OnWatchSignal()
     {
         var host = _host;
         var scheduler = _scheduler;
         if (host is null || scheduler is null) return;
-        bool watched = IsWatched(host);
-        if (watched == scheduler.Watched) return;
-        scheduler.Watched = watched;
-        if (watched) scheduler.PollSoon();
+        lock (_demandLock)
+        {
+            var demand = Demand(host, _settings.PollSeconds);
+            bool watched = demand.Kind != DemandKind.Idle;
+            var interval = IntervalOf(demand, _settings.PollSeconds);
+            bool wasWatched = scheduler.Watched;
+            bool faster = interval < scheduler.Interval;
+            scheduler.Interval = interval;
+            scheduler.Watched = watched;
+            if (watched && (!wasWatched || faster)) scheduler.PollSoon();
+        }
     }
 
     private void OnPollSecondsChanged()
     {
         int seconds = Math.Clamp((int)Math.Round(_pollSeconds.Value), GpuSettings.MinPollSeconds, GpuSettings.MaxPollSeconds);
         _settings.PollSeconds = seconds;
-        if (_scheduler is { } scheduler) scheduler.Interval = TimeSpan.FromSeconds(seconds);
+        OnWatchSignal();
         try { _host?.Settings.Save(_settings); }
         catch (Exception ex) { _host?.Log.Warn("Saving the GPU settings failed", ex); }
     }

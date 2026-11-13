@@ -128,6 +128,17 @@ internal sealed class FakeMetrics : IMetricsBus
     public int SubscriberCount(MetricId id) { lock (_gate) return _subscribers.TryGetValue(id, out var n) ? n : 0; }
     public event Action? SubscribersChanged;
 
+    /// <summary>Background demands (host API 0.1.4): the interval somebody asks for an id.</summary>
+    private readonly Dictionary<MetricId, TimeSpan> _background = new();
+    public TimeSpan? BackgroundInterval(MetricId id) { lock (_gate) return _background.TryGetValue(id, out var t) ? t : null; }
+
+    /// <summary>Pretends a reader asked for (or dropped) a background reading of a metric and raises <see cref="SubscribersChanged"/>, as the real bus does.</summary>
+    public void SetBackground(MetricId id, TimeSpan? interval)
+    {
+        lock (_gate) { if (interval is { } t) _background[id] = t; else _background.Remove(id); }
+        SubscribersChanged?.Invoke();
+    }
+
     /// <summary>Pretends a reader subscribed to (or left) a metric and raises <see cref="SubscribersChanged"/>.</summary>
     public void SetSubscribers(MetricId id, int count)
     {
@@ -257,6 +268,13 @@ internal sealed class FakeHotkeys : IHotkeyService
 internal sealed class FakeCommands : ICommandRegistry
 {
     public readonly Dictionary<string, (string DescriptionKey, CommandHandler Handler)> Verbs = new();
+    public readonly Dictionary<string, CommandInfo> Infos = new();
+
+    public void Register(CommandInfo info, CommandHandler handler)
+    {
+        Register(info.Verb, info.DescriptionKey, handler);
+        Infos[info.Verb] = info;
+    }
 
     public void Register(string verb, string descriptionKey, CommandHandler handler)
     {

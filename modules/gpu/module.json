@@ -2,11 +2,11 @@
   "manifestVersion": 1,
   "id": "gpu",
   "name": "GPU",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Rigbay contributors",
   "description": "Reads the NVIDIA GPU (load, power, clocks, memory, temperature, throttle reason) through NVML. Read only.",
   "entry": { "assembly": "Rigbay.Gpu.dll", "type": "Rigbay.Gpu.GpuModule" },
-  "hostApi": ">=0.1.3 <0.2",
+  "hostApi": ">=0.1.4 <0.2",
   "group": "monitoring",
   "requires": {
     "admin": false,

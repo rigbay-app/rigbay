@@ -2,11 +2,11 @@
   "manifestVersion": 1,
   "id": "predatorsense",
   "name": "PredatorSense",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "Rigbay contributors",
   "description": "Temperatures, fan speeds and the performance mode of an Acer Predator laptop, and the fan mode: Auto or Maximum.",
   "entry": { "assembly": "Rigbay.PredatorSense.dll", "type": "Rigbay.PredatorSense.PredatorSenseModule" },
-  "hostApi": ">=0.1.3 <0.2",
+  "hostApi": ">=0.1.4 <0.2",
   "group": "cooling",
   "requires": {
     "admin": true,

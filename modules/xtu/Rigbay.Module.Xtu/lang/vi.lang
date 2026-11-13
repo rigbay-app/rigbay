@@ -95,6 +95,8 @@ module.xtu.value.no = Không
 
 module.xtu.approve.detail = {0}: PL1 {1} W, PL2 {2} W, khoảng thời gian {3} s. Hiện giờ: {4}.
 module.xtu.approve.detail-pl2-off = {0}: PL1 {1} W, tắt PL2, khoảng thời gian {3} s. Hiện giờ: {4}.
+module.xtu.preview.apply = {0}: PL1 {1} W · PL2 {2} W · {3} s
+module.xtu.preview.apply-pl2-off = {0}: PL1 {1} W · tắt PL2 · {3} s
 
 module.xtu.msg.applied = Đã áp dụng: PL1 {0} W · PL2 {1} W · {2} s
 module.xtu.msg.already = Đang dùng sẵn

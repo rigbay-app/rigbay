@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3 (Unreleased)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`). The recording, the CSV, the `.meta.json` and `requires` do not change.
+
+- **Verb metadata** (`CommandInfo`), so Game scenes can list the verbs and the approval dialog can say what a step does. `status` is read-only. `start` and `stop` are declared as writes
+  of the setting kind: they write files (a CSV and a `.meta.json` in the recordings folder, until stopped or the time limit), not hardware and not a Windows setting. Read-only was
+  rejected because a read-only verb may be called by any module without the owner's approval, which would let a module start filling a disk or end the owner's recording; a
+  hardware kind was rejected because nothing on the machine is configured. The effect text (`effect.start`, `effect.stop`) says what really happens.
+- `start` is previewed from its arguments and the page's settings only ("Record the metrics selected on the page every 1 s until stopped, to <folder>", or the named metrics, or with
+  a time limit); the bus is not looked at, so the text is the same whether or not metrics exist or a recording runs. A change of the period, the limit or the folder on the page changes the
+  preview, so the host asks again. `stop` is previewed as "Stop the recording and close the file".
+- `start` has `UndoVerb = "stop"` and reports an empty `UndoArgs` when it began a recording (not when it was refused); `stop` has no undo (starting again is not putting back).
+- **No poll rate to decide:** the recorder publishes no metric, it reads the bus through its own subscription (which, as before, holds the modules it records at their fast rate while it records).
+
 ## 0.1.2
 
 Fixes for timing problems found when two tests failed on a slow CI machine. The recording, the CSV, the `.meta.json` and the manifest (host API `>=0.1.3 <0.2`, same `requires`) do not change.

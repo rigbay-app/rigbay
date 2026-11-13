@@ -107,7 +107,7 @@ public class HygieneTests
         Assert.Equal("tunnel", m.GetProperty("id").GetString());
         Assert.Matches(@"^\d+\.\d+\.\d+$", m.GetProperty("version").GetString());
         Assert.Equal("network", m.GetProperty("group").GetString());
-        Assert.Equal(">=0.1.3 <0.2", m.GetProperty("hostApi").GetString());   // the page uses ExpanderRow.HeaderRow, Row.Line, Row.HelpKey
+        Assert.Equal(">=0.1.4 <0.2", m.GetProperty("hostApi").GetString());   // MetricDemand and CommandInfo (host API revision 4); the page uses ExpanderRow.HeaderRow, Row.Line, Row.HelpKey
         Assert.InRange(m.GetProperty("name").GetString()!.Length, 1, 60);
         Assert.InRange(m.GetProperty("description").GetString()!.Length, 1, 200);
         Assert.Equal(typeof(TunnelModule).FullName, m.GetProperty("entry").GetProperty("type").GetString());

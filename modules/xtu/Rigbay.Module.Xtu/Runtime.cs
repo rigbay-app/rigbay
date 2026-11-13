@@ -92,7 +92,7 @@ internal sealed partial class XtuRuntime : IDisposable
         // Say once what every metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
         foreach (var descriptor in XtuMetrics.Descriptors) _host.Metrics.Describe(descriptor);
 
-        // The monitor is read only while somebody looks (page visible or a subscriber); these signals wake it up.
+        // The monitor is read only while somebody looks (page visible or a subscriber) or asks in the background; these signals wake it up.
         _host.PageVisible.Changed += OnWatchSignal;
         _host.Metrics.SubscribersChanged += OnWatchSignal;
     }
@@ -187,34 +187,56 @@ internal sealed partial class XtuRuntime : IDisposable
 
     // ---- monitor --------------------------------------------------------------------------------------------------------
 
+    /// <summary>How often the monitor is read when the page is open or somebody subscribed (the dashboard, a recorder, another module).</summary>
+    public static readonly TimeSpan FastInterval = TimeSpan.FromSeconds(1);
+
     private void MonitorLoop()
     {
         var stop = _stop.Token;
-        var next = Environment.TickCount64;
+        long lastRead = Environment.TickCount64;
+        long next = lastRead;
         bool failedBefore = false;
+        bool idle = true;
         while (!stop.IsCancellationRequested)
         {
-            if (!MonitorWanted())
+            // Reset first, then look: a signal that arrives after the reset is seen by the wait below, one before it is seen by the look.
+            _wake.Reset();
+            var demand = MonitorDemand();
+            if (demand.Kind == DemandKind.Idle)
             {
-                // Nobody looks: do not read XTU. The bus keeps the last value (a reader checks its age, see RECORDER-NOTES.md).
-                _wake.Reset();
-                if (MonitorWanted()) continue;                       // somebody arrived between the check and the reset
+                // Nobody looks and nobody asked in the background: do not read XTU. The bus keeps the last value (a reader checks its age, see RECORDER-NOTES.md).
+                idle = true;
                 if (WaitHandle.WaitAny(new[] { _wake.WaitHandle, stop.WaitHandle }) == 1) break;
-                if (!MonitorWanted()) continue;                      // a signal that changed nothing for us
-                // What XTU would give after a pause may be old: connect again and skip samples until a value moves (the warm-up).
-                try { _sampler.Reset(); } catch (Exception) { }
-                next = Environment.TickCount64;
                 continue;
             }
+            if (idle)
+            {
+                // What XTU would give after a pause may be old: connect again and skip samples until a value moves (the warm-up).
+                idle = false;
+                try { _sampler.Reset(); } catch (Exception) { }
+                next = Environment.TickCount64;
+            }
+            long intervalMs = (long)demand.Interval.TotalMilliseconds;
             try
             {
-                MonitorOnce();
-                MonitorSucceeded();
-                failedBefore = false;
-                next += 1000;
+                if (Environment.TickCount64 >= next)
+                {
+                    MonitorOnce();
+                    MonitorSucceeded();
+                    failedBefore = false;
+                    lastRead = Environment.TickCount64;
+                    // The first read after (re)connecting only starts the warm-up: with a slow demand do not wait a whole interval for the second one.
+                    long step = _sampler.Warming ? Math.Min(intervalMs, (long)FastInterval.TotalMilliseconds) : intervalMs;
+                    next += step;
+                    if (next < lastRead - 1000) next = lastRead + step;   // far behind: reset the slot instead of bursting
+                }
+                else
+                {
+                    // Woken by a change of demand: keep the time of the last read, but never wait longer than the new interval asks.
+                    next = Math.Min(next, lastRead + intervalMs);
+                }
                 var wait = next - Environment.TickCount64;
-                if (wait < -1000) { next = Environment.TickCount64; wait = 0; }   // far behind: reset the slot instead of bursting
-                if (wait > 0 && stop.WaitHandle.WaitOne((int)wait)) break;
+                if (wait > 0 && WaitHandle.WaitAny(new[] { _wake.WaitHandle, stop.WaitHandle }, (int)Math.Min(wait, int.MaxValue)) == 1) break;
             }
             catch (Exception ex)
             {
@@ -230,20 +252,19 @@ internal sealed partial class XtuRuntime : IDisposable
     }
 
     /// <summary>
-    /// True when somebody can see the readings: the module's page is on screen, or one of the monitor metrics has a subscriber
-    /// (the dashboard bay, a recorder, another module). Otherwise the monitor is not read.
+    /// How the monitor should be read now (host API 0.1.4, <see cref="MetricDemand"/>): <see cref="DemandKind.Fast"/> (every second) when the page is on
+    /// screen or one of the monitor metrics has a subscriber (the dashboard bay, a recorder, another module); <see cref="DemandKind.Background"/> when only
+    /// a background reader asks (Watch), at max(1 s, asked interval); otherwise <see cref="DemandKind.Idle"/>, which for this module means do not read.
+    /// The per-core metrics count only while the per-core option publishes them.
     /// </summary>
-    internal bool MonitorWanted()
+    internal DemandState MonitorDemand()
     {
-        if (_host.PageVisible.Value) return true;
-        var bus = _host.Metrics;
-        foreach (var id in XtuMetrics.Monitored)
-            if (bus.SubscriberCount(id) > 0) return true;
-        if (_settings.PublishPerCore)
-            foreach (var id in XtuMetrics.PerCore)
-                if (bus.SubscriberCount(id) > 0) return true;
-        return false;
+        var ids = _settings.PublishPerCore ? XtuMetrics.Monitored.Concat(XtuMetrics.PerCore) : XtuMetrics.Monitored;
+        return _host.Evaluate(ids, FastInterval, Timeout.InfiniteTimeSpan);
     }
+
+    /// <summary>True when somebody can see the readings or asked for them in the background. Otherwise the monitor is not read.</summary>
+    internal bool MonitorWanted() => MonitorDemand().Kind != DemandKind.Idle;
 
     /// <summary>The page was shown or left, or somebody (un)subscribed: wake the monitor thread, which decides what to do. Cheap.</summary>
     private void OnWatchSignal()

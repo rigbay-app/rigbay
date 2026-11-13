@@ -11,9 +11,51 @@ public sealed partial class RecorderModule
 
     private void RegisterCommands(IHostServices host)
     {
-        host.Commands.Register("start", "cmd.start", ctx => StartCommand(host, ctx));
-        host.Commands.Register("stop", "cmd.stop", _ => StopCommand(host));
-        host.Commands.Register("status", "cmd.status", _ => StatusCommand(host));
+        // Host API 0.1.4: say what each verb does. status only reads. start and stop are writes, but not of hardware and not of a Windows setting: start opens a CSV file (and a
+        // .meta.json) in the recordings folder and keeps writing it until it is stopped or its time limit ends; stop closes it. They are declared Writes, not ReadOnly, because
+        // a read-only verb can be called by any module without the owner's approval, and a module must not be able to start filling a disk (or end the owner's recording) that
+        // way; the only effect kind that fits is the setting kind ("Change a system setting?"), and the effect text says what really happens. start has stop as its undo;
+        // stop has none (starting again with the same settings is not "putting back").
+        host.Commands.Register(new CommandInfo("start", "cmd.start")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect("effect.start") { Kind = EffectKind.SystemSetting },
+            UsageKey = "cmd.start-usage",
+            Preview = PreviewStart,
+            UndoVerb = "stop",
+        }, ctx => StartCommand(host, ctx));
+        host.Commands.Register(new CommandInfo("stop", "cmd.stop")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect("effect.stop") { Kind = EffectKind.SystemSetting },
+            Preview = _ => LocalisedText.Of("preview.stop"),
+        }, _ => StopCommand(host));
+        host.Commands.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly }, _ => StatusCommand(host));
+    }
+
+    /// <summary>
+    /// What these arguments would start: the period, the limit and the folder, from the arguments and the page's settings, and which metrics (the ones named, or the ones selected
+    /// on the page). Nothing is looked up on the bus, so it reads the same on every run. Null for arguments <c>start</c> would refuse.
+    /// </summary>
+    internal LocalisedText? PreviewStart(IReadOnlyList<string> args)
+    {
+        var parsed = ParseStart(args);
+        if (parsed.Problem is not null) return null;
+        var request = RequestFromSettings();
+        if (parsed.EverySeconds is { } every) request = request with { Period = TimeSpan.FromSeconds(every) };
+        if (parsed.Minutes is { } minutes) request = request with { Duration = minutes > 0 ? TimeSpan.FromMinutes(minutes) : null };
+        string period = request.Period.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture);
+        string? limit = request.Duration is { } d ? d.TotalMinutes.ToString("0.###", CultureInfo.InvariantCulture) : null;
+        if (parsed.Metrics is { } only)
+        {
+            string ids = string.Join(", ", only.Select(m => m.Value));
+            return limit is null
+                ? LocalisedText.Of("preview.start-only", ids, period, request.Folder)
+                : LocalisedText.Of("preview.start-only-for", ids, period, limit, request.Folder);
+        }
+        return limit is null
+            ? LocalisedText.Of("preview.start", period, request.Folder)
+            : LocalisedText.Of("preview.start-for", period, limit, request.Folder);
     }
 
     private void RegisterShortcuts(IHostServices host)
@@ -123,7 +165,9 @@ public sealed partial class RecorderModule
         var outcome = StartRecording(request);
         if (!outcome.Started) return CommandResult.Failed(loc.Resolve(outcome.Message));
         string limit = request.Duration is { } d ? loc.F("cmd.limit-minutes", d.TotalMinutes.ToString("0.###", CultureInfo.InvariantCulture)) : loc.T("cmd.limit-none");
-        return CommandResult.Ok(loc.F("cmd.started", outcome.Path ?? "", request.Period.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture), limit));
+        // The way back is `stop` with no arguments, so the list is empty (not null). A start that was refused (already recording, no space, ...) returned above and reports none.
+        return CommandResult.Ok(loc.F("cmd.started", outcome.Path ?? "", request.Period.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture), limit))
+            with { UndoArgs = Array.Empty<string>() };
     }
 
     // ------------------------------------------------------------------ rigbay recorder stop

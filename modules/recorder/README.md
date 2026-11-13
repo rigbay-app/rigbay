@@ -9,7 +9,7 @@ Rows are one period apart exactly (1, 2, 5, 10 s or any number from the verb), a
   Live check with the real app and PredatorSense (reads only): `tools/live-record.ps1`.
 - Solution: `Rigbay.Recorder.slnx`. This folder is self-contained (own `Directory.Build.props`); its only dependency outside it is the `ProjectReference` to
   `Rigbay.Abstractions` (in a separate repository, replace it by the NuGet package). It has no NuGet dependency of its own.
-- Version **0.1.2** (0.1.0 and 0.1.1 are released): 0.1.1 is the page of the November 2026 UI review, 0.1.2 fixes timing problems of the writing loop and three races of the page, see [CHANGELOG.md](CHANGELOG.md). Needs host API 0.1.3
+- Version **0.1.3** (0.1.0 and 0.1.1 are released): 0.1.1 is the page of the November 2026 UI review, 0.1.2 fixes timing problems of the writing loop and three races of the page, 0.1.3 declares what its verbs do for other modules, see [CHANGELOG.md](CHANGELOG.md). Needs Rigbay 0.1.5 or newer (host API 0.1.4)
   (`PageModel.Primary`, `Row.Line`, `Row.HelpKey`, `ExpanderRow.HeaderRow`); the metric catalogue of task A12 (`IMetricsBus.GetMetricInfo`) gives the labels.
 - Full description (page, CSV and meta format, timing rules, disk safety, verification record, findings): `docs/recorder/README.md` in the Rigbay repository.
   Notes for changing it: `.claude/skills/recorder-module/` there.

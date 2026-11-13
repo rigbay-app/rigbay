@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay Remote tunnel module (modules/tunne
 
 # Remote tunnel module: codebase guide
 
-Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (118 at the last run, version 0.1.1 unreleased, host API `>=0.1.3`).
+Module id `tunnel`, group `network`, `modules/tunnel/src/Rigbay.Tunnel` (net8.0), tests in `modules/tunnel/tests/Rigbay.Tunnel.Tests` (version 0.1.2 unreleased, host API `>=0.1.4`).
 User and design document: `docs/tunnel/MODULE.md` (it says which WireGuard facts were checked and where). This repository is PUBLIC.
 
 ## Hard constraints (check before you write code)
@@ -59,7 +59,7 @@ Repository `rigbay-app/module-tunnel`, release `v0.1.0`. Make the registry entry
 - **The switch and the host.** The host sets the toggle's value after approval, on the UI thread; the module starts the change on a pool thread and puts the toggle right at the end
   (`Resync`). The module sets values itself only through `SetOwn` (a `[ThreadStatic]` flag, because `Changed` runs synchronously on the setting thread), so its own sets are not taken for the user's.
   While a change runs `ApplyList` does not overwrite the toggle.
-- **Polling.** Services every 15 s; `wg.exe` (three calls per tunnel) only while `PageVisible` or somebody reads a `tunnel.*` metric (2 s). Tests call `PollOnceAsync()` and `WhenIdleAsync()`; `Dependencies.AutoPoll = false` means no timer.
+- **Polling.** Services every 15 s; `wg.exe` (three calls per tunnel) only while `PageVisible` or somebody reads a `tunnel.*` metric (2 s), or, since 0.1.2 (host API 0.1.4), while a `SubscribeBackground` demand exists (Watch) at min(15 s, max(2 s, N)): `TunnelModule.Demand` = `host.Evaluate(all tunnel metric ids, 2 s, 15 s)`, `UpdatePollRate` re-runs it on every signal. The verbs carry `CommandInfo` (list/status ReadOnly, on/off Writes + SystemSetting, preview from the argument, `UndoArgs` = the stored name when the run changed the tunnel). Tests: `DemandAndVerbTests.cs`. Tests call `PollOnceAsync()` and `WhenIdleAsync()`; `Dependencies.AutoPoll = false` means no timer.
 - **Handshake.** Connected = newest handshake not older than 3 minutes. After a turn-on the module waits up to 30 s, once a second (fake clock in tests, no sleeping). A verb waits in the verb; the tray and hotkey wait in the background and then show one toast.
 - **Metric ids and hotkey/tray ids** only accept `a-z 0-9 -` (`_` too in metrics), so `TunnelNames.Slug` lowercases and replaces; when that lost more than case, four hex digits of an FNV hash are appended.
 - **A tunnel found on that Rigbay did not start** is shown as on and is never touched; auto-off counts from the first poll that sees it, only when the user set hours.

@@ -27,9 +27,27 @@ internal sealed class XtuCommands
 
     public void Register(ICommandRegistry registry)
     {
-        registry.Register("status", "cmd.status", _ => Status());
-        registry.Register("list", "cmd.list", _ => List());
-        registry.Register("apply", "cmd.apply", ctx => ApplyAsync(ctx.Args, ctx.CancellationToken));
+        // Host API 0.1.4: say what each verb does. status and list only read. apply writes the CPU power limits (the same effect the page and the
+        // hotkeys describe); its preview is the values of the profile the arguments name, from the module's own profile list, never from what is in force now.
+        registry.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly }, _ => Status());
+        registry.Register(new CommandInfo("list", "cmd.list") { Access = VerbAccess.ReadOnly }, _ => List());
+        registry.Register(new CommandInfo("apply", "cmd.apply")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect(ApplyService.EffectKey),
+            UsageKey = "cmd.apply-usage",
+            Preview = PreviewApply,
+            UndoVerb = "apply",
+        }, ctx => ApplyAsync(ctx.Args, ctx.CancellationToken));
+    }
+
+    /// <summary>"Gaming: PL1 45 W, PL2 65 W, window 28 s": the profile the arguments name, from the profile list. No live state, so it reads the same on every run.</summary>
+    internal LocalisedText? PreviewApply(IReadOnlyList<string> args)
+    {
+        var name = string.Join(' ', args).Trim();
+        var target = name.Length == 0 ? null : Catalog.FindByName(_profiles(), name);
+        if (target is null) return null;
+        return LocalisedText.Of(target.Pl2Enable ? "preview.apply" : "preview.apply-pl2-off", target.Name, Fmt.N(target.Pl1), Fmt.N(target.Pl2), Fmt.N(target.Window));
     }
 
     internal CommandResult Status()
@@ -79,7 +97,11 @@ internal sealed class XtuCommands
         switch (result.Status)
         {
             case ApplyStatus.Applied:
-                return CommandResult.Ok(head + "result: " + _loc.F("msg.applied", Fmt.N(result.After!.Pl1), Fmt.N(result.After.Pl2), Fmt.N(result.After.Window)));
+                // The profile that was in force before, when one matches exactly: `apply <that>` puts it back. Nothing when the old values were no profile
+                // (the host then says the step is not undone) and nothing when nothing changed (AlreadyActive).
+                var was = Catalog.FindActive(BuildProfiles(result.Before), result.Before);
+                return CommandResult.Ok(head + "result: " + _loc.F("msg.applied", Fmt.N(result.After!.Pl1), Fmt.N(result.After.Pl2), Fmt.N(result.After.Window)))
+                    with { UndoArgs = was is null ? null : new[] { was.Name } };
             case ApplyStatus.AlreadyActive:
                 return CommandResult.Ok(head + "result: " + _loc.T("msg.already"));
             case ApplyStatus.Declined:

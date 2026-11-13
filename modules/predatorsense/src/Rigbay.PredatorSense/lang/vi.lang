@@ -95,6 +95,8 @@ module.predatorsense.state.unavailable = Không đọc được số đo
 # Nội dung xác nhận
 module.predatorsense.detail.change = Chế độ quạt: {0} -> {1}
 module.predatorsense.detail.set = Đặt chế độ quạt thành {0}
+module.predatorsense.preview.fan-auto = Chế độ quạt: Tự động (firmware của laptop điều khiển quạt)
+module.predatorsense.preview.fan-max = Chế độ quạt: Tối đa (mọi quạt chạy hết tốc độ)
 
 # Lệnh
 module.predatorsense.cmd.status = In nhiệt độ và tốc độ quạt

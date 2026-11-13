@@ -26,7 +26,8 @@ public sealed partial class TunnelModule : IModule
     private readonly ObservableValue<bool> _noTunnels = new(false);
     private readonly ObservableValue<bool> _storeUnreadable = new(false);
     private volatile bool _stopping;
-    private bool _fast;
+    private TimeSpan _pollInterval = SlowPoll;
+    private readonly object _rateGate = new();
     private bool _languageHooked;
     private int _tunnelsKey;   // changes whenever the set of names changes, to ask for a new page only then
 
@@ -70,9 +71,8 @@ public sealed partial class TunnelModule : IModule
         if (list is not null) ApplyList(host, list, firstTime: true);
         RefreshTexts(list);
 
-        bool wanted = Wanted(host);
-        _fast = wanted;
-        if (_deps.AutoPoll) _timer = new Timer(_ => TimerTick(), null, wanted ? FastPoll : SlowPoll, wanted ? FastPoll : SlowPoll);
+        _pollInterval = Demand(host).Interval;
+        if (_deps.AutoPoll) _timer = new Timer(_ => TimerTick(), null, _pollInterval, _pollInterval);
     }
 
     /// <inheritdoc />
@@ -100,27 +100,34 @@ public sealed partial class TunnelModule : IModule
 
     // ------------------------------------------------------------------ polling
 
-    private bool Wanted(IHostServices host) => host.PageVisible.Value || AnySubscriber(host);
-
-    /// <summary>Somebody (the dashboard, the recorder, another module) reads one of this module's metrics: the ids are known from the tunnel names.</summary>
-    private bool AnySubscriber(IHostServices host)
+    /// <summary>
+    /// How the module should look now (host API 0.1.4, <see cref="MetricDemand"/>): <see cref="DemandKind.Fast"/> (every 2 s) while the page is on screen or somebody reads
+    /// one of the tunnels' metrics (the dashboard, the recorder, another module); <see cref="DemandKind.Background"/> when only a background reader asks (Watch), at
+    /// min(15 s, max(2 s, asked interval)); otherwise <see cref="DemandKind.Idle"/> (every 15 s). Only the services are listed when idle; the counters are read through
+    /// wg.exe whenever the kind is not idle, and that is what publishes the rates and the handshake age.
+    /// </summary>
+    internal DemandState Demand(IHostServices host)
     {
-        lock (_uiGate)
-            foreach (var ui in _ui.Values)
-                if (host.Metrics.SubscriberCount(new MetricId(ui.RxMetric)) > 0 || host.Metrics.SubscriberCount(new MetricId(ui.TxMetric)) > 0
-                    || host.Metrics.SubscriberCount(new MetricId(ui.HandshakeMetric)) > 0) return true;
-        return false;
+        MetricId[] ids;
+        lock (_uiGate) ids = _ui.Values.SelectMany(ui => new[] { new MetricId(ui.RxMetric), new MetricId(ui.TxMetric), new MetricId(ui.HandshakeMetric) }).ToArray();
+        return host.Evaluate(ids, FastPoll, SlowPoll);
     }
+
+    /// <summary>The interval the timer runs at now (tests).</summary>
+    internal TimeSpan CurrentPollInterval { get { lock (_rateGate) return _pollInterval; } }
 
     private void UpdatePollRate()
     {
         var host = _host;
-        var timer = _timer;
-        if (host is null || timer is null || _stopping) return;
-        bool wanted = Wanted(host);
-        if (wanted == _fast) return;
-        _fast = wanted;
-        timer.Change(wanted ? TimeSpan.Zero : SlowPoll, wanted ? FastPoll : SlowPoll);   // zero: look at once when somebody starts looking
+        if (host is null || _stopping) return;
+        lock (_rateGate)
+        {
+            var interval = Demand(host).Interval;
+            if (interval == _pollInterval) return;
+            bool sooner = interval < _pollInterval;   // somebody started looking or wants it faster: look at once, then at the new rate
+            _pollInterval = interval;
+            _timer?.Change(sooner ? TimeSpan.Zero : interval, interval);
+        }
     }
 
     private void TimerTick()
@@ -147,7 +154,7 @@ public sealed partial class TunnelModule : IModule
             if (list is null) return;
             ApplyList(host, list, firstTime: false);
 
-            bool wanted = Wanted(host);
+            bool wanted = Demand(host).Kind != DemandKind.Idle;
             foreach (var info in list.Tunnels)
             {
                 if (_stopping) return;

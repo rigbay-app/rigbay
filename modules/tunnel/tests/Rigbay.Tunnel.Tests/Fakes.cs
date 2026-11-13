@@ -189,6 +189,17 @@ internal sealed class FakeBus : IMetricsBus
     public int SubscriberCount(MetricId id) { lock (_gate) return Subscribed.Contains(id.Value) ? 1 : 0; }
     public event Action? SubscribersChanged;
     public void RaiseSubscribersChanged() => SubscribersChanged?.Invoke();
+
+    /// <summary>Background demands (host API 0.1.4): id to the interval somebody asks.</summary>
+    public readonly Dictionary<string, TimeSpan> Background = new();
+    public TimeSpan? BackgroundInterval(MetricId id) { lock (_gate) return Background.TryGetValue(id.Value, out var t) ? t : null; }
+
+    /// <summary>Pretends a reader asked for (or dropped) a background reading of a metric and raises <see cref="SubscribersChanged"/>, as the real bus does.</summary>
+    public void SetBackground(string id, TimeSpan? interval)
+    {
+        lock (_gate) { if (interval is { } t) Background[id] = t; else Background.Remove(id); }
+        SubscribersChanged?.Invoke();
+    }
     public IDisposable Subscribe(Action<MetricSample> handler) => new Nop();
     public IDisposable Subscribe(MetricId id, Action<MetricSample> handler) => new Nop();
     public bool TryGetLatest(MetricId id, out MetricSample sample) { sample = null!; return false; }
@@ -316,6 +327,13 @@ internal sealed class FakeHotkeys : IHotkeyService
 internal sealed class FakeCommands : ICommandRegistry
 {
     public readonly Dictionary<string, (string DescriptionKey, CommandHandler Handler)> Verbs = new();
+    public readonly Dictionary<string, CommandInfo> Infos = new();
+
+    public void Register(CommandInfo info, CommandHandler handler)
+    {
+        Register(info.Verb, info.DescriptionKey, handler);
+        Infos[info.Verb] = info;
+    }
 
     public void Register(string verb, string descriptionKey, CommandHandler handler)
     {
