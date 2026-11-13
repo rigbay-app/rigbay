@@ -110,6 +110,9 @@ namespace PredatorSenseProbe
         const string WmiClassGeneric = "AcerGenericMethod";
         const string ClassGaming = WmiClassGaming;
         const string ClassGeneric = WmiClassGeneric;
+        // B11 (static analysis of PSSvc.exe and PSAdminAgent.exe): Acer's own code calls GetFunction/SetFunction on the class
+        // APGeAction, never on AcerGenericMethod. Whether the two names are one class on this machine is not known.
+        const string ClassApge = "APGeAction";
 
         // Names of the sensor indexes of GetGamingSysInfo, as listed by the PredatorSense UI.
         static readonly string[] SysInfoNames = new string[]
@@ -138,7 +141,8 @@ namespace PredatorSenseProbe
                 }
                 else if (a == "--r1") calls.Add(SysInfoIndexCall(2));                  // CPU fan speed, GetGamingSysInfo 0x0201
                 else if (a == "--r2") calls.Add(new ReadCall("r2_cool_booster_state", ClassGeneric, "GetFunction", "uiInput", "uiOutput", 0x207, "coolbooster"));
-                else if (a == "--r3") calls.Add(new ReadCall("r3_keyboard_backlight", ClassGeneric, "GetFunction", "uiInput", "uiOutput", 0x80184, "backlight"));
+                else if (a == "--r3") err = "--r3 is void since B11: it sent the wrong input 0x80184 to AcerGenericMethod. Use --kb-backlight (APGeAction.GetFunction 0x88401; FINDINGS.md 16.1)";
+                else if (a == "--kb-backlight") calls.Add(new ReadCall("kb_backlight", ClassApge, "GetFunction", "uiInput", "uiOutput", 0x88401, "backlight"));   // 1 | (132 << 8) | 0x80000; hotkey 132 is machine specific
                 else if (a == "--battery-boost") calls.Add(new ReadCall("battery_boost", ClassGaming, "GetGamingSysInfo", "gmInput", "gmOutput", 0x2, "batteryboost"));
                 else if (a == "--misc-get" && i + 1 < args.Length)
                 {
@@ -150,7 +154,8 @@ namespace PredatorSenseProbe
                     else err = "--misc-get must be 2, 9, 10 (0x0A) or 11 (0x0B)";
                 }
                 else if (a == "--self-test-refusals") selfTest = true;
-                else if (a == "--led-behavior-get") calls.Add(new ReadCall("led_behavior_get_1", ClassGaming, "GetGamingLEDBehavior", "gmInput", "gmOutput", 1, "ledbehavior"));
+                else if (a == "--led-behavior-get") err = "--led-behavior-get is void since B11: it called GetGamingLEDBehavior (id 11), which no Acer code calls. Use --led-get (GetGamingLED, id 4, input 1; FINDINGS.md 16.1)";
+                else if (a == "--led-get") calls.Add(new ReadCall("led_get_1", ClassGaming, "GetGamingLED", "gmInput", "gmOutput", 1, "ledbehavior"));
                 else if (a == "-h" || a == "--help" || a == "/?") help = true;
                 else err = "Unknown argument: " + a;
                 if (err != null) { Console.Error.WriteLine(err); bad = true; }
@@ -168,11 +173,11 @@ namespace PredatorSenseProbe
                 Console.WriteLine("    --sysinfo-index N    GetGamingSysInfo, input 1|(N<<8), N 1..17 (1 = CPU temperature)");
                 Console.WriteLine("    --r1                 GetGamingSysInfo 0x0201 (CPU fan speed) = --sysinfo-index 2");
                 Console.WriteLine("    --r2                 AcerGenericMethod.GetFunction 0x207 (Cool Booster state)");
-                Console.WriteLine("    --r3                 AcerGenericMethod.GetFunction 0x80184 (keyboard backlight)");
+                Console.WriteLine("    --kb-backlight       APGeAction.GetFunction 0x88401 (keyboard backlight; replaces the void --r3)");
                 Console.WriteLine("    --battery-boost      GetGamingSysInfo 0x2 (battery boost flag)");
                 Console.WriteLine("    --misc-get 2|9|10|11 GetGamingMiscSetting 2 (GPU mode), 9 (GPU mode capability), 10 = 0x0A (operation-mode capability),");
                 Console.WriteLine("                         11 = 0x0B (current operation mode)");
-                Console.WriteLine("    --led-behavior-get   GetGamingLEDBehavior 1");
+                Console.WriteLine("    --led-get            GetGamingLED 1 (Acer's boost indicator read; replaces the void --led-behavior-get)");
                 Console.WriteLine("  --self-test-refusals   no WMI, no flags needed: checks that every other GetGamingMiscSetting input and every Set* is refused");
                 Console.WriteLine("  Anything else, and every Set* method, is refused in code.");
                 return bad ? 2 : 0;
@@ -466,19 +471,24 @@ namespace PredatorSenseProbe
             }
             if (c.Class == ClassGeneric && c.Method == "GetFunction")
             {
-                if (c.Input == 0x207 || c.Input == 0x80184) return null;       // Cool Booster state, keyboard backlight (hotkey 132)
-                return "GetFunction input is not 0x207 or 0x80184";
+                if (c.Input == 0x207) return null;                              // Cool Booster state (B3 ran it once: status 0xE1)
+                return "GetFunction on AcerGenericMethod: input is not 0x207 (0x80184 was wrong, void since B11)";
+            }
+            if (c.Class == ClassApge && c.Method == "GetFunction")
+            {
+                if (c.Input == 0x88401) return null;                            // keyboard backlight: 1 | (132 << 8) | 0x80000 (B11, traced in the UI and PSAdminAgent.exe)
+                return "GetFunction on APGeAction: input is not 0x88401";
+            }
+            if (c.Class == ClassGaming && c.Method == "GetGamingLED")
+            {
+                if (c.Input == 1) return null;                                  // Acer's pipe 14 (the UI calls it LEDBehavior): the boost indicator read
+                return "GetGamingLED input is not 1";
             }
             if (c.Class == ClassGaming && c.Method == "GetGamingMiscSetting")
             {
                 if (c.Input == 2 || c.Input == 9) return null;                  // GPU mode, GPU mode capability
                 if (c.Input == 0x0A || c.Input == 0x0B) return null;            // operation-mode capability, current operation mode (B10, owner approved 2026-11-12)
                 return "GetGamingMiscSetting input is not 2, 9, 0x0A or 0x0B";
-            }
-            if (c.Class == ClassGaming && c.Method == "GetGamingLEDBehavior")
-            {
-                if (c.Input == 1) return null;
-                return "GetGamingLEDBehavior input is not 1";
             }
             return "call is not on the approved read list";
         }
@@ -499,6 +509,18 @@ namespace PredatorSenseProbe
             foreach (string m in new string[] { "SetGamingMiscSetting", "SetGamingFanBehavior", "setGamingMiscSetting", "SetGamingLEDBehavior" })
                 if (Refusal(new ReadCall("t", ClassGaming, m, "gmInput", "gmOutput", 0x0B, "")) == null) { Console.WriteLine("FAIL " + m + " allowed"); fails++; }
             if (Refusal(new ReadCall("t", ClassGeneric, "GetGamingMiscSetting", "gmInput", "gmOutput", 0x0B, "")) == null) { Console.WriteLine("FAIL wrong class allowed"); fails++; }
+            // B11: lighting reads. Only the traced inputs on the traced classes are allowed.
+            for (ulong i = 0; i <= 0x1FF; i++)
+                if ((Refusal(new ReadCall("t", ClassGeneric, "GetFunction", "uiInput", "uiOutput", i, "")) == null) != (i == 0x207)) { Console.WriteLine("FAIL AcerGenericMethod.GetFunction input 0x" + i.ToString("X")); fails++; }
+            ulong[] apge = new ulong[] { 0x80184, 0x207, 0x88400, 0x88402, 0x80001, 0x0, 0x1, 0xFFFFFFFFUL };
+            foreach (ulong v in apge)
+                if (Refusal(new ReadCall("t", ClassApge, "GetFunction", "uiInput", "uiOutput", v, "")) == null) { Console.WriteLine("FAIL APGeAction.GetFunction input 0x" + v.ToString("X") + " allowed"); fails++; }
+            if (Refusal(new ReadCall("t", ClassApge, "GetFunction", "uiInput", "uiOutput", 0x88401, "")) != null) { Console.WriteLine("FAIL APGeAction.GetFunction 0x88401 refused"); fails++; }
+            if (Refusal(new ReadCall("t", ClassApge, "SetFunction", "uiInput", "uiOutput", 0x88401, "")) == null) { Console.WriteLine("FAIL APGeAction.SetFunction allowed"); fails++; }
+            for (ulong i = 0; i <= 0x1FF; i++)
+                if ((Refusal(new ReadCall("t", ClassGaming, "GetGamingLED", "gmInput", "gmOutput", i, "")) == null) != (i == 1)) { Console.WriteLine("FAIL GetGamingLED input 0x" + i.ToString("X")); fails++; }
+            foreach (string m in new string[] { "GetGamingLEDBehavior", "GetGamingRgbKb", "GetGamingKBBacklight", "GetGamingLEDColor", "SetGamingLED", "SetGamingRgbKb", "SetGamingKBBacklight" })
+                if (Refusal(new ReadCall("t", ClassGaming, m, "gmInput", "gmOutput", 1, "")) == null) { Console.WriteLine("FAIL " + m + " allowed"); fails++; }
             Console.WriteLine(fails == 0 ? "self-test-refusals: OK (GetGamingMiscSetting allows only 2, 9, 0x0A, 0x0B; Set* and every other input refused; no WMI touched)" : "self-test-refusals: " + fails + " FAILURES");
             return fails == 0 ? 0 : 1;
         }

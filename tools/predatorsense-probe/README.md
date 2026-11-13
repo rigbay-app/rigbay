@@ -21,11 +21,11 @@ first exception or non-zero status.
 | `--sysinfo-index N` (1..17) | `AcerGamingFunction.GetGamingSysInfo`, input `1 \| (N << 8)` (sensors; 1 = CPU temperature) |
 | `--r1` | `GetGamingSysInfo` `0x0201` (CPU fan speed), the same call as `--sysinfo-index 2` |
 | `--r2` | `AcerGenericMethod.GetFunction` `0x207` (Cool Booster state) |
-| `--r3` | `AcerGenericMethod.GetFunction` `0x80184` (keyboard backlight; hotkey number 132 is machine specific) |
+| `--kb-backlight` | `APGeAction.GetFunction` `0x88401` (keyboard backlight: `1 \| (132 << 8) \| 0x80000`; hotkey number 132 is machine specific; B11). **Replaces `--r3`**, which sent the wrong input `0x80184` to `AcerGenericMethod` and is now refused. Never run so far; needs the owner's approval for this exact call (`docs/predatorsense/WRITE-PROPOSALS.md` W5-R1) |
 | `--battery-boost` | `GetGamingSysInfo` `0x2` |
 | `--misc-get 2\|9\|10\|11` | `AcerGamingFunction.GetGamingMiscSetting` `2` or `9` (GPU mode support / capability), `10` = `0x0A` (operation-mode capability), `11` = `0x0B` (current operation mode; B10, owner-approved 2026-11-12) |
 | `--self-test-refusals` | no WMI, no `--allow-call`: checks that every other `GetGamingMiscSetting` input (0 to 0x1FF, the mode-write values, large values), every `Set*` name and a wrong class is refused |
-| `--led-behavior-get` | `AcerGamingFunction.GetGamingLEDBehavior` `1` |
+| `--led-get` | `AcerGamingFunction.GetGamingLED` `1` (Acer's boost indicator read; the UI calls it "LEDBehavior"). **Replaces `--led-behavior-get`**, which called `GetGamingLEDBehavior` (id 11), a method no Acer code calls, and is now refused (B11, `FINDINGS.md` 16.1). Never run |
 
 `Refusal()` in `Probe.cs` is the allowlist (exact class, method and input). Anything else, any method whose name starts with `Set`, a repeated call and a run
 without `--allow-call` are refused before WMI is touched. There is no write path in this tool. Values come from the PredatorSense UI's own read code; see

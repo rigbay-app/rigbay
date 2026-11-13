@@ -1,7 +1,7 @@
 # Write proposals (task B3), with the results of the first two tests (tasks B4 and B5)
 
 Status: **three write calls have been run on this machine, all with status 0: W4a (all fans Auto) in B4 ("W4a result" below), then in B5 W4b (all fans Max, 14 s)
-and W4a again as its undo ("W4b result" below).** Every other candidate (W1, W2, and W3 from B7) is still unrun. No write was run in B1, B2, B3 or B7 (B7 was static analysis only; W3 now has a decoded WMI route, see its section). The probe
+and W4a again as its undo ("W4b result" below).** Every other candidate (W1, W2, W3 from B7, and W5 keyboard lighting from B11, also static analysis only) is still unrun. No write was run in B1, B2, B3 or B7 (B7 was static analysis only; W3 now has a decoded WMI route, see its section). The probe
 (`tools/predatorsense-probe`) refuses every `Set*` method in code. Writes go only through `tools/predatorsense-write`, whose code allow-list holds the
 owner-approved calls (today: W4a and W4b; each write attempt has its own log and the log blocks a repeat).
 The coordinator presents the candidates to the owner **one value at a time**; approval of one covers only that one call and value.
@@ -124,7 +124,7 @@ and `B5-w4b-undo-run.txt` (W4a undo, recovery). Each holds exactly one `WRITE_AT
 
 | Item | Value |
 | --- | --- |
-| Call | `root\WMI:AcerGenericMethod.SetFunction` (id 1), `uiInput` UInt64, out `uiOutput` UInt32 |
+| Call | `root\WMI:AcerGenericMethod.SetFunction` (id 1), `uiInput` UInt64, out `uiOutput` UInt32. **B11: the Acer service and agent call this method on the class `APGeAction`, not `AcerGenericMethod`; whether the two are one class is open (`FINDINGS.md` 16.1 item 3, W5-R0). Settle it before W1.** |
 | Input | `0x10007` = `7 \| (1 << 16)` (C, the UI's setter) |
 | Expected effect | extra fan boost, louder; the name is from the UI ("Cool Booster"); what it does in firmware is **G** |
 | Read-back | **the state read is unproven**: `GetFunction(0x207)` returned status `0xE1` (12.4), so it may never report "on". Use the fan RPM indexes 2, 6, 9 and the Set's own status (0 = success per the UI) |
@@ -199,6 +199,68 @@ untested. The only gate on the service side is the pipe's caller path check, whi
 WMI answer (it logs it and goes on), so the only success signal for a direct call is the answer itself, and what it holds on success is **G** (status 0 is the convention of the other Misc calls, not something Acer's code tests); and the service's own pipe reply is
 always `0xFFFFFFFF`, so Acer's code gives no hint of what a good answer looks like.
 
+### W5: keyboard lighting (task B11, static analysis only; **nothing here has been run, no gate is open**)
+
+Source: `FINDINGS.md` section 16 (UI decompiled with `ilspycmd`, `PSSvc.exe` and `PSAdminAgent.exe` read with Ghidra 12.1.4; both the service and the agent were checked against the UI code). Every byte below is copied from that code (tag C) except where it says G.
+The firmware's reaction to any of it is in no Acer binary, so each step is a test of "does the call answer, and what does the owner see", not a prediction. Three corrections to earlier proposals came out of this work and change what may be run:
+
+| Correction | What it changes |
+| --- | --- |
+| The keyboard backlight read input is **`0x88401`**, not `0x80184` (`1 \| (132 << 8) \| 0x80000`; the UI and `PSAdminAgent.exe` agree) | the old R3 below is void; the probe's `--r3` (which sent `0x80184`) is now refused and replaced by `--kb-backlight` (`APGeAction.GetFunction(0x88401)`), compiled but not run; run `--self-test-refusals` before the first lighting read |
+| The Acer binaries call the generic method on the class **`APGeAction`** (`GetFunction`, `SetFunction`, parameter `uiInput`), never `AcerGenericMethod` | the `0xE1` answer of B3's `GetFunction(0x207)` came from `AcerGenericMethod`; whether that says anything about Cool Booster is open (W1 too) |
+| Pipe 13/14 (the UI's "LEDBehavior") are the WMI methods `SetGamingLED` / `GetGamingLED` (ids 2 / 4) | the Turbo-branch pair and the "boost" read of section 11.5 are `SetGamingLED(0x10001)` and `GetGamingLED(1)` |
+
+**What the Acer UI does on this machine** (details and the full table: `FINDINGS.md` 16.4). SMBIOS type 172 here is version 2.83 (below 2.86), so the UI uses the **old forms**. Three zones (`KeyBoardArea` = 3).
+
+| What | WMI call | Input |
+| --- | --- | --- |
+| zone colour | `AcerGamingFunction.SetGamingRgbKb` (id 6), one zone per call | `zone \| (R << 8) \| (G << 16) \| (B << 24)`, `zone` = 1, 2, 4 (one bit per zone); a UInt32 |
+| brightness (static) | `AcerGamingFunction.SetGamingKBBacklight` (id 20) | `byte[16]`: `00 00 pct 00 00 00 00 00` + 8 tail bytes, `pct` = 0, 25, 50, 75, 100 (Acer's slider levels 1 to 5) |
+| effect | the same method | byte 0 = 1 Breathing, 2 Neon, 3 Wave, 4 Shifting, 5 Zoom, 6 Meteor, 7 Twinkling; byte 1 speed 1 to 9; byte 2 pct; byte 3 = 8 for Wave only; byte 4 direction (Wave, Shifting); bytes 5 to 7 R, G, B (all but Neon and Wave) |
+| zone on/off mask | `AcerGamingFunction.SetGamingLED` (id 2) | `8 \| (Z1 << 40) \| (Z2 << 41) \| (Z3 << 42)` (three zones on: `0x70000000008`) |
+| read brightness and timeout flag | `APGeAction.GetFunction` | `0x88401` (UInt32 in, UInt64 out) |
+
+**Preconditions for every W5 step.** The owner sits at the machine and looks at the keyboard: **colour and brightness have no read-back** (no Acer code reads them), so the owner's eyes are the only check, and every step has to be announced to the owner. AC power is not needed for lighting, but no sleep, resume or logoff may happen
+during the test (the Acer agent re-applies the **Acer** profile after a resume or at its start, `FINDINGS.md` 16.7, and would undo the step). The Acer UI is closed or untouched during a step. Before the first write the **owner** puts the keyboard into a known visible state with Acer's own UI (Lighting page, static tab, brightness level 5, all three zones Cyan `#00AEC7`, the `Default`
+profile): Acer's profile says brightness 1 (= 0 %, dark) now, and Acer's `KBBackLight_State` is 0, so the keyboard is probably dark at this moment and a "one step down" would show nothing. Setting it through Acer's UI makes the start state exactly what Acer's own code sends (`KB` 100 %, `RgbKb` `#00AEC7` per zone, zone mask 7), so the undo values below are known by construction and do not depend on a read.
+Stop at once on a non-zero answer, an exception or a call that takes more than 5 s, a keyboard that goes dark and does not come back with the undo, or anything odd on display, keys or audio.
+
+**Undo chain for every step:** (1) the undo write of the step; (2) in the Acer UI select the `Default` profile again or move the brightness slider (this re-sends Acer's whole sequence: all-zero backlight, zone mask, brightness, one colour per zone); (3) the keyboard's own backlight hotkey (hotkey number 132; which Fn key it is, is not in the code);
+(4) a sleep and resume (the agent re-applies the Acer profile, C for the code, G for the trigger); (5) a reboot (whether the firmware keeps the state across reboot is **not known**).
+
+#### The reads first (each one its own owner gate)
+
+| Step | Call | Input | Why, and what to watch | Stop if |
+| --- | --- | --- | --- | --- |
+| **W5-R0** | schema listing only, no method call, no instance: `root\WMI` classes `APGeAction`, `APGeEvent`, `AcerGenericMethod`: present or not, method ids, parameter names and CIM types (`ManagementClass.Methods`, as the probe's default run does for `AcerGamingFunction`) | none | settles the class name (`FINDINGS.md` 16.1 item 3) and the input type of `SetGamingKBBacklight`, `SetGamingRgbKb`, `SetGamingLED` and `GetFunction`/`SetFunction` on this machine. It is a read of metadata, but it is asked as a gate because a lighting call must not be written without it | `APGeAction` absent: do not fall back to another class name without a new decision |
+| **W5-R1** | `APGeAction.GetFunction`, once | **`0x88401`** | the one traced lighting read. Log the **raw 64-bit answer** and interpret nothing: expected status 0, bits 32 to 39 brightness percent (G), bits 40 to 47 the timeout flag (the UI reads `30` as "off" but writes `30` when its box is checked: the meaning is open), bits 16 to 31 non-zero = backlight on (agent) | a non-zero status (like the `0xE1` of `0x207`): **stop, do not try another input**, mail the coordinator |
+| W5-R1b | the same call and input, once per state the **owner** sets with Acer's UI between the reads: brightness level 5, then 3, then 1 (all static, same colours), then the Fn-key hotkey toggle | `0x88401` | calibrates the layout from known states: which field moves with the slider, whether the number is 100/50/0 or 100/48/0 (Acer's unused code would use 72 for 75), what the hotkey does. Costs no write of mine; the owner moves the state | any status other than 0 |
+
+`GetGamingRgbKb`, `GetGamingKBBacklight`, `GetGamingLEDColor`, `GetGamingLEDBehavior` have **no** traced input: no Acer binary calls them (their handlers exist in the service, nothing sends them). They stay forbidden (list at the end of this file). **There is no colour or effect read, so W5b and W5d cannot be read back.**
+
+#### The gentlest writes (only after W5-R0 and W5-R1 gave status 0, and each with its own owner gate)
+
+| Step | Call | Input | Expected effect (**G**; the code does not show it) | Risk | Undo | Observe |
+| --- | --- | --- | --- | --- | --- | --- |
+| **W5a** (1 of 2) | `AcerGamingFunction.SetGamingKBBacklight` (id 20), a `byte[16]`, once | `00 00 4B 00 00 00 00 00 00 00 00 00 00 00 00 00` (static, 75 %: Acer's level 4 = `(4 - 1) * 25`) | the keyboard gets one step dimmer, colours unchanged | lowest: one light level. Worst case: it goes dark or the colours change until the undo | W5a (2 of 2) | the owner's eyes; the call's answer (status = low byte, 0 = ok is the convention, **not** something Acer's code tests); then W5-R1 again, about 2 s later: did bits 32 to 39 move? (**if they do not, the `KB` byte and `GetFunction` may be two different channels: not a failure**) |
+| **W5a** (2 of 2) | the same call | `00 00 64 00 00 00 00 00 00 00 00 00 00 00 00 00` (static, 100 %: Acer's level 5) | back to the start state | same | the Acer UI (undo chain) | the owner confirms the original brightness is back; W5-R1 again |
+| **W5b** (1 of 2) | `AcerGamingFunction.SetGamingRgbKb` (id 6), **zone 1 only**, once | `0x0000FF01` (zone 1, `#FF0000` Red from Acer's palette: `1 \| (0xFF << 8)`) | zone 1 turns red; zones 2 and 3 unchanged | low: one zone's colour | W5b (2 of 2) | the owner says **which** part of the keyboard changed and to what colour (it also shows which zone is zone 1: not in the code). No read-back exists. Use the UInt32 type check of the schema (W5-R0) before sending |
+| **W5b** (2 of 2) | the same call | `0xC7AE0001` (zone 1, `#00AEC7`: `1 \| (0x00 << 8) \| (0xAE << 16) \| (0xC7 << 24)`; the saved Acer colour of the `Default` profile, scale factors 1.0) | zone 1 back to Cyan | same | the Acer UI (undo chain) | the owner confirms |
+
+Between two calls wait at least 30 ms (the service sleeps that long after each WMI call, C) and 2 s before a read. Send nothing from two threads at once (the Acer UI itself fires several of these calls without waiting, the module must not).
+The tail bytes 8 to 15 of the `byte[16]` are zeros: Acer's service forwards whatever follows the message in a non-zeroed heap block, which the firmware evidently tolerates, so zeros are at most as risky as Acer's own call. **That is my choice (G), not a traced value; the gate text must say so.**
+A module that writes here also needs, as with W4: a hard-coded allow-list (class, method, exact value), the schema type check, one call at a time, a timeout, and tests showing every other value is refused.
+
+**Optional, later, each only after W5a and W5b were seen working and the owner asks for it (no value is proposed beyond what is listed):**
+
+| Step | Call | Input | Note |
+| --- | --- | --- | --- |
+| W5c | `SetGamingLED` (id 2) | `0x70000000008` (zones 1 to 3 on: restates the Default profile) | restates the recorded state; the low byte `8` is the keyboard-zone selector (Acer sends it from the UI and the agent). The same method carries the boost indicator selector `1`, so the input must be exact |
+| W5d | `SetGamingKBBacklight`, an effect | Breathing at speed 5, 100 %, Cyan: `01 05 64 00 00 00 AE C7` + 8 zero bytes | **its undo is four calls** (Acer's own sequence: all-zero `KB`, `SetGamingLED(0x70000000008)`, `KB` `00 00 64 ...`, then `RgbKb` `0xC7AE0001`, `0xC7AE0002`, `0xC7AE0004`), no read-back of the effect exists, and the owner must be able to run the Acer UI undo if the sequence stops half way. Per-effect risk is the same kind (light only) |
+
+**Not proposed:** the 10-byte and 12-byte array forms (firmware with SMBIOS type 172 version 2.86 or later; this one is 2.83), the `SetFunction` brightness/timeout write (`2 \| (132 << 8) \| 0x80000 \| ...`: the meaning of the timeout byte is open), `SetGamingLEDBehavior`/`SetGamingLEDColor` and the "group" pipe commands (light bar, logo, touchpad of other models),
+any admin-agent lighting command (USB keyboards), a `RgbKb` value with more than one zone bit, brightness values other than 0, 25, 50, 75, 100, a speed outside 1 to 9, a Wave byte 3 other than 8, and everything about the SMBIOS-new-firmware paths.
+
 ### Not proposed (no value, or too risky)
 
 | Candidate | Why not |
@@ -207,7 +269,7 @@ always `0xFFFFFFFF`, so Acer's code gives no hint of what a good answer looks li
 | `SetGamingFanTable` (id 18) | payload not decoded; this model's UI does not use it |
 | `SetGamingMiscSetting` GPU/CPU overclock levels (`0x05`, `0x105`, `0x205`, `0x07`, ...) | overclocking; no read-back of the level; CPU OC is not supported on this machine anyway |
 | `SetGamingMiscSetting(2 \| (mode << 8))` GPU mode switch | a hybrid/discrete change, may need a reboot; no value approved |
-| Lighting (`SetGamingRgbKb`, `SetGamingKBBacklight`, `SetGamingLEDBehavior`, `SetFunction` for backlight) | payloads not decoded; keyboard backlight state read (R3) not yet run |
+| Lighting (`SetGamingRgbKb`, `SetGamingKBBacklight`, `SetGamingLED`, `APGeAction.SetFunction` for the backlight timeout) | **decoded in B11 (`FINDINGS.md` 16): see W5 above** for the proposed order; the effects other than Breathing, the 10/12-byte forms, the timeout write and everything with a USB keyboard or a light bar are not proposed |
 | `SetGamingLEDBehavior` `0x10001`, `0x410001`, `1`, `0x400001` with `SetGamingMiscSetting(0x101)`/`(1)` | boost-related pair the UI writes together; meaning is a guess |
 | `AcerBiosConfigurationTool.*` | BIOS settings with a password argument. Never |
 
@@ -224,7 +286,8 @@ always `0xFFFFFFFF`, so Acer's code gives no hint of what a good answer looks li
 | 6 (optional) | W2 `SetGamingMiscSetting` | `0x2005` | non-zero status |
 
 W3 (operation mode, decoded in B7 and cross-checked in B9, nothing run) has its own table inside the W3 section: reads W3-R1/R2 first, then W3a `0x10B`, W3b `0x0B`, W3c `0x40B`, W3d `0x50B`, each for at most 20 s and each
-undone with `0x10B`; each step needs its own approval. Custom speed, fan table, CPU overclock levels and lighting: no steps until a decode and a separate approval.
+undone with `0x10B`; each step needs its own approval. Custom speed, fan table and CPU overclock levels: no steps until a decode and a separate approval.
+Keyboard lighting (decoded by B11, nothing run): W5-R0, W5-R1 (and R1b) as reads first, then W5a (brightness 100 % -> 75 % -> 100 %) and W5b (zone 1 Red and back to Cyan), each with its own gate; W5c and W5d are optional and later (section W5).
 
 ## What is testable, given that the UI has no firmware read
 
@@ -235,7 +298,8 @@ undone with `0x10B`; each step needs its own approval. Custom speed, fan table, 
 | W1 Cool Booster | read answered `0xE1`: unproven | RPM, maybe | testable by effect, state unproven |
 | W2 MaxQ | none | `nvidia-smi` under GPU load, not tried | weak |
 | W3 operation mode | **a firmware read exists and was run once in B10** (`GetGamingMiscSetting(0x0B)` returned `0x0B0100`: status 0, mode 1 = Default, as the cache; any further read needs the owner's approval) | sensors only (fan RPM, temperatures, RAPL package power, `nvidia-smi`); the firmware's effect per mode is unknown | **testable after the read gate**, by status plus sensors; the effect is not predicted by the code |
-| Custom speed / table / OC / lighting | none | n/a | not proposed |
+| W5 keyboard lighting | one traced read (`APGeAction.GetFunction(0x88401)`: brightness percent, timeout flag; never run); no colour, zone or effect read exists | the owner's eyes (colour, brightness), plus that one read for brightness | **testable by sight**; the read layout is unproven (W5-R1 and R1b calibrate it). Not run |
+| Custom speed / table / OC | none | n/a | not proposed |
 
 ## Reads that need their own approval (not run, list for the coordinator)
 
@@ -243,12 +307,12 @@ Held by the coordinator after R2 (traced to the Acer UI's own read code, the own
 
 | Call | Input | Why | Where traced |
 | --- | --- | --- | --- |
-| `AcerGenericMethod.GetFunction` R3 | `0x80184` (hotkey 132 from the registry) | keyboard backlight brightness / off; uses the same method that just answered `0xE1` | 11.4 |
+| ~~`AcerGenericMethod.GetFunction` R3~~ **void (B11)**; see W5-R0 and W5-R1 | ~~`0x80184`~~ **`0x88401`** (`1 \| (132 << 8) \| 0x80000`; hotkey 132 from the registry) | keyboard backlight brightness / timeout flag; Acer calls it on the class `APGeAction`, not `AcerGenericMethod` | 11.4, `FINDINGS.md` 16.1 |
 | `AcerGamingFunction.GetGamingMiscSetting` W3-R1 | `0x0B` | the firmware's current operation mode; **done once in B10: `0x0B0100`, mode in bits 8 to 15 = 1 (G)**. Any further run needs approval again | 15.5: the service's own handler for pipe 52 (the UI never calls it); 15.9 |
 | `AcerGamingFunction.GetGamingMiscSetting` W3-R2 | `0x0A` | operation-mode capability; **done once in B10: `0x0B3300`, mask of modes 0, 1, 4, 5 (G)** | 15.5: the service's handler for pipe 51; 15.9 |
 | `GetGamingSysInfo` | `2` | battery boost flag, bits 40 to 47 | 3.3 |
 | `GetGamingMiscSetting` | `2`, `9` | GPU mode support and capability | 3.3 |
-| `GetGamingLEDBehavior` | `1` | boost indicator, meaning guessed | 11.5 |
+| ~~`GetGamingLEDBehavior`~~ **`GetGamingLED` (id 4)** (B11: Acer's pipe 14 is `GetGamingLED`; the probe's old `--led-behavior-get` called id 11, which no Acer code calls; it is refused now and replaced by `--led-get`) | `1` | boost indicator, meaning guessed | 11.5, `FINDINGS.md` 16.1 |
 
 Not covered by the owner's sentence, and **not traceable to any Acer UI read** (the UI never calls them), so they stay forbidden unless the owner approves a guess knowingly:
 
@@ -257,7 +321,7 @@ Not covered by the owner's sentence, and **not traceable to any Acer UI read** (
 | `GetGamingFanBehavior` (15), UInt32 in | the only possible read of the real fan mode; by symmetry with the write the input might be the fan mask (`0x19`) but that is a guess | the MOF marks every method read and write; an untraced input could act as a Set |
 | `GetGamingFanSpeed` (17), UInt32 in | the fan set-point; the input might be the fan id (1 CPU, 4 and 5 GPU) | same |
 | `GetGamingFanTable` (19), no input | fan curve; this model's UI does not use the table | same |
-| `GetGamingProfileSetting` (9), `GetGamingRgbKb` (7), `GetGamingKBBacklight` (21), `GetGamingLEDColor` (13) | lighting and profile state | same |
+| `GetGamingProfileSetting` (9), `GetGamingRgbKb` (7), `GetGamingKBBacklight` (21), `GetGamingLEDColor` (13), `GetGamingLEDBehavior` (11) | lighting and profile state. **B11 confirmed that no Acer binary (UI, service, agent) ever sends these**; there is no traced input and no known reply layout | same |
 | operation-mode reads through the **pipe** (51, 52) | the service handlers exist; the pipe is off limits and the UI never sends them | not callable by a module. Their WMI equivalents (`GetGamingMiscSetting` `0x0A`, `0x0B`) are listed above as W3-R2 and W3-R1 |
 
 If the owner wants the real fan mode read back, the honest route is to decode `PSSvc.exe` (what it sends for `get_operation_mode` and the fan getters) before guessing an input.

@@ -40,7 +40,11 @@ Input `2` (battery boost) has **not** been run. Details and the temperature cros
 | --- | --- | --- | --- |
 | SetFunction W | `7 \| (state << 16)` | Cool Booster off/on (name from UI) | decoded |
 | GetFunction R? | `0x207` | Cool Booster state: UI says on only if low byte is 0 **and** byte 1 is 1; any other answer counts as "off" | decoded; **live: raw `0x2E1`, status byte `0xE1` (undecoded), UI would show "off"; read-back unproven** |
-| GetFunction R? | `BK_Hotkey_Number \| 0x100 \| 0x80000` (here `0x80184`, hotkey 132 from `HKLM\SOFTWARE\OEM\PredatorSense\BK_Hotkey_Number`) | keyboard backlight: bits 32..39 brightness percent, bits 40..47 == 30 means off | decoded, traced read, **not run** (held after the `0xE1` answer to `0x207`) |
+| GetFunction R? | `1 \| (BK_Hotkey_Number << 8) \| 0x80000` (here **`0x88401`**, hotkey 132 from `HKLM\SOFTWARE\OEM\PredatorSense\BK_Hotkey_Number`). **B11: this row said `0x80184` until 2026-11-13; that was wrong (hotkey number and the 1 swapped), do not run it** | keyboard backlight: bits 32..39 brightness percent, bits 40..47 == 30 is the UI's "off" flag (meaning open), bits 16..31 non-zero = on (agent) | decoded, traced read (UI and `PSAdminAgent.exe` agree), **not run** |
+| SetFunction W | `2 \| (hotkey << 8) \| 0x80000 \| (percent << 32) \| (30 or 0) << 40` (here `0x88402 \| ...`) | the "Backlight timeout" checkbox of the Settings page (`PerKey=0`) | decoded, **not proposed** (the timeout byte's meaning is open) |
+
+**Class name (B11):** the Acer service and agent call `GetFunction`/`SetFunction` on the class **`APGeAction`** (parameters `uiInput`/`uiOutput`; `GetFunction` input sent as UI4, `SetFunction` input as UI8) and listen to `APGeEvent`; no Acer binary contains the name `AcerGenericMethod`.
+The probe and the B3 read used `AcerGenericMethod`. Whether those are two classes or one is open (W5-R0 settles it with a schema read). The method ids in the heading above are B1's, read from `AcerGenericMethod`.
 | GetFunction R? | `10` | AC adapter kind (only on machines with two adapters); bits 8.. give 1-AC, 2-AC, PD | partial |
 
 ## AcerGamingFunction.SetGamingFanBehavior (id 14, UInt64 in, UInt32 out), W, run for all Auto (B4) and all Max (B5)
@@ -69,12 +73,15 @@ Used between per-fan custom/auto behaviour writes; exact sequence conditions not
 `SetGamingFanTable` is only used by the "Silent" mode of `FanControlPage` (sends `0`); Clubman has no Silent mode, so this model's UI
 does not use the table. Payload **not decoded**. `GetGamingFanTable` (no input): no UI caller.
 
-## AcerGamingFunction.GetGamingLEDBehavior / SetGamingLEDBehavior (ids 11 / 10)
+## AcerGamingFunction.GetGamingLED / SetGamingLED (ids 4 / 2); the UI calls these "LEDBehavior" (pipe 13/14)
+
+**B11 correction:** the UI wrappers `WMISetGamingLEDBehavior` / `WMIGetGamingLEDBehavior` (pipe 13 / 14) become the WMI methods **`SetGamingLED` (2) / `GetGamingLED` (4)** in the service (and in the agent). The WMI methods `SetGamingLEDBehavior` (10), `GetGamingLEDBehavior` (11), `SetGamingLEDColor` (12) and `GetGamingLEDColor` (13) are the "LED group" pipe commands 20 to 23, not used by the Clubman keyboard page.
 
 | Call | Input | Notes |
 | --- | --- | --- |
 | Get R? | `1` | UI checks status byte 0 and then `(raw >> 8) & 3 == 1` (fan-mode handlers) or `(raw >> 14) & 3 == 1` (one operation-mode branch). Meaning guessed: a boost indicator. |
 | Set W | `0x10001`, `0x410001`, `1`, `0x400001` | written by the UI around Turbo + Max fan + AC + battery boost, together with `SetGamingMiscSetting(0x101)` / `(1)`. Meaning guessed. |
+| Set W | **`8 \| (Z1 << 40) \| (Z2 << 41) \| (Z3 << 42) \| (Z4 << 43)`**, `Zn` = 1 when keyboard zone n is on | **keyboard zone on/off mask** (low byte 8 = "keyboard zones" selector). Three zones all on: `0x70000000008`; zone 1 only `0x10000000008`; none `0x8`. Old SMBIOS form (type 172 version below 2.86, this machine): UInt64. Decoded in B11, never run. |
 
 ## AcerGamingFunction.SetGamingMiscSetting (id 22, UInt64 in, UInt32 out), W
 
@@ -114,15 +121,26 @@ so the layout is unknown (B9: no Acer binary parses it; `PSAdminAgent` never rea
 `0x09` discrete-GPU capability read, `0x02` GPU mode. UI Turbo branch (AC + boost + fan Max): `SetGamingLEDBehavior(0x10001)` + `SetGamingMiscSetting(0x101)`, undo `(1)` + `(1)`.
 Turbo **key** with the UI closed (agent): `SetGamingFanBehavior(0x02AA001F)` all Max / `(0x0155001F)` all Auto, mask `0x1F` (all five slots).
 
-## Lighting (this machine: WMI route)
+## Keyboard lighting (this machine: WMI route, decoded in B11 by static analysis, **nothing run**)
 
-The Clubman lighting page calls `SetGamingRgbKb` (6), `SetGamingKBBacklight` (20), `SetGamingLEDBehavior` (10) and
-`AcerGenericMethod.SetFunction`; no `Get*` of colour or effect. Profiles are kept by the UI in XML under `ProfilePool`.
-Payload encodings of the lighting writes: **not decoded** (not needed until a lighting write is proposed).
+Source: `docs/predatorsense/FINDINGS.md` section 16 (all tables, the Acer UI's action-by-action order, what is persisted and re-applied); the test plan is `WRITE-PROPOSALS.md` W5. This machine: 3 zones (`KeyBoardArea` = 3), SMBIOS type 172 version 2.83, which selects the **old forms** below
+(`>= 2.86` selects a 10-byte backlight array and a 12-byte LED array; not used here).
+
+| Call | Class.method (id) | Input | Notes |
+| --- | --- | --- | --- |
+| zone colour W | `AcerGamingFunction.SetGamingRgbKb` (6), UInt32 in | `zone \| (R << 8) \| (G << 16) \| (B << 24)`; `zone` = 1, 2, 4 for zone 1 to 3 (8 for a fourth); one bit per call | `R`, `G`, `B` = `floor(channel * ZoneColorAdjust)`, factors 1.0 on this machine (`HW_Support.ini`). Examples: zone 1 Red `0x0000FF01`; zone 1 `#00AEC7` `0xC7AE0001`. The service sleeps 30 ms after the call |
+| brightness W | `AcerGamingFunction.SetGamingKBBacklight` (20), `byte[16]` in | `00 00 pct 00 00 00 00 00` + 8 tail bytes; `pct` = 0, 25, 50, 75, 100 (Acer slider level 1 to 5 = `(level - 1) * 25`) | all-zero = "close" (static, 0 %). The service always forwards 16 bytes of the request; Acer's UI sends 8, so the tail is uninitialised heap in Acer's own call. Send zeros (G) |
+| effect W | same method, `byte[16]` | byte 0 mode: 1 Breathing, 2 Neon, 3 Wave, 4 Shifting, 5 Zoom, 6 Meteor, 7 Twinkling (0 = static); byte 1 speed 1..9; byte 2 `pct`; byte 3 = `8` for Wave only; byte 4 direction 1 or 2 (Wave, Shifting; which is left is G); bytes 5..7 R, G, B (Breathing, Shifting, Zoom, Meteor, Twinkling) | Twinkling is sent as a 9-byte array with byte 8 = 3 (old form). Neon and Wave carry no colour. The duration slider is stored by Acer and never sent |
+| zone mask W | `AcerGamingFunction.SetGamingLED` (2) | `8 \| (zone mask << 40)` | see the LED section above |
+| backlight read R | `APGeAction.GetFunction` | `0x88401` | see the `AcerGenericMethod` table above (class name!) |
+
+Acer's order for a whole profile: all-zero `KB`, zone mask, `KB` static brightness, one `RgbKb` per enabled zone; for an effect: all-zero `KB`, then the one effect `KB`. A brightness slider move re-sends `KB` and every enabled zone's colour.
+**No read of colour, zone mask, effect or the `KB` bytes exists** in any Acer binary (`GetGamingRgbKb` (7), `GetGamingKBBacklight` (21), `GetGamingLEDColor` (13), `GetGamingLEDBehavior` (11) are never sent), so those reply layouts are unknown.
+Profiles live in `C:\ProgramData\oem\PredatorSense\ProfilePool\LightProfilePool\<name>\Main.xml` (Acer's record, not live state; read-only for us). After a resume or at agent start `PSAdminAgent.exe` re-applies the active Acer profile.
 
 ## Not decoded
 
 - `GetGamingProfile` (3) / `SetGamingProfile` (1) / `GetGamingProfileSetting` (9) / `SetGamingProfileSetting` (8): the UI calls `GetGamingProfileConfiguration`
   only for LCD overdrive and the current group index; inputs are built from more state.
 - `GetCPUOverclockingProfile` / `SetCPUOverclockingProfile`: byte structs; CPU OC is not supported on this machine.
-- Fan table payload, lighting write payloads. (The service's operation-mode mapping was decoded in B7, see above; the firmware semantics of selectors `0x0A`/`0x0B` are still unknown.)
+- Fan table payload. (Lighting write payloads: decoded in B11, see above.) (The service's operation-mode mapping was decoded in B7, see above; the firmware semantics of selectors `0x0A`/`0x0B` are still unknown.)
