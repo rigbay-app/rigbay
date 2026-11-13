@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- In its own repository the ProjectReference points into external/rigbay (tools\extract-module.ps1 rewrites it). Rigbay.Abstractions.dll must NOT end up in the output folder: the host supplies its own copy. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.PowerRules</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Rigbay.PowerRules.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <None Include="..\..\module.json" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <!-- the module's icon (manifest field "icon"): the tile, the quiet glyph and the unsupported tile sit next to module.json -->
+    <None Include="..\..\icon*.svg" CopyToOutputDirectory="PreserveNewest" LinkBase="." />
+    <None Include="lang\*.lang" CopyToOutputDirectory="PreserveNewest" LinkBase="lang" />
+  </ItemGroup>
+
+</Project>

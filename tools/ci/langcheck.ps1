@@ -16,6 +16,7 @@ try {
         @('modules/steambypass/src/Rigbay.SteamBypass/lang', 'steam-bypass', 'modules/steambypass/src/Rigbay.SteamBypass'),
         @('modules/xtu/Rigbay.Module.Xtu/lang', 'xtu', 'modules/xtu/Rigbay.Module.Xtu'),
         @('modules/tunnel/src/Rigbay.Tunnel/lang', 'tunnel', 'modules/tunnel/src/Rigbay.Tunnel'),
+        @('modules/powerrules/src/Rigbay.PowerRules/lang', 'power-rules', 'modules/powerrules/src/Rigbay.PowerRules'),
         @('tools/demo-modules/modules/demo-devices/lang', 'demo-devices', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-fan/lang', 'demo-fan', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-lighting/lang', 'demo-lighting', 'tools/demo-modules')

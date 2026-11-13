@@ -1,0 +1,97 @@
+# Theo nguồn điện (Power-source rules): tiếng Việt. Giữ nguyên {0}, {1}; có thể đổi thứ tự.
+@code = vi
+@name = Tiếng Việt
+
+module.power-rules.name = Theo nguồn điện
+module.power-rules.description = Đổi tần số quét của màn hình trong và chế độ nguồn của Windows khi máy chạy pin hoặc cắm sạc.
+
+# --- probe
+module.power-rules.probe.no-battery = Máy này không có pin nên không có nguồn điện nào để chuyển theo.
+
+# --- main control
+module.power-rules.row.auto.header = Đổi theo nguồn điện
+module.power-rules.row.auto.help = Khi máy chuyển sang pin hoặc cắm sạc, vài giây sau Rigbay áp dụng cột tương ứng bên dưới. Bật lên sẽ hỏi một lần về đúng các giá trị này. Sửa một giá trị thì phải bật lại. Tắt đi, hoặc đóng Rigbay, sẽ trả các giá trị về như trước lần tự đổi đầu tiên.
+module.power-rules.line.off = Tắt
+module.power-rules.line.on = Quy tắc đang bật · {0}
+module.power-rules.line.changed = Quy tắc đã đổi. Bật lại để duyệt.
+
+# --- now
+module.power-rules.group.now = Hiện tại
+module.power-rules.row.source.header = Nguồn điện
+module.power-rules.row.panel.header = Màn hình trong
+module.power-rules.row.mode.header = Chế độ nguồn
+module.power-rules.source.battery = Đang dùng pin
+module.power-rules.source.plugged = Đang cắm sạc
+module.power-rules.source.unknown = Chưa rõ
+module.power-rules.panel.active = {0} × {1} · {2} Hz
+module.power-rules.panel.not-active = Không dùng
+module.power-rules.panel.unreadable = Không đọc được
+module.power-rules.mode.efficiency = Tiết kiệm tối đa
+module.power-rules.mode.balanced = Cân bằng
+module.power-rules.mode.performance = Hiệu năng tối đa
+module.power-rules.mode.unknown = Chưa rõ
+module.power-rules.mode.unavailable = Windows này không hỗ trợ
+module.power-rules.info.no-panel.header = Màn hình trong đang không dùng
+module.power-rules.info.no-panel.description = Khi chỉ bật màn hình ngoài, tần số quét được giữ nguyên. Chế độ nguồn vẫn đổi.
+module.power-rules.info.no-mode.header = Không đổi được chế độ nguồn ở đây
+module.power-rules.info.no-mode.description = Windows này không có cài đặt mà Rigbay dùng. Tần số quét vẫn đổi được.
+
+# --- change now
+module.power-rules.group.change = Đổi ngay
+module.power-rules.row.rate.header = Tần số quét
+module.power-rules.row.rate.help = Chỉ các tần số mà màn hình trong liệt kê ở độ phân giải hiện tại. Chỉ có hiệu lực trong phiên này; Windows có thể đặt lại cài đặt của nó sau khi màn hình đổi cấu hình.
+module.power-rules.row.pmode.header = Chế độ nguồn
+module.power-rules.row.pmode.help = Chế độ trong Cài đặt, Hệ thống, Nguồn và pin.
+module.power-rules.opt.no-panel = Không có màn hình
+module.power-rules.effect.refresh = Đổi tần số quét của màn hình trong. Màn hình có thể nháy một chút.
+module.power-rules.effect.mode = Đổi chế độ nguồn của Windows. Máy có thể chậm hơn hoặc ồn hơn.
+
+# --- rules
+module.power-rules.group.battery = Khi dùng pin
+module.power-rules.group.plugged = Khi cắm sạc
+module.power-rules.row.bat-rate.header = Tần số quét
+module.power-rules.row.bat-mode.header = Chế độ nguồn
+module.power-rules.row.plug-rate.header = Tần số quét
+module.power-rules.row.plug-mode.header = Chế độ nguồn
+module.power-rules.opt.leave = Giữ nguyên
+module.power-rules.rule.hz = {0} Hz
+module.power-rules.rule.leave = giữ nguyên
+
+# --- approval
+module.power-rules.effect.auto = Tự đổi tần số quét và chế độ nguồn khi nguồn điện thay đổi.
+module.power-rules.confirm.rules = Khi dùng pin: {0}\nKhi cắm sạc: {1}\n\nQuy tắc của nguồn hiện tại cũng chạy ngay một lần. Tắt đi, hoặc đóng Rigbay, sẽ trả các giá trị về như trước lần tự đổi đầu tiên.
+
+# --- values before
+module.power-rules.group.before = Giá trị trước đó
+module.power-rules.row.restore.header = Giá trị trước khi đổi
+module.power-rules.row.restore.description = Rigbay nhớ những gì nó đã thay.
+module.power-rules.button.restore = Trả lại
+module.power-rules.effect.restore = Trả về {0}, như trước lần tự đổi đầu tiên.
+module.power-rules.err.restore = Không trả lại hết được. Trang hiện giá trị đang đặt.
+
+# --- notifications
+module.power-rules.toast.title = Theo nguồn điện
+module.power-rules.toast.battery = Dùng pin: {0}.
+module.power-rules.toast.plugged = Cắm sạc: {0}.
+module.power-rules.toast.now = {0}.
+module.power-rules.toast.restored = Đã trả lại: {0}.
+module.power-rules.toast.no-rules = Chọn ít nhất một giá trị để đổi.
+module.power-rules.toast.rules-changed = Quy tắc đã đổi trong lúc đang hỏi. Hãy bật lại.
+module.power-rules.part.refresh = tần số quét {0} Hz
+module.power-rules.part.refresh-refused = màn hình từ chối {0} Hz, không đổi gì
+module.power-rules.part.refresh-failed = tần số quét vẫn là {1} Hz, {0} Hz không có hiệu lực
+module.power-rules.part.refresh-not-listed = màn hình không có tần số {0} Hz
+module.power-rules.part.panel-unreadable = không đọc được màn hình trong
+module.power-rules.part.mode = chế độ nguồn {0}
+module.power-rules.part.mode-failed = chế độ nguồn {0} không có hiệu lực
+module.power-rules.part.mode-unavailable = Windows này không đổi được chế độ nguồn
+
+# --- command line
+module.power-rules.command.status = Hiện nguồn điện, màn hình trong, chế độ nguồn và các quy tắc.
+module.power-rules.status.source = Nguồn điện: {0}
+module.power-rules.status.panel = Màn hình trong: {0}
+module.power-rules.status.mode = Chế độ nguồn: {0}
+module.power-rules.status.battery = Khi dùng pin: {0}
+module.power-rules.status.plugged = Khi cắm sạc: {0}
+module.power-rules.status.approved = Tự đổi: bật, đã duyệt cho các quy tắc này.
+module.power-rules.status.not-approved = Tự đổi: tắt.

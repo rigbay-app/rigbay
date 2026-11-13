@@ -1,0 +1,97 @@
+# Power-source rules: English (the reference). Every key starts with module.<id>.
+@code = en
+@name = English
+
+module.power-rules.name = Power-source rules
+module.power-rules.description = Changes the internal panel's refresh rate and the Windows power mode when the PC goes on battery or is plugged in.
+
+# --- probe (why the module is unsupported)
+module.power-rules.probe.no-battery = This PC has no battery, so there is no power source to switch on.
+
+# --- main control
+module.power-rules.row.auto.header = Follow the power source
+module.power-rules.row.auto.help = When the PC goes on battery or is plugged in, Rigbay applies the matching column below, a few seconds later. Turning this on asks once about exactly these values. Changing a value turns it off again. Turning it off, or closing Rigbay, puts back the values from before the first automatic change.
+module.power-rules.line.off = Off
+module.power-rules.line.on = Rules on · {0}
+module.power-rules.line.changed = The rules changed. Turn this on to approve them.
+
+# --- now
+module.power-rules.group.now = Now
+module.power-rules.row.source.header = Power source
+module.power-rules.row.panel.header = Internal panel
+module.power-rules.row.mode.header = Power mode
+module.power-rules.source.battery = On battery
+module.power-rules.source.plugged = Plugged in
+module.power-rules.source.unknown = Unknown
+module.power-rules.panel.active = {0} × {1} · {2} Hz
+module.power-rules.panel.not-active = Not in use
+module.power-rules.panel.unreadable = Cannot be read
+module.power-rules.mode.efficiency = Best efficiency
+module.power-rules.mode.balanced = Balanced
+module.power-rules.mode.performance = Best performance
+module.power-rules.mode.unknown = Unknown
+module.power-rules.mode.unavailable = Not available on this Windows
+module.power-rules.info.no-panel.header = The internal panel is not in use
+module.power-rules.info.no-panel.description = The refresh rate is left alone while only an external monitor is on. The power mode still switches.
+module.power-rules.info.no-mode.header = The power mode cannot be changed here
+module.power-rules.info.no-mode.description = This Windows does not offer the setting Rigbay uses. Refresh rates still switch.
+
+# --- change now
+module.power-rules.group.change = Change now
+module.power-rules.row.rate.header = Refresh rate
+module.power-rules.row.rate.help = Only rates the internal panel lists at its current resolution. Changes this session; Windows may restore its own setting after a display change.
+module.power-rules.row.pmode.header = Power mode
+module.power-rules.row.pmode.help = The mode in Settings, System, Power & battery.
+module.power-rules.opt.no-panel = No panel
+module.power-rules.effect.refresh = Changes the internal panel's refresh rate. The screen may blink.
+module.power-rules.effect.mode = Changes the Windows power mode. The PC may get slower or louder.
+
+# --- rules
+module.power-rules.group.battery = On battery
+module.power-rules.group.plugged = Plugged in
+module.power-rules.row.bat-rate.header = Refresh rate
+module.power-rules.row.bat-mode.header = Power mode
+module.power-rules.row.plug-rate.header = Refresh rate
+module.power-rules.row.plug-mode.header = Power mode
+module.power-rules.opt.leave = Leave as is
+module.power-rules.rule.hz = {0} Hz
+module.power-rules.rule.leave = leave as is
+
+# --- approval of the rule set
+module.power-rules.effect.auto = Changes the refresh rate and power mode by itself when the power source changes.
+module.power-rules.confirm.rules = On battery: {0}\nPlugged in: {1}\n\nThe rule for the source now runs once straight away. Turning this off, or closing Rigbay, puts back the values from before the first automatic change.
+
+# --- values before
+module.power-rules.group.before = Values before
+module.power-rules.row.restore.header = Values before the change
+module.power-rules.row.restore.description = Rigbay remembers what it replaced.
+module.power-rules.button.restore = Put back
+module.power-rules.effect.restore = Puts back {0}, as before the first automatic change.
+module.power-rules.err.restore = Some values could not be put back. The page shows what is set now.
+
+# --- notifications
+module.power-rules.toast.title = Power rules
+module.power-rules.toast.battery = On battery: {0}.
+module.power-rules.toast.plugged = Plugged in: {0}.
+module.power-rules.toast.now = {0}.
+module.power-rules.toast.restored = Put back: {0}.
+module.power-rules.toast.no-rules = Choose at least one value to switch.
+module.power-rules.toast.rules-changed = The rules changed while the question was open. Turn this on again.
+module.power-rules.part.refresh = refresh rate {0} Hz
+module.power-rules.part.refresh-refused = the panel refused {0} Hz, nothing changed
+module.power-rules.part.refresh-failed = refresh rate stayed {1} Hz, {0} Hz did not take effect
+module.power-rules.part.refresh-not-listed = {0} Hz is not a rate the panel lists
+module.power-rules.part.panel-unreadable = the internal panel could not be read
+module.power-rules.part.mode = power mode {0}
+module.power-rules.part.mode-failed = power mode {0} did not take effect
+module.power-rules.part.mode-unavailable = the power mode cannot be changed on this Windows
+
+# --- command line
+module.power-rules.command.status = Show the power source, the panel, the power mode and the rules.
+module.power-rules.status.source = Power source: {0}
+module.power-rules.status.panel = Internal panel: {0}
+module.power-rules.status.mode = Power mode: {0}
+module.power-rules.status.battery = On battery: {0}
+module.power-rules.status.plugged = Plugged in: {0}
+module.power-rules.status.approved = Automatic switching: on, approved for these rules.
+module.power-rules.status.not-approved = Automatic switching: off.
