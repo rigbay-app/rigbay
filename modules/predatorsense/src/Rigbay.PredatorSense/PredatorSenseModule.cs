@@ -86,14 +86,15 @@ public sealed partial class PredatorSenseModule : IModule
         _fan = new FanController(_wmi, _poller, message => host.Log.Info(message), _now, _delay, _carried);
         _scheduler = new PollScheduler(_poller, TimeSpan.FromSeconds(_settings.PollSeconds), TimeSpan.FromSeconds(PredatorSenseSettings.IdlePollSeconds),
             ex => host.Log.Error("Polling the sensors failed", ex));
-        _scheduler.Watched = IsWatched(host);
+        ApplyDemand(_scheduler, SensorDemand(host, _settings.PollSeconds));
 
-        // The performance mode: read only. Its own reader and its own slow timer, which runs only while somebody looks at it.
+        // The performance mode: read only. Its own reader and its own slow timer, which runs only while somebody looks at it or asks in the background.
         _opMode = new OperationModeReader(_wmi, host.Metrics, host.Log);
         _opModeScheduler = new PollScheduler(_opMode.PollOnce, TimeSpan.FromSeconds(PredatorSenseSettings.OpModePollSeconds), Timeout.InfiniteTimeSpan,
             ex => host.Log.Error("Reading the performance mode failed", ex));
-        bool opWatched = IsOpModeWatched(host);
-        _opModeScheduler.Watched = opWatched;
+        var opDemand = OpModeDemand(host);
+        ApplyDemand(_opModeScheduler, opDemand);
+        bool opWatched = opDemand.Kind != DemandKind.Idle;
 
         // Say once what each metric is called, so the dashboard shows "CPU temperature" and not "cpu.temp".
         foreach (var info in SensorInfo.All)
@@ -124,7 +125,7 @@ public sealed partial class PredatorSenseModule : IModule
         SyncChoice();
         RefreshTexts();
         _scheduler.Start(TimeSpan.FromSeconds(_settings.PollSeconds));
-        _opModeScheduler.Start(opWatched ? _opModeScheduler.FastInterval : Timeout.InfiniteTimeSpan);
+        _opModeScheduler.Start(opWatched ? _opModeScheduler.CurrentInterval : Timeout.InfiniteTimeSpan);
     }
 
     /// <inheritdoc />
@@ -180,16 +181,37 @@ public sealed partial class PredatorSenseModule : IModule
 
     // ------------------------------------------------------------------ reactions
 
+    private static readonly MetricId[] SensorIds = SensorInfo.All.Select(i => i.Metric).ToArray();
+    private readonly object _demandLock = new();
+
     /// <summary>
-    /// True when somebody can see the readings: the module's page is on screen, or one of the sensor metrics has a subscriber
-    /// (the dashboard bay, a recorder, another module). Otherwise the sensors are read at the slow rate.
+    /// How the sensors should be read now (host API 0.1.4, <see cref="MetricDemand"/>): <see cref="DemandKind.Fast"/> at the poll rate when the module's page is
+    /// on screen or one of the sensor metrics has a subscriber (the dashboard bay, a recorder, another module); <see cref="DemandKind.Background"/> when only
+    /// a background reader asks (Watch), at max(poll rate, asked interval) and at most the idle rate; otherwise <see cref="DemandKind.Idle"/> at the slow idle rate.
     /// </summary>
-    internal static bool IsWatched(IHostServices host)
+    internal static DemandState SensorDemand(IHostServices host, int pollSeconds) =>
+        host.Evaluate(SensorIds, TimeSpan.FromSeconds(pollSeconds), TimeSpan.FromSeconds(PredatorSenseSettings.IdlePollSeconds));
+
+    /// <summary>
+    /// How the performance mode should be read now: <see cref="DemandKind.Fast"/> (every 10 s) when the page is on screen or its metric has a subscriber,
+    /// <see cref="DemandKind.Background"/> at max(10 s, asked interval) when only a background reader asks, otherwise <see cref="DemandKind.Idle"/>: not read at all.
+    /// </summary>
+    internal static DemandState OpModeDemand(IHostServices host) =>
+        host.Evaluate(new[] { OperationModeReader.Metric }, TimeSpan.FromSeconds(PredatorSenseSettings.OpModePollSeconds), Timeout.InfiniteTimeSpan);
+
+    /// <summary>
+    /// Sets a scheduler from a decision and asks for a poll now when it started to look, or has to read sooner than the timer that is armed. A change applies to the
+    /// timer after the poll that is armed now otherwise.
+    /// </summary>
+    private static void ApplyDemand(PollScheduler scheduler, DemandState demand)
     {
-        if (host.PageVisible.Value) return true;
-        foreach (var info in SensorInfo.All)
-            if (host.Metrics.SubscriberCount(info.Metric) > 0) return true;
-        return false;
+        bool wasWatched = scheduler.Watched;
+        var before = scheduler.CurrentInterval;
+        scheduler.Watched = demand.Kind == DemandKind.Fast;
+        scheduler.BackgroundInterval = demand.Kind == DemandKind.Background ? demand.Interval : null;
+        var after = scheduler.CurrentInterval;
+        bool sooner = after != Timeout.InfiniteTimeSpan && (before == Timeout.InfiniteTimeSpan || after < before);
+        if ((scheduler.Watched && !wasWatched) || sooner) scheduler.PollSoon();
     }
 
     /// <summary>
@@ -200,38 +222,19 @@ public sealed partial class PredatorSenseModule : IModule
     {
         var host = _host;
         if (host is null) return;
-        if (_scheduler is { } scheduler)
+        lock (_demandLock)
         {
-            bool watched = IsWatched(host);
-            if (watched != scheduler.Watched)
-            {
-                scheduler.Watched = watched;
-                if (watched) scheduler.PollSoon();
-            }
-        }
-        if (_opModeScheduler is { } opScheduler)
-        {
-            bool watched = IsOpModeWatched(host);
-            if (watched != opScheduler.Watched)
-            {
-                opScheduler.Watched = watched;
-                if (watched) opScheduler.PollSoon();   // somebody looks now: read the mode at once, then every 10 s
-            }
+            if (_scheduler is { } scheduler) ApplyDemand(scheduler, SensorDemand(host, _settings.PollSeconds));
+            // somebody looks (or asks) now: the mode is read at once, then at the demanded interval; nobody: not at all
+            if (_opModeScheduler is { } opScheduler) ApplyDemand(opScheduler, OpModeDemand(host));
         }
     }
-
-    /// <summary>
-    /// True when somebody can see the performance mode: the module's page is on screen, or the metric <see cref="OperationModeReader.Metric"/>
-    /// has a subscriber. When it is false the mode is not read at all.
-    /// </summary>
-    internal static bool IsOpModeWatched(IHostServices host) =>
-        host.PageVisible.Value || host.Metrics.SubscriberCount(OperationModeReader.Metric) > 0;
 
     /// <summary>The interval the sensors are read at now (tests).</summary>
     internal TimeSpan? CurrentPollInterval => _scheduler?.CurrentInterval;
 
-    /// <summary>True while the performance mode is being polled (page visible or the metric has a subscriber) (tests).</summary>
-    internal bool? OpModePolling => _opModeScheduler?.Watched;
+    /// <summary>True while the performance mode is being polled (page visible, the metric has a subscriber, or a background demand) (tests).</summary>
+    internal bool? OpModePolling => _opModeScheduler?.IsPolling;
 
     /// <summary>What Rigbay set last, as the fan line starts with it ("Maximum at 14:02") (tests).</summary>
     internal string LastSetShown => _lastSetText.Value;
@@ -274,6 +277,7 @@ public sealed partial class PredatorSenseModule : IModule
         if (seconds != _pollSeconds.Value) { _pollSeconds.Value = seconds; return; }   // the setter raises Changed again with the clamped value
         _settings.PollSeconds = (int)seconds;
         if (_scheduler is { } scheduler) scheduler.FastInterval = TimeSpan.FromSeconds(seconds);
+        OnWatchSignal();   // a background demand is never faster than the poll rate
         SaveSettings();
     }
 

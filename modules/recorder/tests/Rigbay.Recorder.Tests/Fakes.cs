@@ -305,6 +305,13 @@ internal sealed class FakeHotkeys : IHotkeyService
 internal sealed class FakeCommands : ICommandRegistry
 {
     public readonly Dictionary<string, (string DescriptionKey, CommandHandler Handler)> Verbs = new();
+    public readonly Dictionary<string, CommandInfo> Infos = new();
+
+    public void Register(CommandInfo info, CommandHandler handler)
+    {
+        Register(info.Verb, info.DescriptionKey, handler);
+        Infos[info.Verb] = info;
+    }
 
     public void Register(string verb, string descriptionKey, CommandHandler handler)
     {

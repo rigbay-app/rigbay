@@ -5,9 +5,16 @@ SNI and HTTP `Host` header filtering. It runs a small proxy on `127.0.0.1`, look
 user's Windows proxy setting (`AutoConfigURL`) at a PAC file that sends only Steam addresses to it. It is the module port of the standalone app
 [steam-bypass](https://github.com/minhdevtree/steam-bypass) (same technique, same domain list format, new code).
 
-Status: **0.1.2** (unreleased; 0.1.1 is the last pre-release). Built and tested; never turned on against the real network from this repository's
+Status: **0.1.3** (unreleased; 0.1.1 is the last pre-release). Needs Rigbay 0.1.5 or newer (host API 0.1.4). Built and tested; never turned on against the real network from this repository's
 automated checks. 0.1.2 is the new page layout of the November 2026 UI review (the switch first, nothing "Not available" while it is off) and needs
-Rigbay host API 0.1.3; 0.1.1 fixed a race in the switch worker (one change at a time). See [CHANGELOG.md](CHANGELOG.md). See `docs/steambypass/MODULE.md` in the Rigbay repository for the
+Rigbay host API 0.1.3; 0.1.3 adds the host API 0.1.4 parts below; 0.1.1 fixed a race in the switch worker (one change at a time). See [CHANGELOG.md](CHANGELOG.md).
+
+**For other modules (host API 0.1.4).** `rigbay steam-bypass status` and `test` are declared read-only (`test` opens connections to check Steam and changes no setting). `on` and `off` are declared as
+a system-setting write (the same effect text as the switch). Their preview is just "Steam bypass on" / "Steam bypass off", with no before-state. Each reports its own undo when it **changed** something
+(`on` is undone by `off` and the other way round, with no arguments) and reports none when the bypass was already in the wanted state; that is the reason they report an undo and do not leave it
+to a fixed "steam-bypass off" step in a plan: a fixed undo would also turn off a bypass the owner had switched on before the game started. The numbers (connections, failed connections) are
+also refreshed when another module such as Watch asks for them in the background: at min(10 s, max(1 s, the asked interval)), with the page closed. Nothing is published while the bypass is off,
+as before, so a Watch rule on `steam.proxy.errors` says "waiting" until the bypass is on. See `docs/steambypass/MODULE.md` in the Rigbay repository for the
 design, the evidence and what is not verified.
 
 ## What it changes on your computer

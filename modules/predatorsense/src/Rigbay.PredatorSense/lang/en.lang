@@ -95,6 +95,8 @@ module.predatorsense.state.unavailable = Readings not available
 # Confirmation text
 module.predatorsense.detail.change = Fan mode: {0} -> {1}
 module.predatorsense.detail.set = Set fan mode to {0}
+module.predatorsense.preview.fan-auto = Fan mode: Auto (the laptop's firmware controls the fans)
+module.predatorsense.preview.fan-max = Fan mode: Maximum (all fans at full speed)
 
 # Verbs
 module.predatorsense.cmd.status = Print the temperatures and fan speeds

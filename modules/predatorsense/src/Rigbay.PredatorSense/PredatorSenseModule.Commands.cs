@@ -20,13 +20,39 @@ public sealed partial class PredatorSenseModule
         Done,
     }
 
-    internal sealed record ChangeAnswer(ChangeStatus Status, FanResult? Result);
+    /// <param name="Status">How the request ended.</param>
+    /// <param name="Result">The write and its check, when one was made.</param>
+    /// <param name="Before">The mode Rigbay had set before this write (null when it had set nothing); only for <see cref="ChangeStatus.Done"/>.</param>
+    internal sealed record ChangeAnswer(ChangeStatus Status, FanResult? Result, FanMode? Before = null);
 
     private void RegisterCommands(IHostServices host)
     {
-        host.Commands.Register("status", "cmd.status", _ => StatusCommand(host));
-        host.Commands.Register("fan", "cmd.fan", ctx => FanCommandAsync(host, ctx));
+        // Host API 0.1.4: say what each verb does. status only reads (the sensors and the two performance-mode reads). fan writes the fan mode (hardware, the same
+        // effect the page and the hotkey describe); its preview is the mode the argument names, nothing from the machine's state.
+        host.Commands.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly }, _ => StatusCommand(host));
+        host.Commands.Register(new CommandInfo("fan", "cmd.fan")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect("effect.fan-mode"),
+            UsageKey = "cmd.fan-usage",
+            Preview = PreviewFan,
+            UndoVerb = "fan",
+        }, ctx => FanCommandAsync(host, ctx));
     }
+
+    /// <summary>The mode an argument names: <c>auto</c>, or <c>max</c>/<c>maximum</c>, nothing else.</summary>
+    internal static bool TryParseMode(IReadOnlyList<string> args, out FanMode mode)
+    {
+        mode = FanMode.Auto;
+        if (args.Count != 1) return false;
+        if (args[0].Equals("auto", StringComparison.OrdinalIgnoreCase)) return true;
+        if (args[0].Equals("max", StringComparison.OrdinalIgnoreCase) || args[0].Equals("maximum", StringComparison.OrdinalIgnoreCase)) { mode = FanMode.Max; return true; }
+        return false;
+    }
+
+    /// <summary>"Fan mode: Maximum (all fans at full speed)": what the argument selects. A pure function of the argument; the fan state now is not looked at.</summary>
+    internal static LocalisedText? PreviewFan(IReadOnlyList<string> args) =>
+        TryParseMode(args, out var mode) ? LocalisedText.Of(mode == FanMode.Max ? "preview.fan-max" : "preview.fan-auto") : null;
 
     // ------------------------------------------------------------------ rigbay predatorsense status
 
@@ -59,10 +85,7 @@ public sealed partial class PredatorSenseModule
     private async Task<CommandResult> FanCommandAsync(IHostServices host, CommandContext ctx)
     {
         var loc = host.Localisation;
-        FanMode mode;
-        if (ctx.Args.Count == 1 && ctx.Args[0].Equals("auto", StringComparison.OrdinalIgnoreCase)) mode = FanMode.Auto;
-        else if (ctx.Args.Count == 1 && (ctx.Args[0].Equals("max", StringComparison.OrdinalIgnoreCase) || ctx.Args[0].Equals("maximum", StringComparison.OrdinalIgnoreCase))) mode = FanMode.Max;
-        else return CommandResult.Usage(loc.T("cmd.fan-usage"));
+        if (!TryParseMode(ctx.Args, out var mode)) return CommandResult.Usage(loc.T("cmd.fan-usage"));
 
         var answer = await ChangeWithApprovalAsync(mode, ctx.CancellationToken).ConfigureAwait(false);
         switch (answer.Status)
@@ -74,9 +97,12 @@ public sealed partial class PredatorSenseModule
 
         var result = answer.Result!;
         string line = CheckText(loc, result);
-        return result.Applied
-            ? CommandResult.Ok(loc.F("cmd.fan-done", ModeLabel(loc, mode), line))
-            : CommandResult.Failed(line);
+        if (!result.Applied) return CommandResult.Failed(line);
+        // What puts it back: the mode Rigbay had set before, or Auto when it had set nothing (the firmware is in charge then, which is what Auto hands back, and what the
+        // module itself does when it stops). Nothing to report when the mode did not change.
+        var before = answer.Before ?? FanMode.Auto;
+        return CommandResult.Ok(loc.F("cmd.fan-done", ModeLabel(loc, mode), line))
+            with { UndoArgs = before == mode ? null : new[] { before == FanMode.Max ? "max" : "auto" } };
     }
 
     // ------------------------------------------------------------------ hotkey
@@ -130,12 +156,13 @@ public sealed partial class PredatorSenseModule
             return new ChangeAnswer(ChangeStatus.Declined, null);
         }
 
+        var before = fan.Last?.Mode;
         var result = await fan.ApplyAsync(mode, ct).ConfigureAwait(false);
         AnnounceFan(host, mode, result, ToastOrigin.Background);   // before the page shows it, so a reader of the page sees the toast already
         ShowResult(result);
         SyncChoice();
         RefreshTexts();
-        return new ChangeAnswer(ChangeStatus.Done, result);
+        return new ChangeAnswer(ChangeStatus.Done, result, before);
     }
 
     // ------------------------------------------------------------------ telling the user

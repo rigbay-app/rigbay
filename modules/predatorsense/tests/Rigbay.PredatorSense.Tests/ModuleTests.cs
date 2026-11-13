@@ -530,7 +530,7 @@ public class LanguageAndManifestTests
         Assert.Equal(1, root.GetProperty("manifestVersion").GetInt32());
         Assert.Equal("predatorsense", root.GetProperty("id").GetString());
         Assert.Equal("cooling", root.GetProperty("group").GetString());
-        Assert.Equal(">=0.1.3 <0.2", root.GetProperty("hostApi").GetString());
+        Assert.Equal(">=0.1.4 <0.2", root.GetProperty("hostApi").GetString());
         Assert.Equal("Rigbay.PredatorSense.PredatorSenseModule", root.GetProperty("entry").GetProperty("type").GetString());
         var requires = root.GetProperty("requires");
         Assert.True(requires.GetProperty("admin").GetBoolean());

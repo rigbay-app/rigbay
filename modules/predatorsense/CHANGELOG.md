@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3 (Unreleased)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`).
+
+- **Background demand.** The sensor poll and the performance-mode read decide their rate with `MetricDemand.Evaluate` (page/subscriber = the poll rate, nothing = every 10 s for the
+  sensors and not at all for the mode). A reader that asks through `SubscribeBackground` (Watch) makes the sensors read at min(10 s, max(poll rate, asked interval)) and the
+  mode at max(10 s, asked interval) with the page closed; a faster demand polls at once. `PollScheduler` has a `BackgroundInterval` for it. With nobody asking nothing changes.
+- **Verb metadata.** `status` is read-only. `fan` is a hardware write (`effect.fan-mode`), previewed as the mode its argument names (`preview.fan-auto`, `preview.fan-max`, no live state) with
+  `UndoVerb = "fan"`; a changed mode returns `UndoArgs` (the mode Rigbay had set before, or `auto` when it had set nothing and the new mode is `max`; none when the mode did not change or
+  there is nothing known to restore). Behaviour, the write allow-list and the owner's question are unchanged.
+
 ## 0.1.2 (Unreleased)
 
 Needs a Rigbay host with host API 0.1.3 (`hostApi` `>=0.1.3 <0.2`); release it after the host that has it.

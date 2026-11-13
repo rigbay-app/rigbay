@@ -27,4 +27,6 @@ on a machine that has the XTU service (`XTU3SERVICE`) running; the probe checks 
 
 Only four controls are ever written (PL1, PL2, PL2 enable, time window), after approval.
 
-Version 0.1.1 (Unreleased; needs host API 0.1.3); see `CHANGELOG.md`.
+Version 0.1.2 (Unreleased). Needs Rigbay 0.1.5 or newer (host API 0.1.4); see `CHANGELOG.md`.
+
+**For other modules (host API 0.1.4).** `rigbay xtu status` and `list` are declared read-only. `rigbay xtu apply <profile>` is declared as a write of the CPU power limits (hardware); its preview is the profile's own values ("Gaming: PL1 45 W · PL2 65 W · 28 s", from the profile list, never from what is in force now), and a run that changed something reports the profile that was in force before, so the host can put it back with `apply <that profile>`. When the old values matched no profile there is nothing to report and that step is not undone. The monitor (temperature, power, clock, usage) is also read when another module such as Watch asks for it in the background, at the asked interval but never faster than once a second; with nobody asking it is still not read at all.

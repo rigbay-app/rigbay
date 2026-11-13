@@ -189,6 +189,16 @@ internal sealed class FakeMetrics : IMetricsBus
     public int SubscriberCount(MetricId id) { lock (Published) return _subscribers.TryGetValue(id, out var n) ? n : 0; }
     public event Action? SubscribersChanged;
 
+    /// <summary>Background demands (host API 0.1.4): the interval somebody asks for an id.</summary>
+    private readonly Dictionary<MetricId, TimeSpan> _background = new();
+    public TimeSpan? BackgroundInterval(MetricId id) { lock (Published) return _background.TryGetValue(id, out var t) ? t : null; }
+
+    public void SetBackground(MetricId id, TimeSpan? interval)
+    {
+        lock (Published) { if (interval is { } t) _background[id] = t; else _background.Remove(id); }
+        SubscribersChanged?.Invoke();
+    }
+
     public void SetSubscribers(MetricId id, int count)
     {
         lock (Published) _subscribers[id] = count;
@@ -320,7 +330,13 @@ internal sealed class FakeTray : ITrayService
 internal sealed class FakeCommands : ICommandRegistry
 {
     public readonly Dictionary<string, CommandHandler> Handlers = new();
+    public readonly Dictionary<string, CommandInfo> Infos = new();
     public void Register(string verb, string descriptionKey, CommandHandler handler) => Handlers.Add(verb, handler);
+    public void Register(CommandInfo info, CommandHandler handler)
+    {
+        Handlers.Add(info.Verb, handler);
+        Infos[info.Verb] = info;
+    }
 
     public Task<CommandResult> Run(string verb, params string[] args) =>
         Handlers[verb](new CommandContext(args, CancellationToken.None));

@@ -14,6 +14,7 @@ public sealed class PollScheduler : IDisposable
     private bool _stopped = true;
     private bool _running;
     private bool _watched = true;
+    private TimeSpan? _background;
     private TimeSpan _fast;
     private TimeSpan _idle;
 
@@ -46,8 +47,19 @@ public sealed class PollScheduler : IDisposable
     /// </summary>
     public bool Watched { get { lock (_lock) return _watched; } set { lock (_lock) _watched = value; } }
 
-    /// <summary>The interval that applies now.</summary>
-    public TimeSpan CurrentInterval { get { lock (_lock) return _watched ? _fast : _idle; } }
+    /// <summary>
+    /// Host API 0.1.4: the interval somebody asked for in the background (Watch), or null. It applies only while nobody watches, in place of
+    /// the idle interval; the module works it out with <c>MetricDemand</c> (never faster than the fast interval, never slower than a finite idle one).
+    /// </summary>
+    public TimeSpan? BackgroundInterval { get { lock (_lock) return _background; } set { lock (_lock) _background = value; } }
+
+    /// <summary>The interval that applies now; <see cref="Timeout.InfiniteTimeSpan"/> when nothing is polled.</summary>
+    public TimeSpan CurrentInterval { get { lock (_lock) return Current(); } }
+
+    /// <summary>True when the scheduler has an interval to poll at (watched, a background demand, or a finite idle interval).</summary>
+    public bool IsPolling { get { lock (_lock) return Current() != Timeout.InfiniteTimeSpan; } }
+
+    private TimeSpan Current() => _watched ? _fast : _background ?? _idle;
 
     /// <summary>Starts polling; the first poll runs after <paramref name="firstDelay"/>.</summary>
     public void Start(TimeSpan firstDelay)
@@ -100,7 +112,7 @@ public sealed class PollScheduler : IDisposable
         {
             _running = false;
             if (_stopped) return;
-            _timer?.Change(_watched ? _fast : _idle, Timeout.InfiniteTimeSpan);
+            _timer?.Change(Current(), Timeout.InfiniteTimeSpan);
         }
     }
 }

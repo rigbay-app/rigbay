@@ -4,7 +4,7 @@ Reads the NVIDIA GPU of a PC through NVML, the management library that ships wit
 the module page (four tiles and a chart per kind of reading), on the Dashboard, in the recorder's CSV, and in `rigbay gpu status`. **It only reads.**
 Nothing here sets a clock, a power limit, a fan or a mode.
 
-Status: version 0.1.0, not released. Tried on one machine (below); everything else is **not verified**.
+Status: version 0.1.1, not released. Needs Rigbay 0.1.5 or newer (host API 0.1.4). Tried on one machine (below); everything else is **not verified**.
 
 ## What it shows
 
@@ -48,7 +48,9 @@ therefore has no `gpu.temp` for the Dashboard; the module's own page has the tem
 
 On a laptop with Optimus or a similar switch, any program that talks to the NVIDIA GPU can keep it from going to sleep, which costs battery. So the module reads
 **only while somebody looks**: its page is on screen, or a reader has subscribed to one of its metrics (the Dashboard, the recorder, the tray tooltip, another module).
-When nobody looks it does not call NVML at all. The "Read every" setting (1 to 30 seconds, default 2) is the rate while somebody looks. NVML itself stays initialised while the
+When nobody looks it does not call NVML at all. The "Read every" setting (1 to 30 seconds, default 2) is the rate while somebody looks.
+
+A reader that asks in the background (the Watch module, host API 0.1.4) is the one exception: it wants a reading every N seconds without the page being open. Then the module reads at the larger of the "Read every" setting and N (never faster than the setting) until the demand goes away. **A background demand keeps the NVIDIA GPU awake** (one read every N seconds is enough to stop a laptop's Optimus switch from putting it to sleep), so a Watch rule on a GPU reading costs battery for as long as the rule is on. NVML itself stays initialised while the
 module is on; whether an initialised but silent NVML session keeps a sleeping GPU awake was **not measured** (see below).
 
 `rigbay gpu status` reads once on request (it wakes the GPU for that one read) and prints every reading.

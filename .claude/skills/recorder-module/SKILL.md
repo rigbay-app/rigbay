@@ -5,7 +5,7 @@ description: Working knowledge of the Rigbay recorder module (modules/recorder, 
 
 # Recorder module: codebase guide
 
-Module id `recorder`, group `monitoring`, `modules/recorder/` (net8.0, no NuGet dependency), tests in `modules/recorder/tests/Rigbay.Recorder.Tests` (146 at the last run; version 0.1.1 unreleased, host API `>=0.1.3`).
+Module id `recorder`, group `monitoring`, `modules/recorder/` (net8.0, no NuGet dependency), tests in `modules/recorder/tests/Rigbay.Recorder.Tests` (version 0.1.3 unreleased, host API `>=0.1.4`; 0.1.3 added `CommandInfo` to the three verbs: status ReadOnly, start/stop Writes with the setting kind because they write files, not hardware; `PreviewStart` reads only the arguments and the page settings; `start` reports an empty `UndoArgs` when it began a recording; there is no poll rate to decide, the recorder publishes no metric; tests: `VerbMetadataTests.cs`).
 User-facing description, formats and the verification record: `docs/recorder/README.md`. Method index: `references/code-map.md`. Tests, live script and the traps of writing files here: `references/testing.md`.
 The old app's recorder is described in `docs/xtu/RECORDER-NOTES.md` (columns, units, what the bus cannot carry).
 

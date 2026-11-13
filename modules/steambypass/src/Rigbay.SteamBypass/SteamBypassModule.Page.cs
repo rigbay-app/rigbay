@@ -35,7 +35,7 @@ public sealed partial class SteamBypassModule
             DescriptionKey = "row.bypass.description",
             HelpKey = "row.bypass.help",
             Line = _bypassLine,
-            HardwareEffect = new HardwareEffect("effect.bypass") { Kind = EffectKind.SystemSetting, RevertDescriptionKey = "effect.bypass-revert" },
+            HardwareEffect = BypassEffect,
         };
         // It makes the module change the Windows setting by itself at every start, so turning it on is asked about like the switch.
         _autoOnRow ??= new ToggleRow("row.auto-on.header", _autoOn)

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2 (Unreleased)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`).
+
+- **Background demand.** The monitor thread asks `MetricDemand.Evaluate` (fast = 1 s, idle = do not read) instead of "page visible or subscriber". A reader that asks through
+  `SubscribeBackground` (Watch) makes it read at max(1 s, asked interval) while the page is closed; the first read after connecting only starts the warm-up, so with a slow
+  demand the second read follows after one second, not after a whole interval. A page or subscriber that arrives while a slow slot is waiting reads at once. With nobody asking nothing changes.
+- **Verb metadata.** `status` and `list` are read-only. `apply` is a write (`HardwareEffect` `effect.apply-profile`, the same one it asks the owner about), with a preview made of the
+  named profile's own values (`preview.apply`, `preview.apply-pl2-off`) and `UndoVerb = "apply"`; a run that changed the limits returns the matching profile that was in force before as `UndoArgs`
+  (none when nothing changed, the run failed or was declined, or the old values matched no profile). Behaviour, limits and the owner's question are unchanged.
+
 ## 0.1.1 (Unreleased)
 
 Needs a Rigbay host with host API 0.1.3 (`hostApi` `>=0.1.3 <0.2`); release it after the host that has it.

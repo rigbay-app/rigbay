@@ -6,7 +6,7 @@ description: Working knowledge of the Rigbay GPU module (modules/gpu, id gpu, .N
 # GPU module: codebase guide
 
 Module id `gpu`, group `monitoring`, `modules/gpu/src/Rigbay.Gpu` (net8.0), tests in `modules/gpu/tests/Rigbay.Gpu.Tests` (125 at the last run, version 0.1.0
-unreleased, host API `>=0.1.3 <0.2`, `requires.admin` false). Written by task G1 of job rigbay-13 (2026-11-13). This repository is PUBLIC.
+unreleased, host API `>=0.1.4 <0.2`, `requires.admin` false). Written by task G1 of job rigbay-13 (2026-11-13). This repository is PUBLIC.
 
 ## Hard constraints (check before you write code)
 
@@ -24,10 +24,11 @@ unreleased, host API `>=0.1.3 <0.2`, `requires.admin` false). Written by task G1
   NVML counts initialisations: every successful `Init` needs one `Shutdown` (the probe and the module balance theirs, tests check the depth).
 - **One thread in NVML at a time.** The module wraps whatever it is given in `SerialNvml` (one lock around every call) in `Probe` and `Initialize`; a test counts those two
   `new SerialNvml(` and `FakeNvml.MaxInside` proves no overlap under 8 threads. Polls are serialised again in `GpuPoller` (`_pollLock`); `Close` takes that lock, so a shutdown waits for a poll that runs.
-- **Reads only while somebody looks** (Optimus). `GpuModule.IsWatched`: the page is visible, or any of the module's 11 metrics has a subscriber (Dashboard, recorder, tray tooltip, another module).
-  Not watched: no timer fires, NVML is not called at all (a test: 0 read calls after 300 ms with the timer on). `PollScheduler` re-arms only while watched; `PollSoon` reads at once when somebody starts to look.
-  **TODO (H1):** when the host's background metric demand (task H1, branch `feat/host-scenes-watch`, not on main on 2026-11-13) lands, subscribe through it so Watch can ask for the readings at a slow rate
-  without the page open; today a subscriber means "fast" (the poll rate setting, 2 s). Until then a module that only wants an alert every minute still makes the GPU read every 2 s.
+- **Reads only while somebody looks** (Optimus). `GpuModule.Demand` is `host.Evaluate(all 11 ids, poll rate, Timeout.InfiniteTimeSpan)` (host API 0.1.4): page visible or a subscriber = Fast at the poll rate; only a
+  `SubscribeBackground` demand (Watch) = Background at max(poll rate, N); nothing = Idle, no timer fires and NVML is not called at all (a test: 0 read calls after 300 ms with the timer on).
+  `OnWatchSignal` re-runs it on page/subscriber/background changes and on a poll-rate change, sets `PollScheduler.Watched` and `Interval`, and calls `PollSoon` when reading starts or gets faster.
+  **A background demand keeps the dGPU awake** (said in the README); the Watch suggestion text is Watch's. Tests: `DemandTests.cs` (the table, start/stop under a demand).
+  `rigbay gpu status` is a `CommandInfo` with `VerbAccess.ReadOnly` (it reads, wakes the GPU for one read, writes nothing).
 - **A reading the GPU does not have is withdrawn, never 0.** `NVML_ERROR_NOT_SUPPORTED`: at once (and once, not every poll); any other failure: after 3 polls in a row (`GpuPoller.FailureLimit`), the last value stays for two polls. A performance state of 32 (NVML's "unknown")
   is treated as not supported. All metrics are withdrawn in `Shutdown`.
 - **Rigbay rules** (`docs/ABSTRACTIONS.md` section 12): the constructor does nothing, `Probe` is read only (opens the library, `Init`, count, name, `Shutdown`), `Initialize` writes nothing, threads catch everything (`PollScheduler`), all text is a language key,

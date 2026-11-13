@@ -8,11 +8,32 @@ public sealed partial class TunnelModule
 {
     private void RegisterCommands(IHostServices host)
     {
-        host.Commands.Register("list", "cmd.list", ListCommand);
-        host.Commands.Register("status", "cmd.status", StatusCommandAsync);
-        host.Commands.Register("on", "cmd.on", ctx => ChangeCommandAsync(ctx, wanted: true));
-        host.Commands.Register("off", "cmd.off", ctx => ChangeCommandAsync(ctx, wanted: false));
+        // Host API 0.1.4: say what each verb does. list and status only read (service states, wg.exe show, a local port check). on and off start or remove the Windows
+        // service of a WireGuard tunnel (a system change, not hardware). The effect text is generic here (the dialog of a plan names the tunnel in the command line and in the
+        // preview); the question the verb asks itself names the tunnel and has the same kind, which is what the host matches.
+        host.Commands.Register(new CommandInfo("list", "cmd.list") { Access = VerbAccess.ReadOnly, UsageKey = "cmd.list-usage" }, ListCommand);
+        host.Commands.Register(new CommandInfo("status", "cmd.status") { Access = VerbAccess.ReadOnly, UsageKey = "cmd.status-usage" }, StatusCommandAsync);
+        host.Commands.Register(new CommandInfo("on", "cmd.on")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect("effect.verb-on") { Kind = EffectKind.SystemSetting },
+            UsageKey = "cmd.on-usage",
+            Preview = args => PreviewChange(args, "preview.turn-on"),
+            UndoVerb = "off",
+        }, ctx => ChangeCommandAsync(ctx, wanted: true));
+        host.Commands.Register(new CommandInfo("off", "cmd.off")
+        {
+            Access = VerbAccess.Writes,
+            Effect = new HardwareEffect("effect.verb-off") { Kind = EffectKind.SystemSetting },
+            UsageKey = "cmd.off-usage",
+            Preview = args => PreviewChange(args, "preview.turn-off"),
+            UndoVerb = "on",
+        }, ctx => ChangeCommandAsync(ctx, wanted: false));
     }
+
+    /// <summary>"Turn on tunnel Home": the tunnel the argument names. A pure function of the argument; whether it is on now is not looked at.</summary>
+    internal static LocalisedText? PreviewChange(IReadOnlyList<string> args, string key) =>
+        args.Count == 1 && args[0].Trim().Length > 0 ? LocalisedText.Of(key, args[0].Trim()) : null;
 
     // ------------------------------------------------------------------ rigbay tunnel list
 
@@ -91,13 +112,15 @@ public sealed partial class TunnelModule
                 return CommandResult.Failed(loc.F(outcome.Problem!.Key, outcome.Problem.Args));
         }
 
-        if (!wanted) return CommandResult.Ok(loc.F("cmd.turned-off", outcome.Name));
+        // A run that changed the tunnel reports the way back: the opposite verb with the tunnel's name. A run that found it already there changed nothing and reports none.
+        var undo = new[] { outcome.Name };
+        if (!wanted) return CommandResult.Ok(loc.F("cmd.turned-off", outcome.Name)) with { UndoArgs = undo };
         return outcome.Handshake switch
         {
-            HandshakeOutcome.Connected => CommandResult.Ok(loc.F("cmd.turned-on-connected", outcome.Name)),
+            HandshakeOutcome.Connected => CommandResult.Ok(loc.F("cmd.turned-on-connected", outcome.Name)) with { UndoArgs = undo },
             HandshakeOutcome.NoHandshake => CommandResult.Failed(loc.F("err.no-handshake", outcome.Name)),
             HandshakeOutcome.TurnedOff => CommandResult.Failed(loc.F("cmd.turned-off-meanwhile", outcome.Name)),
-            _ => CommandResult.Ok(loc.F("cmd.turned-on", outcome.Name)),
+            _ => CommandResult.Ok(loc.F("cmd.turned-on", outcome.Name)) with { UndoArgs = undo },
         };
     }
 }

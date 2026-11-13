@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 (Unreleased)
+
+Needs Rigbay 0.1.5 or newer (host API 0.1.4, `hostApi` `>=0.1.4 <0.2`). What the module reads and writes (`requires`) does not change.
+
+- **Background demand.** The refresh rate is `MetricDemand.Evaluate` (fast 1 s, idle 10 s) instead of "page visible or subscriber". A reader that asks through `SubscribeBackground`
+  (Watch) on `steam.proxy.active` or `steam.proxy.errors` makes the refresh run at min(10 s, max(1 s, asked interval)); a faster demand refreshes at once. With nobody asking nothing changes.
+- **Verb metadata.** `status` and `test` are read-only; `on` and `off` are system-setting writes (`effect.bypass`, the same one the switch and the verbs ask with), previewed as
+  "Steam bypass on/off" (`preview.on`, `preview.off`). They report an empty `UndoArgs` when they changed something (the opposite verb is the undo) and none when the bypass was
+  already in the wanted state, so a plan restores exactly what it changed. Behaviour, limits and the owner's question are unchanged.
+
 ## 0.1.2 (Unreleased)
 
 The page from the November 2026 UI review (`docs/ui-review/REVIEW-2026-11.md` in the Rigbay repository, findings SA-1, LC-1, LC-2). Nothing the module
