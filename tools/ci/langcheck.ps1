@@ -18,6 +18,7 @@ try {
         @('modules/tunnel/src/Rigbay.Tunnel/lang', 'tunnel', 'modules/tunnel/src/Rigbay.Tunnel'),
         @('modules/gpu/src/Rigbay.Gpu/lang', 'gpu', 'modules/gpu/src/Rigbay.Gpu'),
         @('modules/powerrules/src/Rigbay.PowerRules/lang', 'power-rules', 'modules/powerrules/src/Rigbay.PowerRules'),
+        @('modules/scenes/src/Rigbay.Scenes/lang', 'scenes', 'modules/scenes/src/Rigbay.Scenes'),
         @('tools/demo-modules/modules/demo-devices/lang', 'demo-devices', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-fan/lang', 'demo-fan', 'tools/demo-modules'),
         @('tools/demo-modules/modules/demo-lighting/lang', 'demo-lighting', 'tools/demo-modules')
