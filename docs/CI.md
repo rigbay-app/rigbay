@@ -166,6 +166,42 @@ Then `dotnet build Rigbay.sln --no-incremental -m:2`: 0 warnings, 0 errors; one 
 Tunnel 117, Recorder 146, PredatorSense 184, XTU 208, SteamBypass 269, Core 767). The runs before the fix also passed, so the loops show no regression, not that
 the failures are gone; only the next weeks of CI can show that.
 
+### FL3 (2026-11-13): the two failures of the 0.1.2 release run
+
+CI of `c20f1bb` went green on the third attempt. Attempt 1 failed in Core, attempt 2 in Recorder. The run list of the last 20 runs shows five more failed
+`build-test` jobs, all already explained (FL2 and the Recorder shutdown test fixed in `c20f1bb`: runs 43287929386, 43292629669, 43314093349, 43301733634);
+the sixth, 43262811177, failed in `checks` (LangCheck, fixed by `ci: LangCheck covers the tunnel module`). No other test failed once.
+
+| Test | Message | Cause | Fix |
+| --- | --- | --- | --- |
+| `Core MetricInfoTests.The_catalogue_event_and_version_report_changes_and_a_module_sees_them` (attempt 1, `MetricInfoTests.cs:25`) | `Assert.True()` on `Enable()`, after 10 s | `ModuleEntry.RunGuarded` ran the module's `Initialize` (and the constructor, `Probe`, `Shutdown`) with `Task.Run` and then waited `Initialize` timeout for it. The timeout therefore also counted the time the work item waited for a free pool thread. The pool adds a thread about every half second when all are busy, so on a two-core runner with several test projects running, a healthy module was faulted ("did not finish within 10 s"). A real race in production code: on a user's machine too, a busy pool could fault a module. | Production: `StartGuarded` runs the call on a thread of its own (`TaskCreationOptions.LongRunning`), so the timeout counts only the time the module runs. A hanging module also holds its own thread, not a pool thread. |
+| `Recorder EngineCancelTests.Stop_while_waiting_for_the_next_slot_closes_the_file_at_once` (attempt 2, `EngineTests.cs:833`) | `Assert.True(watch.ElapsedMilliseconds < 2000)` failed (the call took 10 s of test time) | The writing loop was an `async` task on the pool. `Stop()` cancels and waits 4 s for it; the loop's end (the continuation after the cancelled delay, then the file close) is also queued to the pool, so with the pool busy it waited for a new thread. `Stop` is called from the UI thread in the app. | Production: the loop is a thread of its own (`LongRunning`) that waits for the next slot by blocking (`Delay(...).GetAwaiter().GetResult()`); the continuation and the close no longer need the pool. |
+
+Tests that fail before the fix (both by `PoolHog`, test support that holds every pool thread and caps the pool; the tests are in the `starved-pool` xUnit collection,
+which runs alone):
+
+- `Core StarvedPoolTests.A_module_is_loaded_probed_enabled_and_shut_down_while_the_thread_pool_has_no_free_thread`: failed before (`Lifecycle` Faulted instead of Off after discover), passes after.
+- `Recorder EngineStarvedPoolTests.Stop_closes_the_file_while_the_thread_pool_has_no_free_thread`: failed before (`Stop` returned no summary), passes after.
+
+Found while proving (all in the Recorder module, all races that were already there; the whole Recorder project was looped under stress, which the single tests never were):
+
+- `PageTests.Running_out_of_space_tells_the_user_with_a_warning` and `A_time_limit_shows_a_notification_and_the_recording_appears_in_the_history` (once in the first full-solution run, once in 40 runs alone, 4 of 30 under stress): the line under the Stop button was empty instead of "Stopped because ...". Three causes: (1) test: `ModuleRig.WaitUntilFinished` waited for `IsRecording == false` and `PageRefreshRequests >= 1`, but a refresh is also asked for when a recording begins, and the engine clears `IsRecording` before it raises `Ended`, so the test could read the line before the module's `OnEngineEnded` ran; it now waits for the engine's `Ended` event, subscribed after the module's own handler. (2) production: `RecorderModule.RefreshTexts` is called from the clock timer, the engine's `Changed` event and the `Ended` handler; a call that read the status before the end could write its old result after the call that read it after the end. It now runs under one lock (`_textGate`). (3) production: `StartRecording` cleared `_lastNotice` after `Engine.Start` returned, so a recording that ended at once (write error) had its "how it ended" text wiped; it is cleared before the start.
+- `PageTests.A_write_error_tells_the_user_with_an_error` (3 of 30 under stress after the first two were fixed): cause (3) above.
+
+Proof (build with `-m:2 -nodeReuse:false`, `--no-build`, one `dotnet test` per run, each test alone by `--filter`; the first attempt was cut off by a reboot and repeated):
+
+| Series | Runs | Failures |
+| --- | --- | --- |
+| the fixed Core test and the new Core test alone | 50 | 0 |
+| the fixed Recorder test, the new Recorder test and the two Recorder tests of `c20f1bb` / FL2 era alone | 50 | 0 |
+| Core set under stress (two busy loops pinned to cores 0 and 1, run pinned to them) | 30 | 0 |
+| Recorder set under stress | 30 | 0 |
+| whole Recorder project, no load | 60 | 0 |
+| whole Recorder project under stress | 30 | 0 |
+
+The whole-project stress series found the three races above at 4 and 3 failing runs of 30 before they were fixed; the numbers in the table are after. The busy loops were stopped after each series (checked: none left). `dotnet build Rigbay.sln --no-incremental -m:2 -nodeReuse:false -warnaserror`: 0 warnings, 0 errors.
+The two named flakes of the release run did not fail locally before the fix (30 stress runs of `EngineCancelTests` passed), so the failing-before tests above, not the series, show those fixes. Full `dotnet test Rigbay.sln --no-build` after the fixes: 1759 passed, 0 failed (LangCheck 19, Tunnel 118, Recorder 147, PredatorSense 189, XTU 214, SteamBypass 269, Core 803).
+
 ## Settings that are not in this repository
 
 Branch protection ("require the `ci` checks before merging"), Dependabot for the action pins, the labels the issue templates ask for (`bug`, `module-request`,

@@ -997,3 +997,37 @@ internal sealed class FailingStream : Stream
     public override void SetLength(long value) => throw new NotSupportedException();
     protected override void Dispose(bool disposing) { if (disposing) _inner.Dispose(); base.Dispose(disposing); }
 }
+
+[Collection("starved-pool")]
+public class EngineStarvedPoolTests
+{
+    [Fact]
+    public void Stop_closes_the_file_while_the_thread_pool_has_no_free_thread()
+    {
+        // Stop is called from the UI thread in the app (and from an xUnit thread here): a thread with a synchronization context, where the end of
+        // a waiting task is queued to the pool instead of run inline. On a runner whose pool was busy, that took longer than Stop waits.
+        using var rig = new Rig();
+        rig.PublishSome();
+        rig.Clock.BlockAfter = 1;
+        Assert.True(rig.Engine.Start(rig.Request(10)).Started);
+        Assert.True(rig.Clock.WaitUntilBlocked());
+
+        RecordingSummary? summary = null;
+        using (new PoolHog())
+        {
+            var caller = new Thread(() =>
+            {
+                SynchronizationContext.SetSynchronizationContext(new NotInlineContext());
+                summary = rig.Engine.Stop();
+            });
+            caller.Start();
+            caller.Join();
+        }
+
+        Assert.NotNull(summary);
+        Assert.Equal(StopReason.User, summary.Reason);
+        Assert.Equal(2, summary.Rows);
+        Assert.False(rig.Engine.IsRecording);
+        using var exclusive = new FileStream(rig.OnlyCsv(), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+    }
+}

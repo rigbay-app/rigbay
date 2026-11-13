@@ -139,15 +139,13 @@ public sealed partial class RecorderModule
     {
         var engine = _engine;
         if (engine is null) return new StartOutcome(false, LocalisedText.Of("cmd.not-running"));
+        // Cleared before the start, not after: a recording that ends at once (a write error, no space) has set how it ended by the time Start returns.
+        _lastNotice = null;
         var outcome = engine.Start(request);
         if (!outcome.Started)
         {
             _lastNotice = outcome.Message;
             RefreshTexts();
-        }
-        else
-        {
-            _lastNotice = null;
         }
         return outcome;
     }

@@ -24,6 +24,7 @@ public sealed partial class RecorderModule : IModule
     private readonly ObservableValue<string> _folder = new("");
     private readonly ObservableValue<bool> _idle = new(true);
     private readonly ObservableValue<bool> _recording = new(false);
+    private readonly object _textGate = new();
     private readonly ObservableValue<LocalisedText> _primaryLine = new(default);   // under Start or Stop: the running file, or how the last one ended
     private readonly ObservableValue<LocalisedText> _folderLine = new(default);    // where the files go
     private readonly ObservableValue<LocalisedText> _pickedLine = new(default);    // "12 of 40"
@@ -248,6 +249,14 @@ public sealed partial class RecorderModule : IModule
 
     /// <summary>Puts the engine's status into the observable values the page and the dashboard show. Safe to call from any thread.</summary>
     internal void RefreshTexts()
+    {
+        // One refresh at a time, from reading the state to writing the lines: the clock timer, the engine's Changed event and the Ended handler all call
+        // this, and a call that read the state before the end could otherwise write its old result after the call that read the state after it
+        // (the line under the Stop button stayed empty, not "Stopped because ...").
+        lock (_textGate) RefreshTextsLocked();
+    }
+
+    private void RefreshTextsLocked()
     {
         var host = _host;
         var engine = _engine;

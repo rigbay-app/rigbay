@@ -22,6 +22,7 @@ internal sealed class ModuleRig : IDisposable
         Host = new FakeHost(Clock, language);
         Module = NewModule();
         if (initialize) Module.Initialize(Host);
+        Watch();
     }
 
     public RecorderModule NewModule() => new(h => new RecorderServices
@@ -73,10 +74,30 @@ internal sealed class ModuleRig : IDisposable
         Host.TrayService.Items.Clear();
         Module = next;
         next.Initialize(Host);
+        Watch();
     }
 
-    /// <summary>The recording is over and the module has reacted: IsRecording turns false just before the Ended handlers run, and the last thing they do is ask for a page refresh.</summary>
-    public bool WaitUntilFinished() => Wait.Until(() => !Module.Engine!.IsRecording) && Wait.Until(() => Host.PageRefreshRequests >= 1);
+    private RecorderEngine? _watched;
+    private readonly ManualResetEventSlim _ended = new(false);
+
+    /// <summary>Listens to the engine's end. The module subscribed first (in Initialize), so by the time this handler runs the module's own handler is done.</summary>
+    private void Watch()
+    {
+        var engine = Module.Engine;
+        if (engine is null || ReferenceEquals(engine, _watched)) return;
+        _watched = engine;
+        engine.Ended += _ => _ended.Set();
+    }
+
+    /// <summary>
+    /// The recording is over and the module has reacted. IsRecording turns false before the Ended handlers run, and a page refresh was already asked
+    /// for when the recording began, so neither says that the module's handler has finished: the Ended event, after the module's own handler, does.
+    /// </summary>
+    public bool WaitUntilFinished()
+    {
+        Watch();
+        return Wait.Until(() => !Module.Engine!.IsRecording) && _ended.Wait(30000);
+    }
 
     public bool WaitUntilFrozen() => Clock.WaitUntilBlocked() && Wait.Until(() => Module.Engine!.Status().Rows >= 4);
 

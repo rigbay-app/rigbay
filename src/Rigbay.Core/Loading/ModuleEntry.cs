@@ -459,11 +459,19 @@ public sealed class ModuleEntry
 
     public Action<T> Guard<T>(string operation, Action<T> action) => value => Invoke(operation, () => action(value));
 
+    /// <summary>
+    /// Runs a call of the module on a thread of its own, not a pool thread, so that the timeout counts the time the module runs and never the time
+    /// it waited for the pool to give it a thread (a busy pool grows by about one thread every half second, so a healthy module could be faulted for it).
+    /// A module that hangs also keeps its own thread asleep, not one of the pool's.
+    /// </summary>
+    private static Task StartGuarded(Action action) =>
+        Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
     private bool RunGuarded(string operation, Action action, TimeSpan timeout)
     {
         try
         {
-            var task = Task.Run(action);
+            var task = StartGuarded(action);
             if (!task.Wait(timeout))
             {
                 FaultNow(operation, new TimeoutException($"{operation} did not finish within {timeout.TotalSeconds:0.#} s"), timedOut: true, timeout: timeout);
@@ -483,7 +491,7 @@ public sealed class ModuleEntry
         // Shutdown: failures are logged but cannot fault a module that is already being stopped.
         try
         {
-            var task = Task.Run(action);
+            var task = StartGuarded(action);
             if (!task.Wait(timeout)) Log.Error($"{operation} did not finish within {timeout.TotalSeconds:0.#} s");
         }
         catch (AggregateException ae) { Log.Error($"{operation} threw", Unwrap(ae)); }

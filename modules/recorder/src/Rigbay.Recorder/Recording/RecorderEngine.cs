@@ -84,8 +84,10 @@ internal sealed class RecorderServices
 /// The recorder: takes a snapshot of the latest value of every chosen metric on a fixed schedule and writes it to a CSV file
 /// with a .meta.json next to it. One recording at a time. Nothing here throws to the caller: a failure ends the recording, is
 /// logged and shows up in the summary. It never deletes a file.
-/// <para>Threads: <see cref="Start"/> and <see cref="Stop"/> run on the caller's thread, the rows are written by one task of
-/// the engine's own, and that task is the only one that touches the file after <see cref="Start"/> returned.</para>
+/// <para>Threads: <see cref="Start"/> and <see cref="Stop"/> run on the caller's thread, the rows are written by one thread of
+/// the engine's own, and that thread is the only one that touches the file after <see cref="Start"/> returned. It is a thread of its
+/// own, not a pool thread, and it waits for the next slot by blocking: <see cref="Stop"/> must be able to end a recording while the
+/// pool is busy (the pool grows by about one thread every half second, a UI thread calling <see cref="Stop"/> only waits four seconds).</para>
 /// </summary>
 internal sealed class RecorderEngine
 {
@@ -201,7 +203,7 @@ internal sealed class RecorderEngine
                 if (!OpenFiles(s, out var failure)) { Abandon(s); return failure; }
 
                 Volatile.Write(ref _current, s);   // before the task starts: its Finish clears it, and takes the same lock
-                s.Loop = Task.Run(() => RunAsync(s));
+                s.Loop = Task.Factory.StartNew(() => Run(s), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             }
             RaiseChanged();
             return new StartOutcome(true, default, s.Path);
@@ -285,13 +287,13 @@ internal sealed class RecorderEngine
         try { s.Cts.Cancel(); }
         catch (ObjectDisposedException) { /* it ended by itself in the meantime */ }
         try { s.Loop?.Wait(TimeSpan.FromSeconds(4)); }
-        catch (Exception) { /* RunAsync does not throw; a timeout just returns */ }
+        catch (Exception) { /* Run does not throw; a timeout just returns */ }
         return LastSummary is { } last && last.Path == s.Path ? last : null;
     }
 
     // ------------------------------------------------------------------ the writing task
 
-    private async Task RunAsync(Session s)
+    private void Run(Session s)
     {
         var reason = StopReason.User;
         string? detail = null;
@@ -305,11 +307,11 @@ internal sealed class RecorderEngine
 
                 if (s.EndAt is { } end && s.Schedule.Next >= end)
                 {
-                    if (end > now) await _svc.Delay(end - now, token).ConfigureAwait(false);
+                    if (end > now) _svc.Delay(end - now, token).GetAwaiter().GetResult();
                     reason = StopReason.Duration;
                     break;
                 }
-                if (s.Schedule.Next > now) await _svc.Delay(s.Schedule.Next - now, token).ConfigureAwait(false);
+                if (s.Schedule.Next > now) _svc.Delay(s.Schedule.Next - now, token).GetAwaiter().GetResult();
 
                 var slot = s.Schedule.Take(_svc.Clock());
                 var free = _svc.Disk.FreeBytes(s.Folder);
