@@ -145,6 +145,7 @@ static class SelfTest
         await FlowChecks(w, fan);
         await VisibilityAndReadingChecks(w, fan);
         await VisualReadingChecks(w, fan);
+        await TrayTrimChecks(w, fan);
         await PageModelAdditionChecks(w, fan);
 
         // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
@@ -353,6 +354,93 @@ static class SelfTest
 
 
     // ================================================================ V1: sparklines, tiles, trend chart, nothing live while hidden
+
+    // ================================================================ memory in the tray: the page is dropped after the delay and comes back
+
+    /// <summary>A weak reference to the page that is on screen, taken in a method of its own so no local of the caller keeps the page alive.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static (WeakReference Root, WeakReference? Chart, int Elements) PageRefs(MainWindow w)
+    {
+        var chart = Find<TrendChart>(w.PageContent).FirstOrDefault();
+        return (new WeakReference(w.PageContent), chart == null ? null : new WeakReference(chart), Find<DependencyObject>(w.PageContent).Count(d => d.GetType().Assembly == typeof(MainWindow).Assembly));
+    }
+
+    static async Task TrayTrimChecks(MainWindow w, ModuleEntry fan)
+    {
+        var core = Host.Core;
+        var policy = w.TrimPolicy;
+        bool wasEnabled = policy.Enabled;
+        var wasDelay = policy.Delay;
+        policy.Enabled = true; policy.Delay = TimeSpan.FromSeconds(1);   // the shortest delay: the check waits for the real timer
+        var wasSteps = w.TrimStepsInUse;
+        try
+        {
+            // what the app does by default: only the working set is given back, the page stays on the window
+            w.TrimStepsInUse = Rigbay.App.Services.TrimSteps.Default;
+            w.Navigate(fan); await Settle(1200);
+            int defaultTrims = policy.Trims;
+            w.HideToTray(); await Settle(2800);
+            var dflt = w.LastTrim;
+            R("tray trim: the default trim gives the working set back once and keeps the page",
+                policy.Trims == defaultTrims + 1 && !w.PageTrimmed && w.PageContent != null && dflt is { PageDropped: false } && dflt.Steps == Rigbay.App.Services.TrimSteps.WorkingSet && dflt.After.WorkingSetMb < dflt.Before.WorkingSetMb * 0.5,
+                dflt == null ? "no trim ran" : $"steps={dflt.Steps} ws {dflt.Before.WorkingSetMb:0.0} -> {dflt.After.WorkingSetMb:0.0} MB, private {dflt.Before.PrivateMb:0.0} -> {dflt.After.PrivateMb:0.0} MB, trims {defaultTrims} -> {policy.Trims}");
+            w.ShowFromTray(); await Settle(1200);
+
+            // every step (what tools\perf\measure.ps1 compares): the page is dropped and rebuilt
+            w.TrimStepsInUse = Rigbay.App.Services.TrimSteps.All;
+            w.Navigate(fan); await Settle(1200);
+            await w.RunScriptAsync("expand-all;scroll:300");
+            await Settle(400);
+            double offset = w.PageScrollOffset;
+            var refs = PageRefs(w);
+            var scopeBefore = w.Scope;
+            int subs = scopeBefore!.TotalLiveSubscriptions;
+
+            // a hide that is undone before the delay trims nothing
+            int trimsBefore = policy.Trims;
+            w.HideToTray(); await Task.Delay(400);
+            w.ShowFromTray(); await Settle(1500);
+            R("tray trim: a window shown again before the delay is not trimmed", !w.PageTrimmed && policy.Trims == trimsBefore && w.PageContent != null && policy.Remaining() == null, $"trimmed={w.PageTrimmed} trims {trimsBefore} -> {policy.Trims}");
+
+            // hidden past the delay: the page is gone, once
+            refs = PageRefs(w);
+            w.HideToTray();
+            await Settle(3200);
+            for (int i = 0; i < 3; i++) { GC.Collect(); GC.WaitForPendingFinalizers(); }
+            var report = w.LastTrim;
+            R("tray trim: after the delay the page is dropped and the heap and working set are trimmed once",
+                w.PageTrimmed && w.PageContent == null && policy.Trims == trimsBefore + 1 && report is { PageDropped: true } && report.Steps == Rigbay.App.Services.TrimSteps.All,
+                $"trimmed={w.PageTrimmed} content={(w.PageContent == null ? "none" : "still there")} trims={policy.Trims} {(report == null ? "no report" : $"ws {report.Before.WorkingSetMb:0.0} -> {report.After.WorkingSetMb:0.0} MB, private {report.Before.PrivateMb:0.0} -> {report.After.PrivateMb:0.0} MB, {report.Ms:0} ms")}");
+            R("tray trim: WinUI keeps no reference to the page root or the chart after the trim",
+                !refs.Root.IsAlive && (refs.Chart == null || !refs.Chart.IsAlive) && report != null && report.PageElementsAlive == 0,
+                $"root alive={refs.Root.IsAlive} chart alive={(refs.Chart?.IsAlive.ToString() ?? "no chart")}; the app's own elements of the page: {report?.PageElements} seen, {report?.PageElementsAlive} alive");
+            R("tray trim: nothing is live in the tray", w.Scope == null && !fan.IsPageVisible && core.Metrics.SubscriberCount(WellKnownMetrics.CpuTemp) == 0 && scopeBefore.Disposed, $"scope={(w.Scope == null ? "none" : "there")} readers(cpu.temp)={core.Metrics.SubscriberCount(WellKnownMetrics.CpuTemp)} subscriptions were {subs}");
+
+            // a page refresh and a language change while hidden build nothing
+            w.SimulatePageRefresh(fan);
+            await Settle(300);
+            R("tray trim: a page refresh while the window is in the tray builds nothing", w.PageContent == null && w.Scope == null, $"content={(w.PageContent == null ? "none" : "built")}");
+
+            // show: the same page, the same scroll offset, live again
+            w.ShowFromTray(); await Settle(2500);
+            R("tray trim: showing the window rebuilds the page that was open, scrolled to where it was",
+                !w.PageTrimmed && w.PageContent != null && w.ShownEntry == fan && Math.Abs(w.PageScrollOffset - offset) < 2 && w.Scope is { Active: true } s && s.TotalLiveSubscriptions == subs && fan.IsPageVisible,
+                $"trimmed={w.PageTrimmed} shown={w.ShownEntry?.Id} offset {offset:0} -> {w.PageScrollOffset:0} subscriptions {w.Scope?.TotalLiveSubscriptions} (were {subs}); rebuild {w.LastRestoreBuildMs:0} ms, first frame {w.LastRestoreMs:0} ms");
+
+            // the setting off: no trim however long the window stays hidden
+            policy.Enabled = false;
+            int t0 = policy.Trims;
+            w.HideToTray(); await Settle(2500);
+            R("tray trim: with the setting off the page stays", !w.PageTrimmed && policy.Trims == t0 && w.PageContent != null, $"trimmed={w.PageTrimmed} trims {t0} -> {policy.Trims}");
+            w.ShowFromTray(); await Settle(500);
+        }
+        finally
+        {
+            policy.Enabled = wasEnabled; policy.Delay = wasDelay; w.TrimStepsInUse = wasSteps;
+            if (w.PageTrimmed || !w.AppWindow.IsVisible) { w.ShowFromTray(); await Settle(800); }
+            w.Navigate(fan); await Settle(300);
+        }
+    }
 
     static async Task VisualReadingChecks(MainWindow w, ModuleEntry fan)
     {

@@ -8,7 +8,7 @@ sealed class Options
 {
     static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase)
     {
-        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--time-scale", "--registry", "--wait-pid", "--slow-download", "--task-name",
+        "--data", "--modules", "--theme", "--lang", "--shot", "--shot-mode", "--page", "--script", "--out", "--size", "--exit-after", "--selftest-out", "--accent", "--shot-scale", "--time-scale", "--registry", "--wait-pid", "--slow-download", "--task-name", "--trim-delay", "--trim-steps",
     };
 
     public string? Data, Modules, Theme, Lang, Shot, ShotMode = "printwindow", Page, Script, Out, Size, SelfTestOut, Accent;
@@ -23,6 +23,10 @@ sealed class Options
     public double ShotScale = 1;
     /// <summary>Test switch: the metrics clock (sample times, history, charts) runs this many times faster than real time, so a screenshot can show five minutes of history after one.</summary>
     public double TimeScale = 1;
+    /// <summary>Test switch <c>--trim-delay &lt;seconds&gt;</c>: wait this long in the tray before the memory trim, instead of the setting's delay (0 = the setting).</summary>
+    public int TrimDelaySeconds;
+    /// <summary>Test switch <c>--trim-steps all|none|drop,caches,gc,ws</c>: which steps of the memory trim run (tools\perf\measure.ps1 measures them one by one).</summary>
+    public Services.TrimSteps TrimSteps = Services.TrimSteps.Default;
     public bool Tray, SelfTest, AllowMulti, LangCheck, Help;
     /// <summary><c>--version</c>: print the version and exit (install scripts, bug reports).</summary>
     public bool Version;
@@ -71,6 +75,8 @@ sealed class Options
                 case "--slow-download": int.TryParse(Next(), out o.SlowDownloadMs); break;
                 case "--selftest-out": o.SelfTestOut = Next(); break;
                 case "--exit-after": int.TryParse(Next(), out o.ExitAfterMs); break;
+                case "--trim-delay": int.TryParse(Next(), out o.TrimDelaySeconds); break;
+                case "--trim-steps": o.TrimSteps = Services.TrimStepsText.Parse(Next()) ?? Services.TrimSteps.Default; break;
                 case "--tray": o.Tray = true; break;
                 case "--selftest": o.SelfTest = true; break;
                 case "--allow-multi": o.AllowMulti = true; break;

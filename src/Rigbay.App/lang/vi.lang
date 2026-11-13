@@ -54,6 +54,12 @@ metric.battery.level = Pin
 metric.battery.rate = Công suất pin
 
 # --- WP-A keys --- (package A adds its new shell/dashboard keys here)
+settings.release-memory = Trả bộ nhớ khi Rigbay ở khay hệ thống
+settings.release-memory-desc = Khi Rigbay nằm ở khay một lúc, nó trả lại cho Windows phần bộ nhớ chưa cần dùng. Mở lại cửa sổ là dùng được ngay.
+settings.release-memory-after = Chờ bao lâu rồi mới trả
+settings.release-memory-secs = {0} giây
+settings.release-memory-min-one = 1 phút
+settings.release-memory-mins = {0} phút
 search.placeholder-shortcut = {0} (Ctrl+F)
 search.none = Không có kết quả
 nav.modules-header = Đã cài

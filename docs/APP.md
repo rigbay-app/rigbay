@@ -102,6 +102,8 @@ token; "yes" means it acts on something only an elevated process may change.
 | `--size` | `WxH` | Window size for a shot. | no |
 | `--accent` | `RRGGBB` | Test: pretend the Windows accent colour is this (title bar mark). | no |
 | `--time-scale` | `<n>` | Screenshots only: the metrics clock (sample times, the history, the charts) runs n times faster than real time, so 52 s of waiting shows five minutes of history. | no |
+| `--trim-delay` | `<seconds>` | Test only: how long the window stays hidden before the memory trim runs, instead of the Settings value (default 60 s). | no |
+| `--trim-steps` | `all\|none\|drop,caches,gc,ws` | Test only: which steps of the memory trim run (`tools\perf\measure.ps1` measures them one by one). Default `ws`: the working set trim, the one step that paid. | no |
 | `--exit-after` | `<ms>` | Quit after this long (shots and tests). | no |
 | `--selftest` | | Run the in-app self-test. | yes (it checks the admin-only folders and elevated-only behaviour) |
 | `--selftest-out` | `<file>` | Where the self-test writes its report. | no |
@@ -110,7 +112,7 @@ token; "yes" means it acts on something only an elevated process may change.
 `revert:<row header key>`,
 `approve:true|false|ask`, `cancel-dialog`, `startup:on|off`, `turn-on:id`, `expand:id`, `expand-all`, `scroll:px`, `wait:ms`, `cmd:<verb words>`,
 and the install steps `check`, `install:<id>`, `install-bg:<id>`, `update:<id>`, `remove:<id>`, `rollback:<id>`, `undo:<id>`, `cancel-install`,
-`restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `cpu:<label>` (logs this process's CPU time and the
+`restart` (`docs/INSTALL.md` section 8). V1 adds `hide` and `show` (what the close button and the tray do: the window goes to the tray and comes back), `mem:<label>` (logs working set, private bytes, managed heap, threads, handles and CPU time as a `MEM` line), `trim` (the memory trim now, the window must be hidden), `cpu:<label>` (logs this process's CPU time and the
 time spent redrawing, as a `CPUMARK` line, so a script can measure a stretch of waiting), `chart:<n>` (pick a chart tab, 0-based), `range:<1|5|10>` (minutes), `hover:<0..1>` (put the crosshair at that share of the plot width) and
 `frames:<count>x<ms>` (PNG frames of the window's own HWND into `<--shot name>-frames`, for the README animation). The UI review's package C adds
 `capture:<shortcut row header key>[=<chord>]` (opens that row's "Press the new shortcut" dialog, not awaited; with `=Ctrl+Alt+M` that chord is shown as
@@ -457,3 +459,7 @@ What the shell looks like since the UI review (packages A, B, C and the module p
 The app version is `<Version>` in `Directory.Build.props` (0.1.2); host API 0.1.3 (`HostApi.Revision` 3). Modules whose `hostApi` is `>=0.1.3 <0.2` (the 0.1.2 module releases) need a host that has revision 3. Hosts 0.1.0 and 0.1.1 ignore the revision and would offer them, so they are released only after this host and say "needs Rigbay 0.1.2 or newer".
 
 Not verified in 0.1.2: high contrast, Narrator, a real 150 % and 200 % display scale, a notification banner or tray balloon on a real screen, Windows 10, a real sign-in after the upgrade of the installed copy; the README pictures are the earlier renders (`tools\shots`).
+
+## M2: memory in the tray (2026-11-13)
+
+Setting **Release memory in the tray** (Settings > General, on by default, delay 30 s to 10 min, default 60 s). When the window has been hidden for the delay and is still hidden, the app takes the process out of RAM once (`EmptyWorkingSet`): about 205 MB become 30 to 45 MB in the tray, 25 ms to the first frame when the window comes back, 70 MB three seconds later. Private bytes (about 150 MB, native) do not change. The policy is `Services\TrayTrimPolicy.cs` (unit-tested with a fake clock), the work is `MainWindow.Trim.cs`; a `TRAYTRIM` line in the log says what each trim did. Dropping the page, clearing caches and a forced GC were measured and did not pay, so they are off; they stay behind the test switches `--trim-steps` and `--trim-delay` and the script steps `mem:<label>` and `trim`, and `tools\perf\measure.ps1` repeats the measurement. Numbers, method and what did not help: `docs/perf/TRAY-MEMORY-2026-11.md`.
