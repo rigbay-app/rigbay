@@ -311,7 +311,9 @@ static class TrayTipEditor
         /// <summary>Shows what became of the item: its name, its module and what it says now (or why it says nothing).</summary>
         public void Show(TipItemResult r)
         {
-            var name = r.Title.Length > 0 ? r.Title : _item.Id;
+            bool isState = TrayTipIds.IsState(_item.Id, out _);
+            // a state line is named "State line" (its text is the value, shown below); a reading by its label, the owner's or the default one
+            var name = isState && _item.Label.Length == 0 ? Host.T("settings.tray-tip-state-line") : r.Title.Length > 0 ? r.Title : _item.Id;
             _header.Text = name;
             string status = r.Status switch
             {
@@ -324,8 +326,8 @@ static class TrayTipEditor
             };
             _description.Text = r.Group.Length > 0 ? r.Group + "  ·  " + status : status;
             _description.Style = Ui.Style(r.Status is TipItemStatus.Shown ? "RbSecondaryCaption" : "RbErrorText");
-            // a default label is shown in the box as its hint
-            _label.PlaceholderText = Host.T("settings.tray-tip-label");
+            // the default label is the box's hint, so the owner sees what an empty box means
+            _label.PlaceholderText = !isState && _item.Label.Length == 0 && r.Status != TipItemStatus.Missing && r.Title.Length > 0 ? r.Title : Host.T("settings.tray-tip-label");
             var up = Host.F("settings.tray-tip-move-up", name);
             var down = Host.F("settings.tray-tip-move-down", name);
             AutomationProperties.SetName(_up, up);
