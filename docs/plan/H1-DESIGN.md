@@ -396,3 +396,24 @@ value; `rigbay plans list` output; the background demand is visible in `GetBackg
 * **Q6.** Rate limit 6 per plan and 20 per hour in total, 8 steps per plan, 3 auto-answers per step, timeouts 30 s / 120 s [yes, constants in `RigbayHostOptions`].
 * **Q7.** Two small demo modules in `tools/demo-modules` as new files (that folder is not listed in my paths) [yes].
 * **Q8.** `module.json` `uses` flag "runs other modules' verbs" shown at install time: not in H1 [skip], the approval dialog already tells the owner.
+
+---
+
+## Coordinator's changes (2026-11-13, mail m-0eb53a6aee94): all four adopted
+
+1. **Approval store location (security).** `approved-plans.json` and `plan-runs.json` live under `%ProgramData%\Rigbay\plans\<user SID>\` with an explicit admin-only
+   DACL (SYSTEM + Administrators full control, protected, no user write), made by the same `IFolderSecurity` as the modules folder. A folder that already exists is
+   **verified, not repaired**: owner Administrators/SYSTEM and no write ACE for anyone else (`AdminFolderSecurity.Audit`/`FindWriters`). If it is wrong or cannot
+   be verified the store is `Untrusted`: nothing counts as approved, no approval can be saved, a Warning is logged once, and nothing is repaired silently. The check
+   is repeated before every approval check and every journal write. `RigbayHostOptions.PlansRoot` overrides the folder (tests and the self-test use a scratch folder made
+   admin-only the same way; the self-test removes it with `toolsemove-elevated.ps1`). Rule for `DESIGN.md`/`ABSTRACTIONS.md`: **anything that grants the elevated host an
+   automatic write must not live in a user-writable place.** The earlier text of B4/B6 that says "host data folder" is replaced by this.
+2. **Preview rule.** `Preview(args)` describes only the target values the args select, as a pure function of the args and the module's own configuration, never of live state
+   (Steam's "Off -> On" would differ between runs). The hash uses the preview's **key and arguments** (not the resolved text, so a language change does not void an approval).
+   Tested with a demo verb whose live state changes between approval and run.
+3. **Scope hardening.** Inside a `PlanScope` a `ConfirmAsync` is answered yes only when its `HardwareEffect.Kind` equals the declared `Effect.Kind` of the step verb. A verb with
+   unknown access (no declared effect) is answered for any kind and the log says so. A mismatch goes to the normal prompt.
+4. **Re-approval visibility.** The approval record keeps the manifest version of each target. When one differs, `GetApproval` returns `Changed` with the reason
+   "<module> was updated from x to y" and the first refused run per plan raises one Warning notification (not one per trigger; re-armed by a new approval).
+
+Out of scope, for the result mail: XTU's auto-switch consent and profiles live in a user-writable folder (same class of issue, bounded by XTU's `Rules.Validate`).
