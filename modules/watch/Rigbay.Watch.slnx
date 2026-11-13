@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../../src/Rigbay.Abstractions/Rigbay.Abstractions.csproj" />
+  <Project Path="src/Rigbay.Watch/Rigbay.Watch.csproj" />
+  <Project Path="tests/Rigbay.Watch.Tests/Rigbay.Watch.Tests.csproj" />
+</Solution>

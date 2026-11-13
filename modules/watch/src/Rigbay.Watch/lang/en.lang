@@ -1,0 +1,137 @@
+# Watch module: English (the reference). Every key starts with module.watch.
+@code = en
+@name = English
+
+# Shown on the enable row (the same sentence as the manifest)
+module.watch.name = Watch
+module.watch.description = Alerts when a reading on the metrics bus stays past a limit. Read only.
+
+# State line
+module.watch.state.starting = Starting
+module.watch.state.no-rules = No rules yet
+module.watch.state.all-off = All rules off
+module.watch.state.firing-count = Firing: {0} of {1}
+module.watch.state.paused = Alerts paused until {0}
+module.watch.state.watching = Rules on: {0}
+module.watch.pause.until = Alerts paused until {0}
+module.watch.status.alerts-on = Alerts are on.
+module.watch.tray.pause = Pause alerts for 1 hour
+
+# The notification
+module.watch.toast.body = {0}. Now {1}.
+module.watch.toast.test.title = Watch
+module.watch.toast.test.body = This is a test alert. Real alerts look the same.
+
+# Words for a rule
+module.watch.picker.absent = {0} (not published now)
+module.watch.unit.seconds = {0} s
+module.watch.unit.minutes = {0} min
+module.watch.unit.hours = {0} h
+module.watch.rule.above = At or above {0}
+module.watch.rule.above.for = At or above {0} for {1}
+module.watch.rule.below = At or below {0}
+module.watch.rule.below.for = At or below {0} for {1}
+module.watch.rule.rises = Up by {0} or more within {1}
+module.watch.rule.bits = Any of bits {0} set
+module.watch.rule.bits.for = Any of bits {0} set for {1}
+module.watch.rule.while.above = only while {0} is at or above {1}
+module.watch.rule.while.below = only while {0} is at or below {1}
+
+# The state of one rule
+module.watch.state.off = Off
+module.watch.state.waiting = Waiting for {0}
+module.watch.state.was-firing = was firing since {0}
+module.watch.state.pending = Past the limit for {0} of {1}
+module.watch.state.firing = Firing since {0}
+module.watch.state.next = next alert after {0}
+module.watch.state.quiet = Quiet
+module.watch.state.now = now {0}
+module.watch.state.last = last alert {0}
+
+# Kinds of rule
+module.watch.kind.above = At or above
+module.watch.kind.below = At or below
+module.watch.kind.rises = Rises by
+module.watch.kind.bits = Has bits set
+
+# Page groups
+module.watch.group.rules = Rules
+module.watch.group.add = Add a rule
+module.watch.group.suggestions = Suggestions
+module.watch.group.settings = Settings
+
+# The main control
+module.watch.row.alerts.header = Send alerts
+module.watch.row.alerts.help = Turn off to pause alerts for 1 hour. Rules keep checking. An alert that is due waits until the pause ends.
+
+# One rule
+module.watch.row.enabled.header = Rule on
+module.watch.row.metric.header = Reading
+module.watch.row.kind.header = Alert when
+module.watch.row.kind.help = Rises by counts how much a total went up within the time, for example errors. Has bits set tests a status mask, such as the reasons the GPU lowers its clocks; the limit is the mask.
+module.watch.row.limit.header = Limit
+module.watch.row.clear.header = Clear at
+module.watch.row.clear.help = The alert ends when the reading reaches this value. The same value as the limit means no band. A different value stops a reading that wobbles around the limit from alerting again and again.
+module.watch.row.for.header = For
+module.watch.row.for.help = How long the reading must stay past the limit. For Rises by, the time the rise is measured in.
+module.watch.row.quiet.header = Quiet period (min)
+module.watch.row.quiet.description = No new alert for this long after one
+module.watch.row.interval.header = Check every
+module.watch.row.interval.help = How often Watch asks for the reading, 5 s or more. A reading older than twice this counts as no data.
+module.watch.row.condition.header = Only while another reading
+module.watch.row.condition.help = The rule counts only while this other reading is past its limit, for example a stopped fan while the CPU is hot.
+module.watch.row.condition.metric.header = Other reading
+module.watch.row.condition.kind.header = Other reading is
+module.watch.row.condition.limit.header = Other limit
+module.watch.row.remove.header = Remove rule
+module.watch.row.remove.button = Remove
+module.watch.confirm.remove = Remove {0}?
+module.watch.remove.gone = The rule was already gone.
+module.watch.remove.done = Rule removed.
+
+# Information rows
+module.watch.info.no-rules = No rules yet
+module.watch.info.no-rules.description = Pick a reading below, or add a suggestion.
+module.watch.info.waiting = Why a rule can say Waiting
+module.watch.info.waiting.description = Its module has not sent a reading lately. Modules built before Rigbay 0.1.4 may not send one while their page is closed.
+module.watch.info.no-readings = No readings yet
+module.watch.info.no-readings.description = Turn on a module that publishes readings, then come back.
+module.watch.info.suggest-none = No suggestions now
+module.watch.info.suggest-done = All suggestions added
+module.watch.info.suggest.description = Suggestions appear when the module that publishes their reading is on.
+
+# Add a rule
+module.watch.row.new.header = New rule
+module.watch.row.new.description = Pick a reading, then add a rule for it
+module.watch.row.add.header = Add rule
+module.watch.row.add.button = Add rule
+module.watch.add.pick = Pick a reading first.
+module.watch.add.full = You can have at most {0} rules.
+module.watch.add.done = Rule added. Set its limit in the list above.
+
+# Suggestions (none is a rule until it is added)
+module.watch.row.suggest.add = Add
+module.watch.suggest.cpu-temp = CPU temperature
+module.watch.suggest.gpu-temp = GPU temperature
+module.watch.suggest.tunnel.help = A tunnel with no traffic and no keep-alive also gets an old handshake.
+module.watch.suggest.steam-errors = Steam proxy errors rising
+module.watch.suggest.gpu-thermal = GPU thermal throttling
+module.watch.suggest.gpu-thermal.help = Alerts when the GPU lowers its clocks because it is too hot.
+module.watch.suggest.fan-stopped = Fan stopped while hot
+module.watch.suggest.fan-stopped.help = A stopped CPU fan is normal when the CPU is cool, so the rule counts only above 80 °C.
+
+# Settings and the test
+module.watch.row.tray.header = Tray menu item
+module.watch.row.tray.description = Adds Pause alerts for 1 hour to the tray menu
+module.watch.row.test.header = Test alert
+module.watch.row.test.button = Send test alert
+module.watch.row.test.help = Shows a Warning notification the way a real alert is shown. If nothing appears, check Focus assist and the Windows notification settings.
+module.watch.test.done = Test alert sent.
+
+# Command line
+module.watch.cmd.status = Show the rules and their state
+module.watch.cmd.status.usage = Usage: rigbay watch status
+module.watch.cmd.pause = Pause alerts for some minutes
+module.watch.cmd.pause.usage = Usage: rigbay watch pause <minutes>, 1 to 1440
+module.watch.cmd.resume = Resume alerts
+module.watch.cmd.resume.usage = Usage: rigbay watch resume

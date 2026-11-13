@@ -1,0 +1,12 @@
+{
+  "manifestVersion": 1,
+  "id": "watch-demo-feed",
+  "name": "Watch demo feed",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Demo only: publishes two made-up readings so the Watch module can be tried without a sensor.",
+  "entry": { "assembly": "Rigbay.Watch.Demo.dll", "type": "Rigbay.Watch.Demo.DemoFeedModule" },
+  "hostApi": ">=0.1.4 <0.2",
+  "group": "monitoring",
+  "requires": { "admin": false, "network": [], "registry": [], "services": [] }
+}
