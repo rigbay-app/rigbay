@@ -31,11 +31,14 @@ sealed class ApprovalPrompt : IApprovalPrompt
     /// <summary>True when the last question was a revert (<see cref="ApprovalRequest.IsRevert"/>).</summary>
     public static bool LastWasRevert { get; private set; }
     public static bool IsOpen => _current != null;
+    /// <summary>The command lines of the last plan dialog (H1), one per step; empty when the last question was not a plan. Self-test.</summary>
+    public static IReadOnlyList<string> LastPlanLines { get; private set; } = Array.Empty<string>();
 
     public async Task<bool> ConfirmAsync(ApprovalRequest request, CancellationToken ct)
     {
         var detail = request.Detail;
-        LastQuestion = request.EffectText + (detail != null ? " | " + detail : "");
+        LastPlanLines = request.Plan?.Select(l => l.CommandLine).ToArray() ?? Array.Empty<string>();
+        LastQuestion = request.Plan is { } planLines ? "plan: " + string.Join(" ; ", planLines.Select(l => l.CommandLine)) : request.EffectText + (detail != null ? " | " + detail : "");
         LastWasRevert = request.IsRevert;
         LastTitle = Compose(request).Title;
         Asked++;
@@ -59,12 +62,25 @@ sealed class ApprovalPrompt : IApprovalPrompt
                     // the change, when the title could not say it (a module-started write with its own wording)
                     if (text.DetailLine is { } line) body.Children.Add(Ui.Text(line, weight: Microsoft.UI.Text.FontWeights.SemiBold, wrap: true));
                     body.Children.Add(Ui.Text(request.EffectText, wrap: true));
+                    // H1: the one approval of a plan lists every step: the command, what it changes, the exact values it will use, how it is undone
+                    if (request.Plan is { } planSteps)
+                    {
+                        foreach (var step in planSteps)
+                        {
+                            var item = new StackPanel { Spacing = 2, Margin = new Thickness(0, 6, 0, 0) };
+                            item.Children.Add(Ui.Text(step.CommandLine, weight: Microsoft.UI.Text.FontWeights.SemiBold, wrap: true));
+                            if (!string.IsNullOrWhiteSpace(step.EffectText)) item.Children.Add(Ui.Text(step.EffectText, wrap: true));
+                            if (!string.IsNullOrWhiteSpace(step.PreviewText)) item.Children.Add(Ui.Text(step.PreviewText, "RbSecondaryCaption", wrap: true));
+                            item.Children.Add(Ui.Text(step.UndoText, "RbSecondaryCaption", wrap: true));
+                            body.Children.Add(item);
+                        }
+                    }
                     body.Children.Add(Ui.Text(text.Caption, "RbSecondaryCaption", wrap: true).With(t => t.Margin = new Thickness(0, 4, 0, 0)));
                     var dialog = new ContentDialog
                     {
                         XamlRoot = root,
                         Title = text.Title,
-                        Content = body,
+                        Content = request.Plan is null ? body : new ScrollViewer { MaxHeight = 420, Content = body },
                         PrimaryButtonText = text.Primary,
                         CloseButtonText = Host.T("approval.cancel"),
                         RequestedTheme = ((FrameworkElement)Host.Window.Content).ActualTheme,
@@ -102,6 +118,8 @@ sealed class ApprovalPrompt : IApprovalPrompt
 
     internal static Words Compose(ApprovalRequest r)
     {
+        if (r.Plan is { } plan)
+            return new Words(Host.F("approval.plan-title", r.PlanName ?? r.ModuleName), Host.F("approval.plan-apply", plan.Count), null, r.ModuleName + " · " + Host.T("approval.plan-hint"));
         bool system = r.Kind == EffectKind.SystemSetting;
         var parts = new List<string> { r.ModuleName };
         var m = r.Detail is { } d ? HostDetail.Match(d) : Match.Empty;

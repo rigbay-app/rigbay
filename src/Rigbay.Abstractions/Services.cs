@@ -77,6 +77,12 @@ public interface IHostServices
     /// the signal returns a value that stays true.
     /// </summary>
     IObservableValue<bool> PageVisible => ConstantValue<bool>.True;
+
+    /// <summary>
+    /// Verbs of the other modules: list them, call the read-only ones, and run plans the owner approved (host API 0.1.4, section 9.1). A host
+    /// without it returns a service that lists nothing and runs nothing.
+    /// </summary>
+    IVerbService Verbs => UnavailableVerbService.Instance;
 }
 
 /// <summary>A value that is fixed: setting it does nothing. Used as the default of members a host may not implement.</summary>
@@ -317,6 +323,13 @@ public sealed record CommandContext(IReadOnlyList<string> Args, CancellationToke
 /// <param name="Output">Plain text (already localised by the module).</param>
 public sealed record CommandResult(int ExitCode, string Output)
 {
+    /// <summary>
+    /// Host API 0.1.4. The arguments of <see cref="CommandInfo.UndoVerb"/> that put back the value this run replaced (for <c>apply Gaming</c>: <c>["Balanced"]</c>,
+    /// the profile that was active). Set it only on success and only when something changed. The host records it for a plan step that asked for
+    /// <see cref="PlanStep.RestoreRecorded"/>; a plain command-line run ignores it.
+    /// </summary>
+    public IReadOnlyList<string>? UndoArgs { get; init; }
+
     /// <summary>Exit code 0 with text.</summary>
     /// <param name="output">The text.</param>
     public static CommandResult Ok(string output = "") => new(0, output);
@@ -343,6 +356,15 @@ public interface ICommandRegistry
     /// <param name="handler">The implementation.</param>
     /// <exception cref="ArgumentException">The verb is invalid or already registered by this module.</exception>
     void Register(string verb, string descriptionKey, CommandHandler handler);
+
+    /// <summary>
+    /// Adds a verb with what the host and the owner need to know about it (host API 0.1.4): whether it writes, what it changes, the exact change
+    /// its arguments make, how it is undone. The default registers the verb without that (as <see cref="VerbAccess.Unknown"/>).
+    /// </summary>
+    /// <param name="info">The verb and its metadata.</param>
+    /// <param name="handler">The implementation.</param>
+    /// <exception cref="ArgumentException">The verb is invalid or already registered by this module, or <see cref="VerbAccess.Writes"/> has no <see cref="CommandInfo.Effect"/>.</exception>
+    void Register(CommandInfo info, CommandHandler handler) => Register(info.Verb, info.DescriptionKey, handler);
 }
 
 /// <summary>Convenience for synchronous commands.</summary>
@@ -355,4 +377,11 @@ public static class CommandRegistryExtensions
     /// <param name="handler">The implementation.</param>
     public static void Register(this ICommandRegistry registry, string verb, string descriptionKey, Func<CommandContext, CommandResult> handler) =>
         registry.Register(verb, descriptionKey, ctx => Task.FromResult(handler(ctx)));
+
+    /// <summary>Adds a verb with metadata and a synchronous handler (host API 0.1.4).</summary>
+    /// <param name="registry">The registry.</param>
+    /// <param name="info">The verb and its metadata.</param>
+    /// <param name="handler">The implementation.</param>
+    public static void Register(this ICommandRegistry registry, CommandInfo info, Func<CommandContext, CommandResult> handler) =>
+        registry.Register(info, ctx => Task.FromResult(handler(ctx)));
 }

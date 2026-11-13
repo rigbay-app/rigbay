@@ -22,9 +22,9 @@ public sealed class TestEnv : IDisposable
     public string DataRoot { get; }
 
     /// <summary>Copies a built module (<c>sample</c> or <c>faulty</c>) to the modules root under its id.</summary>
-    public string AddModule(string template, string? behavior = null, Func<string, string>? editManifest = null)
+    public string AddModule(string template, string? behavior = null, Func<string, string>? editManifest = null, string? folderName = null)
     {
-        var target = Path.Combine(ModulesRoot, template);
+        var target = Path.Combine(ModulesRoot, folderName ?? template);
         CopyDirectory(Path.Combine(Templates, template), target);
         if (behavior is not null) File.WriteAllText(Path.Combine(target, "behavior.txt"), behavior);
         if (editManifest is not null)

@@ -196,6 +196,15 @@ the rest of the step as written (it may hold `=`, but cannot start with one).
   module is marked faulted. Updates that come from a module thread go through `Ui.Post`, which runs inside that module's
   boundary. A module is never given a raw dispatcher.
 
+## Approved plans (H1)
+
+A module may ask the owner, once, to approve an exact list of steps (module, verb, arguments) and then run them with nobody at the window (Game scenes). `ApprovalPrompt` draws the
+question when `ApprovalRequest.Plan` is set: the title names the scene ("Let *Demo scene* run these steps by itself?"), one block per step (the command line in bold, what it changes, the
+exact values the verb says it will use, how it is undone), the caption says every run shows a notification and the approval can be revoked, the primary button counts the steps
+("Approve 2 step(s)") and keyboard focus starts on Cancel. A run's notification is a tray balloon raised by the host (`core.plan.*` texts). The list with a Revoke button for the
+approvals (`RigbayHost.Plans.AllApprovals()`) is not in the Settings page yet (that page is being changed elsewhere): until then the owner revokes with `rigbay plans revoke <module>/<plan>`,
+on the module's own page, or by disabling the module. The approvals live in `%ProgramData%\Rigbay\plans\<user SID>` (admin-only); the self-test uses `<data folder>\plans` and removes it with `tools\remove-elevated.ps1`.
+
 ## Notifications (N1)
 
 **One rule for every module.** After a hardware change the user confirmed, the result is shown where they are looking.

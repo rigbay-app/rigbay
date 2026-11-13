@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- One module, two roles chosen by behavior.txt next to its DLL: "target" (verbs that change an in-memory number) and "owner" (drives plans through host.Verbs). Used by the H1 tests. No hardware. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Rigbay.VerbModule</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rigbay.Abstractions\Rigbay.Abstractions.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </ProjectReference>
+    <None Include="module.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

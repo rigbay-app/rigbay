@@ -47,11 +47,21 @@ public sealed class TrayRegistry
 }
 
 /// <summary>A command verb of a module.</summary>
-public sealed record CommandEntry(string ModuleId, string Verb, string DescriptionKey, CommandHandler Handler);
+public sealed record CommandEntry(string ModuleId, string Verb, string DescriptionKey, CommandHandler Handler)
+{
+    /// <summary>What the module said about the verb (host API 0.1.4); null when it registered the old way (then the access is <see cref="VerbAccess.Unknown"/>).</summary>
+    public CommandInfo? Info { get; init; }
+
+    /// <summary>What the verb does to the machine, as its module declared it.</summary>
+    public VerbAccess Access => Info?.Access ?? VerbAccess.Unknown;
+}
 
 /// <summary>What a command run produced. Output goes to standard output for exit code 0, to standard error otherwise.</summary>
 public sealed record CommandOutcome(int ExitCode, string Output)
 {
+    /// <summary>The undo arguments the verb reported (<see cref="CommandResult.UndoArgs"/>), or null.</summary>
+    public IReadOnlyList<string>? UndoArgs { get; init; }
+
     public const int Ok = 0, Failed = 1, UsageOrNotFound = 2;
 }
 
@@ -68,14 +78,16 @@ public sealed class CommandRegistry
         get { lock (_gate) return _entries.ToArray(); }
     }
 
-    public void Register(string moduleId, string verb, string descriptionKey, CommandHandler handler)
+    public void Register(string moduleId, string verb, string descriptionKey, CommandHandler handler, CommandInfo? info = null)
     {
+        if (info is { Access: VerbAccess.Writes, Effect: null }) throw new ArgumentException($"Verb '{verb}' is declared to write but has no Effect (the owner must be told what it changes).", nameof(info));
+        if (info is { UndoVerb: { } undo } && !VerbPattern.IsMatch(undo)) throw new ArgumentException($"'{undo}' is not a valid undo verb.", nameof(info));
         if (verb is null || !VerbPattern.IsMatch(verb)) throw new ArgumentException($"'{verb}' is not a valid verb (lowercase letters, digits, dashes; starts with a letter).", nameof(verb));
         lock (_gate)
         {
             if (_entries.Any(e => e.ModuleId == moduleId && e.Verb == verb))
                 throw new ArgumentException($"Verb '{verb}' is already registered by module '{moduleId}'.", nameof(verb));
-            _entries.Add(new CommandEntry(moduleId, verb, descriptionKey, handler));
+            _entries.Add(new CommandEntry(moduleId, verb, descriptionKey, handler) { Info = info });
         }
     }
 
@@ -101,7 +113,7 @@ public sealed class CommandRegistry
         {
             var result = await entry.Handler(new CommandContext(args, cancellationToken)).ConfigureAwait(false);
             int code = result.ExitCode is 0 or 1 or 2 ? result.ExitCode : 1;
-            return new CommandOutcome(code, result.Output ?? "");
+            return new CommandOutcome(code, result.Output ?? "") { UndoArgs = code == 0 ? result.UndoArgs : null };
         }
         catch (Exception ex)
         {

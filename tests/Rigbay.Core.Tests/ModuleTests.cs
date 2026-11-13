@@ -288,7 +288,7 @@ public class LoadingTests
         var security = new RecordingSecurity();
         using (var host = new RigbayHost(new RigbayHostOptions { ModulesRoot = env.ModulesRoot, DataRoot = env.DataRoot, FolderSecurity = security }))
             host.Discover();
-        Assert.Equal(new[] { env.ModulesRoot }, security.Paths);
+        Assert.Equal(new[] { env.ModulesRoot }, security.Paths);   // (the plans folder of H1 is created only when something is saved)
         Assert.True(Directory.Exists(env.ModulesRoot));
 
         Directory.Delete(env.ModulesRoot);

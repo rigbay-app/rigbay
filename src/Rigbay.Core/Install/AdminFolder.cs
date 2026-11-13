@@ -9,6 +9,12 @@ public interface IFolderSecurity
 {
     /// <summary>Creates <paramref name="path"/> when missing and gives it the admin-only DACL. Throws <see cref="InstallException"/> (FolderSecurity) when that cannot be made true.</summary>
     void EnsureAdminOnly(string path);
+
+    /// <summary>
+    /// Checks that <paramref name="path"/> is admin-only without changing anything: returns what is wrong, or null when it is right. Used for stores that grant
+    /// the elevated host an automatic write (approved plans), which must not be repaired silently. The default says nothing is wrong.
+    /// </summary>
+    string? Verify(string path) => null;
 }
 
 /// <summary>Does nothing. For tests of the install flow that run without elevation.</summary>
@@ -75,6 +81,26 @@ public sealed class AdminFolderSecurity : IFolderSecurity
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException or ArgumentException)
         {
             throw new InstallException(InstallErrorCode.FolderSecurity, $"could not set permissions on '{path}': {ex.Message}", ex);
+        }
+    }
+
+    /// <inheritdoc />
+    public string? Verify(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path)) return "the folder does not exist";
+            if (FileOps.IsReparsePoint(path)) return "it is a link, not a folder";
+            if (_requireAdminOwner)
+            {
+                var owner = new DirectoryInfo(path).GetAccessControl(AccessControlSections.Owner).GetOwner(typeof(SecurityIdentifier)) as SecurityIdentifier;
+                if (owner is null || (!owner.Equals(Administrators) && !owner.Equals(LocalSystem))) return $"it is owned by {owner?.Value ?? "an unknown account"}, not Administrators";
+            }
+            return Audit(path);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException or ArgumentException)
+        {
+            return "its permissions could not be read: " + ex.Message;
         }
     }
 

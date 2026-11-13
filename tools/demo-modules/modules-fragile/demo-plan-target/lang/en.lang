@@ -1,0 +1,17 @@
+@code = en
+@name = English
+
+module.demo-plan-target.effect.set = Sets the demo number. Nothing outside Rigbay changes.
+module.demo-plan-target.effect.mark = Switches the demo flag. Nothing outside Rigbay changes.
+module.demo-plan-target.preview.set = Number {0} with profile {1}
+module.demo-plan-target.preview.mark = Flag {0}
+module.demo-plan-target.detail.set = Number: {0} -> {1}
+module.demo-plan-target.detail.mark = Flag: {0}
+module.demo-plan-target.cmd.get = Show the demo values
+module.demo-plan-target.cmd.profile = Change the demo configuration
+module.demo-plan-target.cmd.set = Set the demo number
+module.demo-plan-target.cmd.set.usage = set <0..100>
+module.demo-plan-target.cmd.mark = Switch the demo flag
+module.demo-plan-target.cmd.poll = Show how often the module would read its metric
+module.demo-plan-target.cmd.subs = Show how many readers want the metric
+module.demo-plan-target.metric.value = Demo value

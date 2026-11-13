@@ -17,6 +17,7 @@
     <!-- Built so their output exists; not referenced as assemblies. Tests copy the folders and load them like the host does. -->
     <ProjectReference Include="..\..\samples\Rigbay.SampleModule\Rigbay.SampleModule.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Rigbay.FaultyModule\Rigbay.FaultyModule.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Rigbay.VerbModule\Rigbay.VerbModule.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,9 +36,11 @@
     <ItemGroup>
       <SampleModuleFiles Include="$(MSBuildThisFileDirectory)..\..\samples\Rigbay.SampleModule\bin\$(Configuration)\net8.0\**\*" />
       <FaultyModuleFiles Include="$(MSBuildThisFileDirectory)..\Rigbay.FaultyModule\bin\$(Configuration)\net8.0\**\*" />
+      <VerbModuleFiles Include="$(MSBuildThisFileDirectory)..\Rigbay.VerbModule\bin\$(Configuration)\net8.0\**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(SampleModuleFiles)" DestinationFiles="@(SampleModuleFiles->'$(OutDir)module-templates\sample\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(FaultyModuleFiles)" DestinationFiles="@(FaultyModuleFiles->'$(OutDir)module-templates\faulty\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(VerbModuleFiles)" DestinationFiles="@(VerbModuleFiles->'$(OutDir)module-templates\verbs\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 
 </Project>

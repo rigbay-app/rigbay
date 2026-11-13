@@ -1,0 +1,15 @@
+{
+  "manifestVersion": 1,
+  "id": "demo-plan-target",
+  "name": "Plan target (test)",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Self-test module for host API 0.1.4: changes numbers in its own memory, never hardware.",
+  "entry": {
+    "assembly": "Rigbay.DemoModules.dll",
+    "type": "Rigbay.DemoModules.PlanTargetModule"
+  },
+  "hostApi": ">=0.1.4 <0.2",
+  "group": "other",
+  "languages": "lang"
+}

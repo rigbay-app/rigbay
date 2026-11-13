@@ -6,7 +6,7 @@
 param([string]$Report = (Join-Path $PSScriptRoot 'out\selftest.txt'), [string]$AppDir, [switch]$AllowMulti)   # -AppDir: the app\ folder of an extracted release zip; -AllowMulti: run next to a Rigbay that is already running (own data folder, no single-instance mutex)
 $ErrorActionPreference = 'Stop'
 $data = Join-Path $PSScriptRoot 'out\data-selftest'
-if (Test-Path $data) { Remove-Item $data -Recurse -Force }
+if (Test-Path $data) { & "$PSScriptRoot\remove-elevated.ps1" $data | Out-Null }   # the host keeps approved plans in an admin-only folder inside it (plans\)
 Remove-Item $Report -ErrorAction SilentlyContinue
 $src = Join-Path $PSScriptRoot 'out\modules-test'
 $scratch = Join-Path $PSScriptRoot 'out\selftest-install'
@@ -18,7 +18,7 @@ try {
     $code = & "$PSScriptRoot\run-elevated.ps1" @appArgs -Wait -Data $data -Modules (Join-Path $scratch 'modules') --registry (Join-Path $scratch 'registry.json') --slow-download 400 --selftest --selftest-out $Report --exit-after 500 @multi | Select-Object -Last 1
 }
 finally {
-    & "$PSScriptRoot\remove-elevated.ps1" $scratch | Out-Null
+    & "$PSScriptRoot\remove-elevated.ps1" $scratch $data | Out-Null
 }
 if (-not (Test-Path $Report)) { Write-Host "no report written (exit code $code)"; exit 1 }
 Get-Content $Report -Encoding utf8

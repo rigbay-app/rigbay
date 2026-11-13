@@ -208,8 +208,8 @@ public interface IMetricsBus
     int SubscriberCount(MetricId id) => 0;
 
     /// <summary>
-    /// Raised after another party subscribed or unsubscribed (not this module's own subscriptions). It does not say which
-    /// id changed: call <see cref="SubscriberCount"/> for the ids you publish. Runs synchronously on the thread that
+    /// Raised after another party subscribed or unsubscribed, or added or removed a background demand (<see cref="SubscribeBackground"/>); not this module's
+    /// own subscriptions. It does not say which id changed: call <see cref="SubscriberCount"/> and <see cref="BackgroundInterval"/> for the ids you publish. Runs synchronously on the thread that
     /// subscribed or disposed, inside this module's fault boundary; keep it short and hand slow work to a background thread.
     /// </summary>
     event Action? SubscribersChanged { add { } remove { } }
@@ -235,6 +235,37 @@ public interface IMetricsBus
 
     /// <summary>A number that grows with every change that raises <see cref="CatalogChanged"/>; compare it to tell whether a cached list is stale. Always 0 in the default.</summary>
     long CatalogVersion => 0;
+
+    // Host API 0.1.4 (H1): background demand. Default members, so a class that implements the interface itself still compiles.
+
+    /// <summary>
+    /// Receives the samples of one id like <c>Subscribe(id, handler)</c> and tells the publishers "I want this id at least every
+    /// <paramref name="interval"/>, in the background". It is <b>not counted</b> in <see cref="SubscriberCount"/>, so it never makes a publisher poll at
+    /// its fast rate; a publisher reads the demand with <see cref="BackgroundInterval"/> (or <see cref="MetricDemand.PollInterval"/>). A publisher
+    /// built before 0.1.4 ignores the demand and keeps its own idle rate (or does not publish while nobody looks), so judge a sample by its
+    /// <see cref="MetricSample.Timestamp"/>. Every sample of the id is delivered, as for <c>Subscribe</c>; the handler runs in this module's fault boundary.
+    /// <paramref name="interval"/> is raised to 5 s or lowered to 1 h when outside that range; a module may hold at most 64 background subscriptions
+    /// (more throws <see cref="InvalidOperationException"/>). Dispose to stop; the host also stops it when the module stops. The default does nothing and
+    /// delivers nothing.
+    /// </summary>
+    /// <param name="id">The id to follow (a demand must name what it wants).</param>
+    /// <param name="interval">The longest wait between readings that is still useful.</param>
+    /// <param name="handler">Called for each sample; keep it short.</param>
+    IDisposable SubscribeBackground(MetricId id, TimeSpan interval, Action<MetricSample> handler) => NoSubscription.Instance;
+
+    /// <summary>
+    /// The shortest interval any OTHER module asks for this id in the background, or null when nobody does. This module's own demands are not counted
+    /// (as for <see cref="SubscriberCount"/>). Cheap. The default returns null.
+    /// </summary>
+    /// <param name="id">The id.</param>
+    TimeSpan? BackgroundInterval(MetricId id) => null;
+}
+
+/// <summary>The subscription of a bus that does not implement background demand: nothing to stop.</summary>
+internal sealed class NoSubscription : IDisposable
+{
+    public static readonly NoSubscription Instance = new();
+    public void Dispose() { }
 }
 
 /// <summary>Ids agreed across modules, so a recorder or the dashboard works with any source.</summary>
