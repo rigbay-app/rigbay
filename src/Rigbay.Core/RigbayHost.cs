@@ -27,6 +27,32 @@ public sealed class RigbayHostOptions
     /// <summary>The clock of the metrics bus (sample timestamps and the history); null is the system clock. Tests and screenshots may run it faster.</summary>
     public Func<DateTimeOffset>? MetricsClock { get; init; }
     public long LogMaxBytes { get; init; } = 1024 * 1024;
+
+    /// <summary>
+    /// The admin-only folder of the two files that let the host write by itself (<c>approved-plans.json</c>, <c>plan-runs.json</c>). Null means
+    /// <c>%ProgramData%\Rigbay\plans\&lt;user SID&gt;</c> when <see cref="DataRoot"/> is null (a normal run), otherwise <c>&lt;DataRoot&gt;\plans</c> (a run with its own data
+    /// folder: tests, <c>--data</c>), so such a run never touches the real folder. Either way the folder is made admin-only with <see cref="FolderSecurity"/>
+    /// when missing and only verified when it exists (never repaired silently).
+    /// </summary>
+    public string? PlansRoot { get; init; }
+
+    /// <summary>The clock for time limits and the plan rate limit; null is the system clock. Tests pass a manual one.</summary>
+    public TimeProvider? TimeProvider { get; init; }
+
+    /// <summary>Time limit for one verb called for another module, plan steps included.</summary>
+    public TimeSpan VerbTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Time limit for a whole plan run.</summary>
+    public TimeSpan PlanRunTimeout { get; init; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>How long the host waits for a verb to describe the exact change its arguments make.</summary>
+    public TimeSpan PreviewTimeout { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>Starts of one plan allowed per hour.</summary>
+    public int PlanStartsPerHour { get; init; } = 6;
+
+    /// <summary>Starts of all plans allowed per hour.</summary>
+    public int PlanStartsPerHourTotal { get; init; } = 20;
 }
 
 /// <summary>Shown to the user before a hardware change is applied. The UI implements it; with none set the answer is no.</summary>
@@ -37,6 +63,12 @@ public sealed record ApprovalRequest(string ModuleId, string ModuleName, string 
 
     /// <summary>What the change is (<see cref="EffectKind"/>); the dialog picks its title and hint from it.</summary>
     public EffectKind Kind { get; init; } = EffectKind.Hardware;
+
+    /// <summary>Set when the question is the one approval of a plan (H1): the steps to list. <see cref="EffectText"/> then says what approving means.</summary>
+    public IReadOnlyList<PlanApprovalLine>? Plan { get; init; }
+
+    /// <summary>The plan's name in the current language, when <see cref="Plan"/> is set.</summary>
+    public string? PlanName { get; init; }
 }
 
 public interface IApprovalPrompt
@@ -76,6 +108,8 @@ public sealed class RigbayHost : IDisposable
     private readonly ILog _hostLog;
     private HostState _state;
     private bool _discovered;
+    private readonly object _verbsGate = new();
+    private readonly List<Action> _verbsChanged = new();
 
     public RigbayHost(RigbayHostOptions options)
     {
@@ -100,6 +134,9 @@ public sealed class RigbayHost : IDisposable
         Hotkeys = new HotkeyRegistry(Log.ForSource("hotkeys"), Paths.HotkeysFile);
         Tray = new TrayRegistry();
         Commands = new CommandRegistry();
+        Time = options.TimeProvider ?? TimeProvider.System;
+        Plans = new PlanEngine(this, OpenPlanStorage(options), Time);
+        Languages.LanguageChanged += RaiseVerbsChanged;
 
         _stateStore = new JsonSettingsStore(Paths.HostSettingsFile, _hostLog);
         _state = _stateStore.Load<HostState>();
@@ -115,6 +152,63 @@ public sealed class RigbayHost : IDisposable
     public HotkeyRegistry Hotkeys { get; }
     public TrayRegistry Tray { get; }
     public CommandRegistry Commands { get; }
+
+    /// <summary>The clock for time limits and the plan rate limit.</summary>
+    public TimeProvider Time { get; }
+
+    /// <summary>Approved plans and cross-module verbs (host API 0.1.4): approvals, journal, runs. The app uses it for a list with Revoke.</summary>
+    public PlanEngine Plans { get; }
+
+    private PlanStorage OpenPlanStorage(RigbayHostOptions options)
+    {
+        var security = options.FolderSecurity ?? DefaultFolderSecurity();
+        string root;
+        var chain = new List<string>();
+        if (options.PlansRoot is { Length: > 0 } custom)
+        {
+            root = Path.GetFullPath(custom);
+            chain.Add(root);
+        }
+        else if (options.DataRoot is { Length: > 0 } dataRoot)
+        {
+            // a run with its own data folder (--data, tests): keep the plans inside it, still checked as admin-only; never touch the real ProgramData folder
+            root = Path.Combine(Path.GetFullPath(dataRoot), "plans");
+            chain.Add(root);
+        }
+        else
+        {
+            string sid = "user";
+            if (OperatingSystem.IsWindows()) sid = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? sid;
+            var programData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Rigbay");
+            chain.Add(programData);
+            chain.Add(Path.Combine(programData, "plans"));
+            root = Path.Combine(programData, "plans", sid);
+            chain.Add(root);
+        }
+        return new PlanStorage(root, chain, security, Log.ForSource("plans"));
+    }
+
+    /// <summary>Raised when the list of verbs other modules can see may have changed (a module started or stopped, the language changed).</summary>
+    internal IDisposable SubscribeVerbsChanged(Action handler)
+    {
+        lock (_verbsGate) _verbsChanged.Add(handler);
+        return new VerbsHook(this, handler);
+    }
+
+    private void RaiseVerbsChanged()
+    {
+        Action[] handlers;
+        lock (_verbsGate) handlers = _verbsChanged.ToArray();
+        foreach (var h in handlers)
+        {
+            try { h(); } catch (Exception ex) { _hostLog.Warn("a Verbs.Changed handler threw: " + ex.Message); }
+        }
+    }
+
+    private sealed class VerbsHook(RigbayHost host, Action handler) : IDisposable
+    {
+        public void Dispose() { lock (host._verbsGate) host._verbsChanged.Remove(handler); }
+    }
 
     /// <summary>The UI's way to run an action on its thread; null runs actions inline (tests, command-line mode).</summary>
     public Action<Action>? UiDispatcher { get; set; }
@@ -184,11 +278,13 @@ public sealed class RigbayHost : IDisposable
             {
                 var entry = new ModuleEntry(this, folder);
                 lock (_gate) _modules.Add(entry);
+                entry.Changed += _ => RaiseVerbsChanged();
                 try { entry.Load(); }
                 catch (Exception ex) { entry.FaultNow("Load", ex); }
             }
         }
         _hostLog.Info($"discovered {_modules.Count} module(s): " + string.Join(", ", _modules.Select(m => $"{m.Id}={m.Lifecycle}")));
+        Plans.DropMissingOwners(_modules.Select(m => m.Id));
         ModulesDiscovered?.Invoke();
     }
 
@@ -199,6 +295,7 @@ public sealed class RigbayHost : IDisposable
         lock (_gate) enabled = new HashSet<string>(_state.EnabledModules, StringComparer.Ordinal);
         foreach (var m in Modules.Where(m => m.Lifecycle == ModuleLifecycle.Off && enabled.Contains(m.Id)))
             m.Enable(persist: false);
+        Plans.AnnounceInterrupted();
     }
 
     /// <summary>Stops every running module (their Shutdown runs); the enabled choice is kept for the next start.</summary>
@@ -256,6 +353,17 @@ public sealed class RigbayHost : IDisposable
     /// </summary>
     public async Task<bool> RequestApprovalTextAsync(ModuleEntry entry, HardwareEffect effect, string? detailText, CancellationToken cancellationToken, bool isRevert = false)
     {
+        // A step of an approved plan (H1): the owner approved the exact steps already, so the target module's own question is answered here, never more than
+        // three times per step, only for the declared kind of change, only while the step runs (CallScope), and every answer is logged.
+        if (!isRevert && CallScope.Current is { IsPlanStep: true } scope)
+        {
+            var asked = entry.Localisation.T(effect.DescriptionKey);
+            if (scope.TryAnswer(entry.Id, effect.Kind, asked, detailText))
+            {
+                entry.Log.Info($"plan step: the approved plan answered '{asked}'{(string.IsNullOrEmpty(detailText) ? "" : " | " + detailText)} with yes" + (scope.DeclaredKind is null ? " (the verb declared no effect kind)" : ""));
+                return true;
+            }
+        }
         var prompt = ApprovalPrompt;
         if (prompt is null)
         {
@@ -303,6 +411,7 @@ public sealed class RigbayHost : IDisposable
         if (args[0] is "help" or "--help" or "-h") return new(CommandOutcome.Ok, Languages.T("core.command.usage") + Environment.NewLine + ListModules());
         if (args[0] == "list") return new(CommandOutcome.Ok, ListModules());
         if (args[0] == "version") return new(CommandOutcome.Ok, VersionText());
+        if (args[0] == "plans") return await Plans.ExecuteAsync(args.Skip(1).ToArray(), cancellationToken).ConfigureAwait(false);
 
         var module = Find(args[0]);
         if (module is null) return new(CommandOutcome.UsageOrNotFound, Languages.F("core.command.unknown-module", args[0]));

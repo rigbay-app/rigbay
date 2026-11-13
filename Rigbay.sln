@@ -57,6 +57,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rigbay.Tunnel", "modules\tu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rigbay.Tunnel.Tests", "modules\tunnel\tests\Rigbay.Tunnel.Tests\Rigbay.Tunnel.Tests.csproj", "{E8C866B2-CF11-45BE-8D56-754CC6FC0EB8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rigbay.VerbModule", "tests\Rigbay.VerbModule\Rigbay.VerbModule.csproj", "{229F09A6-C71C-4116-A8FA-58D8B018D7F6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -307,6 +309,18 @@ Global
 		{E8C866B2-CF11-45BE-8D56-754CC6FC0EB8}.Release|x64.Build.0 = Release|Any CPU
 		{E8C866B2-CF11-45BE-8D56-754CC6FC0EB8}.Release|x86.ActiveCfg = Release|Any CPU
 		{E8C866B2-CF11-45BE-8D56-754CC6FC0EB8}.Release|x86.Build.0 = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|x64.Build.0 = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Debug|x86.Build.0 = Debug|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|x64.ActiveCfg = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|x64.Build.0 = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|x86.ActiveCfg = Release|Any CPU
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -335,5 +349,6 @@ Global
 		{7A52C395-B5E6-4BB5-A091-7E41584F3431} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{5A51AB3C-0D78-4E07-935F-EF844228B387} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
 		{E8C866B2-CF11-45BE-8D56-754CC6FC0EB8} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
+		{229F09A6-C71C-4116-A8FA-58D8B018D7F6} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,15 @@
+@code = en
+@name = English
+
+module.demo-plan-owner.plan.name = Demo scene
+module.demo-plan-owner.cmd.approval = Show the approval state of the plan
+module.demo-plan-owner.cmd.approve = Ask for the approval of the plan
+module.demo-plan-owner.cmd.start = Run the plan
+module.demo-plan-owner.cmd.start-changed = Run the plan with another value
+module.demo-plan-owner.cmd.end = Put back an open run
+module.demo-plan-owner.cmd.revoke = Revoke the approval
+module.demo-plan-owner.cmd.runs = List the open runs
+module.demo-plan-owner.cmd.list = List the verbs of the other modules
+module.demo-plan-owner.cmd.invoke = Call a read-only verb of another module
+module.demo-plan-owner.cmd.watch = Ask for the demo metric in the background
+module.demo-plan-owner.cmd.unwatch = Stop asking

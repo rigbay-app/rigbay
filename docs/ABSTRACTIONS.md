@@ -164,6 +164,7 @@ Passed to `Initialize`; one instance per module (so the host knows who is callin
 | `RunOnUi(Action)` | **Mandatory way to reach the UI thread.** Runs the action there inside the fault boundary. A module never uses a dispatcher of its own. | 5.3 |
 | `RequestPageRefresh()` | Asks the host to call `GetPageModel` again and replace the page (a list that changed). Any thread, coalesced, no-op while the module is off. | 7.1, 13 |
 | `PageVisible` | `IObservableValue<bool>`: true while the host shows this module's page. Lets a polling module slow down when nobody looks. The module only observes it (a set from the module is ignored); false while the module is off; read it in `Initialize`. | 13 |
+| `Verbs` | `IVerbService` (host API 0.1.4): list the other modules' verbs, call the read-only ones, run plans the owner approved. A host without it lists nothing and runs nothing. | 9.1 |
 | `HostVersion` | Version of the host application (informational; compatibility is `HostApi.Current`). | 11 |
 
 No member of any service takes or returns a UI framework or Windows type. Where a UI concept is needed it is plain
@@ -434,6 +435,16 @@ with its switch as `HeaderRow` and its flow as `Line`, and each saved curve has 
   is raised (inside the module's fault boundary, on the thread that subscribed or disposed) when that can have changed;
   it does not say for which id, so call `SubscriberCount` for the ids you publish. Both are for the poll-rate pattern in
   section 13.
+- **Background demand (host API 0.1.4, H1).** `SubscribeBackground(id, interval, handler)` receives the samples of one id like `Subscribe(id, handler)` and tells the
+  publishers "I want this id at least every `interval`, in the background". It is **not counted** in `SubscriberCount`, so it never makes a publisher poll at its fast
+  rate (a Watch module that used `Subscribe` would hold every module it watches at the fast rate all day: `docs/research/POWERTOYS-2026-11.md` section 1). `BackgroundInterval(id)`
+  is the shortest interval any *other* module asks for, or null; `SubscribersChanged` is also raised when a demand comes or goes. The interval is moved into 5 s to 1 h; one
+  module may hold at most 64 (more throws `InvalidOperationException`); they are removed with the module's other subscriptions when it stops or faults; every sample is delivered, in the asker's fault boundary. **For a publisher** the rule is `MetricDemand` (one line instead of the hand-written pattern in
+  section 13): `host.Evaluate(ids, fast, idle)` returns `Fast` when the page is visible or somebody subscribed, else `Background` at `min(idle, max(fast, N))` for the shortest demand
+  N (when idle is `Timeout.InfiniteTimeSpan`, "do not poll when nobody asks", at `max(fast, N)`), else `Idle`; `host.PollInterval(ids, fast, idle)` is its interval. Existing
+  subscriptions keep meaning "fast". **A publisher built before 0.1.4 ignores a background demand**: it stays at its idle rate, or does not publish at all if it does not poll
+  when nobody looks (XTU's monitor, PredatorSense's operation-mode read). A module that asks must therefore judge a sample by `MetricSample.Timestamp` (older than twice
+  its interval means "no data", not "the value"). Core: `MetricsBus.SubscribeBackground(handler...)` for host code, `BackgroundInterval(id)`, `GetBackgroundDemands()`.
 - `Withdraw`, `Describe`, `SubscriberCount`, `SubscribersChanged`, `Latest`, `GetMetricInfo`, `GetAllMetricInfo`,
   `CatalogChanged` and `CatalogVersion` are default interface members on
   `IMetricsBus` (and `PageVisible` on `IHostServices`): a class that implements the interface itself, like a test double,
@@ -550,6 +561,66 @@ Windows notification otherwise. A hotkey, tray item, verb, automatic rule or tim
 elevated app: `docs/APP.md`, "Notifications". Send one message per change, none for periodic readings, and none when the user
 declined a question.
 
+### 9.1 Verbs of other modules and the approved plan (host API 0.1.4, H1)
+
+A module that orchestrates others (Game scenes: "when this game starts, run these verbs; when it ends, put them back") needs three things from the host: to know what
+the other modules' verbs are and whether they write, to run them, and, because nobody is at the window, an approval of the writes that is given **once**, for
+**exactly** the steps, and enforced by the host.
+
+**Verb metadata.** `host.Commands.Register(new CommandInfo("apply", "cmd.apply") { Access = VerbAccess.Writes, Effect = new HardwareEffect("effect.apply"), UsageKey = "cmd.apply.usage", Preview = args => ..., UndoVerb = "apply" }, handler)`
+(and a synchronous overload). `Access` is `ReadOnly`, `Writes` or `Unknown` (the default, and what an old registration gets: treated as a write). `Writes` needs an `Effect`
+(`ArgumentException` otherwise); its `Kind` is also the only kind of question the host answers for the verb inside a plan. `Preview(args)` returns the exact change these
+arguments make ("Gaming: PL1 45 W, PL2 65 W, 28 s"). **Rule: a preview is a pure function of the arguments and the module's own configuration, never of live state** (the
+value in force now differs between runs, "Off to On" would make the host refuse a valid plan); it must be read-only and quick (the host waits 2 s, in your fault boundary).
+`UndoVerb` names a verb of the same module that puts back what this one changed, fed by `CommandResult.UndoArgs`, the arguments the verb reports after it changed
+something (`apply Gaming` returns `["Balanced"]`, the profile that was active). A plain `rigbay <module> <verb>` run ignores all of it.
+
+**`host.Verbs` (`IVerbService`).** `List()` gives the verbs of the *other* modules that are running (`VerbInfo`: module, verb, texts in the current language resolved through the
+owner module, access, effect text and kind, undo verb, has a preview); `Changed` says to list again. `InvokeAsync(module, verb, args)` runs **one read-only verb**; a write or an
+`Unknown` verb returns `VerbOutcome.NeedsPlan` and nothing runs. Every call runs in both modules' fault boundaries with a time limit (`RigbayHostOptions.VerbTimeout`, 30 s):
+the callee throws, its module is disabled and the caller gets `CalleeFaulted`; the callee takes too long, `TimedOut` (the callee is not faulted: a caller that gives up cancels
+the token the verb was given, and a verb that ends by that cancellation is a failed command, not a fault); the caller stops, `Cancelled`. A module cannot call itself, and a verb
+the host started for another module cannot start a call or a plan (`Refused`): no loops.
+
+**The plan.** `VerbPlan(id, name, steps)`, `PlanStep(module, verb, args) { FixedUndo, RestoreRecorded }`: at most 8 steps, 16 arguments of 256 characters, no step on the plan's own
+module. A step is undone by `FixedUndo` (another exact step, `steam-bypass off`), by `RestoreRecorded` (the host records what the verb reported in `UndoArgs` and runs
+`UndoVerb` with it later; the caller can neither supply nor change it), or not at all (the dialog says "Not undone").
+
+1. `RequestApprovalAsync(plan)` shows the owner **one dialog** (every step: command line, effect text, the preview text, how it is undone; focus starts on Cancel) and, on yes,
+   stores `{owner, plan id, SHA-256 of the exact plan, the manifest version of every target}`. A no is remembered for a minute (the same question is answered `Declined`
+   without a dialog). The hash covers the owner, the plan id, each step (target id and version, verb, arguments, declared access and effect kind, undo, the preview's *key and
+   arguments*, not its text, so a language switch does not void it). The plan's name is not in it.
+2. `GetApproval(plan)` is `Approved` only when the stored hash equals the hash of the plan **as passed now**; otherwise `Changed` (with the reason: "Steam access was updated
+   from 1.0.0 to 2.0.0", or "a step, an argument or what a step will do is different"), `Revoked`, `NotApproved`, `Declined`, `Untrusted` or `Unavailable`.
+3. `StartAsync(plan)` runs under one host-wide lock (steps of two plans never interleave): it checks the approval, that the plan has no open run (`AlreadyRunning`) and that fewer
+   than four are open, the rate limit (6 starts of one plan and 20 of all plans per hour; over it `RateLimited` and one Warning), writes the journal **before the first step**, runs the
+   steps in order, and raises **one notification** (a tray balloon through the toast sink, from the host: a module cannot skip it). The first step that fails (exit code 1 or 2, timeout, target
+   not running) stops the run and **puts back the steps already done**, last first; one Warning says so.
+4. `EndAsync(runId)` puts back every done step (last first; each undo is tried even if one fails) and raises one notification. A failed undo leaves the run open as `UndoFailed`.
+   `ActiveRuns()` lists the module's open runs, including ones left by a Rigbay that ended (`Interrupted`); the host never undoes by itself after a restart: it logs them, raises
+   one Warning ("a scene was running when Rigbay closed"), and the module (or the owner, with `rigbay plans undo <run>`) decides. Undoing an open run is allowed after a revoke:
+   it only puts back what approved steps changed.
+5. `Revoke(planId)`, `ApprovedPlans()`. Host verbs, whatever the modules do: `rigbay plans list`, `rigbay plans revoke <module>/<plan>`, `rigbay plans undo <run>`, `rigbay plans forget <run>`
+   (`plans` therefore cannot be a module id). `RigbayHost.Plans` (`PlanEngine`: `AllApprovals()`, `OpenRuns()`, `RevokeAny`, `UndoRunAsync`, `Changed`) is what a host window uses for a list with Revoke.
+
+**How a target's own question is answered.** Write verbs ask `host.Approval.ConfirmAsync` inside their handler. Inside one step the host answers that question *yes* without a
+dialog, and only when all of this holds: it comes from the step's target module, while the step runs (the answer is an `AsyncLocal` scope closed when the step ends, so a task the verb
+left running gets the normal dialog), its `EffectKind` equals the one the verb declared (a verb that declared nothing accepts any kind and the log says so), and fewer than three
+were answered in this step. A revert question is never answered. Every answer, with the effect and detail text, is a line in the log and part of the run. The callee's own limits
+(`Rules.Validate`, write latch, allow-lists) are untouched: the plan removes the dialog, not the validation.
+
+**Where the approval lives (security rule).** `approved-plans.json` and `plan-runs.json` are in `%ProgramData%\Rigbay\plans\<user SID>\` (with `--data <folder>`: `<folder>\plans`),
+a folder only Administrators and SYSTEM can write (protected DACL, the same `IFolderSecurity` as the modules folder). The folder is **created only when something is saved** and
+**verified, not repaired**, when it exists (owner Administrators or SYSTEM, no allow entry that lets anyone else write, not a link; the parents `%ProgramData%\Rigbay` and `plans` too).
+If it is wrong the whole feature is off: nothing counts as approved (`Untrusted`), nothing is saved, one Warning in the log; a file that does not parse is renamed `.corrupt-<time>` and means
+"nothing approved", never "everything". **Anything that grants the elevated host an automatic write must not live in a user-writable place** (`%LOCALAPPDATA%` is user-writable: a non-admin
+process could plant an approval and a matching settings file). What this does **not** stop: a malicious module, which runs as administrator in the host anyway; the controls are against
+mistakes, a corrupted or edited settings file and a trigger that misfires.
+
+**Old hosts and modules.** All of it is default members or new types: a module that declares `>=0.1 <0.2` is unchanged, its verbs are listed as `Unknown`, and a plan may include them (the
+dialog says "This module did not say what the step changes" and "The module decides the exact values"). A module that uses `Verbs`, `CommandInfo`, `CommandResult.UndoArgs` or `SubscribeBackground`
+declares `>=0.1.4 <0.2`; a test double that implements `IHostServices` gets a `Verbs` that lists nothing and runs nothing.
+
 ## 10. Fault boundary, loading, logging
 
 - **Boundary.** Every call from the host into a module (`Probe`, `Initialize`, `GetPageModel`, `Shutdown`, a value
@@ -584,12 +655,12 @@ declined a question.
 
 ## 11. API version
 
-`HostApi.Current` is `0.1.3`: **major.minor.revision**. A module declares the range it supports as a string of space-separated
+`HostApi.Current` is `0.1.4`: **major.minor.revision**. A module declares the range it supports as a string of space-separated
 comparators, all of which must hold: `>=0.1 <0.2`, `>=0.1.2 <0.2`, `>=1.0 <2.0`, `=0.1`, `>0.1`. A bare version means `=`.
 
 **Compatibility policy.** While the major number is 0 any minor version may break modules, so a module declares `<0.2` and is
 rebuilt for each minor. From 1.0 on, a minor version only adds, a major version may break. The host refuses a module whose range does
-not contain `HostApi.Current`, before loading any of its code, and shows "Needs host API >=0.2 <0.3, this host is API 0.1.3" (the
+not contain `HostApi.Current`, before loading any of its code, and shows "Needs host API >=0.2 <0.3, this host is API 0.1.4" (the
 module is listed as `Incompatible`). A module may also read `HostApi.Current` and adapt.
 
 **Revisions.** The third number counts the *additive* changes made inside a minor version: a new optional member of
@@ -606,6 +677,7 @@ changelog entry (section 17); `ApiVersionTests` pins the number so the change sh
 | `0.1.1` | after 0.1.1 (not released yet) | **N1**: `ToastMessage.Origin` and `enum ToastOrigin { Background, Page }` (section 9). |
 | `0.1.2` | after 0.1.1 (not released yet) | **V1**: `ReadingRow.Tile` with `enum TileHint { Auto, Always, Never }`, `ReadingRow.ChartGroupKey`, `ReadingRow.RangeMin`, `ReadingRow.RangeMax` (section 5.7). |
 | `0.1.3` | after 0.1.1 (not released yet) | **UI review, package B**: `PageModel.Primary`, `Row.Line`, `Row.HelpKey`, `ExpanderRow.HeaderRow`, `ReadingRow.ChartRole` with `enum ChartRole { Series, Reference }`, `ReadingRow.Warn`, `ReadingRow.Secondary` with `record SecondaryReading(LabelKey, Metrics)`, `ButtonRow.ConfirmKey` (section 5.8). |
+| `0.1.4` | after 0.1.3 (not released yet) | **H1**: `IMetricsBus.SubscribeBackground`, `IMetricsBus.BackgroundInterval`, `MetricDemand` (`Evaluate`, `PollInterval`, `DemandKind`, `DemandState`) (section 6); `IHostServices.Verbs` with `IVerbService`, `VerbInfo`, `VerbResult`, `VerbOutcome`, `VerbAccess`, `VerbPlan`, `PlanStep`, `PlanApproval`, `PlanApprovalState`, `PlanRun`, `PlanOutcome`, `PlanStepResult`, `ActiveRun`, `ApprovedPlanInfo`; `CommandInfo` and `ICommandRegistry.Register(CommandInfo, CommandHandler)`; `CommandResult.UndoArgs` (section 9.1). |
 
 **How a range is read.** A version in a comparator is `major.minor` or `major.minor.revision`. A comparator **without** a revision
 compares major and minor only, so `>=0.1 <0.2` and `=0.1` mean "any 0.1.x" and every module written before revisions keeps loading.
@@ -616,7 +688,7 @@ revision is too low, the message names the lowest one that would do ("Needs host
 
 **Rule for authors.** If you use a member that a revision above added, declare `>=0.1.n <0.2`, where `n` is the highest revision among
 the members you use (`>=0.1.1 <0.2` for `ToastMessage.Origin`, `>=0.1.2 <0.2` for the V1 `ReadingRow` hints, `>=0.1.3 <0.2` for `Primary`, `Line`, `HelpKey`,
-`HeaderRow`, `ChartRole`, `Warn`, `Secondary` or `ConfirmKey`). If you use none, keep
+`HeaderRow`, `ChartRole`, `Warn`, `Secondary` or `ConfirmKey`, `>=0.1.4 <0.2` for background demand, `Verbs`, `CommandInfo` or `UndoArgs`). If you use none, keep
 `>=0.1 <0.2`: the module then also runs on 0.1.0 and 0.1.1 hosts. Use the same range in the registry entry (`hostApi`); the registry
 needs no new field. A module that wants to work on both may skip the member when `HostApi.RevisionOf(HostApi.Current)` is too low,
 but then it must keep the use of the member in a method of its own (a method that mentions a missing member fails when it is
@@ -644,6 +716,8 @@ the Modules page offers (`RegistryModule.Latest`).
 8. No static state that survives `Shutdown`, no reliance on the current directory (use `ModuleDirectory` and
    `DataDirectory`), no `Environment.Exit`, no unhandled-exception handlers, no changes to the host's culture.
 9. Do not store secrets in settings or the log.
+10. A verb that writes declares it (`CommandInfo` with `Access = Writes`, an `Effect`, a `Preview` that depends only on the arguments and your configuration, an `UndoVerb` and `UndoArgs` when you can put the value back). Another module may run it only inside a plan the owner approved, and the host answers your own approval question for that step: keep your validation inside the verb.
+11. A module that publishes metrics decides its poll rate with `host.Evaluate`/`PollInterval` (page visible or a subscriber: fast; a background demand: that interval; else idle). A module that wants readings without making others poll fast uses `SubscribeBackground` and treats an old sample as "no data".
 
 ## 13. How to write a module
 
@@ -804,6 +878,7 @@ await Task.Run(() => { host.Discover(); host.StartEnabled(); });
 | `RowEditors.InvokeButtonAsync` / `RevertButtonAsync` | Button rows, with the confirmation for hardware effects, for the action and for its revert. `RevertButtonAsync(entry, row, ct, detail?)` asks too (5.4). |
 | `host.Metrics` (`MetricsBus`) | `Subscribe(handler, id?)`, `TryGetLatest`, `Latest(id)`, `GetLatest` for the Dashboard, the live strip and `ReadingRow`s. A sample with `IsAvailable == false` is the "withdrawn" notice (6). `TryGetDescriptor`, `GetDescriptors`, `SubscriberCount(id)`, `SubscribersChanged`, `IsWithdrawn(id)`. `ReadingFormat.Format(host.Languages, row, sample)` turns a sample (or null) into the text of a reading, including "not available". |
 | `host.Metrics.History` (`MetricHistory`), `ReadingPlan`, `ReadingScale` | V1 (5.7): the ring buffers behind the charts, the pure rules that choose tiles and chart groups from a page (`ReadingPlan.Build(page, unitOf)`), and the scale rules (`ReadingScale.Fit`, `Axis`, `NiceStep`). `MetricsBus.UnitOf(id)` gives a metric's unit without resolving texts. |
+| `host.Plans` (`PlanEngine`), `host.Verbs` per module | H1 (9.1): `Trusted`/`UntrustedReason`, `AllApprovals()`, `OpenRuns()`, `RevokeAny(owner, plan)`, `UndoRunAsync(run)`, `ForgetRun(run)`, `Changed`; `ApprovalRequest.Plan`/`PlanName` carry the one plan dialog to `IApprovalPrompt`. Options: `PlansRoot`, `TimeProvider`, `VerbTimeout`, `PlanRunTimeout`, `PreviewTimeout`, `PlanStartsPerHour`, `PlanStartsPerHourTotal`. |
 | `host.Hotkeys` (`HotkeyRegistry`) | `Entries`, `Conflicts`, `ReserveHost(name, gesture)`, `Press(gesture)` (call it from the window's hotkey message), `Changed`. Entry `Gesture` and `HasConflict` are observable. |
 | `host.Tray` (`TrayRegistry`) | `Items` (`TrayEntry`: module id, `TrayItem` data, a guarded `Invoke`), `Changed`. |
 | `host.Commands`, `ExecuteCommandAsync(args)` | `rigbay <module> <verb> [args]` to a `CommandOutcome(ExitCode, Output)`. The app carries the command line to the running process and prints `Output` (stdout for 0, stderr otherwise). |
@@ -862,6 +937,17 @@ misbehaves as `behavior.txt` says), copies their output folders, and loads them 
 docs). Nothing is published from this repository by the build.
 
 ## 17. Changelog
+
+### 0.1 after H1 (background metric demand and approved plans: host API `0.1.4`)
+
+Additive in `Rigbay.Abstractions` and `Rigbay.Core`; a module that declares `>=0.1 <0.2` and uses none of it is unchanged. Declare `>=0.1.4 <0.2` to use it.
+
+- **Background demand** (6): `IMetricsBus.SubscribeBackground`, `BackgroundInterval`, `MetricDemand.Evaluate`/`PollInterval`. Not a subscriber, never makes a publisher fast; old publishers ignore it.
+- **Verb metadata and cross-module verbs** (9.1): `CommandInfo` (`Access`, `Effect`, `UsageKey`, `Preview`, `UndoVerb`), `CommandResult.UndoArgs`, `IHostServices.Verbs`: list, call read-only verbs, `VerbPlan`.
+- **Approved plan** (9.1): one dialog, a stored SHA-256 of the exact steps and target versions, exact-match check at every run, journal, rollback on failure, restart detection, one host notification
+  per run, rate limit, `rigbay plans ...`. Stored in an admin-only folder under `%ProgramData%\Rigbay\plans\<user SID>`; verified, never repaired; created only when used.
+- **Fix:** a verb whose token was cancelled by its caller (a time limit, another module) ends as a failed command; it no longer disables the module.
+- Tests: `BackgroundDemandTests`, `PlanTests` with `tests/Rigbay.VerbModule` (a module that changes numbers in memory); self-test checks `plans:` and `demand:` with the demo modules `demo-plan-target` and `demo-plan-owner` (`out\modules-test`).
 
 ### 0.1 after UB part 2 (UI review package B: the module page; no API change, host API stays `0.1.3`)
 

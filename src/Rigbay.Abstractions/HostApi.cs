@@ -19,9 +19,9 @@ public static class HostApi
     public const int Minor = 1;
 
     /// <summary>The revision of this assembly's contract inside <see cref="Minor"/>: the number of additive changes since 0.1.0.</summary>
-    public const int Revision = 3;
+    public const int Revision = 4;
 
-    /// <summary>The API version of this assembly: <c>0.1.3</c> (major.minor.revision; <see cref="Version.Build"/> is the revision).</summary>
+    /// <summary>The API version of this assembly: <c>0.1.4</c> (major.minor.revision; <see cref="Version.Build"/> is the revision).</summary>
     public static readonly Version Current = new(Major, Minor, Revision);
 
     /// <summary>Returns true when <paramref name="range"/> parses and contains <see cref="Current"/>.</summary>

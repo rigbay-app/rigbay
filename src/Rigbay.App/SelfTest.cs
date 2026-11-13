@@ -17,7 +17,7 @@ namespace Rigbay.App;
 /// PASS/FAIL line per check to the log and to <c>--selftest-out</c>. It drives the same code the controls drive (row drivers,
 /// Navigate, Ui.Post), not a mouse: real clicks are not covered, and the report says so.
 /// </summary>
-static class SelfTest
+static partial class SelfTest
 {
     static readonly List<string> Lines = new();
     static int _fails, _passes;
@@ -174,6 +174,7 @@ static class SelfTest
         // ---------------------------------------------------------------- fault boundary
         await RefreshChecks(w);
         await FaultChecks(w);
+        await PlanChecks(w);
 
         // ---------------------------------------------------------------- install, update and remove
         await InstallChecks(w);

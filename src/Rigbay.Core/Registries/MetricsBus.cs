@@ -141,9 +141,9 @@ public sealed class MetricsBus
     /// <summary>For host code (UI, recorder host): not tied to a module.</summary>
     public IDisposable Subscribe(Action<MetricSample> handler, MetricId? filter = null) => Subscribe(handler, filter, owner: null);
 
-    private Subscription Subscribe(Action<MetricSample> handler, MetricId? filter, string? owner)
+    private Subscription Subscribe(Action<MetricSample> handler, MetricId? filter, string? owner, TimeSpan? background = null)
     {
-        var sub = new Subscription(this, handler, filter, owner);
+        var sub = new Subscription(this, handler, filter, owner, background);
         lock (_gate) _subscriptions.Add(sub);
         RaiseSubscribersChanged(filter, owner);
         return sub;
@@ -188,8 +188,61 @@ public sealed class MetricsBus
     internal int SubscriberCount(MetricId id, string? excludeOwner)
     {
         lock (_gate)
-            return _subscriptions.Count(s => (s.Filter is null || s.Filter.Value == id)
+            return _subscriptions.Count(s => s.Background is null && (s.Filter is null || s.Filter.Value == id)
                 && (excludeOwner is null || !string.Equals(s.Owner, excludeOwner, StringComparison.Ordinal)));
+    }
+
+    // ---------------------------------------------------------------- background demand (host API 0.1.4)
+
+    /// <summary>The shortest interval anybody asks for <paramref name="id"/> in the background (see <see cref="IMetricsBus.SubscribeBackground"/>), or null.</summary>
+    public TimeSpan? BackgroundInterval(MetricId id) => BackgroundInterval(id, excludeOwner: null);
+
+    internal TimeSpan? BackgroundInterval(MetricId id, string? excludeOwner)
+    {
+        lock (_gate)
+        {
+            TimeSpan? best = null;
+            foreach (var s in _subscriptions)
+            {
+                if (s.Background is not { } b || s.Filter != id) continue;
+                if (excludeOwner is not null && string.Equals(s.Owner, excludeOwner, StringComparison.Ordinal)) continue;
+                if (best is null || b < best) best = b;
+            }
+            return best;
+        }
+    }
+
+    /// <summary>Shortest and longest background interval; asked values outside are moved inside.</summary>
+    public static readonly TimeSpan MinBackgroundInterval = TimeSpan.FromSeconds(5), MaxBackgroundInterval = TimeSpan.FromHours(1);
+
+    /// <summary>Most background subscriptions one module may hold.</summary>
+    public const int MaxBackgroundPerModule = 64;
+
+    /// <summary>For host code and tests: a background subscription that belongs to no module.</summary>
+    public IDisposable SubscribeBackground(MetricId id, TimeSpan interval, Action<MetricSample> handler) =>
+        Subscribe(handler, id, owner: null, Clamp(interval));
+
+    private static TimeSpan Clamp(TimeSpan interval) => interval < MinBackgroundInterval ? MinBackgroundInterval : interval > MaxBackgroundInterval ? MaxBackgroundInterval : interval;
+
+    private IDisposable SubscribeBackgroundFor(string moduleId, MetricId id, TimeSpan interval, Action<MetricSample> guarded)
+    {
+        if (id.Value.Length == 0) throw new ArgumentException("a background demand must name a metric id", nameof(id));
+        var clamped = Clamp(interval);
+        if (clamped != interval) _log.Debug($"{moduleId}: background interval {interval.TotalSeconds:0.#} s for {id} moved to {clamped.TotalSeconds:0.#} s");
+        lock (_gate)
+        {
+            if (_subscriptions.Count(s => s.Background is not null && string.Equals(s.Owner, moduleId, StringComparison.Ordinal)) >= MaxBackgroundPerModule)
+                throw new InvalidOperationException($"a module may hold at most {MaxBackgroundPerModule} background subscriptions");
+        }
+        return Subscribe(guarded, id, moduleId, clamped);
+    }
+
+    /// <summary>Every background demand: metric, interval and the module that asked (null for the host), ordered by id.</summary>
+    public IReadOnlyList<(MetricId Id, TimeSpan Interval, string? Owner)> GetBackgroundDemands()
+    {
+        lock (_gate)
+            return _subscriptions.Where(s => s.Background is not null).Select(s => (s.Filter!.Value, s.Background!.Value, s.Owner))
+                .OrderBy(d => d.Item1.Value, StringComparer.Ordinal).ThenBy(d => d.Item2).ToArray();
     }
 
     private void RaiseSubscribersChanged(MetricId? filter, string? owner)
@@ -330,9 +383,12 @@ public sealed class MetricsBus
     internal IMetricsBus ForModule(string moduleId, Func<Action<MetricSample>, Action<MetricSample>> guard, Func<Action, Action> guardAction, Action<IDisposable> track)
         => new ModuleBus(this, moduleId, guard, guardAction, track);
 
-    private sealed class Subscription(MetricsBus bus, Action<MetricSample> handler, MetricId? filter, string? owner) : IDisposable
+    private sealed class Subscription(MetricsBus bus, Action<MetricSample> handler, MetricId? filter, string? owner, TimeSpan? background = null) : IDisposable
     {
         private int _disposed;
+
+        /// <summary>Set for a background subscription: it is not counted in <c>SubscriberCount</c> and publishers read it as a demand.</summary>
+        public TimeSpan? Background { get; } = background;
 
         public Action<MetricSample> Handler { get; } = handler;
         public MetricId? Filter { get; } = filter;
@@ -413,6 +469,15 @@ public sealed class MetricsBus
         }
 
         public int SubscriberCount(MetricId id) => bus.SubscriberCount(id, excludeOwner: moduleId);
+
+        public IDisposable SubscribeBackground(MetricId id, TimeSpan interval, Action<MetricSample> handler)
+        {
+            var sub = bus.SubscribeBackgroundFor(moduleId, id, interval, guard(handler));
+            track(sub);
+            return sub;
+        }
+
+        public TimeSpan? BackgroundInterval(MetricId id) => bus.BackgroundInterval(id, excludeOwner: moduleId);
 
         public event Action? SubscribersChanged
         {

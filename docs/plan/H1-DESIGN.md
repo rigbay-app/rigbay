@@ -417,3 +417,19 @@ value; `rigbay plans list` output; the background demand is visible in `GetBackg
    "<module> was updated from x to y" and the first refused run per plan raises one Warning notification (not one per trigger; re-armed by a new approval).
 
 Out of scope, for the result mail: XTU's auto-switch consent and profiles live in a user-writable folder (same class of issue, bounded by XTU's `Rules.Validate`).
+
+---
+
+## As built (2026-11-13): where the code differs from the design above, and what is not covered
+
+* **Plans folder.** `%ProgramData%\Rigbay\plans\<user SID>` when the host has no data-folder override; with `--data <folder>` (tests, self-test, screenshots) it is `<folder>\plans`, so such a run never
+  touches the real folder. It is created **only when the first approval or run is saved** (a run that never uses plans leaves nothing, so the scripts that delete their `--data` folders keep working); the self-test
+  script removes its data folder with `tools\remove-elevated.ps1` because the plans folder in it is admin-only.
+* **Cancellation is not a fault.** A verb that ends by the cancellation of the token its caller gave it (a time limit, a cancelled call) is a failed command; before, `ModuleEntry.InvokeAsync` treated any
+  `OperationCanceledException` that was not the module's own stop as a fault. This changes how every command-line verb ends when its token is cancelled (to a failure instead of a disabled module).
+* **No approval for a revert question** (`isRevert`) inside a scope, and the scope is `AsyncLocal` shared by the plan runner and the free read-only call (the latter never answers anything).
+* **`GetApproval` is `async` inside** (it runs the previews) and blocks the calling thread for at most the preview time (2 s per step).
+* **Not unit-tested or not verified:** the real DACL code is exercised only by the self-test (`Verify` on an ordinary and on an admin-only folder, and the stored folder), not by a unit test; a recorded undo that
+  breaks the limits or names another verb is guarded in code, not tested (no test module reports one); the 120 s run limit is not tested; steps of two *different* plans running at once are serialised by one lock but only
+  the same-plan case is tested; the dialog was composed (title, lines, button text) and answered by the harness, not drawn and clicked by a person; the tray balloon was counted in the log, not seen on a screen;
+  nothing was run against a real module's verb, and no real module has the new metadata yet.

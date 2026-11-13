@@ -20,6 +20,7 @@ internal sealed class ModuleHostServices : IHostServices
         Toast = new ToastService(host, entry);
         Metrics = host.Metrics.ForModule(entry.Id, handler => entry.Guard("metrics subscriber", handler), action => entry.Guard("SubscribersChanged handler", action), entry.TrackSubscription);
         Approval = new ApprovalService(host, entry);
+        Verbs = new ModuleVerbService(host, entry);
     }
 
     public string ModuleId => _entry.Id;
@@ -46,6 +47,7 @@ internal sealed class ModuleHostServices : IHostServices
     public IToastService Toast { get; }
     public IMetricsBus Metrics { get; }
     public IHardwareApproval Approval { get; }
+    public IVerbService Verbs { get; }
 
     public void RequestPageRefresh() => _entry.RequestPageRefresh();
 
@@ -74,15 +76,29 @@ internal sealed class ModuleHostServices : IHostServices
 
     private sealed class CommandService(RigbayHost host, ModuleEntry entry) : ICommandRegistry
     {
-        public void Register(string verb, string descriptionKey, CommandHandler handler)
+        public void Register(string verb, string descriptionKey, CommandHandler handler) => Register(verb, descriptionKey, handler, null);
+
+        public void Register(CommandInfo info, CommandHandler handler) => Register(info.Verb, info.DescriptionKey, handler, info);
+
+        /// <summary>
+        /// A caller that gives up (a time limit, a cancelled call from another module) is not the verb's fault: cancellation of the token the verb was
+        /// given ends it as a failed command, it does not disable the module.
+        /// </summary>
+        private static async Task<CommandResult> RunHandlerAsync(CommandHandler handler, CommandContext context)
+        {
+            try { return await handler(context).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested) { return CommandResult.Failed("cancelled"); }
+        }
+
+        private void Register(string verb, string descriptionKey, CommandHandler handler, CommandInfo? info)
         {
             host.Commands.Register(entry.Id, verb, descriptionKey, async context =>
             {
-                var (completed, result) = await entry.InvokeAsync("command " + verb, () => handler(context)).ConfigureAwait(false);
+                var (completed, result) = await entry.InvokeAsync("command " + verb, () => RunHandlerAsync(handler, context)).ConfigureAwait(false);
                 if (completed && result is not null) return result;
                 var why = entry.Fault is { } f ? ModuleEntry.Describe(f) : "not running";
                 return CommandResult.Failed(host.Languages.F("core.command.failed", entry.Id, why));
-            });
+            }, info);
         }
     }
 

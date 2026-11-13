@@ -258,7 +258,7 @@ public class ApiVersionTests
     public void The_current_version_is_0_1_with_the_revision_of_this_contract()
     {
         Assert.Equal(new Version(0, 1, HostApi.Revision), HostApi.Current);
-        Assert.Equal(3, HostApi.Revision); // 0.1.0 = released hosts 0.1.0 and 0.1.1, 1 = N1 (ToastMessage.Origin), 2 = V1 (ReadingRow hints), 3 = UI review package B (Primary, Line, HelpKey, HeaderRow, ChartRole, Warn, Secondary, ConfirmKey)
+        Assert.Equal(4, HostApi.Revision); // 0.1.0 = released hosts 0.1.0 and 0.1.1, 1 = N1 (ToastMessage.Origin), 2 = V1 (ReadingRow hints), 3 = UI review package B (Primary, Line, HelpKey, HeaderRow, ChartRole, Warn, Secondary, ConfirmKey), 4 = H1 (SubscribeBackground, BackgroundInterval, MetricDemand, IHostServices.Verbs, CommandInfo, CommandResult.UndoArgs)
         Assert.Equal(HostApi.Revision, HostApi.RevisionOf(HostApi.Current));
         Assert.Equal(0, HostApi.RevisionOf(new Version(0, 1)));
         Assert.True(HostApi.IsSupported(">=0.1 <0.2"));

@@ -1,0 +1,11 @@
+{
+  "manifestVersion": 1,
+  "id": "verbs",
+  "name": "Verb test module",
+  "version": "1.0.0",
+  "author": "Rigbay tests",
+  "description": "Verbs that change an in-memory number, and a role that drives plans.",
+  "entry": { "assembly": "Rigbay.VerbModule.dll", "type": "Rigbay.VerbModule.VerbModule" },
+  "hostApi": ">=0.1.4 <0.2",
+  "group": "other"
+}

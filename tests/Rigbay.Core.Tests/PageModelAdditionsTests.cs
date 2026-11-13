@@ -36,7 +36,7 @@ public class PageModelAdditionsTests
         Assert.Null(new ExpanderRow("x", Array.Empty<Row>()).HeaderRow);
         Assert.Null(new ButtonRow("b", "go", _ => Task.FromResult(ActionResult.Ok())).ConfirmKey);
         Assert.Null(new PageModel().Primary);
-        Assert.Equal(new Version(0, 1, 3), HostApi.Current);
+        Assert.Equal(new Version(0, 1, HostApi.Revision), HostApi.Current);
     }
 
     [Fact]
