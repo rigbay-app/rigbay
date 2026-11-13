@@ -27,6 +27,8 @@
   <ItemGroup>
     <!-- the tray memory trim policy of the app (no WinUI in it): tested here with a fake clock -->
     <Compile Include="..\..\src\Rigbay.App\Services\TrayTrimPolicy.cs" Link="TrayTrimPolicy.cs" />
+    <!-- the tray tooltip model and builder (no WinUI in it): tested here with a fake source -->
+    <Compile Include="..\..\src\Rigbay.App\Services\TrayTip.cs" Link="TrayTip.cs" />
   </ItemGroup>
 
   <Target Name="CopyTestModules" AfterTargets="Build">
