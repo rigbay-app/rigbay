@@ -27,13 +27,16 @@ as facts.
    module enabled, every metric subscribed) sat at **39 MB working set, 10 MB private, 0.38 % of one core** over 45 s. The two `Rigbay.App`
    processes running on this machine at the time showed 110 to 118 MB working set and **157 to 162 MB private**. Real modules add their
    own libraries (WMI, WCF, sockets), which this test did not load.
-4. **Recommendation: (a) now, step 1 of (b) next, then decide.** (a) is M2's in-process trim on `perf/tray-trim`: drop the page and give memory
-   back after the window has been in the tray for a while. It costs little and keeps one process. Its limit is that WinUI cannot be unloaded from
-   a process. Step 1 of (b) moves the tray, the hotkeys and the balloons off the WinUI window onto a message-only window the host part owns. It is small, worth
-   having on its own, and it lets (a) go one step further: close the window instead of hiding it. Build the full split (b), a light module host
-   plus a WinUI process started on demand like PowerToys Settings, only if the measured result of (a) is still too high for the owner. The split
-   is the largest change since the app shell (size L). It needs a page protocol over the pipe, an authenticated approval channel, a self-test
-   in two parts and two executables in the installer. Section 1.7 has the costs and 1.8 the steps.
+4. **Recommendation: merge (a) now, then decide on (b) with M2's numbers in hand.** (a) is M2's in-process trim on `perf/tray-trim`. M2 measured
+   it (`docs/perf/TRAY-MEMORY-2026-11.md` on that branch, test fakes of the released modules): one working-set trim after 60 s in the tray takes
+   the process from about **205 MB to 30 to 45 MB working set**, and the window still shows its first frame 24 to 29 ms after a click. **Private
+   bytes stay at about 150 MB**: that is native memory of the .NET runtime, WinUI, DirectX and the Windows App SDK. Dropping the page, clearing
+   caches and a forced GC did not lower them. So (a) lowers what Task Manager shows by default and frees RAM for other programs. It does not lower
+   the commit, and nothing inside a WinUI process can. Only (b), a light module host plus a WinUI process started on demand like PowerToys
+   Settings, takes those 150 MB away while Rigbay sits in the tray. It is the largest change since the app shell (size L): a page protocol over
+   the pipe, an authenticated approval channel, a self-test in two parts and two executables in the installer. Build it only if the owner
+   wants the commit charge down, not only the Task Manager figure. Its step 1 (tray and hotkeys on a message-only window the host part owns) is
+   small and worth doing either way. Section 1.7 has the costs and 1.8 the steps.
 5. **UX: six lessons to adopt**, all size S. Search that ignores accents (Vietnamese), an OS check while a shortcut is being captured, a
    one-time "what changed" bar after an update, the modules' main controls in the tray menu, UI Automation landmarks and ids, and one teaching tip the
    first time a module is turned on. They are written into `docs/UI-DIRECTION.md` section 10. Not adopted: an OOBE window, a separate Quick Access
@@ -101,7 +104,7 @@ code carries the scars: Settings once ran unelevated under an elevated runner an
 | --- | --- | --- | --- |
 | Native always-on process | `src/runner` | No .NET runtime, no XAML in the part that never exits | No: the always-on process is .NET plus WinUI |
 | Big UI in its own process, started on demand, ends on close | `settings_window.cpp`, Settings `App.xaml.cs` | Settings' memory is gone when its window closes | No: the window hides to the tray and the XAML stays |
-| Warm flyout that trims itself after hiding | `QuickAccess.UI/.../MainWindow.xaml.cs` `HideWindow` → `ScheduleMemoryTrim` (2 s) → `TrimMemory` (`GC.Collect`, `WaitForPendingFinalizers`, `GC.Collect`, `SetProcessWorkingSetSize(-1, -1)`) | Small working set while hidden; private bytes only shrink by what the GC frees | M2 is building the same idea for the main window (section 1.6) |
+| Warm flyout that trims itself after hiding | `QuickAccess.UI/.../MainWindow.xaml.cs` `HideWindow` → `ScheduleMemoryTrim` (2 s) → `TrimMemory` (`GC.Collect`, `WaitForPendingFinalizers`, `GC.Collect`, `SetProcessWorkingSetSize(-1, -1)`) | Small working set while hidden; private bytes only shrink by what the GC frees | M2 measured the same steps on the main window: only the working-set trim pays (section 1.6) |
 | Events, not polling, between processes | named events throughout | Idle helpers wait on a handle | Rigbay's modules poll their devices; they slow down when nobody watches (`PageVisible`, `SubscriberCount`; PredatorSense's `PollScheduler` has a fast and an idle interval) |
 | One keyboard hook for all modules, written to return fast | `centralized_kb_hook.cpp` | One hook instead of one per module | Rigbay uses `RegisterHotKey` only (no hook), which costs nothing between key presses |
 | A module turned off by policy is never started | `main.cpp` load loop; `gpo_policy_enabled_configuration` | No process, no thread | A module that is off is not initialised; there is no policy |
@@ -120,30 +123,30 @@ PowerToys publishes no idle memory figure for the runner or Settings; I found no
 | Scratch host **without any UI**: .NET 10, `Rigbay.Core` and `Rigbay.Abstractions` from `tools\out\app`, the demo module Fan studio (a pretend device) enabled, one all-metrics subscriber like the Dashboard, 45 s | 39.0 MB | 10.0 MB | 0.38 % of one core (includes start-up JIT) | this task, scratch program in the session scratchpad, not committed; non-elevated |
 | V1: window hidden in the tray, module page open, 60 s | n/a | n/a | 0.08 to 0.16 % | `docs/APP.md` "CPU use" |
 | V1: window visible, module page open | n/a | n/a | 2.2 to 3.4 % | same |
-| M2 (`perf/tray-trim`), in-process trim | see the note under the table | | | M2's own report |
+| M2: app with the test fakes of the four released modules, window open | 201 to 204 MB | 141 to 145 MB | 2.5 to 3 % (fakes polling) | M2, `docs/perf/TRAY-MEMORY-2026-11.md` (branch `perf/tray-trim`, uncommitted when read at 09:19) |
+| M2: same, 2 min in the tray, no trim | 203 MB | 142 MB | 0.4 % | same |
+| M2: same, 2 min in the tray, **working-set trim** | **31 to 45 MB** | 146 to 150 MB | 0.3 to 0.5 % | same; first frame 24 to 29 ms after show, 69 to 76 MB working set 3 s later |
+| M2: page dropped, caches cleared, forced GC (with or without the trim) | no gain beyond the trim | no change beyond noise (about 5 MB) | | same; dropping the page made the first frame 110 to 175 ms |
 
-**M2 note.** M2's branch had uncommitted work and no published measurements when this was written (its approach is in section 1.6). Its
-`tools\perf\measure.ps1` and `MEM ...` log lines will give the numbers; read them in M2's report or `docs/APP.md` once merged.
+**Reading.** With the UI gone, the host and a module need 10 MB private; with WinUI loaded the process needs about 150 MB private whether the window is
+open, hidden, or hidden with its page thrown away (M2). So the cost sits in WinUI's native parts and the runtime they bring in, not in the modules
+and not in Rigbay's own page objects. The CPU the owner saw with the window open is the drawing of a live page (V1 measured it). Hidden, Rigbay
+already costs almost nothing in CPU.
 
-**Reading.** With the UI gone, the host and a module need about a tenth of the private memory the running app has. So the window, not the
-modules, holds most of the memory: the XAML framework, the compositor and its graphics resources, the theme dictionaries, and the page's visual tree
-(charts are many shapes). The CPU the owner saw with the window open is the drawing of a live page (V1 measured it). Hidden, Rigbay already costs
-almost nothing in CPU.
+### 1.6 Proposal (a): one process, give the working set back while hidden (M2, `perf/tray-trim`)
 
-### 1.6 Proposal (a): one process, release the UI while hidden (M2, `perf/tray-trim`)
-
-What M2 is building, read from its working tree (not yet committed): a setting "Release memory when Rigbay is in the tray", a delay (60 s by default,
-1 s to 1 h). After the window has been hidden that long, the open page is dropped: its visual tree, its renderer and the statics that point into it.
-The .NET heap is collected and compacted once and the working set is trimmed once. Showing the window rebuilds the page with its scroll,
-open expanders and focus. Data stays: page models, metrics history, search index. It is PowerToys Quick Access's trim, applied to the main window.
+What M2 built and measured (its working tree and `docs/perf/TRAY-MEMORY-2026-11.md`, read at 09:19, not yet committed): a setting "Release memory
+in the tray" in Settings > General, on by default, with a delay (30 s to 10 min, 60 s by default). When the window has been hidden that long, the
+app calls `EmptyWorkingSet` on its own process once. M2 also built and measured dropping the page (visual tree, renderer, statics), clearing caches
+and a compacting GC, the same steps PowerToys Quick Access takes. None of them paid, so they are off and stay behind a test switch.
 
 | | |
 | --- | --- |
-| Gain | The page's objects (private) and most of the working set. Task Manager's "Memory" column shows the private working set, so the trim is what the owner will see go down |
-| What stays | Everything WinUI loaded: `Microsoft.UI.Xaml` and its native parts, the window, its composition target and graphics device, the app's resource dictionaries. **WinUI cannot be unloaded from a running process** |
-| Cost | Small; one class and a policy, already written. A rebuild on show (M2 times it) |
-| Risks | The first show after a trim is slower (pages fault back in, the page is rebuilt); a bug that keeps a reference to a dropped element makes the trim useless (M2 checks with weak references); a working-set trim alone moves pages to the standby list and does not lower commit |
-| Step further, "(a+)" | **Close the window instead of hiding it**, keep the app alive (WinUI's explicit shutdown mode) and create a new window on show. That frees the window's swap chain and composition tree. It is blocked today because the tray icon and the hotkeys live on the main window's `HWND` (`src/Rigbay.App/Services/TrayHost.cs`, `HotkeyHost.cs` take it in their constructors), and that is exactly step 1 of (b). How much (a+) frees is not known until it is measured |
+| Gain | Working set from about 205 MB to 30 to 45 MB in the tray. Task Manager's default "Memory" column shows the private working set, so this is the number the owner sees go down. The RAM is free for other programs |
+| What stays | About 150 MB of private bytes (commit): the .NET runtime, `Microsoft.UI.Xaml` and its native parts, DirectX, the window and its composition. **WinUI cannot be unloaded from a running process**, and the page's own tree turned out to be a small part of it |
+| Cost | Small, done |
+| Risks | Pages come back on first touch (69 to 76 MB three seconds after a show); on a machine short of RAM they may come from the page file and the first show is slower (not measured) |
+| Step further, "(a+)" | **Close the window instead of hiding it**, keep the app alive (WinUI's explicit shutdown mode) and create a new window on show. It could free the window's swap chain and composition surfaces; given M2's result (the page did not matter), expect little. It is blocked today because the tray icon and the hotkeys live on the main window's `HWND` (`src/Rigbay.App/Services/TrayHost.cs`, `HotkeyHost.cs` take it in their constructors), which is step 1 of (b). Worth one measurement after step 1, no more |
 
 ### 1.7 Proposal (b): a light module host plus a UI started on demand
 
@@ -192,8 +195,9 @@ Each step leaves a working app and can stop there.
 | Step | What | Size | What it proves | Undo |
 | --- | --- | --- | --- | --- |
 | 0 | Merge (a) (M2). Soak PredatorSense's WMI polling for a few hours and log private bytes (section 1.4, the `System.Management` leak PowerToys reports) | S | The baseline after the trim; whether a module leaks | revert the merge |
+| | **Decision point: does the owner want the commit (about 150 MB) down, or was the Task Manager figure enough?** Stop here if it was enough | | | |
 | 1 | A host message-only window inside today's process: tray, hotkeys, balloons, the instance pipe move off the WinUI window | S to M | Tray and hotkeys work with no WinUI window at all | revert |
-| 1b | (a+): close the window instead of hiding it, create it again on show; measure | S | How much a closed window frees inside one process. **Decision point: if this is enough for the owner, stop here** | setting off |
+| 1b | (a+): close the window instead of hiding it, create it again on show; measure once | S | How much a closed window frees inside one process (M2's result suggests little) | setting off |
 | 2 | Page protocol in `Rigbay.Core` (snapshot, deltas, intents) with an in-process loopback; the existing UI renders through it, still one process | L | The protocol is complete; the self-test still runs in one process | keep the direct path behind a switch until the protocol is proven |
 | 3 | Approval channel with the client check, and the native task-dialog fallback when no UI is running | M | No write without an answer from a trusted UI, tested with a foreign client | n/a (security work stays) |
 | 4 | Split: `Rigbay.exe` (the headless path grown into a resident host) and `Rigbay.App.exe` over the pipe; logon task points to the host | M | Two processes, same behaviour; self-test in two parts | the task points back to the single exe |
@@ -204,13 +208,14 @@ Each step leaves a working app and can stop there.
 
 | Option | Idle memory with the window in the tray | Work | Risk |
 | --- | --- | --- | --- |
-| (a) only | Lower working set; private lower by the page's share; WinUI stays loaded | done by M2 | low |
-| (a) + step 1 + (a+) | Lower again by the window's resources (to measure) | about a week | low |
-| (b), the full split | Near the host floor (estimate: tens of MB) | several weeks | medium (the approval channel, the protocol, the self-test) |
+| (a) only | Working set 30 to 45 MB (M2); private bytes still about 150 MB | done by M2 | low |
+| (a) + step 1 + (a+) | Perhaps a little less private (the window's surfaces); not measured, and M2's result suggests little | about a week | low |
+| (b), the full split | Private near the host floor: 10 MB with a demo module, more with the real ones (estimate: tens of MB) | several weeks | medium (the approval channel, the protocol, the self-test) |
 
-My recommendation: (a), then step 1 and (a+), measure, and only then decide on (b). Most of what makes PowerToys light comes from the native runner, and
-Rigbay will not rewrite its host in C++. (b) is the closest Rigbay can get, and it is only worth its cost if the owner keeps Rigbay open all day
-and still finds the number too high after (a+).
+My recommendation: merge (a); it fixes the number the owner looks at. Then ask the owner one question: does the 150 MB of commit matter, or only
+the Task Manager figure? If only the figure, stop after (a) and spend the time on modules. If the commit matters, (b) is the only way, and step 1
+is the place to start. Most of what makes PowerToys light comes from its native runner; Rigbay will not rewrite its host in C++, and (b) is the
+closest it can get.
 
 ## 2. UX lessons not yet in `UI-DIRECTION.md`
 
@@ -246,13 +251,16 @@ The ranked list with all fields is `docs/plan/MODULE-IDEAS.md`. Top 3 to build n
 
 - Nothing about PowerToys was run. Its memory and CPU are not measured here; the only figures are users' reports in its issues.
 - That PowerToys Settings ends when its window closes is read from the code: the runner waits on the process and drops the pipe when it ends,
-  and `Window_Closed` clears the window. I took the WinUI default "end when the last window closes" from the Windows App SDK documentation,
-  not from a run.
+  and `Window_Closed` clears the window. The WinUI side is the Windows App SDK default: desktop WinUI apps leave their event loop when the last
+  XAML window on the thread closes (release notes of Windows App SDK 1.5, which added `Application.DispatcherShutdownMode` and kept that
+  default for desktop apps). Not seen in a run.
 - The scratch host measurement used the demo module only, non-elevated, one run of 45 s; real modules (WMI, WCF, sockets, `wg.exe`) were not
   loaded. The two `Rigbay.App` figures are one `Get-Process` reading of processes I did not start; why two were running is not known to me.
 - (a+) and (b) are designs. No code was written for them; their memory gains are estimates.
-- M2's results were not committed when this was written (section 1.5 note).
+- M2's numbers are from its working tree at 09:19 on 2026-11-13, before M2 committed or reported; M2 ran them with test fakes of the modules,
+  one run per cell, not on the owner's installed copy. If M2's final report differs, it wins.
 - The `System.Management` leak is PowerToys' statement; Rigbay's PredatorSense module was not soak-tested for it.
 
 Sources (web): [issue #10357](https://github.com/microsoft/PowerToys/issues/10357), [issue #47518](https://github.com/microsoft/PowerToys/issues/47518),
-[pull request #47487](https://github.com/microsoft/PowerToys/pull/47487).
+[pull request #47487](https://github.com/microsoft/PowerToys/pull/47487),
+[Windows App SDK 1.5 release notes](https://learn.microsoft.com/windows/apps/windows-app-sdk/release-notes/windows-app-sdk-1-5) (shutdown mode).
