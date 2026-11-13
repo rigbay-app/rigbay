@@ -4,8 +4,8 @@ A small Windows app that manages **modules** for your own machine: power limits,
 modes, monitoring and logging, network fixes, and anything else a module can do. Each module lives in its
 own repository and can be installed, updated or removed from inside the app.
 
-Status: **pre-release (v0.1.4).** The host app, the module contract and the core run and are tested; the first modules (XTU profiles, PredatorSense,
-recorder, Steam access, remote tunnel, GPU) are released separately. See Install below.
+Status: **pre-release (v0.1.5).** The host app, the module contract and the core run and are tested; the first modules (XTU profiles, PredatorSense,
+recorder, Steam access, remote tunnel, GPU, Watch, Game scenes) are released separately. See Install below.
 
 ![A module page with reading tiles and a trend chart, dark theme](tools/shots/hero-dark.png)
 
@@ -15,11 +15,11 @@ recorder, Steam access, remote tunnel, GPU) are released separately. See Install
 
 ## Install
 
-**v0.1.4 is a pre-release.** It needs Windows 11 (x64), the .NET 10 runtime and the Windows App Runtime 1.8; the installer checks them and offers to
+**v0.1.5 is a pre-release.** It needs Windows 11 (x64), the .NET 10 runtime and the Windows App Runtime 1.8; the installer checks them and offers to
 install them with `winget`. The files are **not code-signed**, so Windows SmartScreen may warn. Compare the SHA-256 in the
 [release notes](https://github.com/rigbay-app/rigbay/releases) with the zip you downloaded.
 
-1. Download `Rigbay-0.1.4-win-x64.zip` from the [latest release](https://github.com/rigbay-app/rigbay/releases) and extract it.
+1. Download `Rigbay-0.1.5-win-x64.zip` from the [latest release](https://github.com/rigbay-app/rigbay/releases) and extract it.
 2. In an administrator PowerShell, in the extracted folder: `powershell -ExecutionPolicy Bypass -File .\install.ps1` (add `-WhatIf` to see the steps first).
 3. Start **Rigbay** from the Start menu, open **Modules**, press **Check for modules**, install a module, restart, turn it on.
 

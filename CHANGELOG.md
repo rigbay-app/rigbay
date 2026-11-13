@@ -3,6 +3,22 @@
 All notable changes to the Rigbay app (`rigbay-app/rigbay`). Modules are released from their own repositories and have their own history.
 All releases are pre-releases (major version 0). The files are not code-signed.
 
+## 0.1.5 (2026-11-13)
+
+A release that extends the module contract (host API 0.1.4, revision 4) and brings two new modules. The modules you already have keep working: the installed ones declare `>=0.1.3` and need nothing from this release. The module releases that use API 0.1.4 (Watch, Game scenes, and new versions of XTU, PredatorSense, Steam access, Remote tunnel, Recorder and GPU) **need Rigbay 0.1.5 or newer**.
+
+- **Watch is available in Modules** (separate download, release 0.1.0). It alerts you when any reading stays past a limit: "CPU temperature at or above 95 °C for 30 seconds", "the CPU fan at 0 rpm while the CPU is above 80 °C". One notification per episode, a quiet period, a pause (page, tray item, `rigbay watch pause`). It only reads; it changes nothing on the machine.
+- **Game scenes is available in Modules** (separate download, release 0.1.0). When a game you chose runs, it runs commands of other modules for you (for example an XTU profile, the Steam bypass, the recorder) and puts things back when the game ends. You approve each scene once, in a question from Rigbay itself that lists every step; Rigbay runs only exactly what you approved and shows a notification for every run.
+- **Approved plans.** The host can now keep an owner's approval of an ordered list of module commands, store it in an administrator-only folder (`%ProgramData%\Rigbay\plans\<your user>`), run it when a module asks, and undo it. Any change to a step, an argument, the undo or the version of a module it calls asks you again. `rigbay plans list` shows approvals and open runs, `rigbay plans revoke <module>/<plan>` withdraws an approval, `rigbay plans undo <run>` puts back what a run changed, `rigbay plans forget <run>` drops a run you do not want undone. A run that was open when Rigbay ended is announced; Rigbay never undoes it by itself.
+- **Modules can ask for readings in the background.** A new request (`SubscribeBackground`) asks a module to publish a reading at a given interval without counting as somebody looking, so a module that polls fast only while its page is open is not held at that rate by an alert rule. Modules built for 0.1.4 (`MetricDemand`) poll at the requested interval; older modules ignore the request.
+- **Commands say what they do.** Modules can describe each command: whether it only reads or changes something, what it changes, a preview of the exact values and how to undo it. Game scenes shows this in the approval question; the modules released with this version describe their commands, older ones are shown as "the module did not say what the step changes".
+- **Host API 0.1.4.** Additive members (`IMetricsBus.SubscribeBackground`, `MetricDemand`, `CommandInfo`, `IHostServices.Verbs`, `VerbPlan`); a module whose `hostApi` range names `>=0.1.4` is refused by 0.1.2 and 0.1.3 hosts and 0.1.0 and 0.1.1 ignore the revision, so the module releases are published only after this one.
+- Documentation: the user guide, `docs/ABSTRACTIONS.md` and `docs/APP.md` describe plans and background demand.
+
+### Not verified in 0.1.5
+
+No real module's command was ever run by a plan (Game scenes was only run against a demo module); the approval question was answered by a test harness, not clicked, and the tray balloon was counted in the log, not seen on a screen. A list of approvals with a Revoke button is not in Settings yet (use `rigbay plans revoke`). Watch rules on real readings, and Watch with the new versions of the other modules, were not run live; older installed versions of those modules do not answer background requests, so a rule on their readings shows "Waiting" until they are updated. The power-source rules module is in the repository but is not released (its writes were never run). The files are not signed.
+
 ## 0.1.4 (2026-11-13)
 
 A small feature release. No change to the module contract (host API stays 0.1.3), so the modules you already have keep working and need nothing from this release.
