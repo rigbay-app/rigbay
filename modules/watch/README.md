@@ -4,7 +4,7 @@ Alerts when a reading on Rigbay's metrics bus stays past a limit: "CPU temperatu
 "steam proxy errors went up by 5 within a minute". One Windows notification per episode (a tray balloon, because Rigbay runs elevated). **It only reads.** It subscribes to
 readings, keeps its rules in its own settings and shows notifications; it publishes nothing, starts nothing, writes nothing to the machine and asks the host to approve nothing.
 
-Status: version 0.1.0, not released. Needs Rigbay with host API 0.1.4 (background metric demand). Tried only in a test instance of the app with a made-up publisher (below); everything else is **not verified**.
+Status: version 0.1.0, not released. Needs Rigbay 0.1.5 or newer (host API 0.1.4: background metric demand; app 0.1.4 still has API 0.1.3). Tried only in a test instance of the app with a made-up publisher (below); everything else is **not verified**.
 
 ## Rules
 
@@ -24,7 +24,7 @@ An **episode** starts when the reading has been past the limit for the whole tim
 An episode that starts while alerts are paused, or inside the quiet period of the previous alert, is announced when that ends if it is still open, and never if it ended first.
 
 **No data.** A reading older than twice the check interval (or withdrawn, or never seen) is "no data": the rule neither fires nor clears, an open episode stays open, the time already counted is dropped, and the
-page says "Waiting for <reading>". Modules built before Rigbay 0.1.4 ignore a background request and may not publish at all while nobody looks at them (the XTU monitor, PredatorSense's operation mode), and the GPU module
+page says "Waiting for <reading>". Modules built before Rigbay 0.1.5 (host API 0.1.4) ignore a background request and may not publish at all while nobody looks at them (the XTU monitor, PredatorSense's operation mode), and the GPU module
 (first version) polls only for a reader: rules on their readings stay Waiting until those modules adopt the new rule. Watch shows that instead of hiding it.
 
 ## Why it does not hold your PC awake
