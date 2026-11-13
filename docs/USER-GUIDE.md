@@ -16,8 +16,8 @@ network fix, ...) that you install and turn on yourself.
 
 ## 2. Install
 
-1. Download `Rigbay-0.1.2-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
-   notes: `Get-FileHash .\Rigbay-0.1.2-win-x64.zip -Algorithm SHA256`.
+1. Download `Rigbay-0.1.3-win-x64.zip` from the [releases page](https://github.com/rigbay-app/rigbay/releases) and compare its SHA-256 with the one in the release
+   notes: `Get-FileHash .\Rigbay-0.1.3-win-x64.zip -Algorithm SHA256`.
 2. Extract the whole zip to a folder, for example your Downloads. Do not extract into `C:\Program Files` yourself.
 3. Open **Windows PowerShell as administrator** (right-click Start, "Terminal (Admin)"), go to that folder and run:
 
@@ -128,6 +128,7 @@ The installer creates the task unless you used `-NoTask`. **Settings → Start w
 any time; the switch shows whether the task is set, and if Rigbay cannot change it the reason appears next to the switch. The task
 starts `Rigbay.App.exe --tray`: Rigbay starts hidden in the notification area. The close button of the window also hides to the tray; **Quit** is in the tray menu. Starting
 Rigbay a second time brings the first window forward.
+While Rigbay sits in the tray it gives memory it does not need back to Windows after a minute (**Settings → Release memory in the tray**, on by default; **Wait before releasing** sets the time). Opening the window brings everything back at once.
 
 ## 7. Update Rigbay
 
@@ -162,7 +163,7 @@ A module that changed a Windows setting (the Steam module sets a proxy script ad
 
 ## 10. Troubleshooting
 
-**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.2` the app starts and the
+**Rigbay does not start, or the window never appears.** Run `"C:\Program Files\Rigbay\Rigbay.App.exe" --version`. If that prints `Rigbay 0.1.3` the app starts and the
 trouble is the window: the Windows App Runtime 1.8 is probably missing or broken. Run `install.ps1` again (it checks) or
 `winget install --id Microsoft.WindowsAppRuntime.1.8 -e`. If `--version` itself fails, install the .NET 10 runtime: `winget install --id Microsoft.DotNet.Runtime.10 -e`.
 

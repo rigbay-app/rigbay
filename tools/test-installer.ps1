@@ -89,11 +89,11 @@ if (-not $Unelevated) {
     Check 'install: program folder, data folder, shortcut, Installed apps entry and the task all exist' ($snap.Root -and $snap.Data -and $snap.Lnk -and $snap.Key -and $snap.Task) (Snap $b)
     $exe = Join-Path $b.Root 'Rigbay.App.exe'
     $ver = (& $exe --version 2>&1 | Out-String).Trim()
-    Check 'install: the installed exe says "Rigbay 0.1.2"' ($ver -eq 'Rigbay 0.1.2') $ver
+    Check 'install: the installed exe says "Rigbay 0.1.3"' ($ver -eq 'Rigbay 0.1.3') $ver
     $same = (Get-FileHash $exe).Hash -eq (Get-FileHash $exeSrc).Hash
     Check 'install: the installed exe is byte-equal to the one in the zip' $same
     $uk = Get-ItemProperty (Join-Path $b.Key 'Rigbay') -ErrorAction SilentlyContinue
-    Check 'install: the Installed apps entry has name, version 0.1.2 and an uninstall command' ($uk -and $uk.DisplayName -eq 'Rigbay' -and $uk.DisplayVersion -eq '0.1.2' -and $uk.UninstallString) ($uk | Out-String)
+    Check 'install: the Installed apps entry has name, version 0.1.3 and an uninstall command' ($uk -and $uk.DisplayName -eq 'Rigbay' -and $uk.DisplayVersion -eq '0.1.3' -and $uk.UninstallString) ($uk | Out-String)
     # admin-only modules folder: only Administrators and SYSTEM may have an allow entry, none inherited
     $modules = Join-Path $b.Data 'modules'
     $acl = Get-Acl $modules

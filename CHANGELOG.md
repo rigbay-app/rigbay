@@ -3,6 +3,18 @@
 All notable changes to the Rigbay app (`rigbay-app/rigbay`). Modules are released from their own repositories and have their own history.
 All releases are pre-releases (major version 0). The files are not code-signed.
 
+## 0.1.3 (2026-11-13)
+
+A small release: Rigbay uses much less memory while it sits in the tray, and module calls no longer wait for a busy thread pool. No change to the module contract (host API stays 0.1.3), so no module needs a new release for this app; only the Recorder has a fix of its own (Recorder 0.1.2).
+
+- **Memory in the tray.** After the window has been in the tray for a while (60 seconds by default), Rigbay hands the memory it does not need back to Windows, once per hide. In measurements with the module fakes the working set fell from about 205 MB to 30 to 45 MB while hidden; opening the window brings it back at once (first picture after show in about 25 ms, the working set grows again to about 70 MB within seconds). Private bytes, threads and handles do not change. The setting is **Settings > Release memory in the tray** (on by default) with **Wait before releasing**. `docs/perf/TRAY-MEMORY-2026-11.md` has the numbers.
+- **Module calls no longer wait for the thread pool.** Loading, probing, turning on and shutting down a module (and the Recorder's writing loop) now run on their own threads, so a busy or starved thread pool can no longer make a module look as if it failed to start or stop. This was found when two timing-sensitive tests failed on a slow CI machine; the Recorder page also had races that are fixed (Recorder 0.1.2).
+- Documentation only: the keyboard-lighting study of the PredatorSense module and a second study of PowerToys (`docs/research`). Nothing in the app or the module changed because of them.
+
+### Not verified in 0.1.3
+
+The trim was measured on this machine with fake modules (and its first-frame time with the window hidden for minutes), not with the real modules over hours: the real PredatorSense and tunnel modules hold more memory the trim cannot release, so the owner's figure will differ. The tray itself over many hours, high contrast, Narrator, a real 150 % and 200 % display scale, the notification banner and the tray balloon on a real screen, Windows 10 and ARM were not tried. The files are not signed.
+
 ## 0.1.2 (2026-11-13)
 
 A larger release than 0.1.1: the window was redesigned after a UI/UX review, readings became visual, and the app now tells you about every hardware change. The module contract grew by additive members (host API 0.1.3, see below), so the module releases that go with it need **Rigbay 0.1.2 or newer**.

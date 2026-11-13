@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "recorder",
   "name": "Recorder",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Rigbay contributors",
   "description": "Records every metric the other modules publish into a CSV file, with a file next to it that says what each column is.",
   "entry": { "assembly": "Rigbay.Recorder.dll", "type": "Rigbay.Recorder.RecorderModule" },

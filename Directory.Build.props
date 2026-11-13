@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Deterministic>true</Deterministic>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Authors>Rigbay contributors</Authors>
     <Copyright>MIT</Copyright>
     <RepositoryUrl>https://github.com/rigbay-app/rigbay</RepositoryUrl>

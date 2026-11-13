@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.1.1 (Unreleased)
+## 0.1.2
+
+Fixes for timing problems found when two tests failed on a slow CI machine. The recording, the CSV, the `.meta.json` and the manifest (host API `>=0.1.3 <0.2`, same `requires`) do not change.
+
+- **The writing loop no longer needs the thread pool.** It runs on a thread of its own and waits for the next slot there, so Stop closes the file at once even when the pool is busy (before, Stop could give up after 4 s and report no summary).
+- **Two races on the page are fixed.** The texts of the page are refreshed one call at a time (the clock timer, the engine and the end handler all refresh them, and an older result could overwrite a newer one, so the line under the Stop button stayed empty instead of saying why the recording stopped). A start that ends at once (a write error, no free space) no longer loses its message: the last notice is cleared before the start, not after it.
+
+## 0.1.1
 
 The page from the November 2026 UI review (`docs/ui-review/REVIEW-2026-11.md` in the Rigbay repository, findings RC-1, DB-5, LC-2). The recording
 itself, the CSV and the `.meta.json` do not change. The manifest now asks for host API `>=0.1.3 <0.2` (`PageModel.Primary`, `Row.Line`,
