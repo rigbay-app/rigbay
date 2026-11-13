@@ -77,6 +77,8 @@ public sealed partial class MainWindow : Window
         InstallServices.Create(core);
         InstallServices.FlushStartupLog();
         if (opt.Lang != null) core.Languages.SetLanguage(opt.Lang);
+        TrimStepsInUse = opt.TrimSteps;
+        ApplyTrimSettings();
 
         InitializeComponent();
         Hwnd = WindowNative.GetWindowHandle(this);
@@ -142,6 +144,7 @@ public sealed partial class MainWindow : Window
             WatchInstall();
 
             if (!_opt.Tray || _opt.Shot != null || _opt.SelfTest || _opt.Script != null) Activate();
+            else { TrimPolicy.Hidden(); ArmTrim(); }   // started in the tray (logon start): the startup garbage and the pages of WinUI go the same way as after a hide
             if (_opt.Shot != null || _opt.SelfTest || _opt.Script != null || _opt.Page != null)
             {
                 await _uiReady.Task;
@@ -248,6 +251,8 @@ public sealed partial class MainWindow : Window
 
     internal void UpdatePageVisibility()
     {
+        if (AppWindow.IsVisible) { TrimPolicy.Shown(); _trimTimer?.Stop(); }   // a window back on screen cancels the wait for the trim
+        if (_trimmed && _uiBuilt && WindowShown) RestoreAfterTrim();            // and brings back the page that was dropped
         // the page itself: nothing live (subscriptions, redraw timer) while the window is hidden or minimised
         _scope?.SetActive(_uiBuilt && WindowShown);
         var target = _uiBuilt && WindowShown ? _current as ModuleEntry : null;
@@ -263,6 +268,9 @@ public sealed partial class MainWindow : Window
     internal void ShowFromTray()
     {
         ShowRequests++;
+        BeginRestoreTiming();
+        TrimPolicy.Shown();
+        _trimTimer?.Stop();
         AppWindow.Show();
         UpdatePageVisibility();
         Activate();
@@ -275,8 +283,7 @@ public sealed partial class MainWindow : Window
         if (Host.Tray?.IsAdded == true)
         {
             args.Cancel = true;     // the close button hides to the tray, as in xtu-profile-switcher; Quit is in the tray menu
-            AppWindow.Hide();
-            UpdatePageVisibility();
+            HideToTray();
             AppLog.Info("window hidden to the tray");
         }
         else
@@ -307,7 +314,7 @@ public sealed partial class MainWindow : Window
         if (_uiBuilt) return;
         _uiBuilt = true;
         UpdateInUse();
-        Microsoft.UI.Xaml.Media.CompositionTarget.Rendered += (_, _) => { if (++_frames == 1) AppLog.Info("first frame rendered"); };
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendered += (_, _) => { if (++_frames == 1) AppLog.Info("first frame rendered"); EndRestoreTiming(); };
         ApplyTitleBarColors();
         ApplyBrandMark();
         WatchWindowsColors();
@@ -396,22 +403,10 @@ public sealed partial class MainWindow : Window
     /// <summary>Rebuilds the open page with the view kept: scroll offset, open expanders (by header text or tag) and the focused control.</summary>
     void RebuildKeepingView()
     {
-        double offset = PageScroll.VerticalOffset;
-        var focus = FocusKey.TakePending() ?? FocusKey.Capture(Content?.XamlRoot, PageHost);   // a button that disables itself while it works has already lost focus
-        if (focus == null) AppLog.Info("page refresh: nothing had focus");
-        static string? KeyOf(CommunityToolkit.WinUI.Controls.SettingsExpander x) => x.Header as string ?? x.Tag as string;
-        var open = SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost).Where(x => x.IsExpanded && KeyOf(x) != null).Select(x => KeyOf(x)!).ToHashSet();
+        if (_trimmed) return;   // the page is dropped while the window is in the tray; it is rebuilt, from the current data, when the window comes back
+        var view = CaptureView("page refresh");
         ShowCurrent();
-        PageScroll.UpdateLayout();
-        foreach (var x in SelfTest.Find<CommunityToolkit.WinUI.Controls.SettingsExpander>(PageHost)) if (KeyOf(x) is { } k && open.Contains(k)) x.IsExpanded = true;   // an open list stays open
-        PageScroll.UpdateLayout();
-        PageScroll.ChangeView(null, Math.Min(offset, PageScroll.ScrollableHeight), null, disableAnimation: true);
-        if (focus != null)
-        {
-            var back = focus.Restore(PageHost);
-            string name = back == null ? "" : Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(back) is { Length: > 0 } n ? n : (back as ContentControl)?.Content as string ?? "";
-            AppLog.Info(back != null ? $"page refresh: focus back on {back.GetType().Name} '{name}' ({back.FocusState}){(focus.InPrimary ? ", the primary control" : "")}" : "page refresh: the focused control is gone");
-        }
+        ApplyView(view, "page refresh");
     }
 
     /// <summary>The Modules page redraws itself when its data changed (install finished, list fetched): same view, new rows.</summary>
@@ -674,7 +669,7 @@ public sealed partial class MainWindow : Window
 
     void ShowCurrent()
     {
-        if (!_uiBuilt) return;
+        if (!_uiBuilt || _trimmed) return;   // _trimmed: the page stays dropped until the window is shown again (RestoreAfterTrim)
         _scope?.Dispose();
         var scope = _scope = new PageScope();
         LastRenderer = null;
@@ -715,7 +710,7 @@ public sealed partial class MainWindow : Window
         list[1] = list[1] with { Title = list[1].Text, Glyph = "" };
         list[2] = list[2] with { Title = list[2].Text, Glyph = "" };
         list[3] = list[3] with { Title = list[3].Text, Glyph = "" };
-        foreach (var key in new[] { "settings.language", "settings.theme", "settings.start", "settings.module-check", "settings.log-level", "settings.hotkeys" })
+        foreach (var key in new[] { "settings.language", "settings.theme", "settings.start", "settings.module-check", "settings.release-memory", "settings.log-level", "settings.hotkeys" })
             list.Add(new SearchItem(Host.T(key), Host.T(key) + "  ·  " + Host.T("nav.settings"), "settings")
             {
                 Title = Host.T(key), Detail = Host.T("nav.settings"), RowHeader = key == "settings.hotkeys" ? null : Host.T(key), Glyph = "",
@@ -1014,8 +1009,10 @@ public sealed partial class MainWindow : Window
                 case "cancel-install": InstallServices.Manager.CancelOperation(); break;
                 case "restart": await RestartAsync(); break;   // Restart now (tools/restart-test.ps1)
                 case "wait": if (int.TryParse(arg, out var ms)) await Task.Delay(ms); break;
-                case "hide": AppWindow.Hide(); UpdatePageVisibility(); break;   // what the close button does when the tray icon is there (tools: CPU use while hidden)
+                case "hide": HideToTray(); break;   // what the close button does when the tray icon is there (tools: CPU use while hidden); starts the wait for the memory trim
                 case "show": ShowFromTray(); break;
+                case "mem": AppLog.Info(MemSnapshot.Take().Line(arg)); break;   // mem:<label> logs this process's memory (working set, private bytes, heap, threads, handles, CPU time); tools\perf\measure.ps1 reads these lines
+                case "trim": await TrimNowAsync(TrimStepsInUse); break;        // trim now, with the steps of --trim-steps (needs the window hidden)
                 case "cpu": AppLog.Info($"CPUMARK {arg} cpu_ms={Process.GetCurrentProcess().TotalProcessorTime.TotalMilliseconds:0} wall_ms={Environment.TickCount64} redraw_ms={_scope?.RedrawMs:0} redraws={_scope?.TotalRedraws}"); break;   // cpu:<label> logs this process's CPU time, so a script can measure a stretch of waiting
                 case "frames":   // frames:<count>x<interval ms>: PNG frames of this window (PrintWindow of its own HWND) into "<--shot name>-frames", for an animated README picture (tools/shots.ps1 turns them into a GIF)
                 {

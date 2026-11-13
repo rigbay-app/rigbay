@@ -32,6 +32,14 @@ static class ModulePage
     /// <summary>The main card (primary, tiles, chart) of the page built last, or null.</summary>
     public static FrameworkElement? LastHero { get; private set; }
 
+    /// <summary>Lets go of the elements of the page built last (the memory trim drops the page; these statics would keep its tree alive).</summary>
+    public static void ForgetBuilt()
+    {
+        LastBlock = null;
+        LastHeader = null;
+        LastHero = null;
+    }
+
     public static UIElement Build(ModuleEntry e, PageScope scope, out RowRenderer? renderer)
     {
         renderer = null;

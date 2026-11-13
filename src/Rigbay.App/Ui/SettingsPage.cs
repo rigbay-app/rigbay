@@ -87,6 +87,33 @@ static class SettingsPage
             if (daily.IsOn && InstallServices.DailyCheckDue(DateTimeOffset.UtcNow)) _ = InstallServices.CheckNowAsync();
         };
         general.Children.Add(new SettingsCard { Header = Host.T("settings.module-check"), Description = Host.T("settings.module-check-desc"), Content = daily });
+
+        // memory in the tray: drop the page after the window has been hidden for a while (on by default)
+        var release = new ToggleSwitch { IsOn = AppState.Settings.ReleaseMemoryInTray, OnContent = "", OffContent = "", MinWidth = 0 };
+        AutomationProperties.SetName(release, Host.T("settings.release-memory"));
+        var wait = new ComboBox { MinWidth = 160, IsEnabled = release.IsOn };
+        int[] presets = { 30, 60, 120, 300, 600 };
+        var choices = presets.ToList();
+        if (!choices.Contains(AppState.Settings.ReleaseMemoryDelaySeconds)) choices.Add(AppState.Settings.ReleaseMemoryDelaySeconds);   // a value edited into app.json stays visible
+        foreach (var s in choices.OrderBy(x => x)) wait.Items.Add(new ComboBoxItem { Content = DelayText(s), Tag = s });
+        wait.SelectedItem = wait.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (int)i.Tag == AppState.Settings.ReleaseMemoryDelaySeconds);
+        AutomationProperties.SetName(wait, Host.T("settings.release-memory-after"));
+        release.Toggled += (_, _) =>
+        {
+            AppState.Settings.ReleaseMemoryInTray = release.IsOn;
+            wait.IsEnabled = release.IsOn;
+            AppState.Save();
+            Host.Window.ApplyTrimSettings();
+        };
+        wait.SelectionChanged += (_, _) =>
+        {
+            if (wait.SelectedItem is not ComboBoxItem it) return;
+            AppState.Settings.ReleaseMemoryDelaySeconds = (int)it.Tag;
+            AppState.Save();
+            Host.Window.ApplyTrimSettings();
+        };
+        var releasePanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Children = { wait, release } };
+        general.Children.Add(new SettingsCard { Header = Host.T("settings.release-memory"), Description = Host.T("settings.release-memory-desc"), Content = releasePanel });
         page.Children.Add(general);
 
         // ---------------------------------------------------------------- Hotkeys
@@ -153,6 +180,10 @@ static class SettingsPage
         page.Children.Add(about);
         return page;
     }
+
+    /// <summary>"30 seconds", "1 minute", "5 minutes": the wait before the memory is released.</summary>
+    static string DelayText(int seconds) =>
+        seconds < 60 || seconds % 60 != 0 ? Host.F("settings.release-memory-secs", seconds) : seconds == 60 ? Host.T("settings.release-memory-min-one") : Host.F("settings.release-memory-mins", seconds / 60);
 
     static TextBlock Group(string text, bool first = false)
     {

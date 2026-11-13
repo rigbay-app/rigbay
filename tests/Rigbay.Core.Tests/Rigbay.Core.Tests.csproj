@@ -24,6 +24,11 @@
     <Content Include="registry-fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- the tray memory trim policy of the app (no WinUI in it): tested here with a fake clock -->
+    <Compile Include="..\..\src\Rigbay.App\Services\TrayTrimPolicy.cs" Link="TrayTrimPolicy.cs" />
+  </ItemGroup>
+
   <Target Name="CopyTestModules" AfterTargets="Build">
     <ItemGroup>
       <SampleModuleFiles Include="$(MSBuildThisFileDirectory)..\..\samples\Rigbay.SampleModule\bin\$(Configuration)\net8.0\**\*" />

@@ -17,6 +17,11 @@ static class Native
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(nint hWnd, int id, uint mods, uint vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(nint hWnd, int id);
     [DllImport("shell32.dll")] public static extern bool IsUserAnAdmin();
+    [DllImport("kernel32.dll")] static extern nint GetCurrentProcess();
+    [DllImport("kernel32.dll", EntryPoint = "K32EmptyWorkingSet")] static extern bool EmptyWorkingSet(nint process);
+
+    /// <summary>Asks Windows to take every page of this process out of its working set. The pages that are still needed come back on first touch; the ones that are not stay on the standby list (or the page file) and cost no RAM.</summary>
+    public static bool TrimWorkingSet() => EmptyWorkingSet(GetCurrentProcess());
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern bool Shell_NotifyIconW(uint msg, ref NOTIFYICONDATA d);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern nint LoadImage(nint hInst, string name, uint type, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool DestroyIcon(nint icon);

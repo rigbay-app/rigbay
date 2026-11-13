@@ -55,6 +55,12 @@ metric.battery.level = Battery
 metric.battery.rate = Battery rate
 
 # --- WP-A keys --- (package A adds its new shell/dashboard keys here)
+settings.release-memory = Release memory in the tray
+settings.release-memory-desc = After Rigbay has been in the tray for a while it gives the memory it does not need back to Windows. Opening the window brings it back at once.
+settings.release-memory-after = Wait before releasing
+settings.release-memory-secs = {0} seconds
+settings.release-memory-min-one = 1 minute
+settings.release-memory-mins = {0} minutes
 search.placeholder-shortcut = {0} (Ctrl+F)
 search.none = No results
 nav.modules-header = Installed
