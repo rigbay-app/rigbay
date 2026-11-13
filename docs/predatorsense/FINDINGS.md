@@ -1135,4 +1135,34 @@ The firmware itself raises a WMI event for the backlight hotkey (class `APGeEven
 - **Kept or deleted:** deleted at the end, nothing kept: the Ghidra project, my scripts and outputs, the extracted Ghidra and JDK folders and the two zips (`D:\Documents\Projects\_tools\ghidra-scratch-b11`), the `ilspycmd` tool folder, the decompiled sources and the resource extractor (all in the session scratch folder), and the per-user settings folder Ghidra creates under `%APPDATA%\ghidra`.
   The SHA-256 values in 16.0 are the record. A later pass has to download and verify again.
 
+### 16.10 W5-R0 and W5-R1 run (task B12, owner gate `g-w5-reads`, 2026-11-13 11:02 local)
+
+The owner approved "R0 + R1". Both ran once, elevated, from the coordinator session; nothing else was called.
+
+**W5-R0, schema listing only** (`Get-CimClass -Namespace root\WMI`, no instance read, no method call) **(O):**
+
+| Class | Present | GUID | Methods (WmiMethodId, parameters) |
+| --- | --- | --- | --- |
+| `APGeAction` | yes, "APGe WMI Method, Version 2.81" | `{61EF69EA-865C-4BC3-A502-A0DEBA0CB531}` | `SetFunction` 1 (`uiInput` UInt64 in, `uiOutput` UInt32 out), `GetFunction` 2 (`uiInput` UInt32 in, `uiOutput` UInt64 out) |
+| `APGeEvent` | yes, a `WMIEvent`, "APGe WMI Event, Version 2.81" | `{676AA15E-6A47-4D9F-A2CC-1E6D18D14026}` | event with `EventDetail` UInt8 array |
+| `AcerGenericMethod` | yes, "Acer Generic WMI Method, Version 2.81" | `{1EA0BC57-521E-461B-A7A9-5D36F141A82A}` | the same two methods with the same ids and types |
+| `AcerGenericEvent` | yes, a `WMIEvent` | `{2E6B3CE2-6A58-4AF2-8767-4640CA8A38E3}` | event with `EventDetail` |
+| `AcerGamingFunction` | yes, Version 2.81 | `{7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56}` | as section 3; for lighting: `SetGamingLED` 2 UInt64 in; `SetGamingRgbKb` 6 **UInt32 in**, UInt64 out; `SetGamingKBBacklight` 20 **UInt8 array in, MAX 16**, UInt32 out; `GetGamingKBBacklight` 21 **has no input** (out: UInt8 array MAX 15 plus `gmReturn` UInt8) |
+
+So **`APGeAction` and `AcerGenericMethod` are two different classes** (two GUIDs, so two different firmware method blocks), with the same method shape (16.1 item 3 is settled: not one class under two names).
+Consequences: B3's `GetFunction(0x207)` = `0xE1` came from `AcerGenericMethod`, not from the class Acer's code uses, so it says nothing yet about Cool Booster on `APGeAction`; **W1 (Cool Booster on `AcerGenericMethod.SetFunction`) must not run as written**, even though its gate `g-write-w1` was answered "approve" on 2026-11-03: it needs a re-check of which class Acer's Cool Booster code uses and a new gate. The input types B11 read from the code match the schema (`RgbKb` UInt32, `KBBacklight` a byte array of at most 16, `SetGamingLED` UInt64).
+`GetGamingKBBacklight` takes no input at all; it is still never called by Acer code and stays off the allow-list.
+
+**W5-R1, `APGeAction.GetFunction(0x88401)`, once** (`tools\predatorsense-probe --allow-call --kb-backlight`, after `--self-test-refusals` passed offline) **(O):**
+
+| Field | Value |
+| --- | --- |
+| raw | `0x1E0000000000` |
+| status (low byte) | **0** |
+| bits 16 to 31 (agent: non-zero = on) | 0, so "off" for the agent |
+| bits 32 to 39 (UI: brightness percent) | **0** |
+| bits 40 to 47 (UI: `30` = "off") | **30** |
+
+This matches Acer's own record (profile brightness 1 = 0 %, `KBBackLight_State` 0): every reading of the answer says the backlight is off. Whether 0 here means "brightness 0" or only "backlight off" cannot be told from one state; W5-R1b (the owner moves Acer's slider between reads) would calibrate it. No write was run.
+
 **Tags:** 16.1 items 1 and 2 C (two sources for 1; the handler strings for 2); item 3 C for "Acer names `APGeAction`", G for "the two names are one class". 16.2 O. 16.3 and 16.4 C (code), except the tail note, direction names and the timeout meaning (G). 16.7 C for the code paths, O for the files, G for trigger conditions. 16.8 C.

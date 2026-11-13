@@ -230,6 +230,8 @@ Stop at once on a non-zero answer, an exception or a call that takes more than 5
 
 #### The reads first (each one its own owner gate)
 
+**Status 2026-11-13 (task B12, gate `g-w5-reads`, owner picked R0 + R1):** W5-R0 ran: `APGeAction` exists and is a different class from `AcerGenericMethod` (other GUID, same method shape); input types as decoded. W5-R1 ran once: status 0, raw `0x1E0000000000` (brightness bits 0, bits 40 to 47 = 30, agent bits 0: backlight off, as Acer's record says). Details `FINDINGS.md` 16.10. W5-R1b and every write below are still unrun. **W1 must be re-checked against `APGeAction` before it runs** (its old approval named `AcerGenericMethod`).
+
 | Step | Call | Input | Why, and what to watch | Stop if |
 | --- | --- | --- | --- | --- |
 | **W5-R0** | schema listing only, no method call, no instance: `root\WMI` classes `APGeAction`, `APGeEvent`, `AcerGenericMethod`: present or not, method ids, parameter names and CIM types (`ManagementClass.Methods`, as the probe's default run does for `AcerGamingFunction`) | none | settles the class name (`FINDINGS.md` 16.1 item 3) and the input type of `SetGamingKBBacklight`, `SetGamingRgbKb`, `SetGamingLED` and `GetFunction`/`SetFunction` on this machine. It is a read of metadata, but it is asked as a gate because a lighting call must not be written without it | `APGeAction` absent: do not fall back to another class name without a new decision |
