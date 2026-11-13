@@ -127,15 +127,18 @@ static class DashboardPage
     /// The short name of a reading for a tile or a slot: the module's own <c>&lt;label key&gt;.short</c>, else the host's <c>metric.&lt;id&gt;.short</c>,
     /// else the host's <c>metric.&lt;id&gt;</c> (written short for the shared ids: "CPU", "CPU fan"), else the long label. The long label is the tooltip.
     /// </summary>
-    internal static string ShortLabel(SummaryReading r)
+    internal static string ShortLabel(SummaryReading r) => ShortLabel(r.Id, r.Label);
+
+    /// <summary>The same for any metric on the bus (the tray tooltip names a metric that no module put in its summary): <paramref name="fallback"/> is the long label.</summary>
+    internal static string ShortLabel(MetricId id, string fallback)
     {
         var metrics = Host.Core.Metrics;
-        if (metrics.TryGetDescriptor(r.Id, out var d, out var owner) && Host.Core.Find(owner) is { } module
+        if (metrics.TryGetDescriptor(id, out var d, out var owner) && Host.Core.Find(owner) is { } module
             && !Text.IsLiteral(d.LabelKey) && module.Localisation.TryGet(d.LabelKey + ".short", out var own) && !string.IsNullOrWhiteSpace(own))
             return own;
-        if (Host.Core.Languages.TryGet("metric." + r.Id.Value + ".short", out var hostShort) && !string.IsNullOrWhiteSpace(hostShort)) return hostShort;
-        if (Host.Core.Languages.TryGet("metric." + r.Id.Value, out var host) && !string.IsNullOrWhiteSpace(host)) return host;
-        return r.Label;
+        if (Host.Core.Languages.TryGet("metric." + id.Value + ".short", out var hostShort) && !string.IsNullOrWhiteSpace(hostShort)) return hostShort;
+        if (Host.Core.Languages.TryGet("metric." + id.Value, out var host) && !string.IsNullOrWhiteSpace(host)) return host;
+        return fallback;
     }
 
     // ---------------------------------------------------------------- the header line

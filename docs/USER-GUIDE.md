@@ -130,6 +130,14 @@ starts `Rigbay.App.exe --tray`: Rigbay starts hidden in the notification area. T
 Rigbay a second time brings the first window forward.
 While Rigbay sits in the tray it gives memory it does not need back to Windows after a minute (**Settings → Release memory in the tray**, on by default; **Wait before releasing** sets the time). Opening the window brings everything back at once.
 
+**The tray tooltip.** Point at the Rigbay icon in the tray and a small text says how the PC is. By default (**Settings → Tray → Tray tooltip → Automatic**) it
+shows "Rigbay" and the first two running modules, which means a third or fourth module never appears. Choose **Custom** to pick what it shows: **Add item**
+offers every module's state line ("Profile Quiet") and every reading ("CPU fan 2,830 rpm"), grouped by module; give an item your own short label, turn on **New
+line** to start a new line, move items with the arrows (or Alt+Up and Alt+Down) and remove what you do not want. The **Preview** is exactly what the icon
+shows, with its length: Windows allows 127 characters, so items that do not fit are left out from the end and Settings says so. An item whose module is off, or that has no
+reading right now, is left out of the tooltip without a word and stays in the list until you remove it. Right-clicking a reading on a module page also offers **Show
+in tray tooltip**.
+
 ## 7. Update Rigbay
 
 Run `install.ps1` from the newer zip, the same way as section 2. It quits the running Rigbay, replaces the program files and leaves your settings and modules alone.

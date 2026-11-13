@@ -146,6 +146,7 @@ static class SelfTest
         await VisibilityAndReadingChecks(w, fan);
         await VisualReadingChecks(w, fan);
         await TrayTrimChecks(w, fan);
+        await TrayTipChecks(w, fan);
         await PageModelAdditionChecks(w, fan);
 
         // ---------------------------------------------------------------- turned off: the rows stay, greyed out; turned on again works
@@ -438,6 +439,101 @@ static class SelfTest
         {
             policy.Enabled = wasEnabled; policy.Delay = wasDelay; w.TrimStepsInUse = wasSteps;
             if (w.PageTrimmed || !w.AppWindow.IsVisible) { w.ShowFromTray(); await Settle(800); }
+            w.Navigate(fan); await Settle(300);
+        }
+    }
+
+    static async Task TrayTipChecks(MainWindow w, ModuleEntry fan)
+    {
+        var tray = Host.Tray;
+        if (tray == null) { Skip("tray tooltip", "the tray icon is not there"); return; }
+        var saved = AppState.Settings.TrayTip.Copy();
+        // the module publishes every second: compare two texts built in the same instant, and try again when a reading moved in between
+        async Task<bool> Same(Func<(string A, string B)> pair)
+        {
+            for (int i = 0; i < 4; i++) { var (a, b) = pair(); if (a == b) return true; await Settle(150); }
+            return false;
+        }
+        try
+        {
+            // Automatic is the default and is what the icon had before the setting existed
+            AppState.Settings.TrayTip = new TrayTipSettings();
+            tray.UpdateTip();
+            bool autoSame = await Same(() => { tray.UpdateTip(); return (tray.Tip, TrayTipBuilder.BuildAutomatic(tray.TipSource)); });
+            var auto = tray.Tip;
+            R("tray tooltip: Automatic is 'Rigbay' and the first two running modules, as before", autoSame && auto.StartsWith("Rigbay\n") && auto.Split('\n').Length <= 3 && auto.Length <= TrayHost.MaxTip, $"'{auto.ReplaceLineEndings(" | ")}' ({auto.Length} characters)");
+
+            // Custom: two items of demo-fan; the icon's text is the preview's text
+            await w.RunScriptAsync("tip:custom,state:demo-fan,cpu.temp=Chip");
+            w.Navigate("settings"); await Settle(900);
+            w.Scope?.RedrawNow();
+            bool same = await Same(() => { w.Scope?.RedrawNow(); tray.UpdateTip(); return (TrayTipEditor.LastPreview, tray.Tip); });
+            var custom = tray.Tip;
+            var lines = custom.Split('\n');
+            R("tray tooltip: Custom with two items of demo-fan: the icon's Tip equals the preview of Settings", same && lines.Length == 2 && lines[0] == "Rigbay" && lines[1].Contains(" · Chip ") && custom != auto, $"icon '{custom.ReplaceLineEndings(" | ")}' preview '{TrayTipEditor.LastPreview.ReplaceLineEndings(" | ")}'");
+            var counterText = Find<TextBlock>(w.PageContent).Select(t => t.Text).FirstOrDefault(t => t.EndsWith(" / 127", StringComparison.Ordinal));
+            R("tray tooltip: Settings shows the length as 'n / 127'", counterText != null && counterText == $"{TrayTipEditor.LastPreview.Length} / 127", $"counter '{counterText}'");
+            var rowsShown = Find<SettingsCard>(w.PageContent).Count(c => Equals(c.Tag, "tray-tip-item"));
+            R("tray tooltip: Settings lists the two items with move and remove buttons", rowsShown == 2 && Find<Button>(w.PageContent).Count(b => b.Content is FontIcon) >= 6, $"{rowsShown} item rows");
+
+            // a change shows on the icon at once, not at the next 5 s tick
+            await w.RunScriptAsync("tip:custom,cpu.temp=Hot");
+            R("tray tooltip: a change of the setting reaches the icon at once", tray.Tip.StartsWith("Rigbay\nHot ") && !tray.Tip.Contains('·'), $"'{tray.Tip.ReplaceLineEndings(" | ")}'");
+
+            // new line, hidden title, an item of a module that is not there: kept in the setting, silent in the text
+            await w.RunScriptAsync("tip:custom,notitle,state:demo-fan,cpu.temp+nl,state:gone-module");
+            var multi = tray.Tip;
+            R("tray tooltip: new line, no first line, an item of an uninstalled module adds nothing and stays in the list",
+                multi.Split('\n').Length == 2 && !multi.StartsWith("Rigbay") && AppState.Settings.TrayTip.Items.Count == 3 && AppState.Settings.TrayTip.Items[2].Id == "state:gone-module", $"'{multi.ReplaceLineEndings(" | ")}', {AppState.Settings.TrayTip.Items.Count} items in the list");
+
+            // the module off: its items leave the text silently, the list keeps them
+            await Task.Run(() => fan.Disable());
+            await Settle(500);
+            tray.UpdateTip();
+            R("tray tooltip: items of a module that is turned off are left out silently and stay in the list", tray.Tip == "Rigbay" && AppState.Settings.TrayTip.Items.Count == 3, $"'{tray.Tip.ReplaceLineEndings(" | ")}'");
+            await Task.Run(() => fan.Enable());
+            await Settle(1500);
+            tray.UpdateTip();
+            R("tray tooltip: they come back when the module is turned on again", tray.Tip.Contains("°C") || tray.Tip.Split('\n').Length == 2, $"'{tray.Tip.ReplaceLineEndings(" | ")}'");
+
+            // back to Automatic
+            await w.RunScriptAsync("tip:auto");
+            bool backSame = await Same(() => { tray.UpdateTip(); return (tray.Tip, TrayTipBuilder.BuildAutomatic(tray.TipSource)); });
+            R("tray tooltip: back to Automatic gives the automatic text again", backSame && tray.Tip.StartsWith("Rigbay\n") && !AppState.Settings.TrayTip.IsCustom, $"'{tray.Tip.ReplaceLineEndings(" | ")}'");
+
+            // a reading tile offers "Show in tray tooltip"
+            w.Navigate(fan); await Settle(900);
+            var tile = Find<ReadingTile>(w.PageContent).FirstOrDefault();
+            var menu = tile?.TrayTipMenu();
+            R("tray tooltip: a reading tile has the 'Show in tray tooltip' menu", menu is { Items.Count: 1 } && menu.Items[0] is ToggleMenuFlyoutItem, tile == null ? "no tile" : menu?.GetType().Name ?? "no menu");
+            // what a click on it does, from Automatic: Custom starts from what Automatic shows, then the reading is added and taken out again
+            AppState.Settings.TrayTip = new TrayTipSettings();
+            bool pumpShownBefore = TrayTipEditor.ShownInTip("demo-fan.pump");
+            TrayTipEditor.SetInTip("demo-fan", "demo-fan.pump", true);
+            bool addedOk = AppState.Settings.TrayTip.IsCustom && AppState.Settings.TrayTip.Contains("demo-fan.pump") && tray.Tip.Contains("Pump ") && TrayTipEditor.ShownInTip("demo-fan.pump");
+            string withPump = tray.Tip;
+            TrayTipEditor.SetInTip("demo-fan", "demo-fan.pump", false);
+            R("tray tooltip: Show in tray tooltip turns Custom on from what Automatic shows, adds the reading and takes it out again", addedOk && !AppState.Settings.TrayTip.Contains("demo-fan.pump") && !tray.Tip.Contains("Pump ") && AppState.Settings.TrayTip.Items.Count > 0, $"before shown={pumpShownBefore}; with '{withPump.ReplaceLineEndings(" | ")}'; after '{tray.Tip.ReplaceLineEndings(" | ")}'");
+
+            // an app.json from before the setting reads as Automatic
+            var dir = Path.Combine(Path.GetTempPath(), "rigbay-tip-" + Guid.NewGuid().ToString("N")[..8]);
+            try
+            {
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, "app.json");
+                File.WriteAllText(file, "{ \"version\": 1, \"data\": { \"theme\": \"dark\", \"logLevel\": \"info\", \"releaseMemoryInTray\": true, \"releaseMemoryDelaySeconds\": 60 } }");
+                var old = new JsonSettingsStore(file, AppLog.For("host")).Load<AppSettings>();
+                old.TrayTip = TrayTipSettings.Clean(old.TrayTip);
+                R("tray tooltip: an app.json without the new fields reads as Automatic", old.Theme == "dark" && !old.TrayTip.IsCustom && old.TrayTip.ShowTitle && old.TrayTip.Items.Count == 0, $"theme={old.Theme} custom={old.TrayTip.IsCustom}");
+            }
+            finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
+        }
+        finally
+        {
+            AppState.Settings.TrayTip = saved;
+            AppState.Save();
+            tray.UpdateTip();
+            if (fan.Lifecycle != ModuleLifecycle.Running) { await Task.Run(() => fan.Enable()); await Settle(800); }
             w.Navigate(fan); await Settle(300);
         }
     }
