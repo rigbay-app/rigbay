@@ -1,0 +1,123 @@
+# Module Watch: tiếng Việt. Mọi khoá bắt đầu bằng module.watch.
+@code = vi
+@name = Tiếng Việt
+
+module.watch.name = Watch
+module.watch.description = Cảnh báo khi một chỉ số trên metrics bus vượt giới hạn quá lâu. Chỉ đọc.
+
+module.watch.state.starting = Đang khởi động
+module.watch.state.no-rules = Chưa có quy tắc
+module.watch.state.all-off = Mọi quy tắc đang tắt
+module.watch.state.firing-count = Đang báo: {0}/{1}
+module.watch.state.paused = Cảnh báo tạm dừng đến {0}
+module.watch.state.watching = Quy tắc đang bật: {0}
+module.watch.pause.until = Cảnh báo tạm dừng đến {0}
+module.watch.status.alerts-on = Cảnh báo đang bật.
+module.watch.tray.pause = Tạm dừng cảnh báo 1 giờ
+
+module.watch.toast.body = {0}. Hiện tại: {1}.
+module.watch.toast.test.title = Watch
+module.watch.toast.test.body = Đây là cảnh báo thử. Cảnh báo thật trông giống như vậy.
+
+module.watch.picker.absent = {0} (hiện không có)
+module.watch.unit.seconds = {0} giây
+module.watch.unit.minutes = {0} phút
+module.watch.unit.hours = {0} giờ
+module.watch.rule.above = Từ {0} trở lên
+module.watch.rule.above.for = Từ {0} trở lên trong {1}
+module.watch.rule.below = Từ {0} trở xuống
+module.watch.rule.below.for = Từ {0} trở xuống trong {1}
+module.watch.rule.rises = Tăng từ {0} trở lên trong {1}
+module.watch.rule.bits = Có bit {0} được bật
+module.watch.rule.bits.for = Có bit {0} được bật trong {1}
+module.watch.rule.while.above = chỉ khi {0} từ {1} trở lên
+module.watch.rule.while.below = chỉ khi {0} từ {1} trở xuống
+
+module.watch.state.off = Tắt
+module.watch.state.waiting = Đang chờ {0}
+module.watch.state.was-firing = đã báo từ {0}
+module.watch.state.pending = Vượt giới hạn {0}/{1}
+module.watch.state.firing = Đang báo từ {0}
+module.watch.state.next = cảnh báo kế tiếp sau {0}
+module.watch.state.quiet = Yên
+module.watch.state.now = hiện {0}
+module.watch.state.last = báo lần cuối {0}
+
+module.watch.kind.above = Từ mức trở lên
+module.watch.kind.below = Từ mức trở xuống
+module.watch.kind.rises = Tăng thêm
+module.watch.kind.bits = Có bit được bật
+
+module.watch.group.rules = Quy tắc
+module.watch.group.add = Thêm quy tắc
+module.watch.group.suggestions = Gợi ý
+module.watch.group.settings = Cài đặt
+
+module.watch.row.alerts.header = Gửi cảnh báo
+module.watch.row.alerts.help = Tắt để tạm dừng cảnh báo 1 giờ. Các quy tắc vẫn kiểm tra. Cảnh báo đã đến hạn sẽ chờ đến khi hết thời gian tạm dừng.
+
+module.watch.row.enabled.header = Bật quy tắc
+module.watch.row.metric.header = Chỉ số
+module.watch.row.kind.header = Báo khi
+module.watch.row.kind.help = Tăng thêm đếm chỉ số tăng bao nhiêu trong khoảng thời gian, ví dụ số lỗi. Có bit được bật kiểm tra một mặt nạ trạng thái, như các lý do GPU hạ xung nhịp; giới hạn chính là mặt nạ.
+module.watch.row.limit.header = Giới hạn
+module.watch.row.clear.header = Hết báo tại
+module.watch.row.clear.help = Cảnh báo kết thúc khi chỉ số chạm giá trị này. Bằng giới hạn nghĩa là không có vùng đệm. Giá trị khác giúp chỉ số dao động quanh giới hạn không báo đi báo lại.
+module.watch.row.for.header = Kéo dài
+module.watch.row.for.help = Chỉ số phải vượt giới hạn liên tục bao lâu. Với Tăng thêm, đây là khoảng thời gian đo mức tăng.
+module.watch.row.quiet.header = Thời gian im (phút)
+module.watch.row.quiet.description = Không báo thêm trong khoảng này sau mỗi lần báo
+module.watch.row.interval.header = Kiểm tra mỗi
+module.watch.row.interval.help = Watch hỏi chỉ số bao lâu một lần, tối thiểu 5 giây. Chỉ số cũ hơn gấp đôi khoảng này được coi là không có dữ liệu.
+module.watch.row.condition.header = Chỉ khi chỉ số khác
+module.watch.row.condition.help = Quy tắc chỉ tính khi chỉ số khác này vượt giới hạn của nó, ví dụ quạt dừng trong lúc CPU nóng.
+module.watch.row.condition.metric.header = Chỉ số khác
+module.watch.row.condition.kind.header = Chỉ số khác ở mức
+module.watch.row.condition.limit.header = Giới hạn khác
+module.watch.row.remove.header = Xoá quy tắc
+module.watch.row.remove.button = Xoá
+module.watch.confirm.remove = Xoá {0}?
+module.watch.remove.gone = Quy tắc đã không còn.
+module.watch.remove.done = Đã xoá quy tắc.
+
+module.watch.info.no-rules = Chưa có quy tắc
+module.watch.info.no-rules.description = Chọn một chỉ số bên dưới, hoặc thêm một gợi ý.
+module.watch.info.waiting = Vì sao quy tắc có thể ghi Đang chờ
+module.watch.info.waiting.description = Module của nó chưa gửi chỉ số gần đây. Module viết trước Rigbay 0.1.4 có thể không gửi khi trang của nó đang đóng.
+module.watch.info.no-readings = Chưa có chỉ số nào
+module.watch.info.no-readings.description = Hãy bật một module có xuất chỉ số rồi quay lại.
+module.watch.info.suggest-none = Hiện không có gợi ý
+module.watch.info.suggest-done = Đã thêm mọi gợi ý
+module.watch.info.suggest.description = Gợi ý xuất hiện khi module xuất chỉ số của chúng đang bật.
+
+module.watch.row.new.header = Quy tắc mới
+module.watch.row.new.description = Chọn một chỉ số rồi thêm quy tắc cho nó
+module.watch.row.add.header = Thêm quy tắc
+module.watch.row.add.button = Thêm quy tắc
+module.watch.add.pick = Hãy chọn một chỉ số trước.
+module.watch.add.full = Tối đa {0} quy tắc.
+module.watch.add.done = Đã thêm quy tắc. Đặt giới hạn trong danh sách phía trên.
+
+module.watch.row.suggest.add = Thêm
+module.watch.suggest.cpu-temp = Nhiệt độ CPU
+module.watch.suggest.gpu-temp = Nhiệt độ GPU
+module.watch.suggest.tunnel.help = Đường hầm không có lưu lượng và không có keep-alive cũng sẽ có handshake cũ.
+module.watch.suggest.steam-errors = Lỗi proxy Steam tăng
+module.watch.suggest.gpu-thermal = GPU hạ xung vì nhiệt
+module.watch.suggest.gpu-thermal.help = Báo khi GPU hạ xung nhịp vì quá nóng.
+module.watch.suggest.fan-stopped = Quạt dừng khi nóng
+module.watch.suggest.fan-stopped.help = Quạt CPU dừng là bình thường khi CPU mát, nên quy tắc chỉ tính khi trên 80 °C.
+
+module.watch.row.tray.header = Mục trong menu khay
+module.watch.row.tray.description = Thêm Tạm dừng cảnh báo 1 giờ vào menu khay
+module.watch.row.test.header = Cảnh báo thử
+module.watch.row.test.button = Gửi cảnh báo thử
+module.watch.row.test.help = Hiện thông báo Warning giống cách một cảnh báo thật hiện. Nếu không thấy gì, hãy kiểm tra Focus assist và cài đặt thông báo của Windows.
+module.watch.test.done = Đã gửi cảnh báo thử.
+
+module.watch.cmd.status = Xem các quy tắc và trạng thái
+module.watch.cmd.status.usage = Cách dùng: rigbay watch status
+module.watch.cmd.pause = Tạm dừng cảnh báo vài phút
+module.watch.cmd.pause.usage = Cách dùng: rigbay watch pause <số phút>, từ 1 đến 1440
+module.watch.cmd.resume = Bật lại cảnh báo
+module.watch.cmd.resume.usage = Cách dùng: rigbay watch resume

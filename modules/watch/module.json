@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "id": "watch",
+  "name": "Watch",
+  "version": "0.1.0",
+  "author": "Rigbay contributors",
+  "description": "Alerts when a reading on the metrics bus stays past a limit. Read only.",
+  "entry": { "assembly": "Rigbay.Watch.dll", "type": "Rigbay.Watch.WatchModule" },
+  "hostApi": ">=0.1.4 <0.2",
+  "group": "monitoring",
+  "requires": {
+    "admin": false,
+    "network": [],
+    "registry": [],
+    "services": [
+      "Rigbay metrics bus: background subscriptions to the readings the rules name (read only; it publishes nothing and starts nothing); notifications through the host's tray"
+    ]
+  },
+  "languages": "lang",
+  "icon": "icon.svg"
+}
