@@ -320,6 +320,42 @@ public class TrayTipTests
         Assert.NotSame(raw.Items[0], c.Items[0]);
     }
 
+    [Fact]
+    public void Add_remove_and_move_keep_the_list_sane()
+    {
+        var s = new TrayTipSettings();
+        Assert.True(s.Add("cpu.temp", "predator"));
+        Assert.False(s.Add("cpu.temp", "predator"));   // once
+        Assert.False(s.Add("", ""));
+        s.Add("cpu.fan", "predator"); s.Add("state:xtu", "xtu");
+        Assert.True(s.Move(2, -1));
+        Assert.Equal(new[] { "cpu.temp", "state:xtu", "cpu.fan" }, s.Items.Select(i => i.Id));
+        Assert.False(s.Move(0, -1));   // already first
+        Assert.False(s.Move(2, 1));    // already last
+        Assert.True(s.Remove("state:xtu"));
+        Assert.False(s.Remove("state:xtu"));
+        Assert.Equal(new[] { "cpu.temp", "cpu.fan" }, s.Items.Select(i => i.Id));
+        for (int i = 0; i < 40; i++) s.Add("m." + i, "");
+        Assert.Equal(TrayTipSettings.MaxItems, s.Items.Count);
+    }
+
+    [Fact]
+    public void Starting_custom_from_automatic_gives_the_same_tooltip()
+    {
+        var src = Rack();
+        var seeded = new TrayTipSettings { Mode = TrayTipSettings.Custom };
+        seeded.SeedFrom(src);
+        Assert.Equal(new[] { "state:predator", "cpu.temp", "cpu.fan", "state:steam" }, seeded.Items.Select(i => i.Id));
+        Assert.True(seeded.Items[3].NewLine);
+        Assert.Equal(TrayTipBuilder.Build(new TrayTipSettings(), src).Text, TrayTipBuilder.Build(seeded, src).Text);
+        // a rack with an off module first and a repeated figure
+        var s2 = new FakeSource().Module("off", "Off", false, "x").Module("a", "A", true, null, new TipReading("cpu.temp", "CPU", "50 °C")).Module("b", "B", true, "B on", new TipReading("cpu.temp", "CPU", "50 °C"));
+        s2.Reading("cpu.temp", "CPU", "50 °C", "a");
+        var seed2 = new TrayTipSettings { Mode = TrayTipSettings.Custom };
+        seed2.SeedFrom(s2);
+        Assert.Equal(Legacy(s2), TrayTipBuilder.Build(seed2, s2).Text);
+    }
+
     sealed class AppFileLikeSettings
     {
         public string Theme { get; set; } = "system";

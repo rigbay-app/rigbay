@@ -969,6 +969,27 @@ public sealed partial class MainWindow : Window
                     AppLog.Info($"script: start with Windows {arg}: ok={ok} {msg}");
                     break;
                 }
+                case "tip":   // tip:auto | tip:custom[,<item>...] with <item> = <id>[=<label>][+nl] (state:<module id> or a metric id; +nl starts a line), or notitle: the Settings choice, as the editor makes it; the log gets the tooltip
+                {
+                    var parts = arg.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var s = AppState.Settings.TrayTip;
+                    s.Mode = parts.Length > 0 && parts[0] == "custom" ? TrayTipSettings.Custom : TrayTipSettings.Automatic;
+                    if (parts.Length > 1) { s.Items.Clear(); s.ShowTitle = true; }
+                    foreach (var p in parts.Skip(1))
+                    {
+                        if (p == "notitle") { s.ShowTitle = false; continue; }
+                        bool nl = p.EndsWith("+nl", StringComparison.Ordinal);
+                        var spec = nl ? p[..^3] : p;
+                        var eq = spec.IndexOf('=');
+                        var id = eq < 0 ? spec : spec[..eq];
+                        var module = TrayTipIds.IsState(id, out var sm) ? sm : MetricId.IsValid(id) ? Host.Core.Metrics.GetMetricInfo(new MetricId(id))?.OwnerModuleId ?? "" : "";
+                        if (s.Add(id, module == "host" ? "" : module)) { s.Items[^1].Label = TrayTipSettings.CleanLabel(eq < 0 ? "" : spec[(eq + 1)..]); s.Items[^1].NewLine = nl; }
+                    }
+                    AppState.Save();
+                    Host.Tray?.UpdateTip();
+                    AppLog.Info("script: tray tooltip is now '" + Host.Tray?.Tip.ReplaceLineEndings(" | ") + "'");
+                    break;
+                }
                 case "cancel-dialog": ApprovalPrompt.CancelOpen(); break;
                 case "edit":   // edit:<row header key>=<value> on the open module page ('=' in the key doubled: edit:==example-tunnel=on, RowStep); not awaited, so an approval dialog can stay open for a screenshot
                 {

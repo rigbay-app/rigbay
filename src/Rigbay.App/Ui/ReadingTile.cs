@@ -167,6 +167,7 @@ sealed class ReadingTile : UserControl
         KeyDown += (_, a) => { if (a.Key is Windows.System.VirtualKey.Space or Windows.System.VirtualKey.Enter) { SelectMe(focus: true); a.Handled = true; } };
 
         AutomationProperties.SetName(this, _name);
+        ContextFlyout = TrayTipEditor.TileMenu(e.Id, row.Metric.Value);   // "Show in tray tooltip"
 
         Show(Host.Core.Metrics.TryGetLatest(row.Metric, out var latest) ? latest : null);
         scope.Live(

@@ -73,6 +73,50 @@ sealed class TrayTipSettings
 
     /// <summary>A copy with nothing shared with this object (the editor works on the live settings; a test compares against a copy).</summary>
     public TrayTipSettings Copy() => Clean(this);
+
+    public bool Contains(string id) => Items.Any(i => i.Id == id);
+
+    /// <summary>Adds an item at the end unless the id is there already or the list is full. True when it was added.</summary>
+    public bool Add(string id, string module)
+    {
+        if (id.Length == 0 || Contains(id) || Items.Count >= MaxItems) return false;
+        Items.Add(new TrayTipItem { Id = id, Module = module });
+        return true;
+    }
+
+    public bool Remove(string id) => Items.RemoveAll(i => i.Id == id) > 0;
+
+    /// <summary>Moves the item at <paramref name="index"/> by <paramref name="delta"/> places (-1 up, +1 down). False when it is already at that end.</summary>
+    public bool Move(int index, int delta)
+    {
+        int to = index + delta;
+        if (index < 0 || index >= Items.Count || to < 0 || to >= Items.Count || delta == 0) return false;
+        (Items[index], Items[to]) = (Items[to], Items[index]);
+        return true;
+    }
+
+    /// <summary>
+    /// Fills an empty custom list with what Automatic shows right now (the first two running modules: their state line and readings, the second module on a
+    /// line of its own), so switching to Custom starts from the tooltip the owner already sees and not from nothing.
+    /// </summary>
+    public void SeedFrom(ITrayTipSource source)
+    {
+        var said = new HashSet<string>(StringComparer.Ordinal);
+        int lines = 0;
+        foreach (var m in source.Modules)
+        {
+            if (!m.Running) continue;
+            var items = new List<TrayTipItem>();
+            if (!string.IsNullOrEmpty(m.State)) items.Add(new TrayTipItem { Id = TrayTipIds.State(m.Id), Module = m.Id });
+            foreach (var r in m.Summary)
+                if (said.Add(r.Id) && r.Value != null) items.Add(new TrayTipItem { Id = r.Id, Module = m.Id });
+            if (items.Count == 0) continue;
+            items[0].NewLine = lines > 0;
+            Items.AddRange(items);
+            if (++lines == 2) break;
+        }
+        if (Items.Count > MaxItems) Items.RemoveRange(MaxItems, Items.Count - MaxItems);
+    }
 }
 
 /// <summary>Ids of the items.</summary>
@@ -174,10 +218,9 @@ static class TrayTipBuilder
         return tip.Length <= MaxTip ? tip : tip[..(MaxTip - 1)] + "…";
     }
 
-    static TipItemResult Resolve(TrayTipItem item, ITrayTipSource source)
+    static TipItemResult Resolve(TrayTipItem item, ITrayTipSource source, IReadOnlyList<TipModule> modules)
     {
         var label = TrayTipSettings.CleanLabel(item.Label);
-        var modules = source.Modules;
         if (TrayTipIds.IsState(item.Id, out var moduleId))
         {
             var m = modules.FirstOrDefault(x => x.Id == moduleId);
@@ -206,7 +249,8 @@ static class TrayTipBuilder
     /// </summary>
     static TipResult BuildCustom(TrayTipSettings settings, ITrayTipSource source)
     {
-        var results = settings.Items.Select(i => Resolve(i, source)).ToList();
+        var modules = source.Modules;   // read once: the app's source builds the list on every call
+        var results = settings.Items.Select(i => Resolve(i, source, modules)).ToList();
         var shown = Enumerable.Range(0, results.Count).Where(i => results[i].Status == TipItemStatus.Shown).ToList();
 
         string Assemble()

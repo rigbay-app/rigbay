@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Rigbay.Abstractions;
+using Rigbay.App.Services;
 using Rigbay.Core;
 
 namespace Rigbay.App;
@@ -77,6 +78,8 @@ sealed class AppSettings
     public bool ReleaseMemoryInTray { get; set; } = true;
     /// <summary>Seconds in the tray before that happens.</summary>
     public int ReleaseMemoryDelaySeconds { get; set; } = 60;
+    /// <summary>What the tray icon's tooltip shows: Automatic (the default) or the owner's own list. A file from before this setting reads as Automatic.</summary>
+    public TrayTipSettings TrayTip { get; set; } = new();
 }
 
 static class AppState
@@ -88,6 +91,7 @@ static class AppState
     {
         _store = new JsonSettingsStore(Path.Combine(host.Paths.DataRoot, "app.json"), host.Log.ForSource("host"));
         Settings = _store.Load<AppSettings>();
+        Settings.TrayTip = TrayTipSettings.Clean(Settings.TrayTip);   // a hand-edited or null entry becomes a safe one
         if (Enum.TryParse<LogLevel>(Settings.LogLevel, true, out var level)) host.Log.Minimum = level;
     }
 

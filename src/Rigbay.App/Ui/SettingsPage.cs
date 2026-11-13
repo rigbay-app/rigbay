@@ -116,6 +116,10 @@ static class SettingsPage
         general.Children.Add(new SettingsCard { Header = Host.T("settings.release-memory"), Description = Host.T("settings.release-memory-desc"), Content = releasePanel });
         page.Children.Add(general);
 
+        // ---------------------------------------------------------------- Tray (what the icon's tooltip says)
+        page.Children.Add(Group(Host.T("settings.tray")));
+        page.Children.Add(TrayTipEditor.Build(scope));
+
         // ---------------------------------------------------------------- Hotkeys
         page.Children.Add(Group(Host.T("settings.hotkeys")));
         page.Children.Add(Hotkeys(scope));
