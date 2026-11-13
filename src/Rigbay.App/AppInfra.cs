@@ -73,7 +73,7 @@ sealed class AppSettings
     public DateTimeOffset? LastModuleCheck { get; set; }
     /// <summary>The first start with no modules opens the Modules page once.</summary>
     public bool FirstRunDone { get; set; }
-    /// <summary>Give memory back while Rigbay sits in the tray (drop the page, collect the heap, trim the working set). On by default.</summary>
+    /// <summary>Give memory back while Rigbay sits in the tray (one working-set trim per hide; see MainWindow.Trim.cs). On by default.</summary>
     public bool ReleaseMemoryInTray { get; set; } = true;
     /// <summary>Seconds in the tray before that happens.</summary>
     public int ReleaseMemoryDelaySeconds { get; set; } = 60;

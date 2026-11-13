@@ -9,9 +9,10 @@ namespace Rigbay.App;
 
 /// <summary>
 /// Memory in the tray. While the window is hidden the page already costs no CPU (<see cref="PageScope"/> lets go of its subscriptions and timers);
-/// this part gives the memory back too: <see cref="TrayTrimPolicy.Delay"/> after the window went to the tray the open page is dropped (its
-/// visual tree, its renderer, the statics that point into it), the .NET heap is collected and compacted once, and the working set is trimmed once.
-/// Showing the window rebuilds the page and gives scroll, open expanders and focus back. Data stays: page models, the metrics history, the search index.
+/// this part gives the memory back too: <see cref="TrayTrimPolicy.Delay"/> after the window went to the tray the working set is trimmed once
+/// (<see cref="TrimSteps.Default"/>). The other steps (drop the open page, clear UI caches, collect the heap) exist for measurement only: on
+/// 2026-11-13 they saved nothing and made the next show slower (docs/perf/TRAY-MEMORY-2026-11.md). When the page was dropped, showing the window
+/// rebuilds it and gives scroll, open expanders and focus back. Data stays: page models, the metrics history, the search index.
 /// The steps are listed in <see cref="TrimSteps"/>; <c>--trim-steps</c> turns single ones off so <c>tools\perf\measure.ps1</c> can measure each.
 /// </summary>
 public sealed partial class MainWindow
