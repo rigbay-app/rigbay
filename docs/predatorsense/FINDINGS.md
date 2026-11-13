@@ -8,8 +8,8 @@ Sections 1 to 10 are the B1 reading (no WMI method called then). **Task B2 (sect
 call: `GetGamingSysInfo(0x0101)`, the owner-approved CPU temperature read.** **Task B3 (section 12) ran the owner-approved
 follow-up reads: sysinfo indexes 2 to 17 and `AcerGenericMethod.GetFunction(0x207)`; it still wrote nothing.** **Task B4
 (section 13) ran the first hardware write: `SetGamingFanBehavior(0x01410019)`, all fans Auto, status 0; B5 (section 14) added all Max for 14 s and the Auto undo.**
-**Task B7 (section 15) is static only (nothing was called) and decodes the operation mode in `PSSvc.exe`.** **Task B9 (section 15.8) re-read the critical parts of it with Ghidra, also static only: it confirms B7's values and fixes four details (marked B9 in section 15).** Where
-section 11, 12, 13, 14 or 15 corrects an earlier statement, the later section wins (the "nothing wrote" sentences above describe B1 to B3).
+**Task B7 (section 15) is static only (nothing was called) and decodes the operation mode in `PSSvc.exe`.** **Task B9 (section 15.8) re-read the critical parts of it with Ghidra, also static only: it confirms B7's values and fixes four details (marked B9 in section 15).** **Task B11 (section 16) decodes the keyboard lighting by static analysis (UI and `PSSvc.exe`/`PSAdminAgent.exe` with Ghidra); nothing was called. It corrects three earlier statements: the keyboard backlight read input is `0x88401` (not `0x80184`), pipe 13/14 are the WMI methods `SetGamingLED`/`GetGamingLED` (not `SetGamingLEDBehavior`/`GetGamingLEDBehavior`), and the Acer binaries name the generic method class `APGeAction` (not `AcerGenericMethod`).** Where
+section 11, 12, 13, 14, 15 or 16 corrects an earlier statement, the later section wins (the "nothing wrote" sentences above describe B1 to B3).
 
 ## How sure each statement is
 
@@ -435,19 +435,22 @@ read and a traced write.
   written, not read: the UI keeps lighting profiles in its own XML under `ProfilePool`, and **no `Get*` of RGB, zone colour
   or LED group colour is called anywhere**. The wrappers `WMIGetGamingRgbKbSetting`, `WMIGetGamingKBBacklight`,
   `WMIGetGamingLEDGroupBehavior/Color` and `WMIGetGamingProfileSetting` have no callers.
-- The only traced lighting-related read is a field of `AcerGenericMethod.GetFunction`, used for the keyboard backlight:
-  input = `BK_Hotkey_Number | (1 << 8) | 0x80000`. On this machine `BK_Hotkey_Number` is **132** (`0x84`, **O**, registry),
-  so the input would be **`0x80184`**. Output: low byte status, **bits 32 to 39 = brightness percent**, and "backlight off"
+- The only traced lighting-related read is a field of the generic `GetFunction` method, used for the keyboard backlight:
+  input = `1 | (BK_Hotkey_Number << 8) | 0x80000`. On this machine `BK_Hotkey_Number` is **132** (`0x84`, **O**, registry),
+  so the input is **`0x88401`**. Output: low byte status, **bits 32 to 39 = brightness percent**, and "backlight off"
   when **bits 40 to 47 equal 30**. Never run.
-- Effects list and colour tables for the Clubman keyboard are not needed until a lighting write is approved.
+  **CORRECTION (B11, section 16.1): the earlier text of this bullet said `0x80184` (`BK_Hotkey_Number | (1 << 8) | 0x80000`). That had the hotkey
+  number and the 1 swapped. The UI code and `PSAdminAgent.exe` both give `0x88401`. Do not run `0x80184`.** Also, the Acer binaries call this method on the
+  class `APGeAction`, not `AcerGenericMethod` (section 16.1).
+- Effects list and colour tables for the Clubman keyboard: decoded in section 16 (B11).
 
 ### 11.5 The other traced reads (none run)
 
 | Call | Input | How the UI parses it | Use |
 | --- | --- | --- | --- |
-| `GetGamingLEDBehavior` (id 11) | `1` | status = low byte (0 ok); then `(raw >> 8) & 3 == 1` in the fan-mode handlers and `(raw >> 14) & 3 == 1` in one operation-mode branch | a boost-related indicator. With Turbo + Max fan + AC + battery boost the UI writes `SetGamingLEDBehavior(0x10001)` (or `0x410001`) and `SetGamingMiscSetting(0x101)`; on the way back, if the read shows the flag, `SetGamingLEDBehavior(1)` (or `0x400001`) and `SetGamingMiscSetting(1)`. **The meaning is G.** |
+| `GetGamingLED` (WMI id 4; the UI wrapper `WMIGetGamingLEDBehavior`, pipe 14. **B11 correction: the service maps pipe 14 to `GetGamingLED`, not to `GetGamingLEDBehavior` id 11**, section 16.1) | `1` | status = low byte (0 ok); then `(raw >> 8) & 3 == 1` in the fan-mode handlers and `(raw >> 14) & 3 == 1` in one operation-mode branch | a boost-related indicator. With Turbo + Max fan + AC + battery boost the UI writes `SetGamingLED(0x10001)` (or `0x410001`; the UI wrapper `WMISetGamingLEDBehavior`, pipe 13) and `SetGamingMiscSetting(0x101)`; on the way back, if the read shows the flag, `SetGamingLED(1)` (or `0x400001`) and `SetGamingMiscSetting(1)`. **The meaning is G.** The same method `SetGamingLED` also carries the keyboard zone on/off mask (selector 8, section 16.4). |
 | `GetFunction` (AcerGenericMethod id 2) | `0x207` | byte 1 of the answer == 1: Cool Booster on | traced, Cool Booster state |
-| `GetFunction` | `0x80184` (this machine) | bits 32 to 39 brightness, bits 40 to 47 == 30 means off | traced, keyboard backlight |
+| `GetFunction` | **`0x88401`** (this machine; was written `0x80184` here until B11, wrong, section 16.1) | bits 32 to 39 brightness, bits 40 to 47 == 30 means off | traced, keyboard backlight |
 | `GetGamingMiscSetting` (id 23) | `2` and `9` | GPU mode, GPU mode capability (see 3.3) | traced |
 | `GetGamingProfile` (id 3) | an input built by the UI for LCD overdrive and the current group index | not decoded further | not needed now |
 | `GetGamingSysInfo` | `1 \| (index << 8)` | `(raw >> 8) & 0xFFFF` if low byte 0 | traced, **confirmed live for index 1** |
@@ -735,7 +738,7 @@ and WMI latency; the UI then waits 2 s before refreshing (15.2).
 3. **Meanwhile, without waiting for the thread**: calls the main window's `Change_home_operation_mode_profile`, **writes `HKLM\...\Overclock\CurrentOperationMode` = mode** (so the
    cache is written whether or not the service succeeded), updates the GameSync ini of the active profile if one is active, and shows/hides the NVIDIA Whisper status when
    `NV_WhisperMode20_Support` = 1.
-4. **Turbo branch (needs all of: mode 5, `FanControl\CurrentFanMode` = 1 (Max), AC power, "battery boost" on):** sets `FanControl\User_change` = 0, sends pipe 13 `SetGamingLEDBehavior(0x10001)`
+4. **Turbo branch (needs all of: mode 5, `FanControl\CurrentFanMode` = 1 (Max), AC power, "battery boost" on):** sets `FanControl\User_change` = 0, sends pipe 13 `SetGamingLEDBehavior(0x10001)` (*B11: the UI's name; the service turns pipe 13 into the WMI method `SetGamingLED`, id 2, and pipe 14 into `GetGamingLED`, id 4; section 16.1*)
    and pipe 32 `SetGamingMiscSetting(0x101)`, then posts message `0x8001` (wParam 11, lParam 1) to the `PSAgent` window (OSD). **Other modes:** reads pipe 14
    `GetGamingLEDBehavior(1)`; if status is 0 and `(raw >> 8) & 3 == 1` it undoes the pair with `SetGamingLEDBehavior(1)` and `SetGamingMiscSetting(1)` and posts `0x8001` (11, 0).
    (Variants with `0x410001`/`0x400001`, bit 14 instead of bit 8, are for machine type 3.) Meaning of the pair stays **G** (boost-related).
@@ -956,3 +959,180 @@ That is a prediction (G). If byte 1 stays 1 after W3b, either the layout guess i
 
 **Still not known.** What the firmware does for each mode (fans, power limits); whether it keeps a mode across reboot or sleep; what byte 2 means; how R1 answers in a non-Default mode (needs a mode change, which is a write); whether the mask is bit-per-mode-id or something that merely looks like it.
 **Tags:** raw answers, statuses and baseline values O; "R1 holds the mode" G (one match); "R2 is a mode mask" G.
+
+## 16. B11: keyboard lighting, decoded by static analysis (2026-11-13)
+
+**Static only.** Nothing was called: no pipe, no WMI method (not even a schema or instance read), no PredatorSense action, no debugger or hook, no Acer file loaded into a process of mine, no Acer process started or stopped.
+What was read: the installed binaries as bytes, the Acer-written ini, xml and registry state, and the raw SMBIOS table the OS keeps in the registry (`HKLM\SYSTEM\CurrentControlSet\Services\mssmbios\Data\SMBiosData`).
+Nothing Acer-made or decompiled is in the repo; below are names, ids, numbers and my own sentences. The owner approved this static step in chat ("ok"); no gate was opened.
+
+### 16.0 Method, and the limit of it
+
+- **Managed UI (`PredatorSense.exe`, package 3.0.3198.0, SHA-256 `1bad6483b67115729e45d11ab051cb49ff70bd27687cba2f1dc6147d675876d2`):** `ilspycmd` 11.2.0.10050, installed with `dotnet tool install --tool-path` into a scratch folder (it reads the file as bytes; no Acer code ran).
+  Output stayed in the scratch folder. The slider limits (not visible in C#) were read out of the BAML resources of the two Clubman lighting pages with a 40-line byte reader of mine (also scratch, deleted).
+- **Native service and agent (`PSSvc.exe` SHA-256 `55c9077f...ea1d`, `PSAdminAgent.exe` `7c4d6bc1...d70e`; the same two files B9 analysed, hashes unchanged):** portable Ghidra 12.1.4 + portable Temurin JDK 21.0.13+9, extracted into a new folder
+  outside the repo (`D:\Documents\Projects\_tools\ghidra-scratch-b11`), JVM heap 2 GB (`GHIDRA_MAXMEM=2G`), `JAVA_HOME` and `GHIDRA_INSTALL_DIR` set only inside the batch files that ran each step; no installer, PATH, registry, service or UAC change.
+  SHA-256 checked against the publishers' own values, both **matched**: `ghidra_12.1.4_PUBLIC_20260921.zip` `ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db` (GitHub asset digest; the same value B9 recorded), JDK zip `a4dbaa05fca4bd89d84584e58c459bd732efebb1722af80ab13c6516832004f9` (Adoptium API checksum).
+  Headless import and auto-analysis of each exe, then small GhidraScripts (decompile by address, string cross-references, callers) with `-noanalysis -readOnly`. One tool at a time. Deleted at the end (16.9).
+- **Limit:** the firmware's behaviour is in no Acer binary. Everything below is "what the Acer software sends", not "what the keyboard does". Tags: C code or metadata read, O observed state (registry, ini, xml, SMBIOS table), G guess.
+- Addresses below are RVAs (image base `0x140000000`) inside `PSSvc.exe` unless it says `PSAdminAgent`.
+
+### 16.1 Three corrections to earlier sections (read this first)
+
+1. **The keyboard backlight read input is `0x88401`, not `0x80184` (C, two independent sources).** The UI helper builds it as `1 | (BK_Hotkey_Number << 8) | 0x80000` (`CommonFunction.get_backlight_off` and `get_backlight_brightness_percentage`);
+   `PSAdminAgent.exe` (its `Reset_all_settings`, RVA `0x434A0`) builds `(BK_Hotkey_Number << 8) | 0x80001`. With the hotkey number 132 (`0x84`, O) both give `0x84<<8 | 0x80001` = **`0x88401`**. B2 (section 11.4) swapped the 1 and the hotkey number and wrote `0x80184`,
+   which has `0x84` in the low byte (the operation byte), i.e. a different, **untraced** input. `0x80184` was never run (R3 was held), but it was in `tools/predatorsense-probe` (`--r3`) and is in `GATE-b2-reads.md` R3 (marked void). **It must not be run; use `0x88401`.** (The probe was changed in B11, see 16.9.)
+2. **Pipe commands 13 and 14 are the WMI methods `SetGamingLED` (id 2) and `GetGamingLED` (id 4), not `SetGamingLEDBehavior`/`GetGamingLEDBehavior` (ids 10/11) (C).** The UI's wrapper names are `WMISetGamingLEDBehavior` (pipe 13) and `WMIGetGamingLEDBehavior` (pipe 14), and the service's log lines say "SetGamingLEDBehaviorFunction",
+   but the handlers at RVA `0xECD0` and `0xF100` pass the strings `AcerGamingFunction` / `SetGamingLED` and `GetGamingLED` to the WMI exec helper (`0x238B0`). The methods with "Behavior" in their name (10, 11) and the colour methods (12, 13) are reached by pipe **20 to 23** ("LED group"), which the Clubman keyboard page never uses.
+   So the Turbo-branch pair of section 15.2 (`0x10001`, `1`) and the read `GetGamingLEDBehavior(1)` of section 11.5 are `SetGamingLED(0x10001)`, `SetGamingLED(1)` and `GetGamingLED(1)`. The meaning stays G.
+   **The probe's old `--led-behavior-get` therefore called a method (`GetGamingLEDBehavior`, id 11) that no Acer code calls; it was never run, and B11 replaced it by `--led-get` (`GetGamingLED`, id 4, input 1).** (`GATE-b2-reads.md` and B3's list carried the same wrong name.)
+3. **The Acer service and agent never name `AcerGenericMethod`; they call `APGeAction` (methods `GetFunction`, `SetFunction`, query `SELECT * FROM APGeAction`, parameters `uiInput` / `uiOutput`), and the agent listens to `APGeEvent` (C).** A byte search of `PSSvc.exe`, `PSAdminAgent.exe`, `PSAgent.exe`, `PSLauncher.exe` and `PSMobile.exe` finds `APGeAction` in three of them
+   and `AcerGenericMethod`/`AcerGenericEvent` in none. B1 listed `AcerGenericMethod` (same GUID `{1EA0BC57-...}`) from the schema, and B3's `GetFunction(0x207)` went to that name and came back `0xE1`. **Whether the two names are two classes or one class under two names is not known** (it needs a schema read, section 16.9);
+   until then the `0xE1` answer may say something about the class name and not about Cool Booster. This also touches W1 (Cool Booster) in `WRITE-PROPOSALS.md`.
+
+### 16.2 What this machine is, as far as lighting goes (O)
+
+| Item | Value | Source |
+| --- | --- | --- |
+| UI variant | Clubman (`Feature.ini [MachineType] Type=8`), page `LightingPage_Clubman` + `LightingDynamicUI_Clubman` | ini |
+| RGB keyboard | `RGB_Keyboard_Support` = 1; `HW_Support.ini [LightingType] Type:1` | registry, ini |
+| Zones | `LightSetting\KeyBoardArea` = **3**: the page shows **3** zones (the 4-zone layout also exists in the code, with a fourth zone bit) | registry |
+| Per-key keyboard | `Feature.ini [KeyboardType] PerKey=0`; so the "backlight timeout" setting goes the WMI way (16.4 row 9) | ini |
+| `Keyboard_Type` | 1. In the service the log text for 1 is "Light Bar around Keyboard is EC control" (2 = USB control). The service sets it from SMBIOS type 172 entry number 0x17, **which this table does not have** (below), so another Acer helper wrote it; the Clubman page has no control for a light bar | registry, C |
+| Backlight hotkey | `BK_Hotkey_Number` = 132 (`0x84`) | registry |
+| `KBBackLight_State` | 0 (the agent's last note: backlight off) | registry |
+| `LightSetting` | `LightingProfile` = `Default`, `KeyBoardColor` = 2, `FnF8` = 1, `MagForceLighting*` = 0 | registry |
+| Colour scale | `HW_Support.ini [ZoneColorAdjust]` R, G, B = 1.0, 1.0, 1.0; the UI reads it at start (`App.initial_color_adjust`) into the factors it multiplies each colour byte with. (The built-in fallback is R 0.8; not used here) | ini, C |
+| Default zone colour | `[ZoneDefaultColor] Zone1..4 = #00AEC7` | ini |
+| Active profile | `ProfilePool\LightProfilePool\Default\Main.xml` (file time 2026-11-13 07:09): static tab (`Key status=0`), **`LightingEffects brightness=1`**, zones 1 to 4 all `status=1` colour `#00AEC7`, `Pattern selected=0` (Breathing), every pattern speed 5, duration 3, direction 0 (Wave and Shifting 2). `currentsetting.ini`: `currentlighting=Default`. `GameSync\ActiveIndex` = 999 (no GameSync profile active) | xml, ini, registry |
+| Oem table | SMBIOS type 172 (OEM), 57 bytes, **bytes 4 and 5 = `02 53`** = "2.83" (the structure's own version, not the SMBIOS spec version, which is 3.3). Entries (number, value): 01 FF, 02 03, 03 FF, 04 FF, 05 0F, 06 FF, 07 FF, 08 03, 09 01, 0A 02, 0B 02, 0C FF, 0D 01, 0E 05, 0F 01, 10 FF, 11 FF. Only 0F (operation mode, B9) is understood | SMBIOS table in the registry |
+
+**Why 2.83 matters (C).** Every lighting write has two forms, chosen by "is the type 172 version at least 2.86": the service's pipe-13 handler tests `byte4 == 2 && byte5 >= 0x56`, the agent's `check_SMBIOS_version` (RVA `0x36CA0`, which the UI reaches through admin-agent command 33) returns 1 when
+`requested_major <= byte4 && requested_minor <= byte5`. For this machine `CheckSMBIOSVersion(2, 86)` is **0**, so the UI uses the **old forms**: 64-bit values, an 8-byte array for the backlight, `SetGamingLED` with a UInt64. The new forms (10-byte backlight array, 12-byte LED array) are for newer firmware and are **not used here**.
+(The `(2, 79)` check elsewhere in the UI is true here; what it controls was not followed.)
+Brightness 1 in the profile means 0 %, which is dark (16.4), and `KBBackLight_State` is 0: so Acer's own record says the backlight is currently **off**. Whether the keys are really dark was not looked at (nothing was called).
+
+### 16.3 The path, and the method behind each pipe command (C)
+
+```
+LightingPage_Clubman / LightingDynamicUI_Clubman (UI, WPF)
+   |  service pipe (one connection per call), frame as in section 2
+   v
+PSSvc.exe   handler table at RVA 0x69AD0, entry N = command N (B7/B9), 30 ms Sleep after every successful WMI call
+   |  COM, namespace ROOT\WMI, "SELECT * FROM <class>", ExecMethod on the first instance
+   v
+AcerGamingFunction.{SetGamingRgbKb, SetGamingKBBacklight, SetGamingLED, ...}   and   APGeAction.{GetFunction, SetFunction}   -> BIOS/EC
+```
+
+| Pipe | UI wrapper | Service handler | WMI class.method (id) | Input sent by the service | Used by the Clubman page |
+| --- | --- | --- | --- | --- | --- |
+| 16 | `WMISetGamingRgbKbSetting` | `0xF890` | `AcerGamingFunction.SetGamingRgbKb` (6) | the 8-byte argument as UI8, turned into a string for COM, `gmInput`; output UInt32 logged | zone colour |
+| 17 | `WMIGetGamingRgbKbSetting` | `0xFB80` | `GetGamingRgbKb` (7), UInt32 in | the 4-byte argument | **never called** |
+| 13 | `WMISetGamingLEDBehavior` | `0xECD0` | **`SetGamingLED` (2)** | old form (here): the 8-byte argument as UI8. New form (type 172 >= 2.86): the first 12 bytes after the length field as a `byte[12]` | zone on/off mask |
+| 14 | `WMIGetGamingLEDBehavior` | `0xF100` | **`GetGamingLED` (4)** | the 4-byte argument (old), a 2.86 path exists | boost indicator only (section 11.5), no lighting read |
+| 30 | `WMISetGamingKBBacklight` | `0x11E70` -> `0x245E0` | `SetGamingKBBacklight` (20) | **always a `byte[16]`**: 16 bytes copied from the request starting at the argument, whatever its length (see the tail note in 16.4) | brightness, effects |
+| 31 | `WMIGetGamingKBBacklight` | `0x11FE0` -> `0x24820` | `GetGamingKBBacklight` (21), UInt32 in | the 4-byte argument | **never called** |
+| 10 | `WMISetFunction` | `0xE5A0` | **`APGeAction.SetFunction`** | the 8-byte argument as UI8, `uiInput`; output UInt32 | backlight timeout checkbox (16.4 row 9) |
+| 9 | `WMIGetFunction` | `0xE2B0` | **`APGeAction.GetFunction`** | the 4-byte argument as UI4, `uiInput`; output UInt64 | the two backlight reads (16.4 row 10) |
+| 20 to 23 | `WMI*GamingLEDGroupBehavior/Color` | `0x10450`, `0x10740`, `0x10A30`, `0x10D20` | `SetGamingLEDBehavior` (10), `GetGamingLEDBehavior` (11), `SetGamingLEDColor` (12), `GetGamingLEDColor` (13) | UI8 / UInt32 | not by the Clubman keyboard page (other models: light bar, logo, touchpad) |
+
+Facts that apply to every call above (C): the pipe handlers do not interpret the WMI answer; the reply to the UI is a 4-byte value that for the colour and zone writes is not even the firmware's answer
+(the RgbKb and `SetFunction` handlers never store it in the reply; only the `SetGamingLED` and backlight handlers do), so the UI cannot tell success from failure. The receive buffer of the pipe loop is a plain 0x200-byte heap block that is **not zeroed**.
+The UI sends several of its writes without waiting for the result (`.GetAwaiter()` with no `GetResult()`: every RgbKb colour write, every backlight write), so the order of two such calls in a row is not guaranteed by the UI; the service handles each connection separately.
+The admin agent has its **own** WMI wrappers for the same methods (RgbKb `0x5A7B0`, SetGamingLED `0x59E10`/`0x5A040`, KBBacklight `0x5B020`/`0x5B2A0`, LEDBehavior `0x5AB10`, LEDColor `0x5ACC0`, GetFunction `0x59900`) and calls WMI directly, not through the service.
+No USB or admin-agent lighting command is used by the Clubman page on this machine (C; those are for the optional USB keyboard and other models).
+
+### 16.4 Action by action (what the Acer UI does on this machine, old SMBIOS form)
+
+Numbers are exact (C). `pct(b)` = `(b - 1) * 25` for the profile brightness `b` 1 to 5, i.e. 0, 25, 50, 75, 100 (slider `Brightness_ScrollBar`: min 1, max 5, tick 1, from the BAML).
+"KB(...)" is `SetGamingKBBacklight` with 16 bytes; only bytes 0 to 7 are shown, bytes 8 to 15 are explained in the tail note below the table.
+
+| # | Action in the Acer UI | Pipe -> WMI call(s), in this order | Exact input | Delays | Matching read | Persisted by the UI |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | **Brightness slider** (static tab) to level `b` | profile xml `LightingEffects brightness` = b; then `Set_Static_Keyboard_ZoneButton_Color`: **one** `KB(...)`, then **one `RgbKb` per enabled zone** (re-sends the zone colours). On the dynamic tab the slider instead re-sends the one effect `KB` (row 7) | `KB`: bytes `00 00 pct 00 00 00 00 00` = `ulong (pct << 16)`; `RgbKb`: row 3 | 30 ms after each call in the service; none in the UI | none (no Get is ever called); the only brightness read is the `GetFunction` of row 10 (bits 32 to 39), whose link to the `KB` byte is **not proven** | xml; `UEIP` counters; nothing in firmware that Acer reads back |
+| 2 | **Backlight off / "Close"** (what the UI sends when you switch tab, before it applies the new tab) | one `KB` with all 16 bytes zero (`WMISetGamingKBBacklight(0uL)`) | `00 00 00 00 00 00 00 00` = mode 0 (static), speed 0, brightness 0 | 30 ms | row 10 | none |
+| 3 | **Static colour of one zone** (palette radio, recent colour, or the "more colours" dialog) | one `RgbKb` (pipe 16), `Change_Zone_Color`; the xml `LightingEffects_ZoneN color` is updated first | `zone \| (R << 8) \| (G << 16) \| (B << 24)` with `zone` = `1`, `2`, `4`, `8` for zone 1 to 4 (**one bit per zone**, only single bits are ever sent) and `R`, `G`, `B` = `floor(channel * ZoneColorAdjust)` (factors 1.0 here); a 32-bit value | 30 ms | none (`GetGamingRgbKb` is never called) | xml `LightingEffects_ZoneN color`; the 9 "recent colours" in `HKLM\...\ColorRecord\recent_color1..9` |
+| 4 | **Zone checkbox on/off** (`Zone_Checkbox_Checked/Unchecked`) | UI state first; then one `SetGamingLED` (pipe 13); on "on" the UI then also re-sends that zone's `RgbKb` colour (after the LED call); the xml `status` is written last | `8 \| (Z1 << 40) \| (Z2 << 41) \| (Z3 << 42) \| (Z4 << 43)`, `Zn` = 1 when zone n is on. Three zones on: `0x70000000008`; zone 1 only: `0x10000000008`; none: `0x8`. The low byte **8** is the "keyboard zones" selector of this method (`1` is the boost indicator of section 11.5) | 30 ms | none | xml |
+| 5 | **Switch to the static tab** | xml `Key status=0`; row 2 (`KB` zero), then `Set_Static_Keyboard_Set_Status` (row 4 call, zone mask from the xml), then `Set_Static_Keyboard_ZoneButton_Color` (row 1: `KB(pct)` and `RgbKb` per enabled zone) | as rows 2, 4, 1, 3 | 30 ms each | none | xml |
+| 6 | **Switch to the dynamic (effects) tab** | xml `Key status=1`; row 2 (`KB` zero); then `Set_Dynamic_Keyboard` (row 7); the page then reloads the profile, which sends the same effect `KB` a second time | as rows 2 and 7 | 30 ms | none | xml |
+| 7 | **Pick an effect, or change its speed, direction or colour** | xml `Pattern selected` / `PatternN speed, direction` / `Pattern color`; then **one `KB`** (`Set_Dynamic_Keyboard`) | see the byte table below | 30 ms | none | xml |
+| 8 | **Select or create a lighting profile**; GameSync profile apply | registry `LightSetting\LightingProfile` = name; the tab and brightness are read from that profile's xml and rows 5 or 6 follow. `currentsetting.ini [LightingProfile] currentlighting` is the GameSync copy | as rows 5 to 7 | | none | registry, ini, xml (16.7) |
+| 9 | **"Backlight timeout" checkbox** (Settings, `HW_Support.ini [KeyboardSetting] FUN1=Backlight`; `PerKey=0` so the WMI branch) | UI reads the current brightness with the row-10 read, then pipe 10: `APGeAction.SetFunction` | checked: `2 \| (hotkey << 8) \| 0x80000 \| (brightness_percent << 32) \| (30 << 40)` = for 132: `0x88402 \| (pct << 32) \| 0x1E0000000000`; unchecked: the same with `0` in bits 40 to 47 | 30 ms | row 10, bits 40 to 47 | not in the registry |
+| 10 | **Read** brightness and the timeout flag | pipe 9: `APGeAction.GetFunction` | `1 \| (hotkey << 8) \| 0x80000` = **`0x88401`** (UI4). Answer: low byte status; **bits 32 to 39 = brightness percent**; **bits 40 to 47 = 30 means "off" by the UI's own function name** (`get_backlight_off`). The agent reads the same call and decides "on" with `(answer & 0xFFFF0000) != 0` | 30 ms | (this is the read) | the agent copies the result into `HKLM\...\PredatorSense\KBBackLight_State` |
+
+**Brightness steps are only 0, 25, 50, 75, 100 on the KB path.** (A second, unused code path of the Clubman page, `Change_Zone_Brightness`, would send 72 for 75 through `SetFunction`; it has no caller, C. Do not assume the read returns 75 for level 4.)
+
+**Effects (row 7), the 16 bytes of `KB`** (old form, effect index `e` from the xml `Pattern selected`, `speed` 1 to 9 (slider min 1, max 9, default 5), `dir` the xml `direction`, colour = the xml `Pattern color` scaled like row 3):
+
+| e | Effect (UI name) | byte 0 | byte 1 | byte 2 | byte 3 | byte 4 | bytes 5, 6, 7 | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | Breathing | 1 | speed | pct(b) | 0 | 0 | R, G, B | colour used |
+| 1 | Neon | 2 | speed | pct(b) | 0 | 0 | 0 | no colour, no direction |
+| 2 | Wave | 3 | speed | pct(b) | **8** | dir | 0 | direction used, no colour |
+| 3 | Shifting | 4 | speed | pct(b) | 0 | dir | R, G, B | direction and colour |
+| 4 | Zoom | 5 | speed | pct(b) | 0 | 0 | R, G, B | colour |
+| 5 | Meteor | 6 | speed | pct(b) | 0 | 0 | R, G, B | colour |
+| 6 | Twinkling | 7 | speed | pct(b) | 0 | 0 | R, G, B | **sent as a 9-byte array**, byte 8 = 3 (the other effects are sent as 8 bytes) |
+| - | static (brightness only) | 0 | 0 | pct(b) | 0 | 0 | 0 | row 1; colours then come from `RgbKb` per zone |
+
+Direction values 1 and 2 are the only ones the radio buttons produce. The button automation texts say 1 = "Direction Right", 2 = "Direction Left" (BAML), the UI's own enum says Left 1, Right 2: **which is which on the keys is G.** `Duration` (slider 1 to 5, hidden) is stored in the xml and **never sent**.
+In the 2.86 form every effect is a 10-byte array `[e+1, speed, pct, 0 or 8, dir, R, G, B, 3, 1]` (C, not used here): bytes 0 to 7 are the same as above, byte 8 is the constant 3, byte 9 the constant 1.
+
+**Tail note (C).** The service always forwards 16 bytes of the request to WMI. The UI sends 8 bytes (a `ulong`) for every effect but Twinkling and for brightness, 9 bytes for Twinkling. **Bytes 8 to 15 (7 to 15 for Twinkling) are therefore whatever follows the message in a heap block that is not zeroed.**
+Acer's own tool works with that, so the firmware apparently ignores those bytes for an old-form table; a module should send zeros there. That choice is mine, not a value traced to code: **G** (see W5 in `WRITE-PROPOSALS.md`).
+
+### 16.5 The zone and colour model
+
+- **Zones:** `KeyBoardArea` 3 here = zone 1, 2, 3 = bits `1`, `2`, `4` in `RgbKb` and bits 40, 41, 42 in the `SetGamingLED` mask. The 4-zone layout uses bit `8` / bit 43. Which part of the keyboard each zone is (left, middle, right) is not in the code: the UI draws the zones left to right (BAML, G).
+- **Colour:** 8 bits per channel, sent as `R`, `G`, `B` in bits 8 to 15, 16 to 23, 24 to 31 next to the zone bit in bits 0 to 7. The UI multiplies each channel by `ZoneColorAdjust` and floors it (1.0 here, so no change). No gamma, no white point, no per-zone brightness: **brightness is one global value** (the `KB` byte 2).
+- **Palette the UI offers** (static page, 9 buttons): Cyan `#00AEC7` (the default), Red `#FF0000`, Orange `#FFA000`, Yellow `#FFFF00`, Green `#00FF00`, Blue `#001EFF`, Pink `#FF00FF`, Purple `#AA00FF`, White `#FFFFFF`, plus a free RGB dialog and 9 recent colours.
+- **What a zone colour looks like while the backlight is off or in an effect** (does the firmware keep the zone colours while brightness is 0 or while an effect runs; does a later static write bring them back): **not in any binary, not known.**
+
+### 16.6 Order Acer uses when it applies a whole profile (UI, and the agent in the same shape)
+
+1. `KB` all zero (turn the current effect off), 2. `SetGamingLED(8 | zone mask << 40)`, 3. `KB` static brightness, 4. `RgbKb` for every enabled zone. For the dynamic tab: `KB` zero, then the one effect `KB`. The agent's profile applier (`GameSyncControl::lighting_settings`, RVA `0x15040` in `PSAdminAgent`)
+writes the same calls from the same xml; its machine-type 0 branch was read to the end (`SetGamingLED` mask then `RgbKb` per zone), the Clubman branch (type 8) shares the code of types 8, 9 and 10 and also has the Keyboard_Type = 1 side path that talks to a USB keyboard; **I did not follow the type 8 branch to its end**,
+so "the agent sends exactly the UI's calls for type 8" is C for the call kinds (the same wrappers are the only lighting writers in the function) and G for the exact order and values.
+
+### 16.7 What Acer persists, and what it re-applies
+
+| Place | Content | Written by |
+| --- | --- | --- |
+| `C:\ProgramData\oem\PredatorSense\ProfilePool\LightProfilePool\<name>\Main.xml` | the lighting profile: `Key status` (0 static, 1 dynamic), `LightingEffects brightness` 1 to 5 and `LightingEffects_Zone1..4 status/color`, `Pattern selected` and `color`, `Pattern0..16 speed/duration/direction` (17 slots, 7 used here; `Key/Tag0..126` is the per-key table, unused on this model) | UI, on every change |
+| `HKLM\SOFTWARE\OEM\PredatorSense\LightSetting\LightingProfile` | name of the active profile | UI |
+| `ProfilePool\currentsetting.ini [LightingProfile] currentlighting` | the GameSync copy of the active profile name | UI, GameSync |
+| `HKLM\...\ColorRecord\recent_color1..9` (and `dynamic_recent_color1..9`) | recently used colours (empty here) | UI |
+| `HKLM\...\PredatorSense\KBBackLight_State` | 0 or 1: backlight on or off, as the agent last saw it (reads the row-10 call at start/resume and listens to the firmware's hotkey event) | agent |
+| `LightSetting\KeyBoardArea`, `KeyBoardColor`, `FnF8`, `PredatorSense\BK_Hotkey_Number`, `RGB_Keyboard_Support` | machine facts | **no installed Acer file writes `BK_Hotkey_Number`, `KeyBoardArea` or `RGB_Keyboard_Support`: the UI and the agent only read the first two, and the name `RGB_Keyboard_Support` is in no installed file at all (byte search of every file in the package, the service folder and ProgramData)**; the values exist, so they came from the factory image or another installer (G) |
+| the firmware | the current colours, brightness, effect | not readable by any call Acer makes (16.8); whether the firmware keeps them across reboot or sleep is **not known** |
+
+**Re-applied by Acer (C for the code path, G for the exact trigger conditions):** `PSAdminAgent.exe` runs `Reset_all_settings` (RVA `0x434A0`) at agent start and from its resume and Modern Standby handlers (the same callers B7 found: `0x31E90` PBT_APMRESUMEAUTOMATIC, `0x7220` Modern Standby, `0x3ED30`).
+That function (1) reads the backlight with the row-10 call and stores `KBBackLight_State`, tells the UI window (message `0x800C`) and (2) **re-applies the active lighting profile with `0x15040`**: from the registry `LightingProfile` when no GameSync profile is active (here `ActiveIndex` = 999, so this branch), else from `currentsetting.ini`.
+It is not gated by `Force_reset` (the answer to B7's open question: `Force_reset` is only written back to 1 at the end of the function when it was not 1; it gates nothing in the lighting part).
+**Consequence for a Rigbay module: after the next resume (and at the next agent start) the Acer agent puts the Acer profile back** (here: brightness 1 = off, zones `#00AEC7`), undoing a Rigbay lighting write. A module must either re-apply after resume or stay in step with the Acer profile.
+The **UI**, while it is open, also writes at start: `Initial_Lighting_Page` -> `load_lighting_profile` sends the zone mask `SetGamingLED` (no `initial_flag` guard on that one call) and then calls `Check_Brightness`; the colour and brightness writes are skipped while `App.initial_flag` is set (C).
+The firmware itself raises a WMI event for the backlight hotkey (class `APGeEvent`, `EventDetail` byte 0 = 1, byte 1 = the hotkey number, **bit 19 of the first 32-bit word = backlight on**); the agent turns it into `KBBackLight_State` (C, RVA `0x392A0`). Which Fn key that is, and what else the firmware does by itself on that key, is not in the code.
+
+### 16.8 Reads: what exists, what does not
+
+| Call | Input | Used by Acer? | Layout |
+| --- | --- | --- | --- |
+| `APGeAction.GetFunction` | `0x88401` | **yes**: UI (`get_backlight_off`, `get_backlight_brightness_percentage`, the timeout checkbox) and agent (start/resume) | status = low byte; bits 32 to 39 brightness percent; bits 40 to 47 `30` = the UI's "backlight off" flag; bits 16 to 31 non-zero = "on" for the agent. **Never run; every layout statement is from code only, and the three readings of the answer (UI percent, UI "off" byte, agent "on" bits) have not been seen on a real answer.** The UI is inconsistent about the timeout byte: the checkbox handler writes 30 when checked, but the start-up code shows the box *unchecked* when it reads 30. So what `30` means is **G** |
+| `GetGamingRgbKb` (7), `GetGamingKBBacklight` (21), `GetGamingLEDColor` (13), `GetGamingLEDBehavior` (11), `GetGamingProfileSetting` (9) | (any) | **no, never** by the UI, the agent or the service itself (the service's handlers exist but no caller sends them; the agent has no wrapper for 7, 13, 21) | not known. **No colour, zone or effect read exists in any Acer binary** |
+| `GetGamingLED` (4) | `1` | boost indicator, not lighting | section 11.5 |
+| firmware event `APGeEvent` | - | agent | one hotkey event (16.7) |
+
+### 16.9 What I could not decode, and what is left
+
+- **The firmware's reaction to every value above**, including: whether a zone colour is kept while the brightness is 0 or an effect runs, what the tail bytes mean, what the high bits of a `SetGamingLED` mask do, whether `RgbKb` takes more than one zone bit at a time (only single bits are ever sent), what Acer's `8`, `0x20`, `0x40` selectors of `SetGamingLED`/`SetGamingLEDBehavior` do beyond the zone mask.
+- **The reply layouts** of `GetGamingRgbKb`, `GetGamingKBBacklight`, `GetGamingLED(8)` and the layout of `GetFunction`'s bits 16 to 31 beyond bit 19.
+- **The schema:** whether `APGeAction` exists next to `AcerGenericMethod`, its method ids, whether its `uiInput` is UInt32 or UInt64 (the service sends the `GetFunction` input as UI4 and the `SetFunction` input as UI8). Needs a schema read (a `ManagementClass` listing, no instance, no call); proposed as W5-R0.
+- The Clubman (type 8) branch of the agent's profile applier (16.6); the agent's USB per-key keyboard code (not this model); the meaning of the other SMBIOS type 172 entries (only 0x0F and 0x17 are understood from code); `FnF8` (`SetReg FnF8` in the agent); `UEIP` counters.
+- Not checked: the effect speed table for a speed above 9 or below 1 (the slider limits it; a module must as well), what `Brightness 0` looks like against the Fn key's own steps.
+- **The probe had two untraced lighting reads, changed in B11 and not run** (`tools/predatorsense-probe/Probe.cs` and its README; compiled with the .NET Framework `csc.exe` into the scratch folder only, the probe itself and its `--self-test-refusals` were **not** run, this task is static):
+  `--r3` (`0x80184` on `AcerGenericMethod`) and `--led-behavior-get` (`GetGamingLEDBehavior`) now print a "void since B11" error and are refused by `Refusal()`; new flags `--kb-backlight` (`APGeAction.GetFunction`, `0x88401`) and `--led-get` (`GetGamingLED`, input 1) are on the allow-list.
+  New offline refusal checks were added to `--self-test-refusals` (every other `GetFunction` and `GetGamingLED` input, every lighting `Get*`/`Set*` name, `APGeAction.SetFunction`); **they have not been run yet**: whoever opens the first lighting read runs `--self-test-refusals` first. W5-R0 still has to settle whether `APGeAction` exists before `--kb-backlight` can answer.
+- **Kept or deleted:** deleted at the end, nothing kept: the Ghidra project, my scripts and outputs, the extracted Ghidra and JDK folders and the two zips (`D:\Documents\Projects\_tools\ghidra-scratch-b11`), the `ilspycmd` tool folder, the decompiled sources and the resource extractor (all in the session scratch folder), and the per-user settings folder Ghidra creates under `%APPDATA%\ghidra`.
+  The SHA-256 values in 16.0 are the record. A later pass has to download and verify again.
+
+**Tags:** 16.1 items 1 and 2 C (two sources for 1; the handler strings for 2); item 3 C for "Acer names `APGeAction`", G for "the two names are one class". 16.2 O. 16.3 and 16.4 C (code), except the tail note, direction names and the timeout meaning (G). 16.7 C for the code paths, O for the files, G for trigger conditions. 16.8 C.

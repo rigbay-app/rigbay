@@ -35,7 +35,10 @@ and 73 and caused no visible problem; that is the only experience behind "looks 
 - Expect: byte 1 = 0 (the UI cache shows fan mode Auto).
 - Risk: slightly higher than R1: a different method (class `AcerGenericMethod`), and the low byte 7 of the input is also the selector of the Cool Booster *write* (`SetFunction(7 | state << 16)`). The `0x200` bit is what the UI adds for a read. I cannot see the firmware side.
 
-## R3: keyboard backlight (lighting read)
+## R3: keyboard backlight (lighting read) **VOID since B11 (2026-11-13): the input below is wrong**
+
+**Do not use this section.** B11 (`FINDINGS.md` 16.1) found that the input is **`0x88401`** (`1 | (132 << 8) | 0x80000`; the UI and `PSAdminAgent.exe` agree), not `0x80184` (which has the hotkey number and the 1 swapped, and puts `0x84` in the operation byte),
+and that the Acer binaries call the method on the class `APGeAction`, not `AcerGenericMethod`. The replacement is W5-R0 (schema) and W5-R1 (`APGeAction.GetFunction(0x88401)`) in `WRITE-PROPOSALS.md`. The probe's `--r3` (old input) is refused since B11; the replacement flag is `--kb-backlight`. Original text kept below for the record:
 
 - **Question (under 400 characters):** "Approve ONE call of root\WMI AcerGenericMethod.GetFunction (id 2) with input 0x80184, elevated? The Acer UI builds it from the stored hotkey number 132 to read keyboard backlight brightness and on/off. Reads only; I will not send a Set* call or any other input."
 - Call: `AcerGenericMethod.GetFunction`, input `0x80184` (`BK_Hotkey_Number 132 | 0x100 | 0x80000`; 132 is **O** from the registry on this machine).

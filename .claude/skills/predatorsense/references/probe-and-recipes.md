@@ -11,7 +11,7 @@ Exit code: 0 supported (service and `AcerGamingFunction` both present), 1 not su
 Default run calls no WMI method, opens no pipe, writes nothing. Run it from an elevated shell to also get the ACPI thermal zones.
 
 Firmware reads are behind explicit flags, all together with `--allow-call`, elevated: `--sysinfo-index N` (1..17), `--r1` (sysinfo 2), `--r2` (`GetFunction(0x207)`),
-`--r3` (`GetFunction(0x80184)`), `--battery-boost`, `--misc-get 2|9`, `--led-behavior-get`. An allowlist in `Probe.cs` (`Refusal()`) refuses anything else, every `Set*`, and a
+`--kb-backlight` (`APGeAction.GetFunction(0x88401)`, B11; replaces the old `--r3`, which sent the wrong input `0x80184` and is now refused; `FINDINGS.md` 16.1, `WRITE-PROPOSALS.md` W5-R1), `--battery-boost`, `--misc-get 2|9|10|11`, `--led-get` (`GetGamingLED(1)`, B11; replaces `--led-behavior-get`, which called `GetGamingLEDBehavior` id 11 that no Acer code calls and is now refused). The B11 offline refusal checks were added but **not run yet**: run `--self-test-refusals` before the first lighting read. An allowlist in `Probe.cs` (`Refusal()`) refuses anything else, every `Set*`, and a
 repeated call; the run halts at the first exception or non-zero status. Do not run a flag without an answer from the owner (or the coordinator on the owner's words) for that call.
 Run elevated like this and read the file afterwards (an elevated process cannot be stopped from a normal shell, so let it exit by itself; the file is UTF-16, so
 use `Get-Content`/`Select-String`):
