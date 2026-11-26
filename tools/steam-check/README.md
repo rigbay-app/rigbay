@@ -19,8 +19,9 @@ no packages. Background: `docs/steambypass/ISP-VIETTEL-2026-11.md`.
 3. In Termux:
    ```
    pkg install -y python
-   curl -fsSL https://art-raw.minhdevtree.tech/5MN1-NCJ1cPJwQd4bu43Zg/steam-check.py (expires 2026-12-03; republish with `art put` after that) -o steam-check.py && python steam-check.py
+   curl -fsSL https://art-raw.minhdevtree.tech/5MN1-NCJ1cPJwQd4bu43Zg/steam-check.py -o steam-check.py && python steam-check.py
    ```
+   The link expires on 2026-12-03; after that publish the file again with `art put` and use the new raw link (`art info <url>` prints it).
 4. Long-press the output, Select all, Copy, and send it (or a screenshot).
 
 ## Elsewhere
