@@ -1165,4 +1165,34 @@ Consequences: B3's `GetFunction(0x207)` = `0xE1` came from `AcerGenericMethod`, 
 
 This matches Acer's own record (profile brightness 1 = 0 %, `KBBackLight_State` 0): every reading of the answer says the backlight is off. Whether 0 here means "brightness 0" or only "backlight off" cannot be told from one state; W5-R1b (the owner moves Acer's slider between reads) would calibrate it. No write was run.
 
+### 16.11 W5-R1b, W5a, W5b and the power-mode test (owner at the machine, approved in chat, 2026-11-13 18:25 to 18:41)
+
+All calls once each, elevated; the owner looked at the keyboard. Raw log of the writes: `tools/predatorsense-write/lighting-w5.log` (local, not committed);
+the writes were sent by `tools/predatorsense-write/lighting-w5.ps1` (four constant calls, nothing else).
+
+**W5-R1b, `APGeAction.GetFunction(0x88401)` (O):**
+
+| State the owner set in the Acer UI | raw | bit 19 | bits 32 to 39 | bits 40 to 47 |
+| --- | --- | --- | --- | --- |
+| level 5, "turn off after 30 s" on, keys had gone dark again by the read | `0x1E0000000000` | 0 | 0 | 30 |
+| level 3, owner switched the timeout off ("always on"), keys lit Cyan | `0x80000` | 1 | 0 | 0 |
+| level 1 (slider fully left), always on, keys dark | `0x80000` | 1 | 0 | 0 |
+
+So, on this machine: **bits 40 to 47 = the backlight auto-off timeout in seconds** (30, or 0 for never; this settles the G of 16.4 row 9 and 16.8),
+**bit 19 = the backlight is on now** (the timeout has not switched it off; it stays 1 at level 1 although the keys are dark), and
+**bits 32 to 39 stay 0 at every level: there is no brightness read for this RGB keyboard.** A module has to remember the level it set.
+
+**W5a, `SetGamingKBBacklight` (O):** `00 00 4B 00 ...` (75 %) status 0 in 59 ms, **no change the owner could see** from level 5;
+`00 00 64 00 ...` (100 %) status 0. Either 100 to 75 % is too small to see, or the firmware applies the level only with the colour writes that
+Acer's UI sends right after it (16.4 row 1). Not settled; a proposed follow-up (all-zero `KB`, Acer's own "close" call, then `KB` 100 % and
+`RgbKb` for zones 1, 2, 3) was not approved yet.
+
+**W5b, `SetGamingRgbKb` (O):** `0x0000FF01` status 0: **the left part of the keyboard turned red, so zone 1 = left**; `0xC7AE0001` status 0:
+back to Cyan, the owner confirmed the whole keyboard was Cyan again.
+
+**Power-source rules, power mode (O):** `PowerSetActiveOverlayScheme(961cc777-...)` rc 0 at 18:41, read back Best efficiency. The session
+ended before the owner answered and before the approved undo; **the machine stayed on Best efficiency until 2026-11-26** (across a reboot on
+2026-11-23), when `PowerSetActiveOverlayScheme(Guid.Empty)` rc 0 put it back to Balanced. Lesson: run a test's undo in the same step unless the
+owner has to look at the changed state, and never leave an approved test half done at the end of a turn.
+
 **Tags:** 16.1 items 1 and 2 C (two sources for 1; the handler strings for 2); item 3 C for "Acer names `APGeAction`", G for "the two names are one class". 16.2 O. 16.3 and 16.4 C (code), except the tail note, direction names and the timeout meaning (G). 16.7 C for the code paths, O for the files, G for trigger conditions. 16.8 C.
