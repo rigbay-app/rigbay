@@ -34,5 +34,6 @@ no packages. Background: `docs/steambypass/ISP-VIETTEL-2026-11.md`.
 | --- | --- | --- | --- | --- | --- |
 | FPT home fibre (PC) | 2026-11-26 | store, community (reset) | yes | store, community -> 127.0.0.1 | works |
 | Viettel home internet (Mac mini, DNS 8.8.8.8) | 2026-11-26 | store, community (timeout) | yes | not with 8.8.8.8 (the router's resolver gives 127.0.0.1) | works |
+| VNPT 5G (Android phone, Termux, Wi-Fi off) | 2026-11-26 | store, community (timeout) | yes | the carrier resolver gives no answer for store, community, api, checkout, cdn.akamai.steamstatic.com, *.steamcontent.com (login and help resolve); UDP 8.8.8.8 / 1.1.1.1 and DoH are untouched | does not work (not needed: content is not blocked) |
 
-Both lines also reached Steam's login servers (section 4) without any trick.
+All three reached Steam's login servers (section 4) without any trick.
